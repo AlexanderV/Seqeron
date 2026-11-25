@@ -1060,6 +1060,17 @@ public record RnaMfeStructureResult(
     BasePairItem[] BasePairs,
     double MinimumFreeEnergy);
 
+/// <summary>
+/// Result of <c>rna_pseudoknot_structure</c>: dot-bracket (crossing helices on further bracket families), base pairs,
+/// free energy (kcal/mol, pknotsRG pseudoknot terms over Turner 2004) and whether a pseudoknot is present.
+/// </summary>
+public record RnaPseudoknotStructureResult(
+    string Sequence,
+    string DotBracket,
+    BasePairItem[] BasePairs,
+    double FreeEnergy,
+    bool HasPseudoknot);
+
 /// <summary>One base-pair probability of <c>rna_partition_function</c> (0-based positions, Position1 &lt; Position2).</summary>
 public record PairProbabilityItem(int Position1, int Position2, double Probability);
 

@@ -132,6 +132,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "rna_complement_base",
         "rna_mfe_structure",
         "rna_partition_function",
+        "rna_pseudoknot_structure",
         "rna_region_accessibility",
         "rna_structure_energy",
         "scan_with_alphabet_pwm",

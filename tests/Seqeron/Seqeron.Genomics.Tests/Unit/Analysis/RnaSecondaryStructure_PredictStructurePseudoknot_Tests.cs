@@ -1,11 +1,11 @@
-// RNA-PKPREDICT-001 — Pseudoknot Structure Prediction (canonical H-type, pknotsRG class)
+// RNA-PKPREDICT-001 — Pseudoknot structure prediction, single canonical H-type knot (pknotsRG class csr-PK)
 // Evidence: docs/Evidence/RNA-PKPREDICT-001-Evidence.md
 // TestSpec: tests/TestSpecs/RNA-PKPREDICT-001.md
-// Source: Reeder J, Giegerich R (2004). BMC Bioinformatics 5:104 (pknotsRG canonical simple
-//         recursive pseudoknots; penalties: init 9.0, unpaired-loop 0.3, in-knot pair 0.0 kcal/mol);
-//         pknotsRG Energy.lhs (github.com/jensreeder/pknotsRG); Antczak M et al. (2018).
-//         Bioinformatics 34(8):1304-1312 (crossing condition i<k<j<l); PDB 437D / Su et al. (1999)
-//         (BWYV H-type pseudoknot, tertiary-stabilised — not the NN-thermodynamic MFE).
+// Sources: Reeder J, Giegerich R (2004) BMC Bioinformatics 5:104 (canonical simple recursive pseudoknots, rules 1-3);
+//          pknotsRG reference source (github.com/jensreeder/pknotsRG: Energy.lhs pkinit 9.0 / npp 0.3, Algebras.lhs pkml 6.0,
+//          pknotsRG-mfe.lhs `pknot` grammar: bridging bases, v >= 0, rule 3 `getbeta`);
+//          ViennaRNA 2.7.2 (E_Hairpin / E_IntLoop / E_MLstem / E_ExtLoop primitives, NNDB-precision parameter file) for the
+//          oracle values of PknotsRgOracleData.
 
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
@@ -14,246 +14,348 @@ namespace Seqeron.Genomics.Tests.Unit.Analysis;
 [TestFixture]
 public class RnaSecondaryStructure_PredictStructurePseudoknot_Tests
 {
-    // Designed canonical H-type pseudoknot (Evidence §Test Datasets):
-    //   S1a=GGGG[0-3] L1=AA S2a=CCCC[6-9] L2=AA S1b=CCCC[12-15] L3=AA S2b=GGGG[18-21]
-    //   Stem 1 (a·a') = (0,15)(1,14)(2,13)(3,12); Stem 2 (b·b') = (6,21)(7,20)(8,19)(9,18).
+    // Designed canonical H-type pseudoknot: a=GGGG[0-3] u=AA b=CCCC[6-9] v=AA a'=CCCC[12-15] w=AA b'=GGGG[18-21].
     private const string DesignedHTypeSeq = "GGGGAACCCCAACCCCAAGGGG";
 
     private static HashSet<(int, int)> PairSet(IEnumerable<(int Position1, int Position2)> pairs)
         => pairs.Select(p => (Math.Min(p.Position1, p.Position2), Math.Max(p.Position1, p.Position2))).ToHashSet();
 
     private static int CrossingCount(string seq, IReadOnlyList<(int Position1, int Position2)> pairs)
-    {
-        var bps = pairs.Select(p => new BasePair(
+        => DetectPseudoknots(pairs.Select(p => new BasePair(
             p.Position1, p.Position2, seq[p.Position1], seq[p.Position2],
-            GetBasePairType(seq[p.Position1], seq[p.Position2]) ?? BasePairType.NonCanonical)).ToList();
-        return DetectPseudoknots(bps).Count();
+            GetBasePairType(seq[p.Position1], seq[p.Position2]) ?? BasePairType.NonCanonical)).ToList()).Count();
+
+    private static void AssertValidStructure(PseudoknotStructure s)
+    {
+        int n = s.Sequence.Length;
+        var seen = new HashSet<int>();
+        foreach (var (a, b) in s.BasePairs)
+        {
+            Assert.That(a, Is.InRange(0, n - 1));
+            Assert.That(b, Is.InRange(0, n - 1));
+            Assert.That(a, Is.LessThan(b), "pairs are 5' < 3'");
+            Assert.That(b - a - 1, Is.GreaterThanOrEqualTo(3), "hairpin loop >= 3 nt");
+            Assert.That(CanPair(s.Sequence[a], s.Sequence[b]), Is.True, $"pair ({a},{b}) must be canonical/wobble");
+            Assert.That(seen.Add(a) && seen.Add(b), Is.True, "every position pairs at most once");
+        }
+        Assert.That(s.BasePairs.Select(p => p.Position1), Is.Ordered, "sorted by 5' position");
+        Assert.That(s.DotBracket, Has.Length.EqualTo(n));
+        Assert.That(PairSet(ParseDotBracket(s.DotBracket)), Is.EquivalentTo(PairSet(s.BasePairs)),
+            "dot-bracket round trip (ToDotBracket / ParseDotBracket)");
+        Assert.That(s.HasPseudoknot, Is.EqualTo(CrossingCount(s.Sequence, s.BasePairs) > 0),
+            "HasPseudoknot <=> the pair set has a crossing pair-of-pairs");
     }
 
-    #region PredictStructurePseudoknot — canonical H-type recovery
+    #region M — designed knots, energies locked to the independent ViennaRNA-primitive oracle
 
-    // M1 — Designed H-type: both crossing helices recovered exactly, two-layer dot-bracket.
+    // M1 — Designed H-type: both crossing helices recovered exactly; ΔG = oracle (−13.56), the plain MFE is −7.84.
     [Test]
-    public void PredictStructurePseudoknot_DesignedHType_RecoversBothCrossingHelices()
+    public void PredictStructurePseudoknot_DesignedHType_RecoversBothHelices_EnergyLocked()
     {
         var pk = PredictStructurePseudoknot(DesignedHTypeSeq);
-
         var expected = new HashSet<(int, int)>
         {
-            (0, 15), (1, 14), (2, 13), (3, 12), // stem 1 (a·a')
-            (6, 21), (7, 20), (8, 19), (9, 18), // stem 2 (b·b'), crossing
+            (0, 15), (1, 14), (2, 13), (3, 12), (6, 21), (7, 20), (8, 19), (9, 18),
         };
-
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.True,
-                "A canonical H-type pseudoknot must be predicted for the designed two-crossing-helix sequence.");
-            Assert.That(PairSet(pk.BasePairs), Is.EquivalentTo(expected),
-                "The two crossing 4-bp G·C helices must be recovered exactly per the H-type geometry.");
-            Assert.That(pk.DotBracket, Is.EqualTo("((((..[[[[..))))..]]]]"),
-                "Two-layer dot-bracket: () = stem 1, [] = crossing stem 2 (ViennaRNA/WUSS).");
+            Assert.That(pk.HasPseudoknot, Is.True);
+            Assert.That(PairSet(pk.BasePairs), Is.EquivalentTo(expected));
+            Assert.That(pk.DotBracket, Is.EqualTo("((((..[[[[..))))..]]]]"));
+            Assert.That(pk.FreeEnergy, Is.EqualTo(-13.56).Within(0.005),
+                "9.0 + 0.9 (3 bridging nt) + 6×(−3.26) stacks + 0.3 (u') + 0.6 (v) − 4.80 (four helix ends) = −13.56");
+            Assert.That(CalculateMfeStructure(DesignedHTypeSeq).FreeEnergy, Is.EqualTo(-7.84).Within(0.005));
         });
     }
 
-    // M2 — The pseudoknot must strictly beat the plain MFE structure (INV-PK-01/04).
+    // M2 — a knot is reported only when strictly better than the pseudoknot-free optimum.
     [Test]
-    public void PredictStructurePseudoknot_DesignedHType_BeatsPlainMfe()
+    public void PredictStructurePseudoknot_Knot_StrictlyBeatsPlainMfe()
     {
         var pk = PredictStructurePseudoknot(DesignedHTypeSeq);
-        var mfe = CalculateMfeStructure(DesignedHTypeSeq);
-
-        Assert.That(pk.FreeEnergy, Is.LessThan(mfe.FreeEnergy),
-            "A pseudoknot is accepted only when its free energy is strictly below the plain pseudoknot-free MFE.");
+        Assert.That(pk.FreeEnergy, Is.LessThan(CalculateMfeStructure(DesignedHTypeSeq).FreeEnergy - 1.0));
     }
 
-    // M3 — The recovered structure contains a genuine crossing pair (i<k<j<l) (INV-PK-02).
+    // M3 — DEFECT REPRO (before: flanks ignored): a hairpin 5' of the knot is folded as well.
+    // Before the fix `GGGCGAAAGCCC AA <knot>` returned the plain MFE (−15.98, no knot): the knot-only candidate (−8.76, flanks left
+    // unfolded and unscored) never beat the whole-sequence MFE. After: hairpin + knot, −21.70 (oracle).
     [Test]
-    public void PredictStructurePseudoknot_DesignedHType_ContainsGenuineCrossing()
+    public void PredictStructurePseudoknot_KnotWithFoldedFlank_FoldsFlanksToo()
     {
-        var pk = PredictStructurePseudoknot(DesignedHTypeSeq);
-
-        Assert.That(CrossingCount(pk.Sequence, pk.BasePairs), Is.GreaterThanOrEqualTo(1),
-            "DetectPseudoknots must find at least one crossing pair-of-pairs, confirming a real pseudoknot.");
-    }
-
-    // M4 — Valid structure: indices in range, every position paired at most once (INV-PK-03).
-    [Test]
-    public void PredictStructurePseudoknot_DesignedHType_ValidStructure()
-    {
-        var pk = PredictStructurePseudoknot(DesignedHTypeSeq);
-        int n = pk.Sequence.Length;
-        var seen = new HashSet<int>();
-
+        const string seq = "GGGCGAAAGCCCAAGGGGAACCCCAACCCCAAGGGG";
+        var pk = PredictStructurePseudoknot(seq);
         Assert.Multiple(() =>
         {
-            foreach (var (a, b) in pk.BasePairs)
-            {
-                Assert.That(a, Is.InRange(0, n - 1), "5' index in range.");
-                Assert.That(b, Is.InRange(0, n - 1), "3' index in range.");
-                Assert.That(a, Is.Not.EqualTo(b), "A base cannot pair with itself.");
-                Assert.That(seen.Add(a), Is.True, $"position {a} paired at most once.");
-                Assert.That(seen.Add(b), Is.True, $"position {b} paired at most once.");
-            }
+            Assert.That(pk.HasPseudoknot, Is.True);
+            Assert.That(pk.DotBracket, Is.EqualTo("((((....))))..((((..[[[[..))))..]]]]"));
+            Assert.That(pk.FreeEnergy, Is.EqualTo(-21.70).Within(0.005));
+            Assert.That(CalculateMfeStructure(seq).FreeEnergy, Is.EqualTo(-15.98).Within(0.005));
+            Assert.That(pk.BasePairs, Does.Contain((0, 11)), "the 5' hairpin stem closes the flank");
+        });
+    }
+
+    // M4 — DEFECT REPRO (before: loops v ≥ 1 and overlap candidates dropped): knot with an EMPTY middle loop v
+    // (pknotsRG `emptymid`, rule 3: b is shortened where it would compete with a'). Before: no knot, −4.22. After: −5.93 (oracle).
+    [Test]
+    public void PredictStructurePseudoknot_EmptyMiddleLoop_KnotFound()
+    {
+        const string seq = "UCAUGUUAGCUCAUGAAUGGCU";
+        var pk = PredictStructurePseudoknot(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(pk.DotBracket, Is.EqualTo("(((((..[[[[)))))..]]]]"));
+            Assert.That(pk.FreeEnergy, Is.EqualTo(-5.93).Within(0.005));
+            Assert.That(CalculateMfeStructure(seq).FreeEnergy, Is.EqualTo(-4.22).Within(0.005));
+        });
+    }
+
+    // M5 — pknotsRG README example (sequence of the reference distribution) and BWYV frameshift pseudoknot (PDB 437D sequence):
+    // the model optimum contains a knot; ΔG locked to the oracle (the crystal structure is tertiary-stabilised and is NOT claimed to match).
+    [TestCase("UCAAGUAUUCCGAAGCUCAACGGGAAAAUGAGCUA", -6.54, -12.31, ".......(((((.[[[[[[.)))))...]]]]]].")]
+    [TestCase("GGCGCGGCACCGUCCGCGGAACAAACGG", -7.90, -10.51, "..(((((..[[[[)))))......]]]]")]
+    public void PredictStructurePseudoknot_PublishedSequences_LockedToOracle(string seq, double mfe, double single, string db)
+    {
+        var pk = PredictStructurePseudoknot(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateMfeStructure(seq).FreeEnergy, Is.EqualTo(mfe).Within(0.005));
+            Assert.That(pk.FreeEnergy, Is.EqualTo(single).Within(0.005));
+            Assert.That(pk.DotBracket, Is.EqualTo(db));
         });
     }
 
     #endregion
 
-    #region No spurious pseudoknots
+    #region Oracle lock table (independent ViennaRNA-primitive implementation of the grammar)
 
-    // M5 — A plain hairpin must NOT be reported as a pseudoknot; result equals the plain MFE.
-    [Test]
-    public void PredictStructurePseudoknot_PlainHairpin_NoSpuriousPseudoknot()
+    [TestCaseSource(typeof(PknotsRgOracleData), nameof(PknotsRgOracleData.RowSource))]
+    public void PredictStructurePseudoknot_OracleRows_EnergyAndStructureLocked(
+        string seq, double vienna, double single, double recursive, string singleDb, string recursiveDb)
     {
-        const string hairpin = "GGGGAAAACCCC";
-        var pk = PredictStructurePseudoknot(hairpin);
-        var mfe = CalculateMfeStructure(hairpin);
-
+        Assert.That(recursive, Is.LessThanOrEqualTo(single + 1e-9), "oracle sanity: the recursive optimum cannot be worse");
+        var pk = PredictStructurePseudoknot(seq);
+        var mfe = CalculateMfeStructure(seq);
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.False,
-                "The 9 kcal/mol initiation penalty prevents reporting a pseudoknot for a simple hairpin.");
-            Assert.That(pk.DotBracket, Is.EqualTo("((((....))))"),
-                "The returned structure must equal the plain pseudoknot-free MFE structure.");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(mfe.FreeEnergy).Within(1e-10),
-                "With no accepted pseudoknot the free energy equals the plain MFE.");
-        });
-    }
-
-    // M6 — Property/invariant sweep: never worse than MFE; any reported knot beats MFE and is valid.
-    [Test]
-    public void PredictStructurePseudoknot_RandomSweep_NeverWorseThanMfe_KnotsValid()
-    {
-        var rng = new Random(20260623); // fixed seed → deterministic
-        Assert.Multiple(() =>
-        {
-            for (int t = 0; t < 200; t++)
+            Assert.That(mfe.FreeEnergy, Is.EqualTo(vienna).Within(0.005), "plain MFE = RNA.fold (NNDB-precision parameters)");
+            Assert.That(pk.FreeEnergy, Is.EqualTo(single).Within(0.005), "single-knot optimum = oracle");
+            Assert.That(pk.DotBracket, Is.EqualTo(singleDb));
+            if (!pk.HasPseudoknot)
             {
-                string seq = GenerateRandomRna(rng.Next(12, 40), rng, 0.5);
-                var pk = PredictStructurePseudoknot(seq);
-                var mfe = CalculateMfeStructure(seq);
-
-                Assert.That(pk.FreeEnergy, Is.LessThanOrEqualTo(mfe.FreeEnergy + 1e-9),
-                    $"INV-PK-01: predictor never returns worse than the plain MFE. seq={seq}");
-
-                if (pk.HasPseudoknot)
-                {
-                    Assert.That(pk.FreeEnergy, Is.LessThan(mfe.FreeEnergy),
-                        $"INV-PK-04: a reported pseudoknot strictly beats the MFE. seq={seq}");
-                    Assert.That(CrossingCount(pk.Sequence, pk.BasePairs), Is.GreaterThanOrEqualTo(1),
-                        $"INV-PK-02: a reported pseudoknot genuinely crosses. seq={seq}");
-
-                    var seen = new HashSet<int>();
-                    foreach (var (a, b) in pk.BasePairs)
-                    {
-                        Assert.That(seen.Add(a), Is.True, $"INV-PK-03 position {a} once. seq={seq}");
-                        Assert.That(seen.Add(b), Is.True, $"INV-PK-03 position {b} once. seq={seq}");
-                    }
-                }
+                Assert.That(pk.DotBracket, Is.EqualTo(mfe.DotBracket), "no knot => exactly the plain MFE structure");
+                Assert.That(pk.FreeEnergy, Is.EqualTo(mfe.FreeEnergy));
             }
         });
+        AssertValidStructure(pk);
     }
 
     #endregion
 
-    #region Edge cases and parity
+    #region Exhaustive reference (table-free)
 
-    // S1 — null input → empty pseudoknot-free structure.
-    [Test]
-    public void PredictStructurePseudoknot_NullInput_EmptyStructure()
+    // Random H-type-biased sequence of 11–16 nt: a·u·b·v·a'·w·b' with 2–3 nt helices (G/C rich) and short loops.
+    internal static string RandomSmallKnotSequence(Random rnd)
     {
-        var pk = PredictStructurePseudoknot(null!);
+        static string Rc(string s) => new(s.Reverse().Select(c => c switch { 'A' => 'U', 'U' => 'A', 'G' => 'C', _ => 'G' }).ToArray());
+        string Helix(int len) => new(Enumerable.Range(0, len).Select(_ => "GGCCGCAU"[rnd.Next(8)]).ToArray());
+        string Loop(int len) => new(Enumerable.Range(0, len).Select(_ => "AAUAGC"[rnd.Next(6)]).ToArray());
+        while (true)
+        {
+            string a = Helix(2 + rnd.Next(2)), b = Helix(2 + rnd.Next(2));
+            string seq = a + Loop(1 + rnd.Next(2)) + b + Loop(rnd.Next(3)) + Rc(a) + Loop(2 + rnd.Next(2)) + Rc(b);
+            if (seq.Length <= 16 && !seq.Contains("GGUC")) return seq;
+        }
+    }
+
+    // The DP equals the exhaustive optimum of the same search space (all flank structures × all canonical knots × all loop structures).
+    [Test]
+    public void PredictStructurePseudoknot_RandomSequences_EqualsExhaustiveOptimum()
+    {
+        var rnd = new Random(20260611);
+        int knots = 0;
+        for (int c = 0; c < 70; c++)
+        {
+            string seq = c % 3 == 0
+                ? GenerateRandomRna(11 + rnd.Next(5), rnd, 0.7)
+                : RandomSmallKnotSequence(rnd);
+            if (seq.Contains("GGUC")) continue; // the special GGUC/CUGG three-stack of a knot helix is not enumerated here
+            double brute = new PknotsRgBruteForce(seq).SingleKnotOptimum();
+            var pk = PredictStructurePseudoknot(seq);
+            Assert.That(pk.FreeEnergy, Is.EqualTo(brute).Within(0.006), seq);
+            if (pk.HasPseudoknot) knots++;
+        }
+        Assert.That(knots, Is.GreaterThan(5), "the sweep must contain knotted optima");
+    }
+
+    // Knot-rich designed inputs (long helices, short loops) against the exhaustive optimum.
+    [TestCase("GGGAACCCAACCCAAGGG")]
+    [TestCase("GCGAGCCGCAGCGCUCGCCUA")]
+    [TestCase("CCGGAUCCGGAUCCGGAUC")]
+    [TestCase("GGAGCCUCCAGGCUCC")]
+    public void PredictStructurePseudoknot_DesignedSmall_EqualsExhaustiveOptimum(string seq)
+    {
+        double brute = new PknotsRgBruteForce(seq).SingleKnotOptimum();
+        Assert.That(PredictStructurePseudoknot(seq).FreeEnergy, Is.EqualTo(brute).Within(0.006));
+    }
+
+    #endregion
+
+    #region Invariants
+
+    // INV: ΔG ≤ plain MFE; no knot ⇒ plain MFE; structure valid; deterministic; recursive ≤ single.
+    [Test]
+    public void PredictStructurePseudoknot_RandomSweep_Invariants()
+    {
+        var rnd = new Random(7);
+        for (int c = 0; c < 80; c++)
+        {
+            string seq = GenerateRandomRna(11 + rnd.Next(30), rnd, 0.6);
+            var pk = PredictStructurePseudoknot(seq);
+            var mfe = CalculateMfeStructure(seq);
+            Assert.That(pk.FreeEnergy, Is.LessThanOrEqualTo(mfe.FreeEnergy + 1e-9), seq);
+            if (!pk.HasPseudoknot) Assert.That(pk.DotBracket, Is.EqualTo(mfe.DotBracket), seq);
+            else Assert.That(pk.FreeEnergy, Is.LessThan(mfe.FreeEnergy), seq);
+            AssertValidStructure(pk);
+            Assert.That(PredictStructurePseudoknotRecursive(seq).FreeEnergy, Is.LessThanOrEqualTo(pk.FreeEnergy + 1e-9), seq);
+        }
+    }
+
+    // At most ONE knot: the crossing pairs of the result form a single H-type (two helices a/b).
+    [Test]
+    public void PredictStructurePseudoknot_AtMostOneKnot_EvenWhenTwoWouldFit()
+    {
+        const string knot = "GGGGAACCCCAACCCCAAGGGG";
+        string seq = knot + "AAA" + knot;
+        var single = PredictStructurePseudoknot(seq);
+        var recursive = PredictStructurePseudoknotRecursive(seq);
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.False, "null input has no pseudoknot.");
-            Assert.That(pk.BasePairs, Is.Empty, "null input yields no base pairs.");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(0.0).Within(1e-10), "null input ΔG is 0.");
-            Assert.That(pk.Sequence, Is.EqualTo(string.Empty), "null input folds the empty sequence.");
+            Assert.That(single.HasPseudoknot, Is.True);
+            Assert.That(single.DotBracket.Count(c => c == '['), Is.EqualTo(4), "one knot: exactly one crossing helix");
+            Assert.That(recursive.DotBracket.Count(c => c == '['), Is.EqualTo(8), "two knots side by side");
+            Assert.That(recursive.FreeEnergy, Is.LessThan(single.FreeEnergy - 2.0));
         });
     }
 
-    // S2 — empty input → empty structure.
+    // Spelling: DNA T, lower case and RNA U give identical results.
     [Test]
-    public void PredictStructurePseudoknot_EmptyInput_EmptyStructure()
+    public void PredictStructurePseudoknot_DnaAndLowerCase_ParityWithRna()
     {
-        var pk = PredictStructurePseudoknot("");
+        var rna = PredictStructurePseudoknot("UCAUGUUAGCUCAUGAAUGGCU");
+        foreach (string variant in new[] { "TCATGTTAGCTCATGAATGGCT", "ucauguuagcucaugaauggcu", "tcatgttagctcatgaatggct" })
+        {
+            var other = PredictStructurePseudoknot(variant);
+            Assert.That(other.FreeEnergy, Is.EqualTo(rna.FreeEnergy));
+            Assert.That(other.DotBracket, Is.EqualTo(rna.DotBracket));
+            Assert.That(other.Sequence, Is.EqualTo("UCAUGUUAGCUCAUGAAUGGCU"));
+        }
+    }
+
+    // minLoopSize < 3 is clamped to the NNDB minimum 3.
+    [Test]
+    public void PredictStructurePseudoknot_MinLoopSizeBelowThree_ClampedToThree()
+    {
+        var a = PredictStructurePseudoknot(DesignedHTypeSeq, 0);
+        var b = PredictStructurePseudoknot(DesignedHTypeSeq);
+        Assert.That(a.DotBracket, Is.EqualTo(b.DotBracket));
+        Assert.That(a.FreeEnergy, Is.EqualTo(b.FreeEnergy));
+    }
+
+    // Temperature: the Turner terms follow the shared TurnerModel; 37 °C = default; the knot energy changes with T.
+    [Test]
+    public void PredictStructurePseudoknot_Temperature_UsesSharedModel()
+    {
+        var at37 = PredictStructurePseudoknot(DesignedHTypeSeq, 3, 310.15);
+        var at25 = PredictStructurePseudoknot(DesignedHTypeSeq, 3, 298.15);
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.False, "empty input has no pseudoknot.");
-            Assert.That(pk.BasePairs, Is.Empty, "empty input yields no base pairs.");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(0.0).Within(1e-10), "empty input ΔG is 0.");
+            Assert.That(at37.FreeEnergy, Is.EqualTo(PredictStructurePseudoknot(DesignedHTypeSeq).FreeEnergy));
+            Assert.That(at25.FreeEnergy, Is.LessThan(at37.FreeEnergy), "colder => more stable stacks");
+            Assert.That(at25.HasPseudoknot, Is.True);
         });
     }
 
-    // S3 — too short for any canonical knot (< 11 nt) → no pseudoknot, equals plain MFE.
+    // Thread safety: static pure function; concurrent identical calls agree.
     [Test]
-    public void PredictStructurePseudoknot_TooShort_NoPseudoknot()
+    public void PredictStructurePseudoknot_Concurrent_SameResult()
     {
-        const string shortSeq = "GGGCCC";
-        var pk = PredictStructurePseudoknot(shortSeq);
-        var mfe = CalculateMfeStructure(shortSeq);
+        var reference = PredictStructurePseudoknot("GCCAGCGGCCUUACGGGAUAGGCAUACCCGGGCAACGC");
+        var results = new PseudoknotStructure[8];
+        Parallel.For(0, results.Length, i => results[i] = PredictStructurePseudoknot("GCCAGCGGCCUUACGGGAUAGGCAUACCCGGGCAACGC"));
+        foreach (var r in results)
+        {
+            Assert.That(r.DotBracket, Is.EqualTo(reference.DotBracket));
+            Assert.That(r.FreeEnergy, Is.EqualTo(reference.FreeEnergy));
+        }
+    }
 
+    // Long input stays tractable (O(n^4) worst case, near n^3 in practice): 150 nt completes.
+    [Test, CancelAfter(120000)]
+    public void PredictStructurePseudoknot_LongSequence_Completes()
+    {
+        string seq = GenerateRandomRna(150, new Random(3), 0.55);
+        var pk = PredictStructurePseudoknot(seq);
+        Assert.That(pk.FreeEnergy, Is.LessThanOrEqualTo(CalculateMfeStructure(seq).FreeEnergy + 1e-9));
+        AssertValidStructure(pk);
+    }
+
+    #endregion
+
+    #region Edge cases
+
+    [TestCase(null)]
+    [TestCase("")]
+    public void PredictStructurePseudoknot_NullOrEmpty_EmptyStructure(string? seq)
+    {
+        var pk = PredictStructurePseudoknot(seq!);
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.False,
-                "The shortest canonical H-type knot needs 11 nt (2·2 helix pairs + 3 loops); shorter cannot knot.");
-            Assert.That(pk.DotBracket, Is.EqualTo(mfe.DotBracket), "Returned structure equals the plain MFE.");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(mfe.FreeEnergy).Within(1e-10), "ΔG equals the plain MFE.");
+            Assert.That(pk.Sequence, Is.Empty);
+            Assert.That(pk.DotBracket, Is.Empty);
+            Assert.That(pk.BasePairs, Is.Empty);
+            Assert.That(pk.FreeEnergy, Is.EqualTo(0.0));
+            Assert.That(pk.HasPseudoknot, Is.False);
         });
     }
 
-    // S4 — BWYV real H-type knot (PDB 437D) is tertiary-stabilised, NOT the NN-thermodynamic MFE.
-    [Test]
-    public void PredictStructurePseudoknot_Bwyv_NotRecoveredAsMfe_DocumentsTertiaryLimit()
+    // < 11 nt: no canonical knot fits; the result is the plain MFE.
+    [TestCase("GGGCCC")]
+    [TestCase("GGGGAAAACC")]
+    [TestCase("GGGAAACCCA")]
+    public void PredictStructurePseudoknot_TooShortForKnot_PlainMfe(string seq)
     {
-        const string bwyv = "GGCGCGGCACCGUCCGCGGAACAAACGG";
-        var pk = PredictStructurePseudoknot(bwyv);
-        var mfe = CalculateMfeStructure(bwyv);
-
+        var pk = PredictStructurePseudoknot(seq);
+        var mfe = CalculateMfeStructure(seq);
         Assert.Multiple(() =>
         {
-            // The crystallographic BWYV knot is held by minor-groove triplexes and ion coordination,
-            // which the nearest-neighbour secondary-structure model does not capture. A pure NN
-            // predictor therefore returns the pseudoknot-free hairpin, not the knot — a documented
-            // limit (Reeder & Giegerich 2004; Su et al. 1999), asserted here so it is not over-claimed.
-            Assert.That(pk.HasPseudoknot, Is.False,
-                "BWYV is tertiary-stabilised; the NN-thermodynamic optimum is the pseudoknot-free hairpin.");
-            Assert.That(pk.FreeEnergy, Is.LessThanOrEqualTo(mfe.FreeEnergy + 1e-9),
-                "INV-PK-01 still holds on the real sequence.");
+            Assert.That(pk.HasPseudoknot, Is.False);
+            Assert.That(pk.DotBracket, Is.EqualTo(mfe.DotBracket));
+            Assert.That(pk.FreeEnergy, Is.EqualTo(mfe.FreeEnergy));
         });
     }
 
-    // S5 — DNA spelling (T) folds identically to the RNA spelling (T read as U).
+    // A strong hairpin never becomes a pseudoknot (no spurious knot; 9.0 initiation).
     [Test]
-    public void PredictStructurePseudoknot_DnaInput_FoldsIdenticallyToRna()
+    public void PredictStructurePseudoknot_Hairpin_NoSpuriousKnot()
     {
-        string dna = DesignedHTypeSeq.Replace('U', 'T'); // no U here, but assert T↔U parity generally
-        var rnaPk = PredictStructurePseudoknot(DesignedHTypeSeq);
-        var dnaPk = PredictStructurePseudoknot(dna);
-
+        var pk = PredictStructurePseudoknot("GGGGAAAACCCC");
         Assert.Multiple(() =>
         {
-            Assert.That(dnaPk.HasPseudoknot, Is.EqualTo(rnaPk.HasPseudoknot), "T read as U → same knot decision.");
-            Assert.That(PairSet(dnaPk.BasePairs), Is.EquivalentTo(PairSet(rnaPk.BasePairs)),
-                "T read as U → identical base pairs.");
-            Assert.That(dnaPk.FreeEnergy, Is.EqualTo(rnaPk.FreeEnergy).Within(1e-10),
-                "T read as U → identical free energy.");
+            Assert.That(pk.HasPseudoknot, Is.False);
+            Assert.That(pk.DotBracket, Is.EqualTo("((((....))))"));
+            Assert.That(pk.FreeEnergy, Is.EqualTo(-5.28).Within(0.005));
         });
     }
 
-    // C1 — minLoopSize below NNDB minimum is clamped to 3 (same result as default).
-    [Test]
-    public void PredictStructurePseudoknot_MinLoopSizeZero_ClampedToThree()
+    // N / IUPAC symbols never pair; the result stays valid and ΔG ≤ MFE.
+    [TestCase("GGGGAANCCCCAACCCCAAGGGG")]
+    [TestCase("GGGGAACCCCRAACCCCAAGGGG")]
+    [TestCase("NNNNNNNNNNNNNNNNNNNN")]
+    public void PredictStructurePseudoknot_AmbiguousBases_ValidAndNeverWorseThanMfe(string seq)
     {
-        var clamped = PredictStructurePseudoknot(DesignedHTypeSeq, minLoopSize: 0);
-        var def = PredictStructurePseudoknot(DesignedHTypeSeq, minLoopSize: 3);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(clamped.HasPseudoknot, Is.EqualTo(def.HasPseudoknot), "minLoopSize<3 clamps to 3.");
-            Assert.That(clamped.DotBracket, Is.EqualTo(def.DotBracket), "clamped result equals the default.");
-            Assert.That(clamped.FreeEnergy, Is.EqualTo(def.FreeEnergy).Within(1e-10), "clamped ΔG equals default.");
-        });
+        var pk = PredictStructurePseudoknot(seq);
+        AssertValidStructure(pk);
+        Assert.That(pk.FreeEnergy, Is.LessThanOrEqualTo(CalculateMfeStructure(seq).FreeEnergy + 1e-9));
     }
 
     #endregion

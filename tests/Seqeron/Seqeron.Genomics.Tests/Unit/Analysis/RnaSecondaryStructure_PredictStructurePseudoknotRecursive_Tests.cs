@@ -1,10 +1,10 @@
-// RNA-PKRECURSIVE-001 — Recursive pknotsRG pseudoknot prediction (nested / multiple H-type knots)
+// RNA-PKRECURSIVE-001 — Recursive pknotsRG grammar (multiple / nested canonical simple recursive pseudoknots)
 // Evidence: docs/Evidence/RNA-PKRECURSIVE-001-Evidence.md
 // TestSpec: tests/TestSpecs/RNA-PKRECURSIVE-001.md
-// Source: Reeder J, Giegerich R (2004). BMC Bioinformatics 5:104 (loops fold "including simple
-//         recursive pseudoknots"; penalties 9.0 / 0.3 / 0.0 kcal/mol); Reeder J, Steffen P,
-//         Giegerich R (2007). NAR 35:W320 (pseudoknot value competes with unknotted foldings per
-//         interval); Antczak M et al. (2018). Bioinformatics 34(8):1304-1312 (crossing i<k<j<l).
+// Sources: Reeder J, Giegerich R (2004) BMC Bioinformatics 5:104 (the loops u, v, w "fold internally in an arbitrary way,
+//          including simple recursive pseudoknots"); Reeder, Steffen & Giegerich (2007) NAR 35:W320 (per-interval competition);
+//          pknotsRG reference source (pknotsRG-mfe.lhs `block` / `comps` / `knot`; Algebras.lhs `pkml` = 6.0 for a knot used as
+//          a multiloop or knot-loop component); ViennaRNA 2.7.2 primitives for the oracle rows of PknotsRgOracleData.
 
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
@@ -13,324 +13,240 @@ namespace Seqeron.Genomics.Tests.Unit.Analysis;
 [TestFixture]
 public class RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests
 {
-    // Designed single canonical H-type (RNA-PKPREDICT-001 dataset):
-    //   stem1 (0,15)(1,14)(2,13)(3,12); stem2 (6,21)(7,20)(8,19)(9,18); ΔG -8.76.
-    private const string SingleHType = "GGGGAACCCCAACCCCAAGGGG";
-
-    // Knot nested inside an over-arching A·U helix (Evidence dataset):
-    //   clamp5'=A×8[0-7] · H-type[8-29] · clamp3'=U×8[30-37].
-    //   outer helix (0,37)..(7,30); inner stem1 (8,23)..(11,20); inner crossing stem2 (14,29)..(17,26).
-    private const string NestedKnot = "AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU";
-
-    // Two A·U-clamped knots side by side (Evidence dataset): both knots recovered, crossing-count 32.
-    private const string TwoKnots =
-        "AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUUAAAAAAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU";
-
     private static HashSet<(int, int)> PairSet(IEnumerable<(int Position1, int Position2)> pairs)
         => pairs.Select(p => (Math.Min(p.Position1, p.Position2), Math.Max(p.Position1, p.Position2))).ToHashSet();
 
-    private static int CrossingCount(string seq, IReadOnlyList<(int Position1, int Position2)> pairs)
+    private static void AssertValid(PseudoknotStructure s)
     {
-        var bps = pairs.Select(p => new BasePair(
-            p.Position1, p.Position2, seq[p.Position1], seq[p.Position2],
-            GetBasePairType(seq[p.Position1], seq[p.Position2]) ?? BasePairType.NonCanonical)).ToList();
-        return DetectPseudoknots(bps).Count();
+        int n = s.Sequence.Length;
+        var seen = new HashSet<int>();
+        foreach (var (a, b) in s.BasePairs)
+        {
+            Assert.That(a, Is.InRange(0, n - 1));
+            Assert.That(b, Is.InRange(0, n - 1));
+            Assert.That(b - a - 1, Is.GreaterThanOrEqualTo(3));
+            Assert.That(CanPair(s.Sequence[a], s.Sequence[b]), Is.True);
+            Assert.That(seen.Add(a) && seen.Add(b), Is.True, "each position pairs at most once");
+        }
+        Assert.That(PairSet(ParseDotBracket(s.DotBracket)), Is.EquivalentTo(PairSet(s.BasePairs)), "dot-bracket round trip");
+        var bps = s.BasePairs.Select(p => new BasePair(p.Position1, p.Position2, s.Sequence[p.Position1], s.Sequence[p.Position2],
+            GetBasePairType(s.Sequence[p.Position1], s.Sequence[p.Position2]) ?? BasePairType.NonCanonical)).ToList();
+        Assert.That(s.HasPseudoknot, Is.EqualTo(DetectPseudoknots(bps).Any()));
     }
 
-    #region Recursive recovery — knot nested inside an over-arching helix
+    #region Oracle rows
 
-    // M1 — Over-arching nested knot: outer A·U helix + inner crossing knot recovered exactly.
-    [Test]
-    public void Recursive_NestedKnot_RecoversOuterHelixAndInnerCrossingKnot()
+    // Recursive optimum = independent ViennaRNA-primitive implementation of the full grammar (every row, 0.00).
+    [TestCaseSource(typeof(PknotsRgOracleData), nameof(PknotsRgOracleData.RowSource))]
+    public void Recursive_OracleRows_EnergyAndStructureLocked(
+        string seq, double vienna, double single, double recursive, string singleDb, string recursiveDb)
     {
-        var pk = PredictStructurePseudoknotRecursive(NestedKnot);
-
-        var expected = new HashSet<(int, int)>
-        {
-            (0, 37), (1, 36), (2, 35), (3, 34), (4, 33), (5, 32), (6, 31), (7, 30), // outer A·U helix
-            (8, 23), (9, 22), (10, 21), (11, 20),  // inner stem 1
-            (14, 29), (15, 28), (16, 27), (17, 26), // inner crossing stem 2
-        };
-
+        var r = PredictStructurePseudoknotRecursive(seq);
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.True,
-                "A pseudoknot nested inside the outer helix loop must be predicted by the recursive folder.");
-            Assert.That(PairSet(pk.BasePairs), Is.EquivalentTo(expected),
-                "Outer A·U helix plus the inner crossing H-type knot must be recovered exactly (Evidence dataset).");
-            Assert.That(pk.DotBracket, Is.EqualTo("((((((((((((..[[[[..))))..]]]]))))))))"),
-                "Two-layer dot-bracket: () outer+stem1, [] crossing stem2.");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(-14.37).Within(1e-2),
-                "Recursive ΔG of the over-arching nested knot is -14.37 kcal/mol (derived from the energy model).");
+            Assert.That(r.FreeEnergy, Is.EqualTo(recursive).Within(0.005));
+            Assert.That(r.DotBracket, Is.EqualTo(recursiveDb));
+            Assert.That(r.FreeEnergy, Is.LessThanOrEqualTo(single + 1e-9));
+            Assert.That(single, Is.LessThanOrEqualTo(vienna + 1e-9));
         });
-    }
-
-    // M2 — The recursive method recovers a knot the single-knot method cannot (and beats its ΔG).
-    [Test]
-    public void Recursive_NestedKnot_BeatsSingleKnotMethodAndMfe()
-    {
-        var recursive = PredictStructurePseudoknotRecursive(NestedKnot);
-        var single = PredictStructurePseudoknot(NestedKnot);
-        var mfe = CalculateMfeStructure(NestedKnot);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(single.HasPseudoknot, Is.False,
-                "The single-knot method cannot combine the outer helix with an inner knot, so it finds no knot here.");
-            Assert.That(single.FreeEnergy, Is.EqualTo(-13.05).Within(1e-2),
-                "Single-knot method falls back to the pseudoknot-free fold (-13.05).");
-            Assert.That(recursive.FreeEnergy, Is.LessThan(single.FreeEnergy - 1e-9),
-                "The recursive method's over-arching knot is strictly more stable than the single-knot result.");
-            Assert.That(recursive.FreeEnergy, Is.LessThanOrEqualTo(mfe.FreeEnergy + 1e-9),
-                "INV-PKR-01: recursive ΔG never exceeds the plain MFE.");
-        });
+        AssertValid(r);
     }
 
     #endregion
 
-    #region Recursive recovery — two separate (non-nested) pseudoknots
+    #region Engineered grammar cases (oracle-verified)
 
-    // M3 — Two separate clamped knots are both recovered (two genuine crossings).
+    // Two knots side by side in the exterior loop (pknotsRG `struct`: components chained). The single-knot method places one.
     [Test]
-    public void Recursive_TwoSeparateKnots_RecoversBothCrossings()
+    public void Recursive_TwoKnotsSideBySide_BothRecoveredAndBeatSingle()
     {
-        var pk = PredictStructurePseudoknotRecursive(TwoKnots);
-
-        var expected = new HashSet<(int, int)>
-        {
-            // first clamped knot
-            (0, 37), (1, 36), (2, 35), (3, 34), (4, 33), (5, 32), (6, 31), (7, 30),
-            (8, 23), (9, 22), (10, 21), (11, 20), (14, 29), (15, 28), (16, 27), (17, 26),
-            // second clamped knot
-            (38, 79), (39, 78), (40, 77), (41, 76), (42, 75), (43, 74), (44, 73), (45, 72),
-            (50, 65), (51, 64), (52, 63), (53, 62), (56, 71), (57, 70), (58, 69), (59, 68),
-        };
-
+        const string seq = "CCGCUUGGAGUGCGGAAACUCCUUUCGGAAGCCGUCCGUACGGC";
+        var r = PredictStructurePseudoknotRecursive(seq);
+        var s = PredictStructurePseudoknot(seq);
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.True, "Two side-by-side knots must be predicted.");
-            Assert.That(PairSet(pk.BasePairs), Is.EquivalentTo(expected),
-                "Both clamped H-type knots must be recovered exactly (Evidence dataset).");
-            Assert.That(CrossingCount(pk.Sequence, pk.BasePairs), Is.EqualTo(32),
-                "DetectPseudoknots reports 32 crossing pair-of-pairs (two genuine knots).");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(-28.74).Within(1e-2),
-                "Recursive ΔG of the two-knot structure is -28.74 kcal/mol.");
+            Assert.That(r.DotBracket, Is.EqualTo("((((..[[[[[))))..]]]]]...((((.[[[[))))..]]]]"));
+            Assert.That(r.FreeEnergy, Is.EqualTo(-22.38).Within(0.005));
+            Assert.That(s.FreeEnergy, Is.EqualTo(-18.85).Within(0.005));
+            Assert.That(r.DotBracket.Count(c => c == '['), Is.EqualTo(9), "5 + 4 crossing-helix pairs: two knots");
         });
     }
 
-    // M4 — The single-knot method recovers NEITHER knot; the recursive method beats it.
+    // Designed twin H-type knots: one knot is the single-method optimum (−24.46), two knots the recursive optimum (−27.52).
     [Test]
-    public void Recursive_TwoSeparateKnots_BeatsSingleKnotMethod()
+    public void Recursive_TwinDesignedKnots_BothPlaced()
     {
-        var recursive = PredictStructurePseudoknotRecursive(TwoKnots);
-        var single = PredictStructurePseudoknot(TwoKnots);
-        var mfe = CalculateMfeStructure(TwoKnots);
-
+        const string seq = "GGGGAACCCCAACCCCAAGGGGAAAGGGGAACCCCAACCCCAAGGGG";
+        var r = PredictStructurePseudoknotRecursive(seq);
         Assert.Multiple(() =>
         {
-            Assert.That(single.HasPseudoknot, Is.False,
-                "The single-knot method recovers a pseudoknot-free fold (it cannot place two knots).");
-            Assert.That(single.FreeEnergy, Is.EqualTo(-27.89).Within(1e-2),
-                "Single-knot method ΔG equals the plain MFE (-27.89 = ViennaRNA 2.7.2 RNA.fold, d2, NNDB-precision Turner 2004 parameters).");
-            Assert.That(recursive.FreeEnergy, Is.LessThan(single.FreeEnergy - 1e-9),
-                "The recursive two-knot structure is strictly more stable than the single-knot result.");
-            Assert.That(recursive.FreeEnergy, Is.LessThanOrEqualTo(mfe.FreeEnergy + 1e-9),
-                "INV-PKR-01 holds on the two-knot sequence.");
+            Assert.That(r.DotBracket, Is.EqualTo("((((..[[[[..))))..]]]]...((((..[[[[..))))..]]]]"));
+            Assert.That(r.FreeEnergy, Is.EqualTo(-27.52).Within(0.005));
+            Assert.That(PredictStructurePseudoknot(seq).FreeEnergy, Is.EqualTo(-24.46).Within(0.005));
         });
     }
 
-    #endregion
+    // A knot inside the loop v of another knot (the grammar's recursion: loops fold "including simple recursive pseudoknots").
+    // Outer knot a=(0-2)/(a'=34..36 ...) with the inner knot ((((..[[[[..))))...]]]] between its b and a'.
+    [Test]
+    public void Recursive_KnotInsideKnotLoop_Recovered()
+    {
+        const string seq = "GCCAGCGGCCUUACGGGAUAGGCAUACCCGGGCAACGC";
+        var r = PredictStructurePseudoknotRecursive(seq);
+        var s = PredictStructurePseudoknot(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.DotBracket, Is.EqualTo("(((.[[[((((..[[[[..))))...]]]])))..]]]"));
+            Assert.That(r.FreeEnergy, Is.EqualTo(-12.15).Within(0.005));
+            Assert.That(s.DotBracket, Is.EqualTo("(((.[[[......((((.((....)))))))))..]]]"), "single-knot: loop v folds knot-free");
+            Assert.That(s.FreeEnergy, Is.EqualTo(-11.56).Within(0.005));
+        });
+        AssertValid(r);
+    }
 
-    #region No spurious pseudoknots + invariants
+    // A knot as a branch of a multiloop (pknotsRG `pkml`: +6.0 in place of the branch term). Only the full grammar can place it.
+    [Test]
+    public void Recursive_KnotAsMultiloopBranch_Recovered()
+    {
+        const string seq = "CGCCCGGGCAAGGCGGGAAACCGCCAAGCGGGAGCCCCCCCCCGCCUGGGGGCAAGCCCGGGCG";
+        var r = PredictStructurePseudoknotRecursive(seq);
+        var s = PredictStructurePseudoknot(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.DotBracket, Is.EqualTo("(((((((((..(((((....)))))..(((((.[[[[[[.)))))..]]]]]]..)))))))))"));
+            Assert.That(r.FreeEnergy, Is.EqualTo(-46.66).Within(0.005));
+            Assert.That(s.HasPseudoknot, Is.False, "single-knot method has no knot in a multiloop");
+            Assert.That(s.FreeEnergy, Is.EqualTo(-43.46).Within(0.005));
+            Assert.That(CalculateMfeStructure(seq).FreeEnergy, Is.EqualTo(-43.46).Within(0.005));
+        });
+        AssertValid(r);
+    }
 
-    // M5 — A plain hairpin must NOT be reported as a pseudoknot; result equals the plain MFE.
+    // A strong hairpin never becomes a knot.
     [Test]
     public void Recursive_PlainHairpin_NoSpuriousPseudoknot()
     {
-        const string hairpin = "GGGGAAAACCCC";
-        var pk = PredictStructurePseudoknotRecursive(hairpin);
-        var mfe = CalculateMfeStructure(hairpin);
-
+        var r = PredictStructurePseudoknotRecursive("GGGGAAAACCCC");
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.False,
-                "The 9 kcal/mol initiation penalty prevents a spurious pseudoknot on a simple hairpin (INV-PKR-04).");
-            Assert.That(pk.DotBracket, Is.EqualTo("((((....))))"), "Returned structure equals the plain MFE.");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(mfe.FreeEnergy).Within(1e-10), "ΔG equals the plain MFE (-5.28).");
-            Assert.That(CrossingCount(pk.Sequence, pk.BasePairs), Is.EqualTo(0), "No crossing pairs.");
-        });
-    }
-
-    // M6 — Random sweep: recursive ΔG ≤ MFE; any reported knot is valid and genuinely crosses.
-    [Test]
-    public void Recursive_RandomSweep_NeverWorseThanMfe_NoSpuriousKnots()
-    {
-        var rng = new Random(20260623); // fixed seed → deterministic
-        Assert.Multiple(() =>
-        {
-            for (int t = 0; t < 150; t++)
-            {
-                string seq = GenerateRandomRna(rng.Next(12, 38), rng, 0.5);
-                var pk = PredictStructurePseudoknotRecursive(seq);
-                var mfe = CalculateMfeStructure(seq);
-
-                Assert.That(pk.FreeEnergy, Is.LessThanOrEqualTo(mfe.FreeEnergy + 1e-9),
-                    $"INV-PKR-01: never worse than the plain MFE. seq={seq}");
-
-                if (pk.HasPseudoknot)
-                {
-                    Assert.That(pk.FreeEnergy, Is.LessThan(mfe.FreeEnergy),
-                        $"a reported pseudoknot strictly beats the MFE. seq={seq}");
-                    Assert.That(CrossingCount(pk.Sequence, pk.BasePairs), Is.GreaterThanOrEqualTo(1),
-                        $"INV-PKR-02: a reported pseudoknot genuinely crosses. seq={seq}");
-
-                    var seen = new HashSet<int>();
-                    foreach (var (a, b) in pk.BasePairs)
-                    {
-                        Assert.That(seen.Add(a), Is.True, $"INV-PKR-03 position {a} once. seq={seq}");
-                        Assert.That(seen.Add(b), Is.True, $"INV-PKR-03 position {b} once. seq={seq}");
-                    }
-                }
-            }
-        });
-    }
-
-    // M7 — Validity: indices in range, each position paired at most once (INV-PKR-03).
-    [Test]
-    public void Recursive_RecoveredStructures_AreValid()
-    {
-        Assert.Multiple(() =>
-        {
-            foreach (var seq in new[] { NestedKnot, TwoKnots, SingleHType })
-            {
-                var pk = PredictStructurePseudoknotRecursive(seq);
-                int n = pk.Sequence.Length;
-                var seen = new HashSet<int>();
-                foreach (var (a, b) in pk.BasePairs)
-                {
-                    Assert.That(a, Is.InRange(0, n - 1), $"5' index in range. seq={seq}");
-                    Assert.That(b, Is.InRange(0, n - 1), $"3' index in range. seq={seq}");
-                    Assert.That(a, Is.Not.EqualTo(b), $"a base cannot pair itself. seq={seq}");
-                    Assert.That(seen.Add(a), Is.True, $"position {a} paired once. seq={seq}");
-                    Assert.That(seen.Add(b), Is.True, $"position {b} paired once. seq={seq}");
-                }
-            }
-        });
-    }
-
-    // M8 — Genuine crossings: nested case ≥1, two-knot case ≥2 (INV-PKR-02).
-    [Test]
-    public void Recursive_KnotCases_HaveGenuineCrossings()
-    {
-        var nested = PredictStructurePseudoknotRecursive(NestedKnot);
-        var two = PredictStructurePseudoknotRecursive(TwoKnots);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(CrossingCount(nested.Sequence, nested.BasePairs), Is.GreaterThanOrEqualTo(1),
-                "The nested case contains at least one genuine crossing.");
-            Assert.That(CrossingCount(two.Sequence, two.BasePairs), Is.GreaterThanOrEqualTo(2),
-                "The two-knot case contains at least two genuine crossings.");
+            Assert.That(r.HasPseudoknot, Is.False);
+            Assert.That(r.DotBracket, Is.EqualTo("((((....))))"));
         });
     }
 
     #endregion
 
-    #region Edge cases and parity
+    #region Exhaustive equivalence and invariants
 
-    // S1 — null input → empty pseudoknot-free structure.
+    // Below the size where a second / nested knot fits, the recursive optimum IS the single-knot optimum, which the exhaustive
+    // reference computes independently (11–15 nt: a nested knot needs ≥ 2·11 nt, a multiloop knot ≥ 20 nt).
     [Test]
-    public void Recursive_NullInput_EmptyStructure()
+    public void Recursive_SmallSequences_EqualExhaustiveSingleKnotOptimum()
     {
-        var pk = PredictStructurePseudoknotRecursive(null!);
+        var rnd = new Random(99);
+        int n = 0;
+        while (n < 40)
+        {
+            string seq = n % 2 == 0 ? GenerateRandomRna(11 + rnd.Next(5), rnd, 0.7)
+                : RnaSecondaryStructure_PredictStructurePseudoknot_Tests.RandomSmallKnotSequence(rnd);
+            if (seq.Contains("GGUC")) continue;
+            Assert.That(PredictStructurePseudoknotRecursive(seq).FreeEnergy,
+                Is.EqualTo(new PknotsRgBruteForce(seq).SingleKnotOptimum()).Within(0.006), seq);
+            n++;
+        }
+    }
+
+    [Test]
+    public void Recursive_RandomSweep_Invariants()
+    {
+        var rnd = new Random(12);
+        for (int c = 0; c < 60; c++)
+        {
+            string seq = GenerateRandomRna(11 + rnd.Next(45), rnd, 0.65);
+            var r = PredictStructurePseudoknotRecursive(seq);
+            var s = PredictStructurePseudoknot(seq);
+            Assert.That(r.FreeEnergy, Is.LessThanOrEqualTo(s.FreeEnergy + 1e-9), seq);
+            Assert.That(s.FreeEnergy, Is.LessThanOrEqualTo(CalculateMfeStructure(seq).FreeEnergy + 1e-9), seq);
+            AssertValid(r);
+            if (!r.HasPseudoknot) Assert.That(r.DotBracket, Is.EqualTo(CalculateMfeStructure(seq).DotBracket), seq);
+        }
+    }
+
+    // Recursion terminates and stays tractable: 150 nt (the previous interval-memo recursion needed 6.9 s for 80 nt).
+    [Test, CancelAfter(120000)]
+    public void Recursive_LongSequence_Completes()
+    {
+        string seq = GenerateRandomRna(150, new Random(5), 0.6);
+        var r = PredictStructurePseudoknotRecursive(seq);
+        Assert.That(r.FreeEnergy, Is.LessThanOrEqualTo(CalculateMfeStructure(seq).FreeEnergy + 1e-9));
+        AssertValid(r);
+    }
+
+    [Test]
+    public void Recursive_Concurrent_SameResult()
+    {
+        const string seq = "CCGCUUGGAGUGCGGAAACUCCUUUCGGAAGCCGUCCGUACGGC";
+        var reference = PredictStructurePseudoknotRecursive(seq);
+        var results = new PseudoknotStructure[6];
+        Parallel.For(0, results.Length, i => results[i] = PredictStructurePseudoknotRecursive(seq));
+        Assert.That(results.Select(x => x.DotBracket), Is.All.EqualTo(reference.DotBracket));
+    }
+
+    #endregion
+
+    #region Edge cases
+
+    [TestCase(null)]
+    [TestCase("")]
+    public void Recursive_NullOrEmpty_EmptyStructure(string? seq)
+    {
+        var r = PredictStructurePseudoknotRecursive(seq!);
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.False, "null input has no pseudoknot.");
-            Assert.That(pk.BasePairs, Is.Empty, "null input yields no base pairs.");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(0.0).Within(1e-10), "null input ΔG is 0.");
-            Assert.That(pk.Sequence, Is.EqualTo(string.Empty), "null input folds the empty sequence.");
+            Assert.That(r.Sequence, Is.Empty);
+            Assert.That(r.DotBracket, Is.Empty);
+            Assert.That(r.BasePairs, Is.Empty);
+            Assert.That(r.FreeEnergy, Is.EqualTo(0.0));
+            Assert.That(r.HasPseudoknot, Is.False);
         });
     }
 
-    // S2 — empty input → empty structure.
-    [Test]
-    public void Recursive_EmptyInput_EmptyStructure()
+    [TestCase("GGGCCC")]
+    [TestCase("GGGGAAAACC")]
+    public void Recursive_TooShort_PlainMfe(string seq)
     {
-        var pk = PredictStructurePseudoknotRecursive("");
+        var r = PredictStructurePseudoknotRecursive(seq);
         Assert.Multiple(() =>
         {
-            Assert.That(pk.HasPseudoknot, Is.False, "empty input has no pseudoknot.");
-            Assert.That(pk.BasePairs, Is.Empty, "empty input yields no base pairs.");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(0.0).Within(1e-10), "empty input ΔG is 0.");
+            Assert.That(r.HasPseudoknot, Is.False);
+            Assert.That(r.DotBracket, Is.EqualTo(CalculateMfeStructure(seq).DotBracket));
         });
     }
 
-    // S3 — too short for any canonical knot (< 11 nt) → no pseudoknot, equals plain MFE.
     [Test]
-    public void Recursive_TooShort_NoPseudoknot()
+    public void Recursive_DnaAndLowerCase_ParityWithRna()
     {
-        const string shortSeq = "GGGCCC";
-        var pk = PredictStructurePseudoknotRecursive(shortSeq);
-        var mfe = CalculateMfeStructure(shortSeq);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(pk.HasPseudoknot, Is.False, "Below 11 nt no canonical knot can form.");
-            Assert.That(pk.DotBracket, Is.EqualTo(mfe.DotBracket), "Returned structure equals the plain MFE.");
-            Assert.That(pk.FreeEnergy, Is.EqualTo(mfe.FreeEnergy).Within(1e-10), "ΔG equals the plain MFE.");
-        });
+        const string rna = "CCGCUUGGAGUGCGGAAACUCCUUUCGGAAGCCGUCCGUACGGC";
+        var a = PredictStructurePseudoknotRecursive(rna);
+        var b = PredictStructurePseudoknotRecursive(rna.Replace('U', 'T').ToLowerInvariant());
+        Assert.That(b.DotBracket, Is.EqualTo(a.DotBracket));
+        Assert.That(b.FreeEnergy, Is.EqualTo(a.FreeEnergy));
+        Assert.That(b.Sequence, Is.EqualTo(rna));
     }
 
-    // S4 — Single canonical H-type: recursion must not regress the single-knot case.
     [Test]
-    public void Recursive_SingleHType_MatchesSingleKnotMethod()
+    public void Recursive_MinLoopSizeBelowThree_ClampedToThree()
     {
-        var recursive = PredictStructurePseudoknotRecursive(SingleHType);
-        var single = PredictStructurePseudoknot(SingleHType);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(recursive.HasPseudoknot, Is.True, "Single H-type is still predicted.");
-            Assert.That(recursive.DotBracket, Is.EqualTo(single.DotBracket),
-                "Recursive method reproduces the single-knot dot-bracket on the single-knot case.");
-            Assert.That(PairSet(recursive.BasePairs), Is.EquivalentTo(PairSet(single.BasePairs)),
-                "Recursive method reproduces the single-knot base pairs.");
-            Assert.That(recursive.FreeEnergy, Is.EqualTo(single.FreeEnergy).Within(1e-10),
-                "Recursive method reproduces the single-knot ΔG (-8.76).");
-        });
+        const string seq = "GGGGAACCCCAACCCCAAGGGG";
+        Assert.That(PredictStructurePseudoknotRecursive(seq, 0).DotBracket, Is.EqualTo(PredictStructurePseudoknotRecursive(seq).DotBracket));
     }
 
-    // C1 — DNA spelling (T) folds identically to the RNA spelling (T read as U).
     [Test]
-    public void Recursive_DnaInput_FoldsIdenticallyToRna()
+    public void Recursive_Temperature_UsesSharedModel()
     {
-        string dna = NestedKnot.Replace('U', 'T');
-        var rnaPk = PredictStructurePseudoknotRecursive(NestedKnot);
-        var dnaPk = PredictStructurePseudoknotRecursive(dna);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(dnaPk.HasPseudoknot, Is.EqualTo(rnaPk.HasPseudoknot), "T read as U → same knot decision.");
-            Assert.That(PairSet(dnaPk.BasePairs), Is.EquivalentTo(PairSet(rnaPk.BasePairs)),
-                "T read as U → identical base pairs.");
-            Assert.That(dnaPk.FreeEnergy, Is.EqualTo(rnaPk.FreeEnergy).Within(1e-10),
-                "T read as U → identical free energy.");
-        });
-    }
-
-    // C2 — minLoopSize below NNDB minimum is clamped to 3 (same result as default).
-    [Test]
-    public void Recursive_MinLoopSizeZero_ClampedToThree()
-    {
-        var clamped = PredictStructurePseudoknotRecursive(NestedKnot, minLoopSize: 0);
-        var def = PredictStructurePseudoknotRecursive(NestedKnot, minLoopSize: 3);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(clamped.HasPseudoknot, Is.EqualTo(def.HasPseudoknot), "minLoopSize<3 clamps to 3.");
-            Assert.That(clamped.DotBracket, Is.EqualTo(def.DotBracket), "clamped result equals the default.");
-            Assert.That(clamped.FreeEnergy, Is.EqualTo(def.FreeEnergy).Within(1e-10), "clamped ΔG equals default.");
-        });
+        const string seq = "CCGCUUGGAGUGCGGAAACUCCUUUCGGAAGCCGUCCGUACGGC";
+        Assert.That(PredictStructurePseudoknotRecursive(seq, 3, 310.15).FreeEnergy, Is.EqualTo(PredictStructurePseudoknotRecursive(seq).FreeEnergy));
+        Assert.That(PredictStructurePseudoknotRecursive(seq, 3, 298.15).FreeEnergy, Is.LessThan(PredictStructurePseudoknotRecursive(seq).FreeEnergy));
     }
 
     #endregion

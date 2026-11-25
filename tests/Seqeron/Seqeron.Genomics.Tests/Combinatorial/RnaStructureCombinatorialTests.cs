@@ -870,21 +870,21 @@ public class RnaStructureCombinatorialTests
     //
     // Model: the recursive folder lets the three loops fold internally (including further knots) and the
     //   pseudoknot value competes with unknotted foldings for each interval, so the optimum may contain
-    //   several / over-arching nested knots. A reported knot still strictly beats the plain MFE.
+    //   several / nested knots. A reported knot still strictly beats the plain MFE.
     //
     // Dimensions: seqLen(3) × minLoop(2). Grid 3×2 = 6.
     //
     // The combinatorial point: three engineered scales — a single H-type (22 nt, ≥1 crossing), an
-    // over-arching nested knot (38 nt, ≥1 crossing) and two separated knots (80 nt, ≥2 crossings) —
+    // nested knot (knot in a knot loop, 38 nt, ≥1 crossing) and two side-by-side knots (47 nt, ≥2 crossings) —
     // are each recovered as pseudoknotted with a valid crossing structure beating the MFE, stable
     // under the minLoopSize knob (clamped ≥3).
     // ═══════════════════════════════════════════════════════════════════════
 
     // Engineered constructs from the Evidence datasets.
     private const string PkSingleHType = "GGGGAACCCCAACCCCAAGGGG";                                    // 22 nt, one H-type
-    private const string PkNestedKnot = "AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU";                    // 38 nt, over-arching nested knot
-    private const string PkTwoKnots =                                                                // 80 nt, two separated knots
-        "AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUUAAAAAAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU";
+    private const string PkNestedKnot = "GCCAGCGGCCUUACGGGAUAGGCAUACCCGGGCAACGC";                    // 38 nt, knot inside loop v of another knot
+    private const string PkTwoKnots =                                                                // 47 nt, two knots side by side
+        "GGGGAACCCCAACCCCAAGGGGAAAGGGGAACCCCAACCCCAAGGGG";
 
     public enum PkScale { Single, Nested, TwoKnots }
 
@@ -911,9 +911,9 @@ public class RnaStructureCombinatorialTests
     }
 
     /// <summary>
-    /// Interaction witness: recursion strictly helps where it should. On the over-arching nested knot the
-    /// recursive folder reaches a lower free energy than the single-knot predictor (which recovers no knot
-    /// there); on a plain hairpin neither introduces a spurious knot.
+    /// Interaction witness: recursion strictly helps where it should. On the knot-in-knot-loop construct the
+    /// recursive folder reaches a lower free energy than the single-knot predictor (whose knot loops fold
+    /// knot-free: −12.15 vs −11.56, oracle-verified); on a plain hairpin neither introduces a spurious knot.
     /// </summary>
     [Test]
     public void PseudoknotRecursive_BeatsSingleKnotOnNested_NoSpuriousOnHairpin()
@@ -921,8 +921,8 @@ public class RnaStructureCombinatorialTests
         var recursive = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(PkNestedKnot);
         var single = RnaSecondaryStructure.PredictStructurePseudoknot(PkNestedKnot);
         recursive.FreeEnergy.Should().BeLessThan(single.FreeEnergy,
-            "loop recursion lowers the energy of the over-arching nested knot below the single-knot method");
-        single.HasPseudoknot.Should().BeFalse("the single-knot method cannot fold the over-arching nested knot");
+            "loop recursion lowers the energy of the nested knot below the single-knot method");
+        recursive.DotBracket.Should().NotBe(single.DotBracket, "the recursive fold places the inner knot in the loop");
 
         var hairpin = RnaSecondaryStructure.PredictStructurePseudoknotRecursive("GGGGAAAACCCC");
         hairpin.HasPseudoknot.Should().BeFalse("no spurious knot on a plain hairpin");

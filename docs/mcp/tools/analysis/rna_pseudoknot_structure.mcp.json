@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rna_pseudoknot_structure",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.PredictStructurePseudoknotRecursive | RnaSecondaryStructure.PredictStructurePseudoknot",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.Pseudoknot.cs",
+  "description": "MFE structure that may contain canonical H-type pseudoknots (pknotsRG class csr-PK over the Turner 2004 d2 model): dot-bracket, base pairs, free energy and HasPseudoknot. allowNestedKnots=false limits it to one knot in the exterior loop.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rnaSequence": {
+        "type": "string",
+        "description": "RNA sequence (T read as U, case-insensitive; other characters never pair)",
+        "minLength": 1
+      },
+      "allowNestedKnots": {
+        "type": "boolean",
+        "description": "true (default): full recursive pknotsRG grammar; false: at most one knot in the exterior loop",
+        "default": true
+      },
+      "minLoopSize": {
+        "type": "integer",
+        "description": "Minimum hairpin loop size (default 3; values <3 are clamped)",
+        "default": 3
+      },
+      "temperature": {
+        "type": "number",
+        "description": "Absolute temperature in Kelvin (default 310.15 = 37 C)",
+        "default": 310.15,
+        "exclusiveMinimum": 0
+      }
+    },
+    "required": [
+      "rnaSequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string"
+      },
+      "dotBracket": {
+        "type": "string",
+        "description": "crossing helices use [] {} <> ..."
+      },
+      "basePairs": {
+        "type": "array"
+      },
+      "freeEnergy": {
+        "type": "number",
+        "description": "kcal/mol"
+      },
+      "hasPseudoknot": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "sequence",
+      "dotBracket",
+      "basePairs",
+      "freeEnergy",
+      "hasPseudoknot"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Designed H-type knot",
+      "input": {
+        "rnaSequence": "GGGGAACCCCAACCCCAAGGGG"
+      },
+      "output": {
+        "dotBracket": "((((..[[[[..))))..]]]]",
+        "freeEnergy": -13.56,
+        "hasPseudoknot": true
+      }
+    }
+  ]
+}

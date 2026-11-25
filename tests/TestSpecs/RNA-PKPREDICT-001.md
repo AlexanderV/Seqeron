@@ -2,10 +2,10 @@
 
 **Test Unit ID:** RNA-PKPREDICT-001
 **Area:** RnaStructure
-**Algorithm:** Pseudoknot Structure Prediction (canonical H-type, pknotsRG class)
-**Status:** ☑ Complete
+**Algorithm:** Pseudoknot structure prediction — at most one canonical H-type knot (pknotsRG class csr-PK, exact DP over the shared Turner 2004 model)
+**Status:** ☑ Complete (re-reviewed 2026-11-25, Stage A / Stage B)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-23
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -13,158 +13,79 @@
 
 ### 1.1 Authoritative Sources
 
-| # | Source | Authority Rank | DOI or URL | Accessed |
-|---|--------|---------------|------------|----------|
-| 1 | Reeder & Giegerich (2004), BMC Bioinformatics 5:104 (pknotsRG) | 1 | https://doi.org/10.1186/1471-2105-5-104 (PMC514697) | 2026-06-23 |
-| 2 | pknotsRG source (Energy.lhs penalties 9.0/0.3/0.0) | 3 | https://github.com/jensreeder/pknotsRG | 2026-06-23 |
-| 3 | Pseudoknot — Wikipedia (H-type geometry; Rivas & Eddy 1999) | 4 | https://en.wikipedia.org/wiki/Pseudoknot | 2026-06-23 |
-| 4 | Su et al. (1999), Nat Struct Biol 6(3):285–292; PDB 437D (BWYV) | 1 | https://www.rcsb.org/structure/437D | 2026-06-23 |
-| 5 | Antczak et al. (2018), Bioinformatics 34(8):1304–1312 (crossing i<k<j<l) | 1 | https://doi.org/10.1093/bioinformatics/btx783 | 2026-06-23 |
+| # | Source | Authority Rank | URL | Accessed |
+|---|--------|---------------|-----|----------|
+| 1 | Reeder & Giegerich (2004), BMC Bioinformatics 5:104 — canonical simple recursive pseudoknots, rules 1–3, O(n⁴) | 1 | https://doi.org/10.1186/1471-2105-5-104 | 2026-11-25 |
+| 2 | pknotsRG source: `pknotsRG-mfe.lhs` (`pknot`, `getbeta`), `Energy.lhs` (pkinit 900, npp 30, pbp 0), `Algebras.lhs` (`pk'`, `pkml` 600) | 3 | https://github.com/jensreeder/pknotsRG | 2026-11-25 |
+| 3 | ViennaRNA 2.7.2 `RNA.E_Hairpin/E_IntLoop/E_MLstem/E_ExtLoop/fold` + NNDB-precision parameter file (oracle primitives) | 1 | PyPI sdist `ViennaRNA` | 2026-11-25 |
+| 4 | Antczak et al. (2018) — crossing i<k<j<l | 1 | https://doi.org/10.1093/bioinformatics/btx783 | 2026-06-23 |
+| 5 | Su et al. (1999) Nat Struct Biol 6:285 / PDB 437D (BWYV sequence) | 1 | https://www.rcsb.org/structure/437D | 2026-06-23 |
 
 ### 1.2 Key Evidence Points
 
-1. Canonical simple recursive pseudoknot = two crossing helices a·a', b·b' + three loops u,v,w — Reeder & Giegerich (2004).
-2. Pseudoknot penalties: initiation 9.0, unpaired loop base 0.3, in-knot base pair 0.0 kcal/mol — pknotsRG Energy.lhs.
-3. H-type 5'→3' order: stem1-5' · loop1 · stem2-5' · loop2 · stem1-3' · loop3 · stem2-3' — Wikipedia.
-4. Crossing condition: pairs (i,j),(k,l) cross iff i<k<j<l — Antczak (2018).
-5. Helices use Turner 2004 nearest-neighbour stacking (same as nested structures) — pknotsRG.
+1. Knot = a·u·b·v·a'·w·b'; equal-length bulge-free maximal helices (≥ 2 pairs); rule 3 shortens b where helices compete for v; one nt after a and two nt before b' unpaired; v may be empty — Sources 1, 2.
+2. Energy: 9.0 + 3·0.3 + stacks + 0.3/unpaired loop nt + helix ends (shared d2 model); 6.0 (`pkml`) for a knot as a multiloop / knot-loop component — Source 2.
+3. The result is the exact optimum of that space; flanks and loops fold with the shared Turner 2004 engine; never above the plain MFE — Sources 1, 2.
+4. Oracle: independent grammar implementation on ViennaRNA primitives agrees to 0.00 on 1 971 sequences; exhaustive table-free enumeration agrees on 70 small sequences (Evidence §Stage B).
 
 ### 1.3 Documented Corner Cases
 
-- A pseudoknot is reported only when the two crossing helices outweigh the 9 kcal/mol penalty plus the best nested alternative (no spurious knots).
-- Tertiary-stabilised knots (BWYV / PDB 437D) are not the NN-thermodynamic MFE structure — documented limit of NN-only predictors.
+- Knot only when strictly better than the pseudoknot-free optimum (tie → plain MFE structure).
+- Sequences with NNDB-only terms ViennaRNA lacks (special C bulge, 1-nt bulge degeneracy, GGUC stack, special GU closure, all-C loops) are not oracle-comparable (excluded from the lock rows).
+- BWYV: model optimum contains a knot (−10.51 vs −7.90); not claimed equal to the crystal pairing.
 
-### 1.4 Known Failure Modes / Pitfalls
+### 1.4 Known Failure Modes / Pitfalls (fixed 2026-11-25)
 
-1. Treating a strong nested hairpin as a pseudoknot — prevented by the strict-improvement acceptance rule.
-2. Double-counting unpaired loop bases that the loop MFE pairs — `ScoreLoop` charges 0.3 only on the nucleotides the loop fold leaves unpaired.
+1. Flanks 5' of a / 3' of b' left unfolded and unscored → knots with a flanking hairpin lost (`GGGCGAAAGCCC…` −15.98 → −21.70).
+2. Knot energy without bridging nt / helix ends / loop context (designed H-type −8.76 → −13.56).
+3. v ≥ 1 and dropped overlap candidates (`UCAUGUUAGCUCAUGAAUGGCU` −4.22 → −5.93).
 
 ---
 
 ## 2. Canonical Methods Under Test
 
-| Method | Class | Type | Notes |
-|--------|-------|------|-------|
-| `PredictStructurePseudoknot(string, int)` | RnaSecondaryStructure | Canonical | Deep evidence-based testing |
+| Method | Type | Notes |
+|--------|------|-------|
+| `PredictStructurePseudoknot(string, int, double)` | Canonical | ≤ 1 knot in the exterior loop; engine shared with RNA-PKRECURSIVE-001 |
+| `rna_pseudoknot_structure` (MCP, `allowNestedKnots=false`) | Wrapper | `RnaPseudoknotStructureTests` |
 
 ---
 
 ## 3. Invariants
 
-| ID | Invariant | Verifiable | Evidence |
-|----|-----------|------------|----------|
-| INV-PK-01 | Returned ΔG ≤ plain-MFE ΔG for same input | Yes | MFE is the fallback baseline |
-| INV-PK-02 | HasPseudoknot ⇒ base pairs contain a crossing pair | Yes | Antczak (2018); construction |
-| INV-PK-03 | Each position paired ≤ once; indices in [0,n) | Yes | Canonization rule 1; disjoint spans |
-| INV-PK-04 | No spurious pseudoknot (strict improvement only) | Yes | 9 kcal/mol penalty (Reeder & Giegerich 2004) |
+| ID | Invariant |
+|----|-----------|
+| INV-PK-01 | ΔG ≤ plain MFE |
+| INV-PK-02 | HasPseudoknot ⇔ crossing pair in the pair set |
+| INV-PK-03 | each position paired ≤ once, hairpins ≥ 3, dot-bracket round trip |
+| INV-PK-04 | no knot ⇒ structure and ΔG = plain MFE |
+| INV-PK-05 | recursive ≤ single ≤ MFE |
+| INV-PK-06 | DP = exhaustive enumeration of the search space |
 
 ---
 
-## 4. Test Cases
+## 4. Test Cases (`Unit/Analysis/RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs`)
 
-### 4.1 MUST Tests (Required — every row needs Evidence)
+| ID | Test | Expected |
+|----|------|----------|
+| M1 | designed H-type `GGGGAACCCCAACCCCAAGGGG` | pairs (0,15)…(9,18)…, `((((..[[[[..))))..]]]]`, −13.56 (MFE −7.84) |
+| M2 | knot strictly beats plain MFE | ΔG < MFE − 1 |
+| M3 | hairpin + knot `GGGCGAAAGCCCAAGGGGAACCCCAACCCCAAGGGG` | `((((....))))..((((..[[[[..))))..]]]]`, −21.70 (MFE −15.98) |
+| M4 | empty middle loop `UCAUGUUAGCUCAUGAAUGGCU` | `(((((..[[[[)))))..]]]]`, −5.93 (MFE −4.22) |
+| M5 | pknotsRG README sequence, BWYV | −12.31, −10.51 (oracle) |
+| T1 | oracle rows (29) | energy, dot-bracket, no-knot ⇒ MFE structure, validity |
+| T2 | exhaustive enumeration, random + H-type-biased 11–16 nt (70) and 4 designed | DP = enumeration (0.006) |
+| I1 | random sweep (80, 11–40 nt) | ΔG ≤ MFE, no knot ⇒ MFE structure, valid, recursive ≤ single |
+| I2 | two knots possible | single places exactly one (4 `[`), recursive two (8) |
+| E1 | DNA / lower case; minLoopSize 0 → 3; temperature (310.15 = default, 298.15 lower); parallel calls; 150 nt | parity / clamp / monotone / deterministic / completes |
+| E2 | null, empty, < 11 nt, hairpin, N / IUPAC | empty / plain MFE / valid |
 
-| ID | Test Case | Description | Expected Outcome | Evidence |
-|----|-----------|-------------|------------------|----------|
-| M1 | Designed H-type recovered | `GGGGAACCCCAACCCCAAGGGG` | HasPseudoknot=true; pairs {(0,15)(1,14)(2,13)(3,12)} ∪ {(6,21)(7,20)(8,19)(9,18)}; dot-bracket `((((..[[[[..))))..]]]]` | H-type geometry + pknotsRG penalties |
-| M2 | Knot beats MFE | same sequence | FreeEnergy < CalculateMfeStructure(seq).FreeEnergy | INV-PK-01/04 |
-| M3 | Crossing genuine | same sequence | DetectPseudoknots over returned pairs yields ≥1 crossing | INV-PK-02; Antczak (2018) |
-| M4 | Valid structure | same sequence | every index in [0,n); each position paired ≤ once | INV-PK-03 |
-| M5 | No spurious knot (hairpin) | `GGGGAAAACCCC` | HasPseudoknot=false; DotBracket & ΔG = plain MFE (`((((....))))`) | INV-PK-04 |
-| M6 | Invariant ΔG ≤ MFE (property) | seeded random sweep (≥100 seqs) | for every seq, FreeEnergy ≤ MFE; any reported knot beats MFE and is valid | INV-PK-01/03/04 |
-
-### 4.2 SHOULD Tests (Important edge cases)
-
-| ID | Test Case | Description | Expected Outcome | Notes |
-|----|-----------|-------------|------------------|-------|
-| S1 | null input | `null` | empty seq, ".", no pairs, ΔG 0, HasPseudoknot=false | contract parity |
-| S2 | empty input | `""` | empty result, HasPseudoknot=false | contract parity |
-| S3 | too short | `GGGCCC` (<11 nt) | HasPseudoknot=false; = plain MFE | min knot length |
-| S4 | BWYV real knot | `GGCGCGGCACCGUCCGCGGAACAAACGG` | HasPseudoknot=false (tertiary-stabilised, not NN-MFE); ΔG ≤ MFE | documents NN limit |
-| S5 | DNA spelling parity | T-form of the M1 sequence | identical pairs/energy as the U-form | T read as U |
-
-### 4.3 COULD Tests (Nice to have)
-
-| ID | Test Case | Description | Expected Outcome | Notes |
-|----|-----------|-------------|------------------|-------|
-| C1 | minLoopSize clamp | minLoopSize=0 on M1 seq | clamped to 3; same result as default | NNDB minimum |
+MCP: `Seqeron.Mcp.Analysis.Tests/RnaPseudoknotStructureTests.cs` (schema + binding), contract list updated.
 
 ---
 
 ## 5. Audit of Existing Tests
 
-### 5.1 Discovery Summary
-
-- New method; no prior tests. Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs`.
-
-### 5.2 Coverage Classification
-
-| Area / Test Case ID | Status | Notes |
-|---------------------|--------|-------|
-| M1–M6 | ❌ Missing | new unit |
-| S1–S5 | ❌ Missing | new unit |
-| C1 | ❌ Missing | new unit |
-
-### 5.3 Consolidation Plan
-
-- **Canonical file:** `RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs` — all cases.
-- **Remove:** none.
-
-### 5.4 Final State After Consolidation
-
-| File | Role | Test Count |
-|------|------|------------|
-| RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs | Canonical | 12 |
-
-### 5.5 Phase 7 Work Queue
-
-| # | Test Case ID | §5.2 Status | Action Taken | Final Status |
-|---|-------------|-------------|--------------|--------------|
-| 1 | M1 | ❌ Missing | Implemented | ✅ Done |
-| 2 | M2 | ❌ Missing | Implemented | ✅ Done |
-| 3 | M3 | ❌ Missing | Implemented | ✅ Done |
-| 4 | M4 | ❌ Missing | Implemented | ✅ Done |
-| 5 | M5 | ❌ Missing | Implemented | ✅ Done |
-| 6 | M6 | ❌ Missing | Implemented (seeded sweep) | ✅ Done |
-| 7 | S1 | ❌ Missing | Implemented | ✅ Done |
-| 8 | S2 | ❌ Missing | Implemented | ✅ Done |
-| 9 | S3 | ❌ Missing | Implemented | ✅ Done |
-| 10 | S4 | ❌ Missing | Implemented | ✅ Done |
-| 11 | S5 | ❌ Missing | Implemented | ✅ Done |
-| 12 | C1 | ❌ Missing | Implemented | ✅ Done |
-
-**Total items:** 12
-**✅ Done:** 12 | **⛔ Blocked:** 0 | **Remaining:** 0
-
-### 5.6 Post-Implementation Coverage
-
-| Area / Test Case ID | Status | Resolution |
-|---------------------|--------|------------|
-| M1 | ✅ | DesignedHType_RecoversBothCrossingHelices |
-| M2 | ✅ | DesignedHType_BeatsPlainMfe |
-| M3 | ✅ | DesignedHType_ContainsGenuineCrossing |
-| M4 | ✅ | DesignedHType_ValidStructure |
-| M5 | ✅ | PlainHairpin_NoSpuriousPseudoknot |
-| M6 | ✅ | RandomSweep_NeverWorseThanMfe_KnotsValid |
-| S1 | ✅ | NullInput_EmptyStructure |
-| S2 | ✅ | EmptyInput_EmptyStructure |
-| S3 | ✅ | TooShort_NoPseudoknot |
-| S4 | ✅ | Bwyv_NotRecoveredAsMfe_DocumentsTertiaryLimit |
-| S5 | ✅ | DnaInput_FoldsIdenticallyToRna |
-| C1 | ✅ | MinLoopSizeZero_ClampedToThree |
-
----
-
-## 6. Assumption Register
-
-**Total assumptions:** 1
-
-| # | Assumption | Used In |
-|---|-----------|---------|
-| 1 | PARTIAL: single canonical H-type knot only (no recursive/multiple knots; loops fold pseudoknot-free) | scope of the unit; §5.3 / Evidence |
-
----
-
-## 7. Open Questions / Decisions
-
-1. None. The class implemented (canonical single H-type) and its residual (recursive/multiple/non-canonical knots, tertiary stabilisation) are documented in LIMITATIONS.md §1.
+Replaced `RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs` (old expectations: knot-only energy −8.76, BWYV "no knot", "single method cannot place a second knot"). Heavy-tier files
+(Fuzzing `RnaPseudoknotPredictFuzzTests`, Properties, Metamorphic, Combinatorial) kept; their nested-knot datasets updated to oracle-verified grammar cases. Shared helpers:
+`PknotsRgBruteForce.cs`, `PknotsRgOracleData.cs`.

@@ -556,6 +556,17 @@ internal sealed class TurnerModel
         return MlClosing + MlIntern + (IsAuGu(type) ? TerminalAu : 0.0) + multiMismatch[type * 25 + s[j - 1] * 5 + s[i + 1]];
     }
 
+    /// <summary>
+    /// Helix end (p,q) seen from the loop it ENCLOSES (the loop lies between p and q): the d2 terminal-AU/GU penalty and
+    /// multibranch mismatch of the pair read as the closing pair of that loop (ViennaRNA <c>E_MLstem(rtype, s[q−1], s[p+1])</c>)
+    /// without the multiloop closing / branch terms. Used for the inner helix ends of a pseudoknot.
+    /// </summary>
+    public double InnerStemEnd(byte[] s, int p, int q)
+    {
+        int type = PairType(s[q], s[p]);
+        return (IsAuGu(type) ? TerminalAu : 0.0) + multiMismatch[type * 25 + s[q - 1] * 5 + s[p + 1]];
+    }
+
     // ---------------------------------------------------------------- public-API helpers (case/T-normalised chars)
 
     /// <summary>Terminal mismatch (exterior / multibranch) of the helix end <c>closing5 mismatch5 / closing3 mismatch3</c>.</summary>

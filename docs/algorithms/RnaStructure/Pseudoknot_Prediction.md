@@ -1,233 +1,184 @@
-# RNA Pseudoknot Structure Prediction (canonical H-type, pknotsRG class)
+# RNA Pseudoknot Structure Prediction (canonical simple recursive pseudoknots, pknotsRG class)
 
 | Field | Value |
 |-------|-------|
 | Algorithm Group | RnaStructure |
-| Test Unit ID | RNA-PKPREDICT-001 (RNA-STRUCT-001 limitation fix) |
+| Test Unit ID | RNA-PKPREDICT-001 (single knot) — shares the engine of [RNA-PKRECURSIVE-001](Pseudoknot_Prediction_Recursive.md) |
 | Related Projects | Seqeron.Genomics.Analysis |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-23 |
+| Implementation Status | Implemented — exact optimum of the pknotsRG csr-PK search space over the shared Turner 2004 model (energy parameters differ from pknotsRG's, see §5.3) |
+| Last Reviewed | 2026-11-25 |
 
 ## 1. Overview
 
-Predicts an RNA secondary structure that may contain a single **canonical H-type pseudoknot** —
-two crossing helices with three intervening loops — using the *canonical simple recursive
-pseudoknot* class of Reeder & Giegerich's pknotsRG algorithm [1]. The two crossing helices are
-scored with the same Turner 2004 nearest-neighbour stacking model used by the pseudoknot-free MFE
-folder in this module; the three connecting loops fold independently with that MFE; and the
-pknotsRG pseudoknot-specific penalties are added (initiation 9.0 kcal/mol; 0.3 kcal/mol per
-unpaired loop nucleotide) [1][2]. The candidate H-type fold is accepted only when its total free
-energy is strictly below the plain pseudoknot-free MFE, so no spurious pseudoknots are introduced.
-It is a thermodynamic (energy-minimising) predictor, exact for the canonical single-knot class it
-covers and heuristic-free within that class.
+`PredictStructurePseudoknot` returns the minimum-free-energy structure that may contain **at most one canonical H-type
+pseudoknot**, the knot standing in the exterior loop, its three loops folding pseudoknot-free, the rest of the sequence
+(before, after, inside the loops) folding with the shared Turner 2004 engine. It is the exact optimum of that search space
+(no heuristic, no enumeration cut-offs): the pknotsRG dynamic programme of Reeder & Giegerich [1][2] with the knot count
+limited to one. `PredictStructurePseudoknotRecursive` is the same engine without the limit (all knots, knots in
+multiloops and in knot loops). Both are never worse than `CalculateMfeStructure`.
 
 ## 2. Scientific / Formal Basis
 
 ### 2.1 Domain Context
 
-A pseudoknot is a non-nested ("crossing") arrangement of base pairs: pairs (i,j) and (k,l) cross
-iff i < k < j < l [5]. The most common biological case is the **H-type** pseudoknot, where the
-unpaired loop of a hairpin base-pairs with a single-stranded region outside the hairpin, so half of
-one helix is intercalated between the two halves of the other [3]. Standard O(n³) nearest-neighbour
-folders (Zuker–Stiegler) are pseudoknot-free by construction; predicting pseudoknots requires a
-different algorithm class [1].
+A pseudoknot is a crossing arrangement of base pairs: (i,j) and (k,l) cross iff i < k < j < l [5]. The H-type knot is two
+crossing helices with three loops. pseudoknot-free folders (Zuker–Stiegler) cannot produce it; general pseudoknot DPs are
+O(n⁶) (Rivas & Eddy 1999) and pknotsRG restricts the class so that O(n⁴) time / O(n²) space suffice [1].
 
-### 2.2 Core Model
-
-pknotsRG defines a *simple recursive pseudoknot* as two crossing helices with three intervening
-loops, written by the grammar [1]
+### 2.2 Search space (Reeder & Giegerich 2004 [1], pknotsRG-mfe.lhs `pknot` [2])
 
 ```
-knot = a ~~~ u ~~~ b ~~~ v ~~~ a' ~~~ w ~~~ b'
+knot = a · u · b · v · a' · w · b'        (5' → 3', a pairs a', b pairs b')
 ```
 
-read 5'→3', where helix strand `a` pairs with `a'`, helix strand `b` pairs with `b'`, and `u`,
-`v`, `w` are the three loops. The H-type ordering is therefore
-**stem1-5' (a) · loop1 (u) · stem2-5' (b) · loop2 (v) · stem1-3' (a') · loop3 (w) · stem2-3' (b')**
-[3]. Because `b` lies between the two strands of `a` while `b'` lies outside `a'`, the two helices
-cross — a genuine pseudoknot.
+Boundaries i (start of a), k (end of a'), l (start of b), j (end of b'); α = |a|, β = |b|.
 
-**Energy model.** ΔG(knot) = stacking(a·a') + stacking(b·b') + ΔG(u) + ΔG(v) + ΔG(w) + Pᵢ +
-Pᵤₙₚ·(unpaired loop nucleotides), where stacking(·) is the Turner 2004 nearest-neighbour stack/
-terminal-AU energy [reused from the module's `CalculateStemEnergy`], ΔG(loop) is the pseudoknot-free
-MFE of the loop span, Pᵢ = 9.0 kcal/mol is the pseudoknot initiation penalty and Pᵤₙₚ = 0.3
-kcal/mol is the penalty per unpaired loop nucleotide [1][2]. Base pairs inside the pseudoknot carry
-no extra term ("basepair inside pseudoknot: 0.0") [2].
+| Rule | Statement | Implementation |
+|------|-----------|----------------|
+| Rule 1 | both strands of a helix have equal length, no bulges (class csr-PK; the relaxed class with a 1-nt bulge is not included, §5.3) | helices are chains of consecutive pairs (i+t, k−t), (l+t, j−t) |
+| Rule 2 | helices have maximal extent from their outer pair | α = length of the maximal pair chain from (i,k); β from (l,j) |
+| Rule 3 | where two maximal helices compete for the bases of v the boundary is fixed arbitrarily | b is shortened (pknotsRG `getbeta`): β ≤ k − α − l + 1 (v ≥ 0) and β ≤ j − k − 2 (w ≥ 2) |
+| size | each helix ≥ 2 pairs | α, β ≥ 2 |
+| bridging | one nt after a and two nt before b' stay unpaired (stereochemistry; `front` / `back`) | u' = [i+α+1, l−1] after the explicit unpaired nt i+α; w' = [k+1, j−β−2] before the explicit nts j−β−1, j−β; v = [l+β, k−α] may be empty |
 
-### 2.3 Modeling Assumptions
+Loops u', v, w' fold as **segments**: a sequence of closed stems and unpaired nucleotides (pknotsRG `comps`); in the
+recursive variant a segment component may also be a knot. The four free boundaries i, l, k, j give O(n⁴) candidates; the
+loop segments are table look-ups.
+
+### 2.3 Energy model
+
+Every nested term is the shared `TurnerModel` (Turner 2004 NNDB-precision parameters, ViennaRNA `-d2`, temperature
+rescaling). The pknotsRG pseudoknot parameters are used unchanged [2]:
+
+```
+ΔG(knot) = 9.0                                         pkinit  (Energy.lhs: pkinit = 900)
+         + 3 · 0.3                                     the three bridging unpaired nt (pk' : 3*npp)
+         + Σ stack(a) + Σ stack(b)                     Turner 2004 stacks incl. the GGUC/CUGG three-stack; 0.0 per pair (pbp = 0)
+         + C(u') + C(v) + C(w')                        knot-loop segments
+         + Ext(i,k) + Ext(l,j)                         d2 exterior-stem term of the outer pairs of a and b (terminal AU/GU + mismatch)
+         + Inner(a5last, a3first) + Inner(b5last, b3first)   d2 mismatch + terminal AU/GU of the inner pairs read from the enclosed loop
+C(x..y)  = best sequence of components, 0.3 per unpaired nt (npp = 30),
+           stem (p,q): V(p,q) + Ext(p,q);   knot (recursive variant only): K(p,q) + 6.0   (pkml = 600)
+```
+
+`V(p,q)` is the Zuker closed-pair energy of the shared engine (hairpin / interior / multiloop). The knot is a component of
+the exterior loop at cost K, of a multiloop at cost K + 6.0 (instead of the branch term; recursive variant only).
+`PredictStructurePseudoknot`: at most one knot; knot loops and multiloops are knot-free.
+
+### 2.4 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
-| ASM-PK-01 | Fixed temperature/buffer (Turner 2004, 37 °C); pseudoknot penalties as published by pknotsRG | Energies and the knot/no-knot decision shift with conditions not modelled (e.g. ionic strength). |
-| ASM-PK-02 | Secondary-structure thermodynamics only; tertiary interactions (triplexes, Mg²⁺ coordination) are not modelled | Tertiary-stabilised knots (e.g. BWYV) are not the predicted MFE structure. |
+| ASM-PK-01 | 1 M NaCl, 37 °C default; Turner terms rescale with `temperature`, the pseudoknot constants (9.0 / 0.3 / 6.0) do not | knot/no-knot decision shifts with conditions not modelled |
+| ASM-PK-02 | secondary-structure thermodynamics only; tertiary interactions (triplexes, Mg²⁺) are not modelled | tertiary-stabilised knots (BWYV) need not be the model optimum |
+| ASM-PK-03 | canonical class csr-PK only (§2.2) | kissing hairpins, bulged/unequal helices, chained helices are not generated |
 
-### 2.4 Properties and Invariants
+### 2.5 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-PK-01 | Returned ΔG ≤ ΔG of the plain MFE structure for the same sequence/parameters | The plain MFE is the baseline and is returned unchanged unless a candidate knot strictly improves it. |
-| INV-PK-02 | `HasPseudoknot` ⇒ the base-pair set contains a crossing pair (i<k<j<l) | The accepted candidate is built from two helices that cross by construction (stem2-5' inside stem1, stem2-3' outside). |
-| INV-PK-03 | Every position is paired at most once; all indices in [0, n) | Helices use disjoint, in-range index runs and loop folds operate on disjoint sub-spans. |
-| INV-PK-04 | No spurious pseudoknot | A knot is accepted only when its energy is strictly below the MFE (by more than the DP tolerance). |
+| INV-PK-01 | ΔG ≤ plain MFE | the pseudoknot-free options are part of every minimisation |
+| INV-PK-02 | `HasPseudoknot` ⇔ the returned pair set has a crossing pair | a knot's helices cross by construction (a5 < b5 < a3 < b3); a knot-free result is the pseudoknot-free traceback |
+| INV-PK-03 | every position pairs at most once; hairpins ≥ 3 nt | segments and helices occupy disjoint index runs |
+| INV-PK-04 | no knot unless it lowers ΔG | the traceback prefers the pseudoknot-free option on ties; result = plain MFE structure then |
+| INV-PK-05 | recursive ≤ single ≤ MFE | each is the optimum of a larger space |
 
 ## 3. Contract
 
 ### 3.1 Inputs and Parameters
 
-| Name | Type | Default | Description | Constraints |
-|------|------|---------|-------------|-------------|
-| rnaSequence | string | required | RNA or DNA sequence (T read as U); case-insensitive | null/empty/too-short → empty result |
-| minLoopSize | int | 3 | Minimum hairpin loop size for loop folding | < 3 is clamped to 3 (NNDB minimum) |
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| rnaSequence | string | required | RNA or DNA (T read as U), case-insensitive; other characters never pair |
+| minLoopSize | int | 3 | minimum hairpin loop (values < 3 are clamped to 3) |
+| temperature | double | 310.15 | kelvin; Turner terms rescaled with their enthalpies |
 
-### 3.2 Output / Return Value
+### 3.2 Output
 
-`PseudoknotStructure` record:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| Sequence | string | Folded sequence (upper-cased; T→U) |
-| DotBracket | string | Two-layer dot-bracket: `()` = stem 1, `[]` = crossing stem 2, `.` = unpaired; single-family MFE notation when no knot |
-| BasePairs | IReadOnlyList<(int,int)> | All base pairs as 0-based (5'<3') tuples, sorted by 5' position |
-| FreeEnergy | double | ΔG° (kcal/mol) of the returned structure |
-| HasPseudoknot | bool | True iff the returned structure contains a crossing helix |
-
-### 3.3 Preconditions and Validation
-
-0-based indexing. Sequence is upper-cased and T is read as U (A–U/A–T identical for folding).
-null/empty or shorter than the minimum canonical-knot length (11 nt) returns an empty
-pseudoknot-free structure (no pairs, all dots, ΔG = 0). Accepted alphabet A/C/G/U/T; other
-characters simply do not pair.
+`PseudoknotStructure(Sequence, DotBracket, BasePairs, FreeEnergy, HasPseudoknot)`; `DotBracket` is rendered by `ToDotBracket`
+(ViennaRNA `vrna_db_from_ptable` families: crossing helices on `[]`, `{}`, …); `BasePairs` sorted by 5' position; `FreeEnergy`
+rounded to 0.01 at 37 °C. null / empty input → empty structure (ΔG 0); n < 11 → plain MFE (no knot fits).
 
 ## 4. Algorithm
 
-### 4.1 High-Level Steps
+The knot layer (`KnotLayer` in `RnaSecondaryStructure.Pseudoknot.cs`) is hooked into the shared `FillDp` / `TracebackMfe`
+(no second energy engine): for each interval [i,j], in increasing span, after V(i,j):
 
-1. Compute the plain pseudoknot-free MFE structure (`CalculateMfeStructure`) as baseline/fallback.
-2. Enumerate stem-1 (a·a'): for each 5' start i and each 3' end, maximal-extend the helix
-   (canonization rules 1–2) to length L1.
-3. For each stem 1, enumerate stem-2 (b·b'): its 5' strand starts in loop 1 (between the two
-   strands of a) and its 3' strand ends after a', maximal-extended to length L2, so b crosses a.
-4. Score the candidate: stacking(a) + stacking(b) + 9.0 + fold each of the three loops with the
-   pseudoknot-free MFE + 0.3 per unpaired loop nucleotide.
-5. Keep the lowest-energy candidate; accept it only if strictly below the plain MFE; otherwise
-   return the plain MFE structure with `HasPseudoknot = false`.
-6. Render the accepted knot in two-layer dot-bracket (`()` stem 1, `[]` stem 2).
+1. `K(i,j)` = min over (k, l) of the formula of §2.3 (O(n²) per interval, helix chains and helix energies precomputed once, O(n²) memory each).
+2. `C(i,j)` = knot-loop segment value (first component, then the rest).
+3. WM (multiloop) gets the option K + 6.0 and the exterior W the option W(p−1) + K(p,j) (recursive variant); the single-knot
+   variant keeps a second exterior prefix array "at most one knot".
+4. Traceback re-derives the minimising option (K, C items), adds the helix pairs, recurses into the segments.
 
-### 4.2 Decision Rules / Reference Tables
-
-| Constant | Value | Source |
-|----------|-------|--------|
-| Pseudoknot initiation Pᵢ | 9.0 kcal/mol | pknotsRG: "creating a new pseudoknot: 9.0" [1][2] |
-| Unpaired pseudoknot-loop base Pᵤₙₚ | 0.3 kcal/mol | pknotsRG: "not paired base in pk: 0.3" [1][2] |
-| Base pair inside pseudoknot | 0.0 kcal/mol | pknotsRG: "basepair inside pseudoknot: 0.0" [2] |
-| Helix stacking / terminal AU | Turner 2004 NN | reused `CalculateStemEnergy` (NNDB) |
-
-### 4.3 Complexity
-
-| Operation | Time | Space | Notes |
-|-----------|------|-------|-------|
-| PredictStructurePseudoknot | O(n³) stem-start scan × loop MFE | O(n²) | Within the pknotsRG O(n⁴)/O(n²) envelope for the canonical single-knot class; loop folds reuse the module MFE. |
+Time O(n⁴) (four free boundaries; measured ≈ 0.25 s per fold at n = 200 in a Debug build, 0.14 s for n = 80 versus 6.9 s of the
+previous interval recursion), space O(n²).
 
 ## 5. Implementation Notes
 
-### 5.1 Location and Entry Points
+### 5.1 Location
 
-**Implementation location:** [RnaSecondaryStructure.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs)
+[RnaSecondaryStructure.Pseudoknot.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.Pseudoknot.cs)
+(`PredictStructurePseudoknot`, `PredictStructurePseudoknotRecursive`, `KnotLayer`); hooks in `FillDp` / `TracebackMfe`
+(`RnaSecondaryStructure.cs`); `TurnerModel.InnerStemEnd` (helix end seen from the loop it encloses). MCP: `rna_pseudoknot_structure`.
 
-- `RnaSecondaryStructure.PredictStructurePseudoknot(string, int)`: returns `PseudoknotStructure`; the public entry point for this unit.
-- `MaxHelixLength(...)`, `EvaluateHType(...)`, `ScoreLoop(...)`, `GeneratePseudoknotDotBracket(...)`: internal helpers (maximal helix extension, candidate scoring, loop folding, two-layer rendering).
+### 5.2 Verification
 
-### 5.2 Current Behavior
+Independent oracle (Python, ViennaRNA 2.7.2 `E_Hairpin` / `E_IntLoop` / `E_MLstem` / `E_ExtLoop` with the NNDB-precision parameter file, naive
+memoised grammar, explicit enumeration of every knot): 1 971 sequences (357 + 459 + 452 random/designed ≤ 34 nt, 809 designed nesting cases
+≤ 45 nt, 2 multiloop-knot cases of 62–64 nt) compared in both modes: 0 energy differences (to 0.00); 2 differences, both explained by NNDB-only terms ViennaRNA
+lacks (1-nt bulge degeneracy, special-C bulge inside a loop segment); 106 sequences excluded because their plain MFE already contains such a term.
+In-tree: 70-sequence exhaustive table-free enumeration (all flank structures × all canonical knots × all loop structures) = DP to 0.006.
 
-The two stems are scored by passing their base-pair lists to the existing `CalculateStemEnergy`
-(Turner 2004 stacking + terminal AU/GU). Each loop span folds with `CalculateMinimumFreeEnergy`/
-`CalculateMfeStructure`; nucleotides left unpaired by that fold are charged 0.3 kcal/mol. The
-candidate must beat the plain MFE by more than the DP traceback tolerance to be accepted. No search
-data structure (suffix tree) is used: this is a thermodynamic scoring/enumeration, not exact-match
-search — see §5.3.
+### 5.3 Conformance to pknotsRG and deviations
 
-### 5.3 Conformance to Theory / Spec
+**Implemented as in pknotsRG [1][2]:** grammar `knot`, canonization rules 1–3 (csr-PK), pkinit 9.0, npp 0.3 per unpaired knot-loop nt,
+pbp 0.0, pkml 6.0, bridging nucleotides (1 + 2), v may be empty, knots in exterior / multiloop / knot loops, exactness (the DP minimises over the whole space).
 
-**Implemented (verbatim from the cited theory/spec):**
+**Deviations (all documented, none silent):**
 
-- Canonical H-type geometry: two crossing helices a·a', b·b' with three loops u, v, w [1][3].
-- Canonization rule 1 (equal-length, bulge-free helices) and rule 2 (maximal helix extent) [1].
-- Pseudoknot initiation 9.0, unpaired-loop 0.3, in-knot base pair 0.0 kcal/mol [1][2].
-- Turner 2004 nearest-neighbour stacking for both helices [2].
-- Two-layer `()`/`[]` dot-bracket for crossing helices (ViennaRNA/WUSS) [5].
+| # | pknotsRG | Here | Reason |
+|---|----------|------|--------|
+| 1 | Turner 1999 loop/stack parameters (Energy.lhs, Intloop*.lhs) | shared Turner 2004 `TurnerModel` | campaign rule: one energy model; numbers are therefore not comparable with pknotsRG output |
+| 2 | stem component in a knot loop: +0.4 (`ul`) + dangles | d2 exterior-stem term, no branch term | the 2004 model has no 0.4 branch term for an unclosed loop; ViennaRNA d2 treats every helix end alike |
+| 3 | dangles on the bridging nucleotides (`dangles`) | d2 mismatch + terminal AU on the four helix ends | same, uniform d2 |
+| 4 | coaxial stacking term `emptymid` when v = ∅ | none | neither the shared model nor the ViennaRNA default has coaxial stacking |
+| 5 | pknotsRG-mfe program also admits a single 1-nt bulge in a helix ("relaxed csr-PK", 11 of 212 PseudoBase knots) | strict rule 1(b) | not implemented: needs bulge-position enumeration and the seven `getbeta` overlap cases; recorded as follow-up |
+| 6 | helix = minimum-energy stack among the non-bulged alternatives | maximal helix (paper rule 2) | identical unless an additional pair raises the energy (positive GU stacks) |
+| 7 | knots only as exterior / multiloop / knot-loop components | same; a knot directly enclosed by one helix (interior loop) is not generated | not in the grammar (the previous recursive code did generate it, see Recursive doc) |
 
-**Intentionally simplified:**
+### 5.4 Limitations
 
-- Loop folding: loops fold with the pseudoknot-free MFE rather than re-entering the full pknotsRG
-  grammar; **consequence:** a second pseudoknot nested inside a loop is not predicted.
-- Dangling/coaxial refinements at the helix–loop junctions are not added separately;
-  **consequence:** ΔG of a predicted knot may differ slightly from pknotsRG's, but the knot/no-knot
-  decision uses the same penalties and stacking model.
+Tertiary interactions are not modelled (BWYV, the 28-nt frameshift knot, is predicted with S1 = 5 bp, S2 = 4 bp, ΔG −10.51 vs −7.90 for the
+pseudoknot-free MFE; the published crystal pairing was not compared). Knot classes outside csr-PK (§ASM-PK-03) cannot be returned.
+Sequences ≳ 500 nt are slow (O(n⁴)).
 
-**Not implemented:**
+## 6. Edge Cases
 
-- The full pknotsRG O(n⁴) recursion over recursively-nested / multiple / over-arching pseudoknots
-  in one structure; **users should rely on:** pknotsRG / pknots / IPknot for those classes. This
-  unit covers the single canonical H-type knot only.
-- Kissing-hairpin and non-canonical (bulged, unequal-length) pseudoknots; **users should rely on:**
-  the dedicated heuristics (HotKnots, DotKnot) — out of scope of the canonical class.
+| Case | Behaviour |
+|------|-----------|
+| null / empty | empty structure, ΔG 0 |
+| < 11 nt | plain MFE (shortest knot: 2·2 + 2·2 + 1 + 0 + 2 = 11) |
+| strong hairpin / no profitable knot | HasPseudoknot = false, structure and ΔG = plain MFE |
+| DNA T, lower case | identical to RNA spelling |
+| N / IUPAC | never pair |
 
-### 5.4 Deviations and Assumptions
-
-| # | Item | Type | Impact | Status | Notes |
-|---|------|------|--------|--------|-------|
-| 1 | Single canonical H-type knot only | Assumption | No recursive/multiple knots predicted | accepted | Documented PARTIAL; see ASM-PK in Evidence and §6.2. |
-| 2 | Tertiary interactions not modelled | Assumption | Tertiary-stabilised knots (BWYV) not the MFE | accepted | Inherent to all NN-only predictors (ASM-PK-02). |
-
-## 6. Edge Cases and Limitations
-
-### 6.1 Edge Cases
-
-| Case | Expected Behavior | Rationale |
-|------|-------------------|-----------|
-| null / empty | Empty structure (no pairs, ".", ΔG 0), HasPseudoknot=false | Contract parity with `CalculateMfeStructure`. |
-| < 11 nt | No pseudoknot (returns plain MFE) | Shortest canonical knot = 2·2 + 2·2 + 3 loops = 11 nt. |
-| Non-knot sequence / strong hairpin | HasPseudoknot=false; structure and ΔG = plain MFE | 9 kcal/mol penalty prevents spurious knots (INV-PK-04). |
-| DNA input (T) | Folded identically to the RNA spelling | T read as U. |
-
-### 6.2 Limitations
-
-Covers the **single canonical H-type pseudoknot** (pknotsRG canonical simple recursive class).
-Recursively-nested pseudoknots, multiple/over-arching knots in one structure, kissing hairpins,
-and non-canonical (bulged / unequal-length) helices are out of scope. As a nearest-neighbour
-thermodynamic predictor it does not model tertiary interactions, so tertiary-stabilised biological
-knots (e.g. the BWYV frameshifting pseudoknot, PDB 437D) are not recovered as the MFE structure —
-a documented property of NN-only pseudoknot prediction, not a defect.
-
-## 7. Examples and Related Material
-
-### 7.1 Worked Example
-
-**API usage example:**
+## 7. Examples
 
 ```csharp
 var pk = RnaSecondaryStructure.PredictStructurePseudoknot("GGGGAACCCCAACCCCAAGGGG");
-// pk.HasPseudoknot == true
-// pk.DotBracket    == "((((..[[[[..))))..]]]]"
-// stem 1: (0,15)(1,14)(2,13)(3,12); stem 2 (crossing): (6,21)(7,20)(8,19)(9,18)
-// pk.FreeEnergy    <  CalculateMfeStructure("GGGGAACCCCAACCCCAAGGGG").FreeEnergy
+// pk.DotBracket == "((((..[[[[..))))..]]]]", pk.FreeEnergy == -13.56 (plain MFE -7.84)
+var flanked = RnaSecondaryStructure.PredictStructurePseudoknot("GGGCGAAAGCCCAAGGGGAACCCCAACCCCAAGGGG");
+// "((((....))))..((((..[[[[..))))..]]]]", -21.70  (hairpin + knot; before the fix: no knot, -15.98)
 ```
 
-### 7.2 Applications and Use Cases
-
-- **Frameshifting / readthrough signals:** H-type pseudoknots stimulate −1 ribosomal frameshifting in many viruses.
-- **Telomerase / catalytic RNAs:** the telomerase P2b-P3 pseudoknot is an H-type knot.
-
-### 7.3 Related Tests, Evidence, or Documents
-
-- Tests: [RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs) — covers INV-PK-01..04
-- Evidence: [RNA-PKPREDICT-001-Evidence.md](../../../docs/Evidence/RNA-PKPREDICT-001-Evidence.md)
-- Related algorithms: [Minimum_Free_Energy](Minimum_Free_Energy.md), [Pseudoknot_Detection](Pseudoknot_Detection.md)
+Related: [Minimum_Free_Energy](Minimum_Free_Energy.md), [Pseudoknot_Detection](Pseudoknot_Detection.md), [Dot_Bracket_Notation](Dot_Bracket_Notation.md),
+tests [RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs),
+evidence [RNA-PKPREDICT-001-Evidence.md](../../Evidence/RNA-PKPREDICT-001-Evidence.md).
 
 ## 8. References
 
 1. Reeder J, Giegerich R. (2004). Design, implementation and evaluation of a practical pseudoknot folding algorithm based on thermodynamics. BMC Bioinformatics 5:104. https://doi.org/10.1186/1471-2105-5-104
-2. Reeder J. pknotsRG source (Energy.lhs — pseudoknot penalties 9.0 / 0.3 / 0.0). https://github.com/jensreeder/pknotsRG
-3. Pseudoknot. Wikipedia (cites Rivas & Eddy 1999; Staple & Butcher 2005). https://en.wikipedia.org/wiki/Pseudoknot
-4. Su L, Chen L, Egli M, Berger JM, Rich A. (1999). Minor groove RNA triplex in the crystal structure of a ribosomal frameshifting viral pseudoknot. Nat Struct Biol 6(3):285–292. https://pmc.ncbi.nlm.nih.gov/articles/PMC7097825/ (PDB 437D: https://www.rcsb.org/structure/437D)
-5. Antczak M, et al. (2018). New algorithms to represent complex pseudoknotted RNA structures in dot-bracket notation. Bioinformatics 34(8):1304–1312. https://doi.org/10.1093/bioinformatics/btx783
+2. pknotsRG source: README, Foldingspace.lhs, Energy.lhs (pkinit 900, npp 30, pbp 0), Algebras.lhs (`energyalgext`: pkml 600, `pk'`), pknotsRG-mfe.lhs (`pknot`, `getbeta`). https://github.com/jensreeder/pknotsRG
+3. Rivas E, Eddy SR. (1999). A dynamic programming algorithm for RNA structure prediction including pseudoknots. J Mol Biol 285:2053–2068.
+4. Su L, Chen L, Egli M, Berger JM, Rich A. (1999). Minor groove RNA triplex in the crystal structure of a ribosomal frameshifting viral pseudoknot. Nat Struct Biol 6:285–292 (PDB 437D).
+5. Antczak M, et al. (2018). New algorithms to represent complex pseudoknotted RNA structures in dot-bracket notation. Bioinformatics 34:1304–1312.

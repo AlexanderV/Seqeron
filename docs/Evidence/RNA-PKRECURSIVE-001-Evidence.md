@@ -74,77 +74,32 @@
 
 ---
 
-## Test Datasets
+## Review 2026-11-25 (Stage A / Stage B)
 
-### Dataset: Knot nested inside an outer (over-arching) helix — fully derivable
+**Stage A.** The previous `RecursivePkFolder` was not the pknotsRG recursion: (1) an anchored interval memo calling `CalculateMfeStructure` on every interval (6.9 s at 80 nt, three predictors);
+(2) a third production "enclosing helix a·a' over a knotted interior" that is not in the grammar of `pknotsRG-mfe.lhs` (a closed stem encloses a knot only through a multiloop with ≥ 2 components);
+(3) no knot as a multiloop branch (`pkml` = +600, Algebras.lhs `energyalgext`) and no knot component in knot loops with its own cost; (4) the same energy omissions as RNA-PKPREDICT-001 (flanks, bridging nucleotides, helix-end terms);
+(5) a duplicate knot scorer (`EvaluateHTypeRecursive`, `ScoreLoopRecursive`, private `MaxHelixLength`). The old "nested knot under an A·U helix" datasets therefore tested a structure class that is **not** pknotsRG's; they are replaced.
 
-**Source:** Constructed from the H-type geometry + an isolating A·U clamp so the outer helix over-arches the knot in its loop. The inner knot is the verified designed H-type `GGGGAACCCCAACCCCAAGGGG`.
+**Stage B.** Same oracle, same corpus and same statistics as RNA-PKPREDICT-001 (Evidence §Stage B): 0 energy differences in the recursive mode over 1 971 comparable sequences (+2 multiloop-knot cases of 62–64 nt), 2 NNDB-bulge explained.
+Recursive strictly below single-knot for 98 of 809 designed sequences (95 comparable, all agree). Knot-in-multiloop cases occur in 112 of 187 designed multiloop sequences (long GC stems; ML branch 6.0 + closing 9.3 still pays off).
 
-| Parameter | Value |
-|-----------|-------|
-| Sequence | `AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU` (38 nt) |
-| Layout | clamp5'=A×8[0–7] · H-type[8–29] · clamp3'=U×8[30–37] |
-| Recursive structure | `((((((((((((..[[[[..))))..]]]]))))))))` |
-| Outer A·U helix | (0,37)(1,36)(2,35)(3,34)(4,33)(5,32)(6,31)(7,30) — 8 A·U pairs |
-| Inner stem 1 (a·a') | (8,23)(9,22)(10,21)(11,20) — 4 G·C pairs |
-| Inner stem 2 (b·b', crossing) | (14,29)(15,28)(16,27)(17,26) — 4 C·G pairs |
-| Recursive ΔG | **−14.37 kcal/mol**, `HasPseudoknot = true`, 1 crossing |
-| Single-knot method (`PredictStructurePseudoknot`) | `......((((((((((((........)))))))))))) `, **−13.05**, `HasPseudoknot = false` (cannot combine outer helix + inner knot) |
-| Plain MFE | identical to single: **−13.05**, no knot |
-| Verification | recursive ΔG (−14.37) < single/MFE (−13.05): the over-arching knot is recovered ONLY by the recursive method |
+## Test Datasets (oracle values)
 
-### Dataset: Two separate (non-nested) H-type knots — fully derivable
+| Case | Sequence | single | recursive | recursive structure |
+|------|----------|--------|-----------|---------------------|
+| two knots side by side | `GGGGAACCCCAACCCCAAGGGGAAAGGGGAACCCCAACCCCAAGGGG` | −24.46 | −27.52 | `((((..[[[[..))))..]]]]...((((..[[[[..))))..]]]]` |
+| two knots, different size | `CCGCUUGGAGUGCGGAAACUCCUUUCGGAAGCCGUCCGUACGGC` | −18.85 | −22.38 | `((((..[[[[[))))..]]]]]...((((.[[[[))))..]]]]` |
+| knot inside loop v | `GCCAGCGGCCUUACGGGAUAGGCAUACCCGGGCAACGC` | −11.56 | −12.15 | `(((.[[[((((..[[[[..))))...]]]])))..]]]` |
+| knot as multiloop branch | `CGCCCGGGCAAGGCGGGAAACCGCCAAGCGGGAGCCCCCCCCCGCCUGGGGGCAAGCCCGGGCG` | −43.46 | −46.66 | `(((((((((..(((((....)))))..(((((.[[[[[[.)))))..]]]]]]..)))))))))` |
+| no knot pays off | `GGGGAAAACCCC` | −5.28 | −5.28 | `((((....))))` |
 
-**Source:** Two A·U-clamped copies of the designed H-type, the clamps isolating each region so the cross-region nested alternative is suppressed (see Failure Mode 2).
-
-| Parameter | Value |
-|-----------|-------|
-| Sequence | `AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUUAAAAAAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU` (80 nt) |
-| Layout | clamped-knot[0–37] · A×12 linker[38–49 region overlaps clamp] · clamped-knot[38–79] |
-| Recursive structure | `((((((((((((..[[[[..))))..]]]]))))))))((((((((....((((..[[[[..))))..]]]]))))))))` |
-| Recovered knots | **two** crossing H-type knots (DetectPseudoknots crossing-count = 32) |
-| Recursive ΔG | **−28.74 kcal/mol**, `HasPseudoknot = true` |
-| Single-knot method | identical to MFE: **−27.14**, `HasPseudoknot = false` (recovers neither knot) |
-| Plain MFE | **−27.14**, no knot |
-| Verification | recursive ΔG (−28.74) < single/MFE (−27.14); both knots recovered, single-knot method recovers none |
-
-### Dataset: Plain (non-pseudoknotted) sequences — no spurious knots
-
-**Source:** trivial hairpin and a weak A·U run.
-
-| Parameter | Value |
-|-----------|-------|
-| Hairpin `GGGGAAAACCCC` | recursive = MFE `((((....))))`, **−5.28**, `HasPseudoknot = false`, crossing = 0 |
-| A·U run `AUAUAUAUAUAUAUAU` | recursive = MFE `((((((....))))))`, **−0.26**, no knot, crossing = 0 |
-| Random sweep (seed 20260623, 150 seqs, len 12–38) | recursive ΔG ≤ MFE ΔG for all (0 violations); 0 spurious knots reported on random short inputs |
-
-### Dataset: Single canonical H-type (parity with `PredictStructurePseudoknot`)
-
-| Parameter | Value |
-|-----------|-------|
-| Sequence | `GGGGAACCCCAACCCCAAGGGG` (22 nt) |
-| Both methods | `((((..[[[[..))))..]]]]`, **−8.76 kcal/mol**, identical pairs, `HasPseudoknot = true` |
-
----
+Plus the 27 rows of `PknotsRgOracleData` and the exhaustive equality "recursive = single-knot optimum for 11–16 nt" (no second/nested knot fits).
 
 ## Assumptions
 
-1. **ASSUMPTION: PARTIAL coverage of the full pknotsRG recursion.** This method realises the recursive grammar for the canonical csr-PK class: (i) the three loops u, v, w of a knot fold by the same recursive folder (so a loop may contain a further knot), (ii) the top level chains multiple knots, and (iii) an enclosing helix may over-arch a knot in its loop. To keep within a tractable envelope the H-type helices are enumerated by explicit start/end scan with maximal extension (rules 1–2) rather than the full 4-boundary ADP yield-parser, and a knot component is left-anchored within the interval before chaining; the enclosing-helix production is pursued only when the enclosed region is itself knotted (otherwise the pseudoknot-free Zuker MFE already covers it). The result is the faithful recursive *class* (nested / multiple / over-arching knots) but not a guaranteed bit-identical reproduction of every yield the reference O(n⁴) parser would explore. Documented PARTIAL; no invented parameter.
-
-2. **ASSUMPTION: two-simultaneous-knot test cases are engineered, not random.** Per Failure Mode 2, two strong knots are the genuine MFE only when each knot region is isolated; the test asserts the recovery on the *engineered* isolated-clamp sequence, not a universal "beats single-knot on random input" (which would be false thermodynamics).
-
----
-
-## Recommendations for Test Coverage
-
-1. **MUST Test:** the over-arching nested-knot sequence → recursive recovers the outer helix + inner crossing knot exactly (pairs as in the dataset), `HasPseudoknot == true`, ΔG = −14.37, strictly below the single-knot method / MFE (−13.05) — Evidence: recursion into loops (Reeder & Giegerich 2004 §recursive class).
-2. **MUST Test:** the two-knot sequence → recursive recovers TWO crossing knots (crossing-count = 32), ΔG = −28.74 < single/MFE (−27.14); the single-knot method recovers none — Evidence: per-interval competition (Reeder & Giegerich 2007).
-3. **MUST Test (no spurious knots):** plain hairpin / A·U run / random sweep → recursive ΔG ≤ MFE, `HasPseudoknot == false`, no crossing pairs — Evidence: 9 kcal/mol penalty rationale.
-4. **MUST Test (invariant):** recursive ΔG ≤ `CalculateMfeStructure` ΔG for any sequence (MFE is the always-available fallback) — Evidence: fallback baseline.
-5. **MUST Test (validity):** every index in range, each position paired ≤ once; reported knots have ≥1 genuine crossing — Evidence: crossing condition i<k<j<l (Antczak 2018), rule 1.
-6. **SHOULD Test:** null / empty / too-short → empty pseudoknot-free structure (parity with `PredictStructurePseudoknot`).
-7. **SHOULD Test:** single canonical H-type → identical result to `PredictStructurePseudoknot` (recursion does not regress the single-knot case).
-8. **COULD Test:** DNA spelling (T read as U) folds identically; minLoopSize < 3 clamps to 3.
+1. As RNA-PKPREDICT-001 (pknotsRG grammar and pseudoknot parameters over the shared Turner 2004 model; strict csr-PK without the relaxed 1-nt bulge).
+2. A knot used as a component of a knot loop is charged like a multiloop branch (+6.0), following `block` / `pkml` of `pknotsRG-mfe.lhs`, which uses the same `comps` for multiloops and knot loops.
 
 ---
 
@@ -160,3 +115,4 @@
 ## Change History
 
 - **2026-06-23**: Initial documentation (RNA-STRUCT-001 limitation fix: recursive pknotsRG grammar — nested / multiple / over-arching pseudoknots).
+- **2026-11-25**: Stage A/B review: previous interval-memo recursion (non-grammar production, no multiloop knots, duplicate scorer) replaced by the exact pknotsRG DP shared with RNA-PKPREDICT-001; datasets and assumptions rewritten.

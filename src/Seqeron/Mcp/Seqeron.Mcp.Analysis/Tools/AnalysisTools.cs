@@ -3264,6 +3264,27 @@ public class AnalysisTools
         return new RnaMfeStructureResult(s.Sequence, s.DotBracket, s.BasePairs.Select(ToItem).ToArray(), s.MinimumFreeEnergy);
     }
 
+    [McpServerTool(Name = "rna_pseudoknot_structure", Title = "RNA — Pseudoknot Structure (pknotsRG class)", ReadOnly = true)]
+    [Description("MFE structure that may contain canonical H-type pseudoknots (Reeder & Giegerich 2004 pknotsRG class csr-PK: equal-length bulge-free maximal helices, pseudoknot initiation 9.0, 0.3 per unpaired knot-loop nt, 6.0 for a knot used as a multiloop/knot-loop component) over the Turner 2004 d2 model. allowNestedKnots=false: at most one knot in the exterior loop; true: the full recursive grammar (several knots, knots in multiloops and in knot loops). Exact optimum of that space, never above the pseudoknot-free MFE; crossing helices use bracket families () [] {} ... T read as U, case-insensitive. O(n^4) time.")]
+    public static RnaPseudoknotStructureResult RnaPseudoknotStructure(
+        [Description("RNA sequence (T read as U, case-insensitive; other characters never pair).")] string rnaSequence,
+        [Description("true (default): full recursive grammar; false: at most one knot in the exterior loop.")] bool allowNestedKnots = true,
+        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3,
+        [Description("Absolute temperature in Kelvin (default 310.15 = 37 °C).")] double temperature = 310.15)
+    {
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+
+        var s = allowNestedKnots
+            ? RnaSecondaryStructure.PredictStructurePseudoknotRecursive(rnaSequence, minLoopSize, temperature)
+            : RnaSecondaryStructure.PredictStructurePseudoknot(rnaSequence, minLoopSize, temperature);
+        return new RnaPseudoknotStructureResult(
+            s.Sequence, s.DotBracket,
+            s.BasePairs.Select(p => new BasePairItem(p.Position1, p.Position2, s.Sequence[p.Position1], s.Sequence[p.Position2],
+                RnaSecondaryStructure.GetBasePairType(s.Sequence[p.Position1], s.Sequence[p.Position2])?.ToString() ?? "NonCanonical")).ToArray(),
+            s.FreeEnergy, s.HasPseudoknot);
+    }
+
     [McpServerTool(Name = "rna_partition_function", Title = "RNA — Partition Function (McCaskill)", ReadOnly = true)]
     [Description("McCaskill equilibrium partition function on the Turner 2004 model (ViennaRNA RNAfold -p, dangles d2): Z, ensemble free energy -RT ln Z, base-pair probabilities (pairs with probability >= minProbability), per-base unpaired probabilities, MFE structure and its Boltzmann probability, ensemble diversity (mean base-pair distance) and centroid structure. Temperature rescales every Turner parameter with its enthalpy; matrices are scaled per nucleotide (pf_scale) so long sequences do not overflow. T read as U, case-insensitive; N/IUPAC never pair.")]
     public static RnaPartitionFunctionResult RnaPartitionFunction(
