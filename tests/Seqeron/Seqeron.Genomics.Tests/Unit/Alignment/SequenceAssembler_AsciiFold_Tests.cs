@@ -79,7 +79,7 @@ public class SequenceAssembler_AsciiFold_Tests
     public void AssembleDeBruijn_BothStrands_NonAsciiLetter_IsReadAsA_StrandPairEmittedOnce()
     {
         var result = SequenceAssembler.AssembleDeBruijn(
-            new[] { "ACİGT" }, new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1), includeReverseComplement: true);
+            new[] { "ACİGT" }, new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1), includeReverseComplement: true, clipTips: false);
 
         Assert.Multiple(() =>
         {

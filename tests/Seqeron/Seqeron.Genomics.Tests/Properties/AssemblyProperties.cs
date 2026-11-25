@@ -358,7 +358,7 @@ public class AssemblyProperties
     private static SequenceAssembler.AssemblyResult Dbg(string[] reads, int k) =>
         SequenceAssembler.AssembleDeBruijn(reads,
             new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1),
-            includeReverseComplement: false);
+            includeReverseComplement: false, clipTips: false);
 
     private static string ReverseComplementOf(string seq) =>
         new string(seq.Reverse().Select(c => c switch { 'A' => 'T', 'C' => 'G', 'G' => 'C', 'T' => 'A', _ => c }).ToArray());
@@ -376,8 +376,8 @@ public class AssemblyProperties
         return Prop.ForAll(DnaReadArbitrary(25), DnaReadArbitrary(25), (a, b) =>
         {
             var prm = new SequenceAssembler.AssemblyParameters(KmerSize: 7, MinContigLength: 1);
-            var forward = SequenceAssembler.AssembleDeBruijn(new[] { a, b }, prm).Contigs;
-            var reverse = SequenceAssembler.AssembleDeBruijn(new[] { ReverseComplementOf(a), ReverseComplementOf(b) }, prm).Contigs;
+            var forward = SequenceAssembler.AssembleDeBruijn(new[] { a, b }, prm, includeReverseComplement: true, clipTips: false).Contigs;
+            var reverse = SequenceAssembler.AssembleDeBruijn(new[] { ReverseComplementOf(a), ReverseComplementOf(b) }, prm, includeReverseComplement: true, clipTips: false).Contigs;
 
             return forward.OrderBy(c => c, StringComparer.Ordinal).SequenceEqual(reverse.OrderBy(c => c, StringComparer.Ordinal))
                 .Label($"strand asymmetry: [{string.Join(",", forward)}] vs [{string.Join(",", reverse)}]");

@@ -191,7 +191,7 @@ public class AssemblyCombinatorialTests
         var reads = SlidingReads(DbgGenome, readLength, errorRate);
         var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 3, MinIdentity: 0.9, KmerSize: k, MinContigLength: 1);
 
-        var result = SequenceAssembler.AssembleDeBruijn(reads, param);
+        var result = SequenceAssembler.AssembleDeBruijn(reads, param, includeReverseComplement: true, clipTips: false);
 
         // INV-06: the assembly statistics are internally consistent across the whole parameter space.
         // (INV-04/INV-05 — k-mer coverage / exact reconstruction — require a unique-(k-1)-mer genome, which
@@ -214,7 +214,7 @@ public class AssemblyCombinatorialTests
         var reads = SlidingReads(genome, 8, 0.0);
         var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 3, MinIdentity: 0.9, KmerSize: 6, MinContigLength: 1);
 
-        var result = SequenceAssembler.AssembleDeBruijn(reads, param);
+        var result = SequenceAssembler.AssembleDeBruijn(reads, param, includeReverseComplement: true, clipTips: false);
 
         result.Contigs.Should().NotBeEmpty("clean tiling reconstructs at least one contig");
         result.LongestContig.Should().BeGreaterThanOrEqualTo(8, "the assembled contig extends beyond a single read");

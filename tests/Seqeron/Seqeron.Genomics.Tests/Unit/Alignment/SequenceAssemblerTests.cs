@@ -228,7 +228,7 @@ public class SequenceAssemblerTests
 
         // Forward strand (single-strand model); the double-stranded default folds ACGTTGCA and its reverse complement
         // into one cycle (see the next test and the DBG unit tests).
-        var result = SequenceAssembler.AssembleDeBruijn(reads, param, includeReverseComplement: false);
+        var result = SequenceAssembler.AssembleDeBruijn(reads, param, includeReverseComplement: false, clipTips: false);
 
         Assert.Multiple(() =>
         {
@@ -246,7 +246,7 @@ public class SequenceAssemblerTests
         var reads = new List<string> { "ACGTTGCA", "TGCAACGT" };
         var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 20, MinIdentity: 0.9, KmerSize: 5, MinContigLength: 1);
 
-        var result = SequenceAssembler.AssembleDeBruijn(reads, param, includeReverseComplement: true);
+        var result = SequenceAssembler.AssembleDeBruijn(reads, param, includeReverseComplement: true, clipTips: false);
 
         Assert.That(result.AssembledReads, Is.EqualTo(2));
     }

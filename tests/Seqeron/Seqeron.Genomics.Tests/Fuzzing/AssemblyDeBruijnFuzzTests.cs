@@ -85,7 +85,7 @@ public class AssemblyDeBruijnFuzzTests
     // SequenceAssembler_AssembleDeBruijn_Tests (#region Double-stranded default).
     private static SequenceAssembler.AssemblyResult SingleStrand(
         IReadOnlyList<string> reads, SequenceAssembler.AssemblyParameters? parameters)
-        => SequenceAssembler.AssembleDeBruijn(reads, parameters, includeReverseComplement: false);
+        => SequenceAssembler.AssembleDeBruijn(reads, parameters, includeReverseComplement: false, clipTips: false);
 
     /// <summary>A fuzzed read of the given length over the DNA alphabet.</summary>
     private static string RandomRead(Random rng, int length)
@@ -554,6 +554,118 @@ public class AssemblyDeBruijnFuzzTests
             spelled.Should().Equal(expected, "each distinct k-mer lies on exactly one maximal non-branching path");
         }
     }
+
+    // Velvet graph cleaning (R1-WP5, A2-1/A2-2): cleaning only ever removes unitigs, so every k-mer (and, double-stranded,
+    // its reverse complement) of a cleaned assembly is a k-mer of the uncleaned one; random cut-offs / tip lengths /
+    // strand models / even k never throw and stay deterministic.
+    [Test]
+    [CancelAfter(60_000)]
+    public void AssembleDeBruijn_RandomCleaning_OnlyRemovesKmers_AndIsDeterministic()
+    {
+        var rng = new Random(143_007);
+        for (int trial = 0; trial < 500; trial++)
+        {
+            int k = rng.Next(2, 10);
+            var reads = Enumerable.Range(0, rng.Next(1, 9))
+                                  .Select(_ => RandomRead(rng, rng.Next(0, k + 16)))
+                                  .ToList();
+            bool both = rng.Next(2) == 0;
+            var prm = new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1);
+            double cutoff = rng.Next(3) == 0 ? 0 : rng.Next(1, 8) / 2.0;
+
+            var full = SequenceAssembler.AssembleDeBruijn(reads, prm, both, clipTips: false);
+            var cleaned = SequenceAssembler.AssembleDeBruijn(reads, prm, both, rng.Next(2) == 0, rng.Next(0, 3 * k), cutoff, rng.Next(2) == 0);
+            var again = SequenceAssembler.AssembleDeBruijn(reads, prm, both, true);
+
+            var allowed = new HashSet<string>(KmersOf(full.Contigs, k), StringComparer.Ordinal);
+            if (both)
+                allowed.UnionWith(allowed.ToList().Select(ReverseComplementOf));
+            KmersOf(cleaned.Contigs, k).Should().OnlyContain(x => allowed.Contains(x), "cleaning never invents k-mers");
+            KmersOf(again.Contigs, k).Should().OnlyContain(x => allowed.Contains(x));
+            SequenceAssembler.AssembleDeBruijn(reads, prm, both, true).Contigs.Should().Equal(again.Contigs, "deterministic");
+        }
+    }
+
+    private static IEnumerable<string> KmersOf(IEnumerable<string> contigs, int k) =>
+        contigs.SelectMany(c => Enumerable.Range(0, Math.Max(0, c.Length - k + 1)).Select(i => c.Substring(i, k)));
+
+    private static string ReverseComplementOf(string s) =>
+        new(s.Reverse().Select(c => c switch { 'A' => 'T', 'C' => 'G', 'G' => 'C', 'T' => 'A', _ => c }).ToArray());
+
+    // Ground truth (planted errors): a repeat-free genome (no (k-1)-mer shared by the genome and its reverse complement,
+    // so its unitig graph is one path) is tiled by error-free reads, every one present twice and in random orientation,
+    // plus one single-substitution copy per tile whose first or last base is wrong (a one-k-mer tip, multiplicity 1 against
+    // the true arc's 2). Velvet tip clipping must return exactly the error-free genome (reported as the smaller strand);
+    // without clipping the tips stay as extra unitigs.
+    [Test]
+    [CancelAfter(60_000)]
+    public void AssembleDeBruijn_PlantedTips_ClippingRecoversTheErrorFreeGenome()
+    {
+        var rng = new Random(143_008);
+        int recovered = 0;
+        for (int trial = 0; trial < 300; trial++)
+        {
+            int k = new[] { 9, 11, 13 }[rng.Next(3)];
+            string genome = RandomRead(rng, rng.Next(70, 140));
+            var vertices = Enumerable.Range(0, genome.Length - k + 2).Select(i => genome.Substring(i, k - 1)).ToList();
+            var vertexSet = new HashSet<string>(vertices.Concat(vertices.Select(ReverseComplementOf)));
+            if (vertexSet.Count != 2 * vertices.Count)
+                continue; // not repeat-free (also excludes self-complementary vertices)
+
+            int readLength = rng.Next(k + 6, k + 20);
+            var reads = new List<string>();
+            var truth = new HashSet<string>(KmersOf(new[] { genome }, k).Concat(KmersOf(new[] { ReverseComplementOf(genome) }, k)));
+            int tips = 0;
+            var errorVertices = new HashSet<string>();
+            var begins = new HashSet<int>();
+            for (int start = 0; start < genome.Length; start += rng.Next(2, 6))
+            {
+                int begin = Math.Min(start, genome.Length - readLength);
+                if (!begins.Add(begin))
+                    continue;
+                string read = genome.Substring(begin, readLength);
+                reads.Add(Orient(rng, read));
+                reads.Add(Orient(rng, read));
+
+                int pos = rng.Next(2) == 0 ? 0 : readLength - 1;
+                char wrong;
+                do wrong = "ACGT"[rng.Next(4)]; while (wrong == read[pos]);
+                string bad = string.Concat(read.AsSpan(0, pos), wrong.ToString(), read.AsSpan(pos + 1));
+                // the erroneous k-mer must be new on both strands, else it would not be a tip
+                var erroneous = KmersOf(new[] { bad }, k).Where(x => !truth.Contains(x)).ToList();
+                if (erroneous.Count != 1 || erroneous.Any(x => truth.Contains(ReverseComplementOf(x))))
+                    continue;
+                // Seqeron's arcs are (k-1)-overlaps between unitigs (Velvet's only join consecutive k-mers of a read): a source tip
+                // and a sink tip at the same genome vertex would be cross-linked into a tangle that is no tip. Keep the planted
+                // errors vertex-disjoint and attached to distinct genome vertices (either strand).
+                if (new[] { erroneous[0][..^1], erroneous[0][1..] }.Count(vertexSet.Contains) != 1)
+                    continue; // a tip is attached to the genome at exactly one vertex (else it bridges two loci)
+                var ends = new[] { erroneous[0][..^1], erroneous[0][1..] }.SelectMany(v => new[] { v, ReverseComplementOf(v) }).ToList();
+                if (ends.Any(v => errorVertices.Contains(v)) || ends.Any(v => v == ReverseComplementOf(v)))
+                    continue; // (a self-complementary vertex would turn the erroneous k-mer into a hairpin bridge, not a tip)
+                errorVertices.UnionWith(ends);  // genome attachment vertices are in `ends` as well: one error per vertex
+                reads.Add(Orient(rng, bad));
+                tips++;
+            }
+
+            var prm = new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1);
+            string expected = string.CompareOrdinal(genome, ReverseComplementOf(genome)) <= 0 ? genome : ReverseComplementOf(genome);
+            var clipped = SequenceAssembler.AssembleDeBruijn(reads, prm);
+            clipped.Contigs.Should().Equal(new[] { expected }, "tips of one k-mer (< 2k) with multiplicity 1 are clipped; trial " + trial);
+
+            if (tips > 0)
+            {
+                var unclipped = SequenceAssembler.AssembleDeBruijn(reads, prm, true, clipTips: false);
+                unclipped.Contigs.Count.Should().BeGreaterThan(1, "the unclipped graph keeps the erroneous branches");
+            }
+
+            recovered++;
+        }
+
+        recovered.Should().BeGreaterThan(100, "enough repeat-free genomes were generated to make the property meaningful");
+    }
+
+    private static string Orient(Random rng, string read) => rng.Next(2) == 0 ? read : ReverseComplementOf(read);
 
     #endregion
 

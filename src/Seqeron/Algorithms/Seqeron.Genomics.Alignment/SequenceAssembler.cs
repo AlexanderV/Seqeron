@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Alignment;
 /// Provides genome assembly algorithms for constructing contigs from sequence reads.
 /// Supports overlap-layout-consensus and de Bruijn graph approaches.
 /// </summary>
-public static class SequenceAssembler
+public static partial class SequenceAssembler
 {
     /// <summary>
     /// Result of sequence assembly.
@@ -176,13 +176,21 @@ public static class SequenceAssembler
     public static AssemblyResult AssembleDeBruijn(
         IReadOnlyList<string> reads,
         AssemblyParameters? parameters,
-        bool includeReverseComplement)
+        bool includeReverseComplement,
+        bool clipTips = true,
+        int minTipLength = 0,
+        double coverageCutoff = 0,
+        bool autoCoverageCutoff = false)
     {
         // NB: `new AssemblyParameters()` on a record struct is zero-initialisation (KmerSize 0,
         // MinContigLength 0), NOT the declared defaults — use DefaultParameters.
         var param = parameters ?? DefaultParameters;
         int k = param.KmerSize;
         ValidateDeBruijnK(k);
+        ArgumentOutOfRangeException.ThrowIfNegative(minTipLength);
+        if (double.IsNaN(coverageCutoff) || coverageCutoff < 0)
+            throw new ArgumentOutOfRangeException(nameof(coverageCutoff), coverageCutoff,
+                "The coverage cut-off must be a non-negative number (0 = off).");
 
         if (reads == null || reads.Count == 0)
             return new AssemblyResult(Array.Empty<string>(), 0, 0, 0, 0, 0);
@@ -192,30 +200,44 @@ public static class SequenceAssembler
         for (int i = 0; i < folded.Length; i++)
             folded[i] = reads[i] == null ? null : FoldToAcgt(reads[i]);
 
-        // (1) Distinct k-mers through the canonical counter (upper-case keys).
+        bool cleaning = clipTips || coverageCutoff > 0 || autoCoverageCutoff;
+
+        // (1) Distinct k-mers through the canonical counter (upper-case keys); the occurrence counts
+        // (k-mers = node coverage, (k+1)-mers = arc multiplicity) are kept only when graph cleaning needs them.
         var kmers = new HashSet<string>(StringComparer.Ordinal);
+        var kmerCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var arcCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (string? read in folded)
         {
             if (read == null || read.Length < k)
                 continue; // a read shorter than k contributes no k-mers (Langmead DBG p.16)
 
-            foreach (string kmer in read.AsSpan().CountKmersSpan(k).Keys)
+            foreach (KeyValuePair<string, int> entry in read.AsSpan().CountKmersSpan(k))
             {
-                kmers.Add(kmer);
+                kmers.Add(entry.Key);
                 if (includeReverseComplement)
-                    kmers.Add(ReverseComplement(kmer));
+                    kmers.Add(ReverseComplement(entry.Key));
+                if (cleaning)
+                    kmerCounts[entry.Key] = kmerCounts.GetValueOrDefault(entry.Key) + entry.Value;
+            }
+
+            if (clipTips && read.Length > k)
+            {
+                foreach (KeyValuePair<string, int> entry in read.AsSpan().CountKmersSpan(k + 1))
+                    arcCounts[entry.Key] = arcCounts.GetValueOrDefault(entry.Key) + entry.Value;
             }
         }
 
-        // (2) One edge per distinct k-mer; nodes and edges in ordinal order for determinism.
-        var graph = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        foreach (string kmer in kmers.Order(StringComparer.Ordinal))
+        // (1b) Velvet graph cleaning: tip clipping and the coverage cut-off (see CleanDeBruijnKmers).
+        if (cleaning)
         {
-            string prefix = kmer[..^1];
-            if (!graph.TryGetValue(prefix, out var successors))
-                graph[prefix] = successors = new List<string>();
-            successors.Add(kmer[1..]);
+            kmers = CleanDeBruijnKmers(
+                kmers, k, includeReverseComplement, kmerCounts, arcCounts,
+                clipTips, minTipLength > 0 ? minTipLength : 2 * k, coverageCutoff, autoCoverageCutoff);
         }
+
+        // (2) One edge per distinct k-mer; nodes and edges in ordinal order for determinism.
+        var graph = BuildKmerGraph(kmers);
 
         // (3) Contigs = spelled maximal non-branching paths and isolated cycles.
         var paths = FindMaximalNonBranchingPaths(graph);
@@ -229,6 +251,21 @@ public static class SequenceAssembler
         // (5) A read is assembled when at least one of its k-mers (or, double-stranded, their
         // reverse complement) lies in a reported contig — Velvet usedReads (graphStats.c).
         return CalculateStats(contigs, reads.Count, CountReadsInContigs(folded, contigs, k, includeReverseComplement));
+    }
+
+    /// <summary>The k-mer de Bruijn graph: one edge (k-1)-prefix → (k-1)-suffix per distinct k-mer, in ordinal order.</summary>
+    private static Dictionary<string, List<string>> BuildKmerGraph(IEnumerable<string> kmers)
+    {
+        var graph = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (string kmer in kmers.Order(StringComparer.Ordinal))
+        {
+            string prefix = kmer[..^1];
+            if (!graph.TryGetValue(prefix, out var successors))
+                graph[prefix] = successors = new List<string>();
+            successors.Add(kmer[1..]);
+        }
+
+        return graph;
     }
 
     /// <summary>

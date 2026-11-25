@@ -163,7 +163,14 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     // double-stranded default has its own region (Double-stranded default, Velvet read rule).
     private static SequenceAssembler.AssemblyResult SingleStrand(
         IReadOnlyList<string> reads, SequenceAssembler.AssemblyParameters parameters) =>
-        SequenceAssembler.AssembleDeBruijn(reads, parameters, includeReverseComplement: false);
+        SequenceAssembler.AssembleDeBruijn(reads, parameters, includeReverseComplement: false, clipTips: false);
+
+    // The unitig oracle values below are for the uncleaned graph (Velvet's tip clipping, A2-2, would drop their
+    // toy-sized contigs, which are shorter than 2k k-mers); cleaning has its own region (Velvet graph cleaning).
+    private static SequenceAssembler.AssemblyResult Unclipped(
+        IReadOnlyList<string> reads, SequenceAssembler.AssemblyParameters? parameters = null,
+        bool includeReverseComplement = true) =>
+        SequenceAssembler.AssembleDeBruijn(reads, parameters, includeReverseComplement, clipTips: false);
 
     // Contigs of an arbitrary-alphabet text (Langmead / Rosalind letters are not DNA, and AssembleDeBruijn reads every
     // non-ACGT symbol as A, as Velvet does): the BA3K/BA3M construction over the distinct upper-cased k-mers.
@@ -332,8 +339,8 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
         var reads = new[] { "GATTACAGGT", "TAAGGACCTG" };
 
         var forward = SingleStrand(reads, K(5));
-        var both = SequenceAssembler.AssembleDeBruijn(reads, K(5), includeReverseComplement: true);
-        var byDefault = SequenceAssembler.AssembleDeBruijn(reads, K(5));
+        var both = Unclipped(reads, K(5), includeReverseComplement: true);
+        var byDefault = Unclipped(reads, K(5));
 
         Assert.Multiple(() =>
         {
@@ -347,8 +354,8 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_ReverseComplementOption_ReportsEachStrandPairOnce()
     {
-        var both = SequenceAssembler.AssembleDeBruijn(new[] { "GATTACAGGTCCTTA" }, K(5), includeReverseComplement: true);
-        var fromReverse = SequenceAssembler.AssembleDeBruijn(new[] { "TAAGGACCTGTAATC" }, K(5), includeReverseComplement: true);
+        var both = Unclipped(new[] { "GATTACAGGTCCTTA" }, K(5), includeReverseComplement: true);
+        var fromReverse = Unclipped(new[] { "TAAGGACCTGTAATC" }, K(5), includeReverseComplement: true);
 
         Assert.Multiple(() =>
         {
@@ -492,8 +499,8 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(SequenceAssembler.AssembleDeBruijn(reads, K(5)).Contigs, Is.EqualTo(new[] { "GATTACAGGTCCTTA" }));
-            Assert.That(SequenceAssembler.AssembleDeBruijn(reads, K(5), includeReverseComplement: false).Contigs,
+            Assert.That(Unclipped(reads, K(5)).Contigs, Is.EqualTo(new[] { "GATTACAGGTCCTTA" }));
+            Assert.That(Unclipped(reads, K(5), includeReverseComplement: false).Contigs,
                 Is.EqualTo(new[] { "GATTACAGGT", "TAAGGACCTG" }));
         });
     }
@@ -504,9 +511,9 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_Default_ReverseComplementedReadsGiveTheSameContigs()
     {
-        var forward = SequenceAssembler.AssembleDeBruijn(new[] { "ATGGCGTGCA" }, K(5)).Contigs;
-        var reverse = SequenceAssembler.AssembleDeBruijn(new[] { "TGCACGCCAT" }, K(5)).Contigs;
-        var overlapping = SequenceAssembler.AssembleDeBruijn(new[] { "ATGGCGT", "GGCGTGCA" }, K(5)).Contigs;
+        var forward = Unclipped(new[] { "ATGGCGTGCA" }, K(5)).Contigs;
+        var reverse = Unclipped(new[] { "TGCACGCCAT" }, K(5)).Contigs;
+        var overlapping = Unclipped(new[] { "ATGGCGT", "GGCGTGCA" }, K(5)).Contigs;
 
         Assert.Multiple(() =>
         {
@@ -521,7 +528,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_Default_RepeatReadsJoinWithReverseComplementUnitigs()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTACGTACGT", "ACGTACGTTTTT" }, K(5));
+        var result = Unclipped(new[] { "ACGTACGTACGT", "ACGTACGTTTTT" }, K(5));
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "AAAAA", "AAAACGT", "ACGTACGT" }));
     }
@@ -531,10 +538,10 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_NonAcgtSymbols_AreReadAsA()
     {
-        var withN = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTNGGTCA" }, K(4), includeReverseComplement: false);
-        var withIupacAndU = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTRYGGTCAU" }, K(5), includeReverseComplement: false);
-        var withOtherSymbols = SequenceAssembler.AssembleDeBruijn(new[] { "AAGCTTCCGANNGGATC" }, K(5), includeReverseComplement: false);
-        var bothStrands = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTNGGTCA" }, K(5));
+        var withN = Unclipped(new[] { "ACGTNGGTCA" }, K(4), includeReverseComplement: false);
+        var withIupacAndU = Unclipped(new[] { "ACGTRYGGTCAU" }, K(5), includeReverseComplement: false);
+        var withOtherSymbols = Unclipped(new[] { "AAGCTTCCGANNGGATC" }, K(5), includeReverseComplement: false);
+        var bothStrands = Unclipped(new[] { "ACGTNGGTCA" }, K(5));
 
         Assert.Multiple(() =>
         {
@@ -551,8 +558,8 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_NonAcgtAndLowerCase_ShareKmersWithTheAFoldedRead()
     {
-        var mixed = SequenceAssembler.AssembleDeBruijn(new[] { "acgtnGGTCA", "ACGTAGGTCA" }, K(5), includeReverseComplement: false);
-        var plain = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTAGGTCA" }, K(5), includeReverseComplement: false);
+        var mixed = Unclipped(new[] { "acgtnGGTCA", "ACGTAGGTCA" }, K(5), includeReverseComplement: false);
+        var plain = Unclipped(new[] { "ACGTAGGTCA" }, K(5), includeReverseComplement: false);
 
         Assert.Multiple(() =>
         {
@@ -566,7 +573,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_NonAsciiSymbol_IsReadAsA()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ACGT\u017fGGTCA" }, K(4), includeReverseComplement: false);
+        var result = Unclipped(new[] { "ACGT\u017fGGTCA" }, K(4), includeReverseComplement: false);
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "ACGTAGGTCA" }));
     }
@@ -577,7 +584,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_Default_AssembledReadsCountsEitherStrand()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "GATTACAGGTC", "ATGGCGTGCAATC" }, K(5));
+        var result = Unclipped(new[] { "GATTACAGGTC", "ATGGCGTGCAATC" }, K(5));
 
         Assert.Multiple(() =>
         {
@@ -634,6 +641,241 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     {
         Assert.That(() => SequenceAssembler.FindMaximalNonBranchingPaths(null!),
             NUnit.Framework.Throws.ArgumentNullException);
+    }
+
+    #endregion
+
+    #region Velvet graph cleaning (A2-1 coverage cut-off, A2-2 tip clipping)
+
+    // Sources: Velvet 1.2.10 (dzerbino/velvet) src/concatenatedPreGraph.c isEligibleTip/clipTips_pg, src/correctedGraph.c
+    // getTipLength/clipTipsHard, src/graphStats.c removeLowCoverageNodesAndDenounceDubiousReads/estimated_cov, src/run2.c
+    // (pipeline order); Zerbino & Birney (2008). Oracle: tools/review/oracles/B10/wp5_oracle.py (literal transcription,
+    // node-centric unitigs, bidirected twins); the values below are the oracle's, the C# side agrees on 1200 random cases
+    // (3 seeds x 400, see ASSEMBLY-DBG-001-Evidence.md "R1-WP5").
+
+    // 50-nt repeat-free genome (no shared 6-mer between it and its reverse complement) read at k = 7.
+    private const string TipGenome = "GCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCA";
+
+    // Two reads cover the genome at 2x; the third carries a substitution at its last base (TipGenome[..29] + 'C'),
+    // i.e. one erroneous k-mer hanging off the genome (a tip of length 1 < 2k).
+    private static readonly string[] TipReads =
+    {
+        "GCTAAAGACAATTACATAACATACACGTCAGCACGA", "GCTAAAGACAATTACATAACATACACGTCAGCACGA",
+        "CATAACATACACGTCAGCACGAAACTTGTTGGCCCA", "CATAACATACACGTCAGCACGAAACTTGTTGGCCCA",
+        "GCTAAAGACAATTACATAACATACACGTCC",
+    };
+
+    [Test]
+    public void AssembleDeBruijn_TipClipping_IsOnByDefault_AndRemovesTheErroneousTip()
+    {
+        var clipped = SequenceAssembler.AssembleDeBruijn(TipReads, K(7));
+        var unclipped = SequenceAssembler.AssembleDeBruijn(TipReads, K(7), includeReverseComplement: true, clipTips: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clipped.Contigs, Is.EqualTo(new[] { TipGenome }), "Velvet clipTips: the erroneous k-mer is clipped, the genome is one contig.");
+            Assert.That(unclipped.Contigs, Is.EqualTo(new[]
+            {
+                "CACGTCAGCACGAAACTTGTTGGCCCA", "CACGTCC", "GACGTGTATGTTATGTAATTGTCTTTAGC",
+            }), "Without cleaning the tip forks the unitig graph (BA3M contigs).");
+            Assert.That(clipped.AssembledReads, Is.EqualTo(5), "the erroneous read still has genome k-mers in the contig (Velvet usedReads)");
+        });
+    }
+
+    [Test]
+    public void AssembleDeBruijn_TipClipping_SingleStrandModel()
+    {
+        // Same genome, forward strand only: the oracle (rc = false) gives the genome as one contig.
+        var clipped = SequenceAssembler.AssembleDeBruijn(TipReads, K(7), includeReverseComplement: false);
+        Assert.That(clipped.Contigs, Is.EqualTo(new[] { TipGenome }));
+    }
+
+    [Test]
+    public void AssembleDeBruijn_MinTipLength_IsInKmers_AndALengthEqualToTheCutoffIsNotATip()
+    {
+        // Velvet: a chain is a tip when its length (in k-mers) is < 2k; the erroneous tail is 1 k-mer.
+        var atLength = SequenceAssembler.AssembleDeBruijn(TipReads, K(7), true, clipTips: true, minTipLength: 1);
+        var above = SequenceAssembler.AssembleDeBruijn(TipReads, K(7), true, clipTips: true, minTipLength: 2);
+        var zeroIsTwoK = SequenceAssembler.AssembleDeBruijn(TipReads, K(7), true, clipTips: true, minTipLength: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(atLength.Contigs.Count, Is.EqualTo(3), "1 < 1 is false: the tip stays");
+            Assert.That(above.Contigs, Is.EqualTo(new[] { TipGenome }));
+            Assert.That(zeroIsTwoK.Contigs, Is.EqualTo(new[] { TipGenome }));
+        });
+    }
+
+    [Test]
+    public void AssembleDeBruijn_IsolatedSnippetShorterThanTwoK_IsRemoved_UnlessItsLengthReachesTheCutoff()
+    {
+        // Velvet isEligibleTip: "If isolated snippet" (the dead-end walk reaches no junction) -> removed when < 2k k-mers.
+        // The 12-nt read TTTCCTCATGCA shares no 6-mer with the genome or its reverse complement: 6 k-mers at k = 7.
+        string[] reads = { TipGenome, TipGenome, "TTTCCTCATGCA" };
+        var byDefault = SequenceAssembler.AssembleDeBruijn(reads, K(7));
+        var cutoff7 = SequenceAssembler.AssembleDeBruijn(reads, K(7), true, minTipLength: 7);
+        var cutoff6 = SequenceAssembler.AssembleDeBruijn(reads, K(7), true, minTipLength: 6);
+        var unclipped = SequenceAssembler.AssembleDeBruijn(reads, K(7), true, clipTips: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byDefault.Contigs, Is.EqualTo(new[] { TipGenome }));
+            Assert.That(cutoff7.Contigs, Is.EqualTo(new[] { TipGenome }), "6 < 7");
+            Assert.That(cutoff6.Contigs, Is.EqualTo(new[] { TipGenome, "TGCATGAGGAAA" }), "6 < 6 is false");
+            Assert.That(unclipped.Contigs, Is.EqualTo(new[] { TipGenome, "TGCATGAGGAAA" }));
+            Assert.That(byDefault.AssembledReads, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void AssembleDeBruijn_TipClipping_CleanReadsAreUnchanged()
+    {
+        // Error-free reads of a repeat-free genome have no tips: clipping changes nothing.
+        string[] reads = { TipGenome[..36], TipGenome[14..] };
+        Assert.That(SequenceAssembler.AssembleDeBruijn(reads, K(7)).Contigs,
+            Is.EqualTo(SequenceAssembler.AssembleDeBruijn(reads, K(7), true, clipTips: false).Contigs));
+    }
+
+    // Velvet: getTotalCoverage / getNodeLength is an integer division of two int64 values compared with the double cut-off.
+    // Single strand, k = 3: unitig ACGT = k-mers ACG (4 reads) + CGT (3): coverage 7, length 2 -> quotient 3.
+    [TestCase(3.5, new[] { "GCATTAGC", "GGC" })]
+    [TestCase(3.0, new[] { "ACGT", "GCATTAGC", "GGC" })]
+    [TestCase(0.0, new[] { "ACGT", "GCATTAGC", "GGC" })]
+    public void AssembleDeBruijn_CoverageCutoff_UsesTheIntegerQuotient(double cutoff, string[] expected)
+    {
+        string[] reads = { "ACGT", "ACGT", "ACGT", "ACG", "GGCATTAGC", "GGCATTAGC", "GGCATTAGC", "GGCATTAGC", "GGCATTAGC" };
+        var result = SequenceAssembler.AssembleDeBruijn(reads, K(3), includeReverseComplement: false, clipTips: false, coverageCutoff: cutoff);
+        Assert.That(result.Contigs, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void AssembleDeBruijn_CoverageCutoff_CountsBothStrandsOfADoubleStrandedRead()
+    {
+        // Velvet node coverage = k-mer occurrences of either strand (a node and its twin share it): the 3 occurrences
+        // (2 forward + 1 reverse complement) of every k-mer give quotient 3.
+        string[] reads = { TipGenome, TipGenome, "TGGGCCAACAAGTTTCGTGCTGACGTGTATGTTATGTAATTGTCTTTAGC" };
+        string rc = "TGGGCCAACAAGTTTCGTGCTGACGTGTATGTTATGTAATTGTCTTTAGC";
+        Assert.That(rc, Is.EqualTo(ReverseComplementOf(TipGenome)));
+        var at3 = SequenceAssembler.AssembleDeBruijn(reads, K(7), true, clipTips: false, coverageCutoff: 3);
+        var at35 = SequenceAssembler.AssembleDeBruijn(reads, K(7), true, clipTips: false, coverageCutoff: 3.5);
+        Assert.Multiple(() =>
+        {
+            Assert.That(at3.Contigs, Is.EqualTo(new[] { TipGenome }));
+            Assert.That(at35.Contigs, Is.Empty);
+        });
+    }
+
+    private static string ReverseComplementOf(string s) =>
+        new(s.Reverse().Select(c => c switch { 'A' => 'T', 'C' => 'G', 'G' => 'C', 'T' => 'A', _ => c }).ToArray());
+
+    [Test]
+    public void AssembleDeBruijn_AutoCoverageCutoff_IsHalfTheLengthWeightedMedianCoverage()
+    {
+        // Velvet estimated_cov: unitigs GAATTCAGGTCCAC (11 k-mers, coverage 3 each), ACATG and GCTGG (2 k-mers, coverage 1):
+        // total length 15, half = 7: sorted by coverage B(2) C(4) A(15 >= 7) -> median 3.0 -> cut-off 1.5. An unweighted
+        // median over the three nodes is 1 (cut-off 0.5) and would keep B and C.
+        string[] reads = { "GAATTCAGGTCCAC", "GAATTCAGGTCCAC", "GAATTCAGGTCCAC", "ACATG", "GCTGG" };
+        var auto = SequenceAssembler.AssembleDeBruijn(reads, K(4), false, clipTips: false, autoCoverageCutoff: true);
+        var explicitCutoff = SequenceAssembler.AssembleDeBruijn(reads, K(4), false, clipTips: false, coverageCutoff: 1.5);
+        var off = SequenceAssembler.AssembleDeBruijn(reads, K(4), false, clipTips: false);
+        var explicitWins = SequenceAssembler.AssembleDeBruijn(reads, K(4), false, clipTips: false, coverageCutoff: 0.5, autoCoverageCutoff: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(auto.Contigs, Is.EqualTo(new[] { "GAATTCAGGTCCAC" }));
+            Assert.That(explicitCutoff.Contigs, Is.EqualTo(auto.Contigs));
+            Assert.That(off.Contigs, Is.EqualTo(new[] { "ACATG", "GAATTCAGGTCCAC", "GCTGG" }));
+            Assert.That(explicitWins.Contigs, Is.EqualTo(off.Contigs), "an explicit cut-off > 0 overrides auto (run2.c: coverageCutoff < 0 && estimateCutoff)");
+            Assert.That(auto.AssembledReads, Is.EqualTo(3));
+        });
+    }
+
+    [Test]
+    public void AssembleDeBruijn_CoverageCutoff_RemovesTheLowCoverageBranchThenTheJoinedUnitigsMerge()
+    {
+        // The error read forks the genome with a 7-k-mer dead-end branch (ACCTGAG after position 24). With clipping off only
+        // the coverage rule can remove it: genome coverage 2 per k-mer (read x2), branch coverage 1; cut-off 1.5 removes the
+        // branch unitig and the surviving halves concatenate into the genome (Velvet re-concatenates, second pass).
+        string errorRead = TipGenome[..24] + "ACCTGAG";
+        string[] reads = { TipGenome, TipGenome, errorRead };
+        var withTail = SequenceAssembler.AssembleDeBruijn(reads, K(7), false, clipTips: false);
+        var cut = SequenceAssembler.AssembleDeBruijn(reads, K(7), false, clipTips: false, coverageCutoff: 1.5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withTail.Contigs, Is.EqualTo(new[]
+            {
+                "ATACACCTGAG", "ATACACGTCAGCACGAAACTTGTTGGCCCA", "GCTAAAGACAATTACATAACATACAC",
+            }));
+            Assert.That(cut.Contigs, Is.EqualTo(new[] { TipGenome }));
+        });
+    }
+
+    [Test]
+    public void AssembleDeBruijn_InvalidCleaningParameters_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => SequenceAssembler.AssembleDeBruijn(TipReads, K(7), true, minTipLength: -1),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceAssembler.AssembleDeBruijn(TipReads, K(7), true, coverageCutoff: -1),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceAssembler.AssembleDeBruijn(TipReads, K(7), true, coverageCutoff: double.NaN),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    [Test]
+    public void AssembleDeBruijn_Cleaning_SelfComplementaryUnitig_IsTwoTwinNodesJoinedByAHairpinArc()
+    {
+        // GCTTGACATCGATGTCAAGC is its own reverse complement (k = 7): its unitig passes the self-complementary 6-mer vertex
+        // ATCGAT; Velvet never concatenates across a hairpin arc (concatenatePreGraph_pg skips
+        // isLoop_pg), so it is two twin nodes of 7 k-mers each; as an isolated snippet the walk sums 7 + 7 = 14 k-mers
+        // (Velvet isEligibleTip), so it is a tip below a cut-off of 15 and not at 14 (and 14 is the default 2k).
+        string[] reads = { "TTGACATCGATGTCAAGC", "TTGACATCGATGTCAAGC" };
+        string[] palindrome = { "GCTTGACATCGATGTCAAGC" };
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.AssembleDeBruijn(reads, K(7)).Contigs, Is.EqualTo(palindrome), "wp5_oracle.py");
+            Assert.That(SequenceAssembler.AssembleDeBruijn(reads, K(7), true, clipTips: false).Contigs, Is.EqualTo(palindrome));
+            Assert.That(SequenceAssembler.AssembleDeBruijn(reads, K(7), true, minTipLength: 14).Contigs, Is.EqualTo(palindrome));
+            Assert.That(SequenceAssembler.AssembleDeBruijn(reads, K(7), true, minTipLength: 15).Contigs, Is.Empty);
+        });
+    }
+
+    // Pinned random cases of wp5_oracle.py (seeds 1-3): reads, k, double strand, min contig length, clipTips, cut-off, auto,
+    // expected contigs (as reported: strand pairs once, ordinally smaller), expected assembled reads.
+    private static readonly object[][] OracleCases =
+    {
+        new object[] { new[] { "CTACAGCTCGCTAC", "AGCTCTACAGCTCG", "GCTCTACAGCTCGC", "TCGCTACTGCAGAC", "GCTCGCTACTGCAG", "CTCGCTACTGCAGA", "GTAGAGCTTGGGAT", "CAACGATCCCAAGC", "CTACAGCTCGCTAC" }, 5, true, 1, true, 4.5d, true, new[] { "GTAGCGAGCTCGCTAC" }, 8 },
+        new object[] { new[] { "ACTTTACA", "CGGTCTTTGGG", "TAGAG", "AAGTAC", "GAATCC", "AGGACTATTCCATCG", "CTGGGACG" }, 3, false, 3, true, 2d, true, new[] { "GGACTT", "GGG", "TTT" }, 4 },
+        new object[] { new[] { "GTGT", "TAAATCTTCTATG", "GTCGACTT", "GCAGAATCTCCTAAG", "GAGTATCG", "AGCACACCGTCCAG", "GTTTCCA" }, 3, true, 3, true, 3d, false, new[] { "GAAGA", "GATC", "TCGA" }, 5 },
+        new object[] { new[] { "AATTCTTGTCAGACGCC", "AGTTCTTGTCAGACGCC", "TTATCGGCGTCTGACAA", "TCAGACGCCGATAAGCC", "TGTCAGACGCCGATCAG", "CTGGCTTATCGGCGTCT", "TCTGGCTTATCAGCGTC", "CAGACGCCGATAAGCCA", "TTGTCAGACGCCGATAA", "TGTCAGACGCGGATAAG" }, 9, false, 1, true, 1.5d, false, new[] { "AGTTCTTGTCAGACGCCGATAAGCCA" }, 7 },
+        new object[] { new[] { "TTTCGCTAGCCCCCACT", "CCTCACTGCAGACCATC", "TGGTCTGCAGTGGGGGC", "TTCGCTAGCCCCCACTG", "CAGTGGGGGCTAGCGAA", "CCCCCGCTGCAGACCAT", "AGCCCCCACTGCAGACC", "GCCCCCACTGCAGACCA" }, 5, true, 1, true, 0d, true, new[] { "CCCCACTGCAGTGGGG", "CCCCC", "GGGGCTAGCCCC" }, 8 },
+        new object[] { new[] { "CGGAATTGGCCA", "AACCGACG", "TGTTAGTTAGAGT", "ATGTTTCCGCT", "GACAACATG", "TCGCAGAAAATCGG", "GACGGATGTGCGAGTA", "CCATGGAAGTTTTAG" }, 7, true, 1, true, 0d, false, new[] { "CTAAAACTTCCATGGAAGTTTTAG" }, 1 },
+        new object[] { new[] { "GGTGCGGCTCGCCCGG", "GCCTCTTACT", "TCCGGGCCATCGGGT", "GTCTG", "CGCGTTGG" }, 5, false, 5, true, 0d, false, new[] { "CGGGCCATCGGG", "GGTGCGGCTCGCCCGGG" }, 2 },
+        new object[] { new[] { "CACATTCAGGTAAAGC", "TGATCCTTGCACAAAG", "AGCTGTACCTGAATGT", "TTTGTGCACGGATCAG", "CTGATCCTTGCACAAA", "TTCAGGTAAAGCTTTG", "AAGCTTTGTGCAAGGA", "TTCAGGTAAAGCTTTG" }, 7, true, 7, false, 2.5d, true, new[] { "AAAGCTTT" }, 3 },
+        new object[] { new[] { "AGCACGTCCCAATCC", "ACGTGCTGGCAACGT", "TACGTTGCCAGCACG", "TGCCAGCACGTCCCA", "CGTCCCAATCCGTGG", "AATTACGTTGCCAGC", "ATTACGTTGCCAGCA", "CCAATTACGTTGCCA", "CGTGCTGGCAACGTA", "GATTACGTTGCCAGC" }, 7, false, 1, false, 1.5d, true, new[] { "ATTACGTTGCCAGCACGTCCCAATCCGTGG" }, 8 },
+        new object[] { new[] { "GTTAAT", "ATAAGC", "TTATCCGGGATGGAGAG", "CCAAAAG", "GTCGGACCGT", "ACACTAAAGCTGGCAA", "TGGAACTCGTAAGGAG", "TCTAATTCTGCCACT" }, 5, true, 5, false, 2d, false, new[] { "TGCCA" }, 2 },
+        new object[] { new[] { "CATGTGAAAATGATCACTG", "AATGATCACTGTACCTATT", "ATCGAATAGGTACAGTGAT", "CATGTGAAAATGATCACTG", "AATAGGTACAGTGATCATT", "CATGTGAAAATGATCACTG", "AAAATGATCACTGTCCCTA", "ATCACTGTACCTATTCGAT" }, 5, false, 10, false, 2d, false, new[] { "GTGAAAATGAT", "TGATCACTGTAC" }, 7 },
+        new object[] { new[] { "CGAACATCTGGTAACGAT", "CCACGGGTCCCAGCCATC", "TAATATCTGATCCTCGA", "AAAGGGATATAAAGA" }, 7, true, 14, false, 0d, true, new[] { "AAAGGGATATAAAGA", "ATCGTTACCAGATGTTCG", "CCACGGGTCCCAGCCATC", "TAATATCTGATCCTCGA" }, 4 },
+        new object[] { new[] { "TTGTCTAATGATGA" }, 7, false, 7, false, 0d, true, new[] { "TTGTCTAATGATGA" }, 1 },
+        new object[] { new[] { "GGTAAAGGGTTCTCCATTGGG", "GTAAAGGGTTCTCCATTGGGT", "GTAACCTTACCCAATGGAGAA", "CCAATGGAGAACCCTTTACCG", "GAACCCCTTACCGACACGTCC", "TAAAGGGTTCTCCATTGGGTA", "TAACGTTACCCAATGGAGAAC" }, 9, true, 1, false, 0d, false, new[] { "CGGTAAAGGGTTCTCCATTGGGTAA", "GAACCCCTTACCGACACGTCC", "GTAACCTTACCCAA", "TTGGGTAACGTTACCCAA" }, 7 },
+        new object[] { new[] { "ATTTTGAGGTCACGCT", "GGGGTGACGGGCACGC", "ATCTCCGC", "GTTAGGCAGCGGTGCTC", "TGGAGATGGTGCCTGAGTC" }, 7, false, 14, false, 0d, false, new[] { "ATTTTGAGGTCACGCT", "GGGGTGACGGGCACGC", "GTTAGGCAGCGGTGCTC", "TGGAGATGGTGCCTGAGTC" }, 4 },
+    };
+
+    [TestCaseSource(nameof(OracleCases))]
+    public void AssembleDeBruijn_Cleaning_MatchesVelvetOracle(
+        string[] reads, int k, bool doubleStrand, int minContig, bool clipTips, double cutoff, bool auto,
+        string[] expected, int expectedAssembled)
+    {
+        var result = SequenceAssembler.AssembleDeBruijn(reads, K(k, minContig), doubleStrand, clipTips, 0, cutoff, auto);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Contigs.OrderBy(c => c, StringComparer.Ordinal), Is.EqualTo(expected.OrderBy(c => c, StringComparer.Ordinal)));
+            Assert.That(result.AssembledReads, Is.EqualTo(expectedAssembled));
+        });
     }
 
     #endregion

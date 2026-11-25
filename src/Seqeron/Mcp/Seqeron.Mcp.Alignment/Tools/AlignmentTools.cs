@@ -436,19 +436,23 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "assemble_de_bruijn", Title = "Assembly — de Bruijn Graph", ReadOnly = true)]
-    [Description("Assembles input reads using a de Bruijn graph: shreds reads into their distinct k-mers (case-insensitive; coverage adds no edges; Velvet read rule: every non-ACGT symbol is read as A), builds the (k-1)-mer node graph, and outputs every maximal non-branching path (unitig) and isolated cycle as a contig (Compeau & Pevzner; Velvet), then reports assembly statistics. Double-stranded by default (Velvet records each k-mer together with its reverse complement, so reads from both strands join; each contig/reverse-complement pair is reported once); set includeReverseComplement = false for the single-strand textbook model (Rosalind BA3K/BA3M).")]
+    [Description("Assembles input reads using a de Bruijn graph: shreds reads into their distinct k-mers (case-insensitive; coverage adds no edges; Velvet read rule: every non-ACGT symbol is read as A), builds the (k-1)-mer node graph, and outputs every maximal non-branching path (unitig) and isolated cycle as a contig (Compeau & Pevzner; Velvet), then reports assembly statistics. Double-stranded by default (Velvet records each k-mer together with its reverse complement, so reads from both strands join; each contig/reverse-complement pair is reported once); set includeReverseComplement = false for the single-strand textbook model (Rosalind BA3K/BA3M). Velvet graph cleaning (Zerbino & Birney 2008; velvetg): tip clipping is ON by default (clipTips; dead-end unitigs shorter than minTipLength k-mers, default 2k, that are a multiplicity minority or - second stage - of any multiplicity, which also drops isolated unitigs shorter than 2k k-mers); the coverage cut-off (-cov_cutoff) removes unitigs whose integer quotient total k-mer coverage / length is below coverageCutoff, and autoCoverageCutoff uses Velvet's estimate (length-weighted median unitig coverage / 2). Set clipTips = false for the unclipped textbook contigs. Bubble removal (Tour Bus) is not applied.")]
     public static AssemblyResultDto AssembleDeBruijn(
         [Description("Input sequence reads.")] string[] reads,
         [Description("Minimum overlap length (shared parameter; not the operative knob here).")] int minOverlap = 20,
         [Description("Minimum identity (shared parameter).")] double minIdentity = 0.9,
         [Description("K-mer size used to build the de Bruijn graph (>= 2; odd recommended with includeReverseComplement).")] int kmerSize = 31,
         [Description("Minimum contig length to keep (bp).")] int minContigLength = 100,
-        [Description("Treat reads as double-stranded DNA: add each k-mer's reverse complement (Velvet; default true). False = forward strand only (Rosalind BA3M single-strand model).")] bool includeReverseComplement = true)
+        [Description("Treat reads as double-stranded DNA: add each k-mer's reverse complement (Velvet; default true). False = forward strand only (Rosalind BA3M single-strand model).")] bool includeReverseComplement = true,
+        [Description("Velvet tip clipping (clipTips_pg + clipTipsHard; default true). False keeps every unitig (textbook contigs).")] bool clipTips = true,
+        [Description("Tip length cut-off in k-mers; 0 = Velvet's 2 * kmerSize. A dead-end chain shorter than this is a tip.")] int minTipLength = 0,
+        [Description("Velvet -cov_cutoff: remove unitigs whose integer quotient (total k-mer coverage / length in k-mers) is below this value; 0 = off.")] double coverageCutoff = 0,
+        [Description("Velvet -cov_cutoff auto: cut-off = length-weighted median unitig coverage / 2 (used only when coverageCutoff is 0).")] bool autoCoverageCutoff = false)
     {
         var p = new global::Seqeron.Genomics.Alignment.SequenceAssembler.AssemblyParameters(
             minOverlap, minIdentity, kmerSize, minContigLength);
         var r = global::Seqeron.Genomics.Alignment.SequenceAssembler.AssembleDeBruijn(
-            reads ?? Array.Empty<string>(), p, includeReverseComplement);
+            reads ?? Array.Empty<string>(), p, includeReverseComplement, clipTips, minTipLength, coverageCutoff, autoCoverageCutoff);
         return ToAssemblyDto(r);
     }
 
