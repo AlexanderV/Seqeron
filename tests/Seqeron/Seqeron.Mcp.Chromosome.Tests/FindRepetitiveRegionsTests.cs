@@ -6,7 +6,7 @@ namespace Seqeron.Mcp.Chromosome.Tests;
 
 /// <summary>
 /// Tests for <c>find_repetitive_regions</c>. GenomeAssemblyAnalyzer.FindRepetitiveRegions flags spans
-/// where k-mers recur at least minCopies times. A pure 8-bp periodic sequence collapses to one region.
+/// runs the NCBI WindowMasker k-mer-count model. A pure 8-bp periodic sequence collapses to one region.
 /// </summary>
 [TestFixture]
 public class FindRepetitiveRegionsTests
@@ -27,7 +27,8 @@ public class FindRepetitiveRegionsTests
     [Test]
     public void FindRepetitiveRegions_Binding_InvokesSuccessfully()
     {
-        // "ACGTACGT" x 100 = 800 bp: an 8-mer recurs ~199 times; one repetitive region [0, 789].
+        // "ACGTACGT" x 100 = 800 bp: one WindowMasker region [0, 799]. ACGTACGT is its own reverse complement and
+        // occurs 199 times per strand, so its both-strand unit count (win_mask_gen_counts.cpp) is 398.
         var result = ChromosomeTools.FindRepetitiveRegions(
             new List<NamedSequence> { new("s", Rep("ACGTACGT", 100)) }, 8, 3, 50);
 
@@ -37,8 +38,22 @@ public class FindRepetitiveRegionsTests
         {
             Assert.That(r.SequenceId, Is.EqualTo("s"));
             Assert.That(r.Start, Is.EqualTo(0));
-            Assert.That(r.End, Is.EqualTo(789));
-            Assert.That(r.Copies, Is.EqualTo(199));
+            Assert.That(r.End, Is.EqualTo(799));
+            Assert.That(r.Copies, Is.EqualTo(398));
         });
+    }
+
+    [Test]
+    public void FindRepetitiveRegions_StrandAndExtendOptions_AreForwarded()
+    {
+        // k = W = 5: ACGTG twice forward + once as its reverse complement CACGT.
+        var seqs = new List<NamedSequence> { new("a", "ACGTG"), new("b", "ACGTG"), new("c", "CACGT") };
+
+        Assert.That(ChromosomeTools.FindRepetitiveRegions(seqs, 5, 3, 5, bothStrands: false).Items, Is.Empty);
+        var both = ChromosomeTools.FindRepetitiveRegions(seqs, 5, 3, 5, bothStrands: true).Items;
+        Assert.That(both.Select(r => (r.SequenceId, r.Start, r.End, r.Copies)),
+            Is.EqualTo(new[] { ("a", 0, 4, 3), ("b", 0, 4, 3), ("c", 0, 4, 3) }));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => ChromosomeTools.FindRepetitiveRegions(seqs, 5, 3, 5, true, extendCopies: 4));
     }
 }

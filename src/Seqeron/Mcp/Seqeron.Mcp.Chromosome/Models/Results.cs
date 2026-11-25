@@ -125,7 +125,7 @@ public record TandemRepeat(
     int Start,
     int End,
     string Unit,
-    int Copies,
+    double Copies,
     double Purity);
 
 public record TandemRepeatsResult(IReadOnlyList<TandemRepeat> Items);

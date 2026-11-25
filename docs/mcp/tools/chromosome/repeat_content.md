@@ -1,6 +1,6 @@
 # repeat_content
 
-Compute repeat content from repeat annotations.
+Compute RepeatMasker-style repeat content from repeat annotations.
 
 ## Overview
 
@@ -14,12 +14,15 @@ Compute repeat content from repeat annotations.
 
 ## Description
 
-Sums inclusive `(end - start + 1)` lengths across the repeat annotations, computes
-`total × 100 / genomeLength`, and groups lengths by `repeatClass`.
+Counts every masked base once ("bases masked", RepeatMasker `ProcessRepeats`): per sequence the annotations
+are swept in start order and each contributes only the bases beyond the furthest end seen so far, credited to
+its `repeatClass`; overlapping or contained annotations are therefore not double counted and the class lengths
+sum to the total. `repeatPercentage = total × 100 / genomeLength`. Coordinates are 0-based inclusive; an
+annotation with `end < start` or `start < 0`, or more masked bases than `genomeLength`, is rejected.
 
 ## Core Documentation Reference
 
-- Source: [GenomeAssemblyAnalyzer.cs#L816](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L816)
+- Source: [GenomeAssemblyAnalyzer.cs#L1418](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1418)
 
 ## Input Schema
 
@@ -34,7 +37,7 @@ Sums inclusive `(end - start + 1)` lengths across the repeat annotations, comput
 |-------|------|-------------|
 | `totalRepeatLength` | integer | Total repeat length. |
 | `repeatPercentage` | number | `total × 100 / genomeLength`. |
-| `repeatClassLengths` | object | Map of repeat class → summed length. |
+| `repeatClassLengths` | object | Map of repeat class → bases credited to the class (sums to the total). |
 
 ## Errors
 
@@ -46,8 +49,9 @@ Sums inclusive `(end - start + 1)` lengths across the repeat annotations, comput
 ## Example
 
 `LINE` (0–99, 100 bp) + `SINE` (100–149, 50 bp), genome 1000 →
-`totalRepeatLength 150, repeatPercentage 15.0, { LINE: 100, SINE: 50 }`.
+`totalRepeatLength 150, repeatPercentage 15.0, { LINE: 100, SINE: 50 }`; `LINE` 0–99 + `SINE` 50–149 → also 150 (overlap counted once, LINE 100 / SINE 50).
 
 ## References
 
-- [GenomeAssemblyAnalyzer.CalculateRepeatContent](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L816)
+- RepeatMasker `ProcessRepeats` (`generateTableOutput`, "Define length of coverage based on possibly overlapping fragments").
+- [GenomeAssemblyAnalyzer.CalculateRepeatContent](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1418)

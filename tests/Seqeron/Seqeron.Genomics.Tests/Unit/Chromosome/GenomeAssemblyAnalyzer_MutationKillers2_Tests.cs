@@ -60,13 +60,14 @@ public class GenomeAssemblyAnalyzer_MutationKillers2_Tests
     [Test]
     public void FindTandemRepeats_PerfectDinucleotideRepeat()
     {
-        // (AT)×4 = 8 bp, perfect ⇒ purity 1.0.
-        var r = FindTandemRepeats(new[] { ("s", "ATATATAT") }).Single();
+        // (AT)×30 = 60 bp, perfect ⇒ TRF score 2·60 = 120 ≥ 50, 30 copies, purity 1.0
+        // (an 8-bp (AT)×4 scores 16 < Minscore 50 and is not a TRF repeat).
+        var r = FindTandemRepeats(new[] { ("s", string.Concat(Enumerable.Repeat("AT", 30))) }).Single();
         Assert.That(r.SequenceId, Is.EqualTo("s"));
         Assert.That(r.Start, Is.EqualTo(0));
-        Assert.That(r.End, Is.EqualTo(7));
+        Assert.That(r.End, Is.EqualTo(59));
         Assert.That(r.Unit, Is.EqualTo("AT"));
-        Assert.That(r.Copies, Is.EqualTo(4));
+        Assert.That(r.Copies, Is.EqualTo(30.0).Within(Tol));
         Assert.That(r.Purity, Is.EqualTo(1.0).Within(Tol));
     }
 
@@ -78,14 +79,15 @@ public class GenomeAssemblyAnalyzer_MutationKillers2_Tests
     public void CalculateLocalQuality_ExactWindowMetrics()
     {
         // "ACGTACGT": one window (len 8 < default 1000). GC = 4/8 = 0.5; N = 0;
-        // linguistic complexity = distinct 4-mers (4) / min(validKmers 5, 4^4) = 4/5 = 0.8.
+        // canonical linguistic complexity (Troyanskaya 2002; m = min(10, 8) = 8, a = 4):
+        // ΣV_i = 4+4+4+4+4+3+2+1 = 26, Σmin(4^i, 8−i+1) = 4+7+6+5+4+3+2+1 = 32 ⇒ 26/32.
         var q = CalculateLocalQuality(new[] { ("s", "ACGTACGT") }).Single();
         Assert.That(q.SequenceId, Is.EqualTo("s"));
         Assert.That(q.Position, Is.EqualTo(0));
         Assert.That(q.WindowSize, Is.EqualTo(8));
         Assert.That(q.GcContent, Is.EqualTo(0.5).Within(Tol));
         Assert.That(q.NCount, Is.EqualTo(0));
-        Assert.That(q.Complexity, Is.EqualTo(0.8).Within(Tol));
+        Assert.That(q.Complexity, Is.EqualTo(26.0 / 32.0).Within(Tol));
     }
 
     #endregion

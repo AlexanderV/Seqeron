@@ -74,23 +74,26 @@ public class GenomeAssemblyAnalyzer_MutationKillers4_Tests
     }
 
     [Test]
-    public void FindTandemRepeats_ImperfectCopy_ExactPurity()
+    public void FindTandemRepeats_SingleSubstitution_ExactTrfPurity()
     {
-        // AAAAA·AAAAA·AAAAC (then a trailing G so length 16 > minUnit·minCopies = 15): the 3rd
-        // copy matches 4/5 = 80% ⇒ counted; matches = 5 + 4 = 9.
-        // purity = (unitLen + matches)/(copies·unitLen) = (5 + 9)/15 = 14/15.
-        var r = FindTandemRepeats(new[] { ("s", "AAAAAAAAAAAAAACG") }, minUnitLength: 5, minCopies: 3).First();
-        Assert.That(r.Unit, Is.EqualTo("AAAAA"));
-        Assert.That(r.Copies, Is.EqualTo(3));
-        Assert.That(r.Purity, Is.EqualTo(14.0 / 15.0).Within(Tol));
+        // (ACGTT)×20 with one T→A substitution in the 11th copy and 100 bp: TRF (match 2, mismatch −7)
+        // aligns the whole array, 20 copies, one mismatch touching two adjacent-copy comparisons of 95:
+        // purity 93/95; score 2·99 − 7 = 191.
+        string unit = "ACGTT";
+        string seq = string.Concat(Enumerable.Repeat(unit, 10)) + "ACGTA" + string.Concat(Enumerable.Repeat(unit, 9));
+        var r = FindTandemRepeats(new[] { ("s", seq) }, minUnitLength: 5, minCopies: 3).First();
+        Assert.That(r.Unit, Is.EqualTo("ACGTT"));
+        Assert.That(r.Copies, Is.EqualTo(20.0).Within(Tol));
+        Assert.That(r.Purity, Is.EqualTo(93.0 / 95.0).Within(Tol));
     }
 
     [Test]
     public void FindSuspiciousRegions_PolyA_ExactLowComplexityScore()
     {
-        // 600-bp poly(A): a 500-bp window has linguistic complexity 1/256, giving the peak
-        // low-complexity score 1 − (1/256)/0.3.
+        // 600-bp poly(A): a 500-bp window has canonical linguistic complexity (Troyanskaya 2002, m = 10, a = 4)
+        // ΣV_i / Σmin(4^i, 501−i) = 10 / (4+16+64+256+496+495+494+493+492+491) = 10/3301,
+        // giving the peak low-complexity score 1 − (10/3301)/0.3.
         var r = FindSuspiciousRegions(new[] { ("s", new string('A', 600)) }).Single();
-        Assert.That(r.Score, Is.EqualTo(1.0 - (1.0 / 256.0) / 0.3).Within(1e-9));
+        Assert.That(r.Score, Is.EqualTo(1.0 - (10.0 / 3301.0) / 0.3).Within(1e-9));
     }
 }

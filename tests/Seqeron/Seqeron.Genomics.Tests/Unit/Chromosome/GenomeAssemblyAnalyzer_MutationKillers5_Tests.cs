@@ -53,12 +53,13 @@ public class GenomeAssemblyAnalyzer_MutationKillers5_Tests
     [Test]
     public void FindRepetitiveRegions_TandemSpansWholeSequence()
     {
-        // (CAG)×200 = 600 bp of high-copy 6-mers ⇒ one repetitive region spanning [0, 599].
+        // (CAG)×200 = 600 bp: the three 6-mers CAGCAG/AGCAGC/GCAGCA occur 199/198/198 times, every window
+        // scores far above T_threshold = 3 ⇒ one WindowMasker interval [0, 599] with Copies = 199.
         string seq = string.Concat(Enumerable.Repeat("CAG", 200));
         var r = FindRepetitiveRegions(new[] { ("s", seq) }, kmerSize: 6, minCopies: 3, windowSize: 60).Single();
         Assert.That(r.SequenceId, Is.EqualTo("s"));
         Assert.That(r.Start, Is.EqualTo(0));
-        Assert.That(r.End, Is.EqualTo(593)); // truncated final windows drop below threshold
-        Assert.That(r.Copies, Is.GreaterThanOrEqualTo(3));
+        Assert.That(r.End, Is.EqualTo(599));
+        Assert.That(r.Copies, Is.EqualTo(199));
     }
 }

@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.CalculateRepeatContent",
-  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L816",
-  "description": "Compute total repeat length, repeat percentage and per-class lengths from repeat annotations.",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1418",
+  "description": "Compute RepeatMasker-style repeat content from annotations: bases covered (each base counted once, overlaps not double counted), percentage of the genome and per-class lengths.",
   "inputSchema": {
     "type": "object",
     "properties": {

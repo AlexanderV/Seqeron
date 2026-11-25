@@ -101,15 +101,18 @@ public class GenomeAssemblyAnalyzer_MutationKillers3_Tests
     #region FindTandemRepeats imperfect
 
     [Test]
-    public void FindTandemRepeats_ImperfectCopyStillCountedAt80Percent()
+    public void FindTandemRepeats_SubstitutedCopy_IsAlignedByTrf()
     {
-        // (ATG)×3 then a 4th copy "ATC" (2/3 = 66% < 80% ⇒ not extended): exactly 3 copies.
-        var r = FindTandemRepeats(new[] { ("s", "ATGATGATGATC") }, minUnitLength: 3, minCopies: 3).First();
+        // (ATG)×7 · ATC · (ATG)×7 (one substitution G→C in copy 8): TRF aligns all 15 copies
+        // (score 2·44 − 7 = 81) and counts 40 matching of 42 adjacent-copy column pairs (the substituted column
+        // is compared with both neighbours) ⇒ purity 40/42.
+        string seq = string.Concat(Enumerable.Repeat("ATG", 7)) + "ATC" + string.Concat(Enumerable.Repeat("ATG", 7));
+        var r = FindTandemRepeats(new[] { ("s", seq) }, minUnitLength: 3, minCopies: 3).First();
         Assert.That(r.Unit, Is.EqualTo("ATG"));
-        Assert.That(r.Copies, Is.EqualTo(3));
+        Assert.That(r.Copies, Is.EqualTo(15.0).Within(Tol));
         Assert.That(r.Start, Is.EqualTo(0));
-        Assert.That(r.End, Is.EqualTo(8)); // 3 copies × 3 = 9 bp ⇒ [0,8]
-        Assert.That(r.Purity, Is.EqualTo(1.0).Within(Tol)); // the 3 counted copies are perfect
+        Assert.That(r.End, Is.EqualTo(44)); // 15 copies × 3 = 45 bp ⇒ [0,44]
+        Assert.That(r.Purity, Is.EqualTo(40.0 / 42.0).Within(Tol));
     }
 
     #endregion

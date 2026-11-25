@@ -433,12 +433,14 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "find_repetitive_regions", Title = "Assembly — Find repetitive regions", ReadOnly = true)]
-    [Description("Identify repetitive regions across assembled sequences using k-mer copy-number frequency.")]
+    [Description("Identify repetitive regions with the NCBI WindowMasker k-mer-count model: window score = mean count of the window's k-mers (pooled over all sequences, both strands by default; windows with non-ACGT bases are skipped); score >= minCopies triggers masking, score < extendCopies closes a region.")]
     public static RepetitiveRegionsResult FindRepetitiveRegions(
         [Description("Sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
         [Description("K-mer size (default 15).")] int kmerSize = 15,
         [Description("Minimum k-mer copies (default 3).")] int minCopies = 3,
-        [Description("Window size (default 100).")] int windowSize = 100)
+        [Description("Window size in bases (default 100, >= kmerSize).")] int windowSize = 100,
+        [Description("Count k-mers on both strands (WindowMasker default true).")] bool bothStrands = true,
+        [Description("T_extend: window score below which a region closes (1..minCopies; default = minCopies).")] int? extendCopies = null)
     {
         if (sequences is null)
             throw new ArgumentException("Sequences cannot be null", nameof(sequences));
@@ -450,18 +452,19 @@ public class ChromosomeTools
             throw new ArgumentException("Window size must be positive", nameof(windowSize));
 
         return new(SourceGa.FindRepetitiveRegions(
-                sequences.Select(s => (s.Id, s.Sequence)), kmerSize, minCopies, windowSize)
+                sequences.Select(s => (s.Id, s.Sequence)), kmerSize, minCopies, windowSize, bothStrands, extendCopies)
             .Select(r => new RepetitiveRegion(r.SequenceId, r.Start, r.End, r.Copies))
             .ToList());
     }
 
     [McpServerTool(Name = "find_tandem_repeats", Title = "Assembly — Find tandem repeats", ReadOnly = true)]
-    [Description("Identify tandem repeats; returns repeat unit, copy number and purity per occurrence.")]
+    [Description("Find approximate tandem repeats with Tandem Repeats Finder (Benson 1999; match 2, mismatch 7, indel 7, PM 80, PI 10): TRF consensus pattern, copy number and fraction of matches between adjacent copies per repeat.")]
     public static TandemRepeatsResult FindTandemRepeats(
         [Description("Sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
         [Description("Minimum unit length (default 2).")] int minUnitLength = 2,
         [Description("Maximum unit length (default 50).")] int maxUnitLength = 50,
-        [Description("Minimum copies (default 3).")] int minCopies = 3)
+        [Description("Minimum copy number (default 3).")] int minCopies = 3,
+        [Description("TRF minimum alignment score (default 50).")] int minScore = 50)
     {
         if (sequences is null)
             throw new ArgumentException("Sequences cannot be null", nameof(sequences));
@@ -471,15 +474,17 @@ public class ChromosomeTools
             throw new ArgumentException("Maximum unit length must be >= minimum unit length", nameof(maxUnitLength));
         if (minCopies <= 0)
             throw new ArgumentException("Minimum copies must be positive", nameof(minCopies));
+        if (minScore <= 0)
+            throw new ArgumentException("Minimum score must be positive", nameof(minScore));
 
         return new(SourceGa.FindTandemRepeats(
-                sequences.Select(s => (s.Id, s.Sequence)), minUnitLength, maxUnitLength, minCopies)
+                sequences.Select(s => (s.Id, s.Sequence)), minUnitLength, maxUnitLength, minCopies, minScore)
             .Select(r => new TandemRepeat(r.SequenceId, r.Start, r.End, r.Unit, r.Copies, r.Purity))
             .ToList());
     }
 
     [McpServerTool(Name = "repeat_content", Title = "Assembly — Repeat content from annotations", ReadOnly = true)]
-    [Description("Compute total repeat length, repeat percentage and per-class lengths from repeat annotations.")]
+    [Description("Compute RepeatMasker-style repeat content from annotations: bases covered (each base counted once, overlaps not double counted), percentage of the genome and per-class lengths.")]
     public static RepeatContentResult RepeatContent(
         [Description("Repeat annotations.")] IReadOnlyList<SourceGa.RepeatAnnotation> repeats,
         [Description("Genome length in bp.")] long genomeLength)

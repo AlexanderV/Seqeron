@@ -1178,169 +1178,290 @@ public static class GenomeAssemblyAnalyzer
     #region Repeat Analysis
 
     /// <summary>
-    /// Identifies repetitive sequences using k-mer frequency.
+    /// Identifies repetitive regions with the k-mer-count masking model of NCBI WindowMasker
+    /// (Morgulis et al. 2006, Bioinformatics 22:134; NCBI C++ Toolkit <c>src/algo/winmask</c>:
+    /// <c>seq_masker.cpp</c> <c>CSeqMasker::DoMask</c>, <c>seq_masker_window.cpp</c>,
+    /// <c>seq_masker_score_mean.cpp</c>, <c>win_mask_gen_counts.cpp</c>).
     /// </summary>
+    /// <remarks>
+    /// <para><b>Counting.</b> Every k-mer (unit) of all input sequences is counted over the whole input
+    /// ("genome"). A window containing a non-ACGT symbol contributes no unit (WindowMasker <c>ambig</c> reset;
+    /// <see cref="KmerAnalyzer.CountKmers(string,int,KmerCountingOptions,System.Threading.CancellationToken,System.IProgress{double}?)"/>
+    /// with <c>AcgtOnly</c>, the Jellyfish window rule). With <paramref name="bothStrands"/> (default, as
+    /// WindowMasker) a unit and its reverse complement share one count: count(u) = F(u) + F(rc(u)), which is
+    /// WindowMasker's canonical counting (a self-complementary unit counts its forward occurrences twice, as
+    /// <c>win_mask_gen_counts.cpp</c> increments both <c>unit</c> and <c>runit</c> when they are equal).</para>
+    /// <para><b>Scoring.</b> A window of <paramref name="windowSize"/> bases (step 1; only all-ACGT windows) has
+    /// W − k + 1 units; its score is the integer mean of their counts (<c>CSeqMaskerScoreMean</c>: <c>sum / num</c>).</para>
+    /// <para><b>Masking</b> (the first pass of <c>DoMask</c>, copied branch by branch): a window with score ≥
+    /// <paramref name="minCopies"/> (T_threshold) starts or extends the masked interval; a window with score below
+    /// <paramref name="extendCopies"/> (T_extend) closes it unless it begins inside the interval; windows scoring in
+    /// [T_extend, T_threshold) keep an open interval connected without enlarging it. Intervals are 0-based,
+    /// inclusive, [Start, End] = first base of the first triggering window … last base of the last one.
+    /// <c>Copies</c> is the largest unit count inside the interval.</para>
+    /// <para>Deviations from WindowMasker, declared: T_threshold / T_extend are given as counts (WindowMasker derives
+    /// them from percentiles of the genome-wide unit-count distribution); the optional merge pass, discontiguous
+    /// units and the count-database score cut-offs (T_low, T_high) are not implemented.</para>
+    /// </remarks>
+    /// <param name="sequences">Named sequences (case-insensitive); counting is pooled over all of them.</param>
+    /// <param name="kmerSize">Unit size k (≥ 1; default 15).</param>
+    /// <param name="minCopies">T_threshold: window score that triggers masking (≥ 1; default 3).</param>
+    /// <param name="windowSize">Window length in bases (≥ k; default 100).</param>
+    /// <param name="bothStrands">Count units on both strands (WindowMasker default).</param>
+    /// <param name="extendCopies">T_extend (1..minCopies); null = <paramref name="minCopies"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A size or threshold is out of range.</exception>
     public static IEnumerable<(string SequenceId, int Start, int End, int Copies)> FindRepetitiveRegions(
         IEnumerable<(string Id, string Sequence)> sequences,
         int kmerSize = 15,
         int minCopies = 3,
-        int windowSize = 100)
+        int windowSize = 100,
+        bool bothStrands = true,
+        int? extendCopies = null)
     {
-        // Build k-mer frequency table
-        var kmerCounts = new Dictionary<string, int>();
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentOutOfRangeException.ThrowIfLessThan(kmerSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minCopies, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, kmerSize);
+        int textend = extendCopies ?? minCopies;
+        ArgumentOutOfRangeException.ThrowIfLessThan(textend, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(textend, minCopies);
 
+        return FindRepetitiveRegionsCore(
+            sequences.Select(s => (s.Id, Sequence: (s.Sequence ?? string.Empty).ToUpperInvariant())).ToList(),
+            kmerSize, minCopies, windowSize, bothStrands, textend);
+    }
+
+    private static IEnumerable<(string SequenceId, int Start, int End, int Copies)> FindRepetitiveRegionsCore(
+        List<(string Id, string Sequence)> sequences,
+        int k, int cutoff, int windowSize, bool bothStrands, int textend)
+    {
+        var forward = new Dictionary<string, int>();
+        var acgt = new KmerCountingOptions(AcgtOnly: true);
         foreach (var (_, sequence) in sequences)
         {
-            var upper = sequence.ToUpperInvariant();
-            for (int i = 0; i <= upper.Length - kmerSize; i++)
-            {
-                string kmer = upper.Substring(i, kmerSize);
-                if (!kmer.Contains('N'))
-                {
-                    kmerCounts[kmer] = kmerCounts.GetValueOrDefault(kmer) + 1;
-                }
-            }
+            foreach (var (kmer, n) in KmerAnalyzer.CountKmers(sequence, k, acgt))
+                forward[kmer] = forward.GetValueOrDefault(kmer) + n;
         }
 
-        // Find regions with high k-mer frequency
-        foreach (var (id, sequence) in sequences)
+        int UnitCount(string kmer)
         {
-            var upper = sequence.ToUpperInvariant();
-            int regionStart = -1;
-            int maxCopies = 0;
+            int c = forward.GetValueOrDefault(kmer);
+            return bothStrands ? c + forward.GetValueOrDefault(DnaSequence.GetReverseComplementString(kmer)) : c;
+        }
 
-            for (int i = 0; i <= upper.Length - kmerSize; i += windowSize / 10)
+        int numUnits = windowSize - k + 1;
+        foreach (var (id, seq) in sequences)
+        {
+            int n = seq.Length;
+            if (n < windowSize) continue;
+
+            // unit[j] = count of the k-mer starting at j (-1 when it contains a non-ACGT symbol).
+            var unit = new int[n - k + 1];
+            for (int j = 0; j < unit.Length; j++)
             {
-                // Check window
-                int windowEnd = Math.Min(i + windowSize, upper.Length);
-                int highCopyKmers = 0;
-                int localMaxCopies = 0;
+                var span = seq.AsSpan(j, k);
+                unit[j] = IsAcgt(span) ? UnitCount(seq.Substring(j, k)) : -1;
+            }
 
-                for (int j = i; j <= windowEnd - kmerSize; j++)
+            // Prefix sums of the counts and of the invalid-unit flags give each window's mean in O(1).
+            var sum = new long[unit.Length + 1];
+            var bad = new int[unit.Length + 1];
+            for (int j = 0; j < unit.Length; j++)
+            {
+                sum[j + 1] = sum[j] + Math.Max(unit[j], 0);
+                bad[j + 1] = bad[j] + (unit[j] < 0 ? 1 : 0);
+            }
+
+            int start = 0, end = 0, cend = 0;
+            for (int s = 0; s + windowSize <= n; s++)
+            {
+                // A window is usable only if all of its units are valid (all W bases are A/C/G/T).
+                if (bad[s + numUnits] - bad[s] != 0) continue;
+
+                int e = s + windowSize - 1;
+                long score = (sum[s + numUnits] - sum[s]) / numUnits;
+
+                if (score < textend)
                 {
-                    string kmer = upper.Substring(j, kmerSize);
-                    if (!kmer.Contains('N') && kmerCounts.TryGetValue(kmer, out int count) && count >= minCopies)
+                    if (end > start && s > cend)
                     {
-                        highCopyKmers++;
-                        localMaxCopies = Math.Max(localMaxCopies, count);
+                        yield return (id, start, end, MaxUnit(unit, start, end, k));
+                        start = end = cend = 0;
                     }
                 }
-
-                bool isRepetitive = highCopyKmers > windowSize / (kmerSize * 2);
-
-                if (isRepetitive && regionStart < 0)
+                else if (score < cutoff)
                 {
-                    regionStart = i;
-                    maxCopies = localMaxCopies;
+                    if (end > start)
+                    {
+                        if (s > cend + 1)
+                        {
+                            yield return (id, start, end, MaxUnit(unit, start, end, k));
+                            start = end = cend = 0;
+                        }
+                        else
+                        {
+                            cend = e;
+                        }
+                    }
                 }
-                else if (!isRepetitive && regionStart >= 0)
+                else
                 {
-                    yield return (id, regionStart, i - 1, maxCopies);
-                    regionStart = -1;
-                    maxCopies = 0;
-                }
-                else if (isRepetitive)
-                {
-                    maxCopies = Math.Max(maxCopies, localMaxCopies);
+                    if (end > start)
+                    {
+                        if (s > cend + 1)
+                        {
+                            yield return (id, start, end, MaxUnit(unit, start, end, k));
+                            start = s;
+                        }
+                    }
+                    else
+                    {
+                        start = s;
+                    }
+
+                    cend = end = e;
                 }
             }
 
-            if (regionStart >= 0)
-            {
-                yield return (id, regionStart, upper.Length - 1, maxCopies);
-            }
+            if (end > start)
+                yield return (id, start, end, MaxUnit(unit, start, end, k));
         }
     }
 
+    private static bool IsAcgt(ReadOnlySpan<char> span)
+    {
+        foreach (char c in span)
+        {
+            if (c is not ('A' or 'C' or 'G' or 'T')) return false;
+        }
+
+        return true;
+    }
+
+    private static int MaxUnit(int[] unit, int start, int end, int k)
+    {
+        int max = 0;
+        for (int j = start; j <= end - k + 1; j++)
+            max = Math.Max(max, unit[j]);
+        return max;
+    }
+
     /// <summary>
-    /// Identifies tandem repeats.
+    /// Finds approximate (interrupted) tandem repeats with the Tandem Repeats Finder model
+    /// (Benson 1999, Nucleic Acids Res 27:573): delegates to
+    /// <see cref="RepeatFinder.FindApproximateTandemRepeats(string,TandemRepeatsFinderParameters,int)"/> with TRF's
+    /// recommended parameters (Match 2, Mismatch 7, Delta 7, PM 80, PI 10).
     /// </summary>
-    public static IEnumerable<(string SequenceId, int Start, int End, string Unit, int Copies, double Purity)>
+    /// <remarks>
+    /// <c>Unit</c> is TRF's consensus pattern; <c>Copies</c> TRF's copy number (aligned consensus columns /
+    /// consensus size; fractional); <c>Purity</c> is TRF's "percent matches between adjacent copies" as a fraction
+    /// (0–1); <c>Start</c>/<c>End</c> are 0-based inclusive. A repeat is reported when its alignment score is
+    /// ≥ <paramref name="minScore"/> (TRF Minscore, 50 recommended), its period lies in
+    /// [<paramref name="minUnitLength"/>, <paramref name="maxUnitLength"/>] (TRF MaxPeriod ≤ 2000) and its copy number is
+    /// ≥ <paramref name="minCopies"/>. Non-ACGT symbols never match.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A bound is out of range (period 1..2000, copies and score ≥ 1).</exception>
+    public static IEnumerable<(string SequenceId, int Start, int End, string Unit, double Copies, double Purity)>
         FindTandemRepeats(
             IEnumerable<(string Id, string Sequence)> sequences,
             int minUnitLength = 2,
             int maxUnitLength = 50,
-            int minCopies = 3)
+            int minCopies = 3,
+            int minScore = RepeatFinder.DefaultApproximateMinScore)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minUnitLength, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxUnitLength, minUnitLength);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maxUnitLength, RepeatFinder.MaxApproximatePeriod);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minCopies, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minScore, 1);
+
+        var parameters = new TandemRepeatsFinderParameters { MaxPeriod = maxUnitLength, MinScore = minScore };
+        return FindTandemRepeatsCore(sequences.ToList(), parameters, minUnitLength, minCopies);
+    }
+
+    private static IEnumerable<(string SequenceId, int Start, int End, string Unit, double Copies, double Purity)>
+        FindTandemRepeatsCore(
+            List<(string Id, string Sequence)> sequences,
+            TandemRepeatsFinderParameters parameters,
+            int minUnitLength,
+            int minCopies)
     {
         foreach (var (id, sequence) in sequences)
         {
-            var upper = sequence.ToUpperInvariant();
-
-            // `i` normally steps by 1 but jumps past a called repeat (below); a while loop makes that
-            // in-body skip explicit where a for loop would flag S127.
-            int i = 0;
-            while (i < upper.Length - minUnitLength * minCopies)
+            foreach (var r in RepeatFinder.FindApproximateTandemRepeats(sequence, parameters, minUnitLength))
             {
-                for (int unitLen = minUnitLength; unitLen <= maxUnitLength && i + unitLen * minCopies <= upper.Length; unitLen++)
-                {
-                    string unit = upper.Substring(i, unitLen);
-                    if (unit.Contains('N')) continue;
-
-                    // Count copies
-                    int copies = 1;
-                    int matches = 0;
-                    int pos = i + unitLen;
-
-                    while (pos + unitLen <= upper.Length)
-                    {
-                        int unitMatches = 0;
-                        for (int j = 0; j < unitLen; j++)
-                        {
-                            if (upper[pos + j] == unit[j])
-                                unitMatches++;
-                        }
-
-                        if (unitMatches >= unitLen * 0.8) // 80% match
-                        {
-                            copies++;
-                            matches += unitMatches;
-                            pos += unitLen;
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-
-                    if (copies >= minCopies)
-                    {
-                        int totalLength = copies * unitLen;
-                        double purity = (unitLen + matches) / (double)(totalLength);
-
-                        yield return (id, i, i + totalLength - 1, unit, copies, purity);
-
-                        // Skip past this repeat
-                        i += totalLength - 1;
-                        break;
-                    }
-                }
-
-                i++;
+                if (r.CopyNumber < minCopies) continue;
+                yield return (id, r.Start, r.Start + r.SpanLength - 1, r.Consensus, r.CopyNumber, r.PercentMatches / 100.0);
             }
         }
     }
 
     /// <summary>
-    /// Calculates repeat content statistics.
+    /// Calculates repeat content as RepeatMasker's <c>ProcessRepeats</c> table does: every base is counted once
+    /// ("Define length of coverage based on possibly overlapping fragments"), so overlapping annotations on the
+    /// same sequence are not double counted and the class lengths sum to the total masked length.
     /// </summary>
+    /// <remarks>
+    /// Annotations are swept per sequence in (Start, input order); an annotation is credited with the bases beyond
+    /// the furthest end seen so far, to its own <c>RepeatClass</c> (a fully contained annotation adds nothing).
+    /// <c>RepeatPercentage</c> = masked bases / <paramref name="genomeLength"/> · 100 (RepeatMasker
+    /// "bases masked: n bp (p %)"). Coordinates are 0-based inclusive. An empty annotation list or a genome length of
+    /// 0 yields all zeros.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="repeats"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genomeLength"/> &lt; 0, or the masked bases exceed it.</exception>
+    /// <exception cref="ArgumentException">An annotation has Start &lt; 0 or End &lt; Start.</exception>
     public static (long TotalRepeatLength, double RepeatPercentage, IReadOnlyDictionary<string, long> RepeatClassLengths)
         CalculateRepeatContent(
             IEnumerable<RepeatAnnotation> repeats,
             long genomeLength)
     {
+        ArgumentNullException.ThrowIfNull(repeats);
+        ArgumentOutOfRangeException.ThrowIfLessThan(genomeLength, 0);
         var repeatList = repeats.ToList();
+        foreach (var r in repeatList)
+        {
+            if (r.Start < 0 || r.End < r.Start)
+                throw new ArgumentException(
+                    $"Invalid repeat annotation interval [{r.Start}, {r.End}] on '{r.SequenceId}'.", nameof(repeats));
+        }
 
         if (repeatList.Count == 0 || genomeLength == 0)
             return (0, 0, new Dictionary<string, long>());
 
-        long totalLength = repeatList.Sum(r => (long)(r.End - r.Start + 1));
-        double percentage = totalLength * 100.0 / genomeLength;
+        long total = 0;
+        var classLengths = new Dictionary<string, long>();
+        foreach (var perSequence in repeatList
+                     .Select((r, i) => (r, i))
+                     .GroupBy(x => x.r.SequenceId))
+        {
+            int furthestEnd = -1;
+            foreach (var (r, _) in perSequence.OrderBy(x => x.r.Start).ThenBy(x => x.i))
+            {
+                int from = Math.Max(r.Start, furthestEnd + 1);
+                long added = r.End >= from ? r.End - from + 1 : 0;
+                if (added > 0)
+                {
+                    total += added;
+                    classLengths[r.RepeatClass] = classLengths.GetValueOrDefault(r.RepeatClass) + added;
+                }
 
-        var classLengths = repeatList
-            .GroupBy(r => r.RepeatClass)
-            .ToDictionary(g => g.Key, g => g.Sum(r => (long)(r.End - r.Start + 1)));
+                furthestEnd = Math.Max(furthestEnd, r.End);
+            }
+        }
 
-        return (totalLength, percentage, classLengths);
+        // Zero-length contributions still list their class (every annotated class appears, as before).
+        foreach (var r in repeatList)
+            classLengths.TryAdd(r.RepeatClass, 0);
+
+        if (total > genomeLength)
+            throw new ArgumentOutOfRangeException(nameof(genomeLength),
+                $"The annotations cover {total} bp, more than the genome length {genomeLength}.");
+
+        return (total, total * 100.0 / genomeLength, classLengths);
     }
 
     #endregion
@@ -1552,42 +1673,11 @@ public static class GenomeAssemblyAnalyzer
 
                 int nCount = window.Count(c => c == 'N');
                 double gcContent = window.CalculateGcFractionFast();
-                double complexity = CalculateLinguisticComplexity(window);
+                double complexity = SequenceComplexity.CalculateLinguisticComplexity(window);
 
                 yield return (id, i, end - i, gcContent, nCount, complexity);
             }
         }
-    }
-
-    /// <summary>
-    /// Calculates linguistic complexity (ratio of distinct k-mers to possible k-mers).
-    /// </summary>
-    private static double CalculateLinguisticComplexity(string sequence, int kmerSize = 4)
-    {
-        if (sequence.Length < kmerSize)
-            return 0;
-
-        var kmers = new HashSet<string>();
-        int validKmers = 0;
-
-        for (int i = 0; i <= sequence.Length - kmerSize; i++)
-        {
-            string kmer = sequence.Substring(i, kmerSize);
-            if (!kmer.Contains('N'))
-            {
-                kmers.Add(kmer);
-                validKmers++;
-            }
-        }
-
-        if (validKmers == 0)
-            return 0;
-
-        // Maximum possible k-mers for DNA
-        int maxKmers = (int)Math.Pow(4, kmerSize);
-        int possibleKmers = Math.Min(validKmers, maxKmers);
-
-        return kmers.Count / (double)possibleKmers;
     }
 
     /// <summary>
