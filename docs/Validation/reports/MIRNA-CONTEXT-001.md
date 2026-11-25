@@ -51,7 +51,10 @@ used **raw** (not scaled). Scaled values are **not** clamped to [0,1].
 - *PCT* — Friedman 2009 branch-length score (Bls) of the minimal subtree connecting the conserved
   species → PCT via `calculatePCTthisBL` `pct = b0 + b1/(1 + e^((0−b2)·BL + b3))` (truncate at 0),
   then min-max scaled by the Agarwal PCT coefficient. The per-family b0..b3 are in TargetScan's
-  compiled data tables (not published as numbers in Friedman 2009) ⇒ caller-supplied.
+  BL/PCT kit (`PCT_parameters/*_PCT_parameters.txt`, 111 seed families × 3 site types). **Update
+  2026-11-25 (B13 WP-2, F32):** bundled verbatim (`MiRnaAnalyzer.TargetScanPctParameters.cs`) and used
+  by default when the caller gives no row; a seed outside the table ⇒ PCT "NA" ⇒ contribution 0 (as
+  TargetScan). The bin tree and the species-with-site list are still caller inputs.
 
 **Coefficient byte-check (every row of `Agarwal_2015_parameters.txt` vs the C# constants):** all
 22 rows match exactly — Intercept (−0.589 / −0.224 / −0.195 / −0.079), 3P_score, Len_3UTR, Len_ORF,
@@ -133,9 +136,11 @@ the parameter file.
 
 - **Stage A: ✅ PASS · Stage B: ✅ PASS · State: ✅ CLEAN.**
 - The score is, by design, a PARTIAL context++ (the locally-computable subset + faithfully-computed
-  caller-supplied features). Full-transcript inputs (TA / SPS / Len_ORF / ORF8m) and conservation
-  (PCT) are **caller-supplied** because they require a seed-stability table / transcriptome / the
-  ORF / a multi-species alignment+tree that the library cannot derive from a single miRNA+3′UTR.
+  caller-supplied features). Full-transcript inputs (TA / SPS / Len_ORF / ORF8m) and the conservation
+  evidence for PCT (bin tree + species with the site) are **caller-supplied** because they require a
+  seed-stability table / transcriptome / the ORF / a multi-species alignment+tree that the library
+  cannot derive from a single miRNA+3′UTR. (PCT is no longer data-blocked on its sigmoid parameters:
+  the TargetScan 7.0 b0..b3 tables are bundled since B13 WP-2 / F32, 2026-11-25.)
   This is an explicit, documented boundary (each computed verbatim when supplied; reported in
   `OmittedFeatures` otherwise) — **NOT** a limitation. The computable-subset coefficients + feature
   math verify byte-exact against Agarwal 2015 / the perl reference.

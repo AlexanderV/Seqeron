@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Annotation;
 /// <summary>
 /// Provides algorithms for microRNA analysis, target prediction, and seed matching.
 /// </summary>
-public static class MiRnaAnalyzer
+public static partial class MiRnaAnalyzer
 {
     #region Records and Types
 
@@ -883,6 +883,15 @@ public static class MiRnaAnalyzer
         /// <see cref="ContextScorePartial"/> (omitted features count 0, as TargetScan's NA inputs do).
         /// </summary>
         public double? ContextScore { get; init; }
+
+        /// <summary>
+        /// <c>true</c> when a conservation input was supplied without caller sigmoid parameters and
+        /// the miRNA's seed region (nt 2–8) is not one of TargetScan 7's 111 PCT seed families:
+        /// <c>targetscan_70_BL_PCT.pl</c> <c>getPCT</c> then reports PCT "NA" and
+        /// <c>targetscan_70_context_scores.pl</c> uses PCT contribution 0. <see cref="Pct"/> is 0 and
+        /// the feature is not listed as omitted (this is TargetScan's complete score for the site).
+        /// </summary>
+        public bool PctIsNa { get; init; }
     }
 
     /// <summary>
@@ -897,7 +906,7 @@ public static class MiRnaAnalyzer
     /// <param name="OrfLength">ORF (CDS) length in nucleotides (log10-transformed, then min-max scaled). Requires the transcript's ORF.</param>
     /// <param name="Orf8mCount">Count of cognate 8mer sites in the ORF (used raw, no scaling). Requires the transcript's ORF.</param>
     /// <param name="PlfoldUnpairedProbability">Optional exact RNAplfold accessibility value for the site — the number TargetScan reads in <c>getSA_contribution</c>: row <c>utrStart + 7</c> (7mer-A1: <c>utrStart + 6</c>; 1-based seed-match start), column <c>l=14</c> of the <c>_lunp</c> file written by <c>RNAplfold -L 40 -W 80 -u 20</c> on the whole 3'UTR. When supplied (&gt; 0) it replaces the library's own SA estimate, so SA equals TargetScan's. <c>null</c> ⇒ the library estimates it (one 80-nt McCaskill window, no 40-nt span limit, no window averaging — an approximation of RNAplfold, see the algorithm doc).</param>
-    /// <param name="Conservation">Multi-species conservation input (a phylogenetic tree + the set of species in which the site is conserved + the published per-site-type PCT sigmoid parameters). When supplied, the library computes the Friedman et al. (2009) branch-length score (Bls) and the resulting PCT value, then applies the bundled Agarwal et al. (2015) PCT coefficient. <c>null</c> ⇒ PCT stays an honest residual.</param>
+    /// <param name="Conservation">Multi-species conservation input (a phylogenetic tree + the set of species in which the site is conserved; the per-site-type PCT sigmoid parameters default to the bundled TargetScan 7.0 tables). When supplied, the library computes the Friedman et al. (2009) branch-length score (Bls) and the resulting PCT value, then applies the bundled Agarwal et al. (2015) PCT coefficient. <c>null</c> ⇒ PCT stays an honest residual.</param>
     public readonly record struct ContextPlusPlusInputs(
         double? Sps = null,
         double? Ta = null,
@@ -920,8 +929,9 @@ public static class MiRnaAnalyzer
     // getPCT returns "0.0" for Bls = 0 and for 6mer sites, and getBranchLength returns Bls with
     // sprintf("%.4f"). The per-miRNA-family b0..b3 are distributed in TargetScan's BL/PCT kit
     // (targetscan_70_BL_PCT.zip → PCT_parameters/{8mer,7mer_m8,7mer_1a}_PCT_parameters.txt, 111
-    // seed families each, citation required). They are CALLER-SUPPLIED here, like the TA/SPS table:
-    // the library bundles the equations + the Agarwal PCT coefficient, not TargetScan's data files.
+    // seed families each; reuse with citation, TargetScan FAQ). They are bundled verbatim in
+    // MiRnaAnalyzer.TargetScanPctParameters.cs (generated from the kit files, SHA-256 in its header)
+    // and looked up by TryGetTargetScanPctParameters; a caller-supplied row still overrides.
 
     /// <summary>
     /// The four logistic (sigmoid) parameters that map a branch-length score (Bls) to a PCT value
@@ -934,8 +944,9 @@ public static class MiRnaAnalyzer
     /// (<c>targetscan_70_BL_PCT.zip</c>, <c>PCT_parameters/8mer_PCT_parameters.txt</c>,
     /// <c>7mer_m8_PCT_parameters.txt</c>, <c>7mer_1a_PCT_parameters.txt</c>; one row per seed
     /// region, columns 2–5 = b0..b3). There is no 6mer table (6mer PCT is always 0). The library
-    /// does not bundle these citation-required data files; the caller supplies the row, as for
-    /// SPS / TA / ORF inputs.
+    /// bundles the three tables (111 seed families each, values verbatim; Friedman et al. 2009 /
+    /// Agarwal et al. 2015, cite TargetScan when used): see
+    /// <see cref="TryGetTargetScanPctParameters"/>. A caller may still supply its own row.
     /// </remarks>
     /// <param name="B0">Offset term (b0).</param>
     /// <param name="B1">Scale term (b1).</param>
@@ -946,17 +957,19 @@ public static class MiRnaAnalyzer
     /// <summary>
     /// Multi-species conservation evidence for one target site: the phylogenetic tree relating the
     /// aligned species, the set of species in which the seed match is conserved (perfectly aligned),
-    /// and the published per-site-type PCT sigmoid parameters. The library derives the Friedman
+    /// and optionally the per-site-type PCT sigmoid parameters. The library derives the Friedman
     /// et al. (2009) branch-length score (Bls) from <see cref="Tree"/> + <see cref="SpeciesWithSite"/>
-    /// and the PCT value from <see cref="SigmoidParameters"/>.
+    /// and the PCT value from <see cref="SigmoidParameters"/>, or — when that is <c>null</c> — from
+    /// the bundled TargetScan 7.0 row for the miRNA's seed (nt 2–8) and the site type
+    /// (<see cref="TryGetTargetScanPctParameters"/>), as <c>targetscan_70_BL_PCT.pl</c> does.
     /// </summary>
     /// <param name="Tree">A phylogenetic tree (<see cref="PhylogeneticAnalyzer.PhyloNode"/>; e.g. parsed from Newick) whose LEAF names are species identifiers and whose <c>BranchLength</c> values are the edge lengths.</param>
     /// <param name="SpeciesWithSite">The species (leaf names) in which the same site type is aligned at this site, the reference species included (TargetScan: <c>Species_in_this_group_with_this_site_type</c>, or the group's species when all have one type). Bls = total branch length of the minimal subtree connecting these species (Friedman 2009), see <see cref="ComputeBranchLengthScore"/>.</param>
-    /// <param name="SigmoidParameters">The b0..b3 row for this seed family and this site type (see <see cref="PctSigmoidParameters"/>). Ignored for a 6mer site (PCT 0).</param>
+    /// <param name="SigmoidParameters">The b0..b3 row for this seed family and this site type (see <see cref="PctSigmoidParameters"/>); overrides the bundled table. <c>null</c> (default) ⇒ the bundled TargetScan 7.0 row for the miRNA's seed region; a seed that is not one of TargetScan's 111 PCT families has no PCT ("NA", contribution 0, as TargetScan). Ignored for a 6mer site (PCT 0).</param>
     public readonly record struct PctConservation(
         PhylogeneticAnalyzer.PhyloNode Tree,
         IReadOnlyCollection<string> SpeciesWithSite,
-        PctSigmoidParameters SigmoidParameters);
+        PctSigmoidParameters? SigmoidParameters = null);
 
     // ── Agarwal et al. (2015) context++ fitted coefficients ──────────────────────────────
     // Source (retrieved verbatim this session): TargetScan distribution parameter file
@@ -1101,8 +1114,9 @@ public static class MiRnaAnalyzer
     /// <para>
     /// Computed only from caller-supplied data (<paramref name="inputs"/>): SPS, TA_3UTR (see
     /// <see cref="ComputeTa3Utr"/>), Len_ORF, ORF8m, and PCT (from a tree + the species with the
-    /// site + the per-family sigmoid parameters: Friedman et al. 2009 branch-length score, then the
-    /// published sigmoid). A feature that is not supplied contributes 0 and is listed in
+    /// site: Friedman et al. 2009 branch-length score, then the TargetScan sigmoid with the bundled
+    /// TargetScan 7.0 per-seed-family row, see <see cref="TryGetTargetScanPctParameters"/>, or a
+    /// caller-supplied row). A feature that is not supplied contributes 0 and is listed in
     /// <see cref="ContextPlusPlusScore.OmittedFeatures"/>; the sum is then a partial score.
     /// </para>
     /// <para>
@@ -1164,7 +1178,7 @@ public static class MiRnaAnalyzer
         double orf8m = inputs.Orf8mCount is int orf8mCount ? Orf8mContribution(orf8mCount, type) : 0.0;
 
         double bls = 0.0, pct = 0.0, pctContribution = 0.0;
-        bool pctDefined = false;
+        bool pctDefined = false, pctIsNa = false;
         if (inputs.Conservation is PctConservation conservation)
         {
             bls = ComputeBranchLengthScore(conservation.Tree, conservation.SpeciesWithSite);
@@ -1172,10 +1186,27 @@ public static class MiRnaAnalyzer
             // PCT contribution 0 (readTargets: if ($pct eq "NA") { $PCT_contribution = 0; }).
             if (double.IsFinite(bls) && bls >= 0.0)
             {
-                // getPCT: 6mer ⇒ "0.0"; the BL_PCT output's 4-dp PCT is what context++ reads.
-                pct = PctFromBranchLength(bls, conservation.SigmoidParameters, type);
-                pctContribution = PctContribution(pct, type);
                 pctDefined = true;
+                // Caller row overrides; otherwise the bundled TargetScan row for the seed (nt 2–8).
+                // getPCT: a family without PCT parameters ($thisMiRNAhasPCT false) gets "NA", which
+                // context++ scores as contribution 0 — TargetScan's own full score for that site.
+                string seedRegion = mirna.Length >= 8 ? mirna.Substring(1, 7) : "";
+                if (conservation.SigmoidParameters is PctSigmoidParameters callerRow)
+                {
+                    // getPCT: 6mer ⇒ "0.0"; the BL_PCT output's 4-dp PCT is what context++ reads.
+                    pct = PctFromBranchLength(bls, callerRow, type);
+                }
+                else if (!IsTargetScanPctSeedFamily(seedRegion))
+                {
+                    pctIsNa = true;
+                }
+                else if (type != TargetSiteType.Seed6mer
+                    && TryGetTargetScanPctParameters(seedRegion, type, out var tableRow))
+                {
+                    pct = PctFromBranchLength(bls, tableRow, type);
+                }
+                // else: 6mer of a PCT family ⇒ getPCT "0.0" (pct stays 0).
+                pctContribution = PctContribution(pct, type);
             }
         }
 
@@ -1218,7 +1249,7 @@ public static class MiRnaAnalyzer
             Pct: pct,
             ContextScorePartial: partial,
             OmittedFeatures: omittedFeatures)
-        { ContextScore = reported };
+        { ContextScore = reported, PctIsNa = pctIsNa };
     }
 
     // targetscan_70_context_scores.pl: "too_close" when utrStart < $MIN_DIST_TO_CDS (MinDistToCds,
@@ -2144,6 +2175,69 @@ public static class MiRnaAnalyzer
         double pct = PctFromBranchLength(branchLengthScore, p);
         return siteType == TargetSiteType.Seed6mer ? 0.0 : pct;
     }
+
+    /// <summary>
+    /// Looks up the bundled TargetScan 7.0 PCT sigmoid row (b0..b3) for a seed family and site type,
+    /// as <c>targetscan_70_BL_PCT.pl</c> does (<c>readAllPCTdata</c> → <c>%familyPlusType2coeff</c>;
+    /// <c>calculatePCTthisBL</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// TargetScan keys the three parameter files (<c>PCT_parameters/8mer_PCT_parameters.txt</c>,
+    /// <c>7mer_m8_PCT_parameters.txt</c>, <c>7mer_1a_PCT_parameters.txt</c>; 111 rows each) by the
+    /// 7-nt seed region = miRNA nucleotides 2–8 in the U alphabet (<c>readMiRNAs</c>: column 2 of the
+    /// miRNA family file, <c>s/T/U/gi</c>; the family name is mapped to this seed before the lookup).
+    /// The key is matched exactly (ordinal, 7 nt). T is read as U as in the perl; lower case is
+    /// upper-cased (the perl hash is case-sensitive, and every table key is upper case, so this only
+    /// accepts lower-case input that the perl would miss). A miRNA family name (e.g. "let-7/98") is
+    /// not a key: pass its seed (see <see cref="GetSeedSequence"/>).
+    /// </para>
+    /// <para>
+    /// Only 8mer, 7mer-m8 and 7mer-A1 have rows; a 6mer (TargetScan PCT is always 0) and any other
+    /// site type return <c>false</c>. Use <see cref="IsTargetScanPctSeedFamily"/> to ask whether the
+    /// family has PCT at all (TargetScan reports "NA" otherwise). Values are the kit's decimal text
+    /// verbatim (<c>MiRnaAnalyzer.TargetScanPctParameters.cs</c>; Friedman et al. 2009 Genome Res 19:92,
+    /// Agarwal et al. 2015 eLife 4:e05005 — cite TargetScan when used).
+    /// </para>
+    /// </remarks>
+    /// <param name="seedRegion">The 7-nt seed region (miRNA nt 2–8), RNA or DNA alphabet.</param>
+    /// <param name="siteType">8mer, 7mer-m8 or 7mer-A1.</param>
+    /// <param name="parameters">The b0..b3 row when found; <c>default</c> otherwise.</param>
+    /// <returns><c>true</c> when the bundled table has a row for this seed and site type.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="seedRegion"/> is null.</exception>
+    public static bool TryGetTargetScanPctParameters(
+        string seedRegion, TargetSiteType siteType, out PctSigmoidParameters parameters)
+    {
+        ArgumentNullException.ThrowIfNull(seedRegion);
+        parameters = default;
+        if (!TargetScanPctParameterTable.TryGetValue(TargetScanPctKey(seedRegion), out var row))
+            return false;
+        switch (siteType)
+        {
+            case TargetSiteType.Seed8mer: parameters = row.Mer8; return true;
+            case TargetSiteType.Seed7merM8: parameters = row.Mer7M8; return true;
+            case TargetSiteType.Seed7merA1: parameters = row.Mer7A1; return true;
+            default: return false;
+        }
+    }
+
+    /// <summary>
+    /// <c>true</c> when the seed region (miRNA nt 2–8) is one of the 111 seed families in TargetScan
+    /// 7.0's PCT parameter tables (<c>targetscan_70_BL_PCT.pl</c> <c>$thisMiRNAhasPCT</c>). For any
+    /// other family <c>getPCT</c> reports PCT "NA". Key normalisation as in
+    /// <see cref="TryGetTargetScanPctParameters"/>.
+    /// </summary>
+    /// <param name="seedRegion">The 7-nt seed region, RNA or DNA alphabet.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="seedRegion"/> is null.</exception>
+    public static bool IsTargetScanPctSeedFamily(string seedRegion)
+    {
+        ArgumentNullException.ThrowIfNull(seedRegion);
+        return TargetScanPctParameterTable.ContainsKey(TargetScanPctKey(seedRegion));
+    }
+
+    // readMiRNAs: $mirSeedRegion =~ s/T/U/gi (upper-casing added, see TryGetTargetScanPctParameters).
+    private static string TargetScanPctKey(string seedRegion) =>
+        seedRegion.ToUpperInvariant().Replace('T', 'U');
 
     /// <summary>
     /// Site-type-specific branch-length thresholds above which TargetScan calls a site conserved

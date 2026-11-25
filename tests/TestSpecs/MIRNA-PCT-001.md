@@ -4,7 +4,7 @@
 **Area:** MiRNA
 **Algorithm:** TargetScan PCT (Branch-Length Conservation)
 **Status:** ☑ Complete — re-validated 2026-11-25 (B13 review: Stage A PASS-WITH-NOTES / Stage B FAIL→FIXED, F19–F22)
-**Last Updated:** 2026-11-25
+**Last Updated:** 2026-11-25 (WP-2: bundled PCT parameters)
 
 > **Re-validated (B13, 2026-11-25).** TargetScan 7.0 `targetscan_70_BL_PCT.pl` was run (perl 5.38.2 + BioPerl) on
 > the official BL/PCT kit (`targetscan_70_BL_PCT.zip`, targetscan.org vert_70); it reproduces the shipped
@@ -13,6 +13,12 @@
 > 6mer ⇒ 0 (F19), species absent from the tree ignored (F21), argument validation + negative Bls ⇒ NA, and the
 > "Conserved" call (F22). The 2026-06-25 claims "PCT(0) is the untruncated logistic floor" and "4-dp rounding is a
 > benign divergence" were wrong (they were not checked against `getPCT`).
+>
+> **Bundled parameters (B13 WP-2, F32, 2026-11-25).** The kit's three `PCT_parameters/*_PCT_parameters.txt` tables
+> (111 seed families × 8mer / 7mer-m8 / 7mer-1a) are bundled verbatim in
+> `MiRnaAnalyzer.TargetScanPctParameters.cs` (generated; SHA-256 of each source in the header) and are the default
+> when no caller row is given. With the bundled table the unit test reproduces all 213 Bls, all 161 PCT and the 52
+> "NA" rows of the kit output.
 
 ---
 
@@ -30,9 +36,12 @@
 - `MiRnaAnalyzer.ComputeBranchLengthScore(PhyloNode tree, IReadOnlyCollection<string> speciesWithSite)` — Bls, 4 dp
 - `MiRnaAnalyzer.PctFromBranchLength(double bls, PctSigmoidParameters p)` and `(…, TargetSiteType siteType)` — PCT, 4 dp
 - `MiRnaAnalyzer.IsConservedByBranchLength(double bls, TargetSiteType, BranchLengthConservationThresholds?)`
+- `MiRnaAnalyzer.TryGetTargetScanPctParameters(string seedRegion, TargetSiteType, out PctSigmoidParameters)` /
+  `IsTargetScanPctSeedFamily(string seedRegion)` — bundled TargetScan 7.0 rows (`MiRnaAnalyzer.TargetScanPctParameters.cs`)
 - wired into `ScoreTargetSiteContextPlusPlus` via `ContextPlusPlusInputs.Conservation`
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs`
-- **Test fixtures:** `Unit/Annotation/MiRnaAnalyzer_PctTargetScanParity_Tests.cs` (TargetScan parity),
+- **Test fixtures:** `Unit/Annotation/MiRnaAnalyzer_PctTargetScanParity_Tests.cs` (TargetScan parity; kit rows and
+  bin trees in the generated `Unit/Annotation/MiRnaPctTargetScanKitData.cs`),
   `Unit/Annotation/MiRnaAnalyzer_TargetPrediction_Tests.cs` (region CTX-PCT), `Fuzzing/MiRnaPctFuzzTests.cs`
 
 ## 3. Contract / Invariants
@@ -45,6 +54,10 @@
 - Conserved ⇔ Bls ≥ threshold(site type); TargetScanHuman 7 = 1.8 / 2.8 / 3.6 (8mer / 7mer-m8 / 7mer-1a), mouse
   0.6 / 1.8 / 2.5; 6mer never.
 - context++: PCT contribution = Agarwal min-max scaled 4-dp PCT; negative Bls ⇒ contribution 0 and PCT listed omitted.
+- Parameter lookup (`readAllPCTdata` / `readMiRNAs`): key = 7-nt seed region (miRNA nt 2–8), `s/T/U/gi` (lower case
+  also accepted), ordinal; rows for 8mer / 7mer-m8 / 7mer-1a only (6mer and other types ⇒ not found); 111 families.
+  No caller row ⇒ bundled row for the miRNA's seed; seed outside the table ⇒ PCT "NA" (`PctIsNa`, contribution 0,
+  not omitted); a caller row overrides the table.
 
 ## 4. Cross-check / Differential Oracle
 
@@ -57,7 +70,11 @@
 | PCT-CONS-01 | thresholds | 7mer-1a 3.2000 not conserved; 8mer 3.2 conserved |
 | CTX-PCT-003..010 | worked tree `((A:1,B:2):0.5,(C:1.5,D:3):4)` with (0,1,1,0) and miR-30 8mer row | 0.9526, 0.9991, 6mer 0.0, Bls sweep 0→0.0 … 8→0.9997, miR-30 3/4/5 → 0.0/0.4605/0.4605 |
 
-Full-kit harness (not a unit test): 213/213 Bls and 161/161 PCT equal to `targetscan_70_output.BL_PCT.txt`.
+| PCT-KIT-ALL | every row of `targetscan_70_output.BL_PCT.txt` (bin 1/2 trees, species lists from `targetscan_70_output.txt`), PCT from the **bundled** row | 213/213 Bls, 161/161 PCT (28 non-zero: 0.0058×12, 0.0547×10, 0.0239×5, 0.0071×1), 52 NA ⇔ seed not in table, no "x" |
+| PCT-TAB-01 | spot rows (let-7 ×3, miR-18, miR-10, miR-101, miR-1, first 8mer row UCCCUUU) | equal to the kit file text |
+| PCT-TAB-02 | key: GAGGTAG / gaggtag found; 6 / 8 nt, family name, 6mer, offset-6mer not found; miR-601…609 seeds have no PCT | perl `s/T/U/gi` + hash lookup |
+| PCT-CTX-TAB | let-7a 7mer-m8, kit species "9031 9606 9615 10090 10116", bin-1 tree, no caller row | Bls 1.6379, PCT 0.0058 (kit), contribution −0.048×0.0058/0.364; caller row (0,1,1,0) ⇒ 0.8372 |
+| PCT-CTX-NA | miR-601 (GGUCUAG) 7mer-m8, no caller row | PCT NA ⇒ 0, contribution 0, not omitted |
 
 ## 5. Validation Checklist
 

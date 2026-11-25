@@ -202,4 +202,176 @@ public class MiRnaAnalyzer_PctTargetScanParity_Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => IsConservedByBranchLength(double.NaN, TargetSiteType.Seed8mer));
         });
     }
+
+    // ── Bundled TargetScan 7.0 PCT parameter tables (WP-2 / F32) ──────────────────────────────
+
+    // Every row of the kit's targetscan_70_output.BL_PCT.txt (213 rows: 161 with a PCT, 52 "NA"),
+    // recomputed with ComputeBranchLengthScore on the kit bin tree + PctFromBranchLength on the
+    // BUNDLED row (TryGetTargetScanPctParameters; seed = miR_Family_info_sample.txt column 2, as
+    // targetscan_70_BL_PCT.pl maps family → seed). Every BL and every PCT must equal the perl text
+    // as a double; "NA" must coincide with a seed that has no PCT parameters; no site is called
+    // conserved (column 14 empty in all 213 rows).
+    [Test]
+    public void KitSample_AllRows_BranchLengthAndPct_WithBundledParameters_EqualTargetScan()
+    {
+        var trees = new Dictionary<int, PhylogeneticAnalyzer.PhyloNode>
+        {
+            [1] = PhylogeneticAnalyzer.ParseNewick(MiRnaPctTargetScanKitData.TreeBin01),
+            [2] = PhylogeneticAnalyzer.ParseNewick(MiRnaPctTargetScanKitData.TreeBin02),
+        };
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var mismatches = new List<string>();
+        int pctRows = 0, nonZeroPct = 0, naRows = 0;
+
+        foreach (var r in MiRnaPctTargetScanKitData.Rows)
+        {
+            string id = $"{r.Gene} {r.Family} {r.Species} {r.SiteType} [{r.SpeciesWithSite}]";
+            double bl = ComputeBranchLengthScore(trees[r.Bin], r.SpeciesWithSite.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            if (bl != double.Parse(r.Bl, inv))
+                mismatches.Add($"BL {id}: {bl} vs perl {r.Bl}");
+            if (IsConservedByBranchLength(bl, r.SiteType) != (r.Conserved == "x"))
+                mismatches.Add($"Conserved {id}");
+
+            bool family = IsTargetScanPctSeedFamily(r.Seed);
+            if (r.Pct == "NA")
+            {
+                naRows++;
+                if (family) mismatches.Add($"NA but bundled row exists: {id}");
+                continue;
+            }
+            pctRows++;
+            if (!family) { mismatches.Add($"no bundled row: {id}"); continue; }
+
+            double pct;
+            if (r.SiteType == TargetSiteType.Seed6mer)
+            {
+                Assert.That(TryGetTargetScanPctParameters(r.Seed, r.SiteType, out _), Is.False, "no 6mer table");
+                pct = PctFromBranchLength(bl, default(PctSigmoidParameters), r.SiteType);
+            }
+            else
+            {
+                Assert.That(TryGetTargetScanPctParameters(r.Seed, r.SiteType, out var p), Is.True, id);
+                pct = PctFromBranchLength(bl, p, r.SiteType);
+            }
+            double perl = double.Parse(r.Pct, inv);
+            if (perl != 0.0) nonZeroPct++;
+            if (pct != perl)
+                mismatches.Add($"PCT {id}: {pct} vs perl {r.Pct}");
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mismatches, Is.Empty);
+            Assert.That(MiRnaPctTargetScanKitData.Rows, Has.Length.EqualTo(213));
+            Assert.That(pctRows, Is.EqualTo(161), "kit rows with a PCT value");
+            Assert.That(naRows, Is.EqualTo(52), "kit rows with PCT NA");
+            Assert.That(nonZeroPct, Is.EqualTo(28), "rows whose PCT depends on the sigmoid row (0.0058×12, 0.0547×10, 0.0239×5, 0.0071×1)");
+        });
+    }
+
+    // The bundled rows equal the kit values copied into this file by hand earlier (2026-11-25
+    // session, from PCT_parameters/*_PCT_parameters.txt), and the table has the kit's 111 families.
+    [Test]
+    public void BundledTable_SpotRows_EqualKitFiles()
+    {
+        static PctSigmoidParameters Get(string seed, TargetSiteType t)
+        {
+            Assert.That(TryGetTargetScanPctParameters(seed, t, out var p), Is.True, seed + " " + t);
+            return p;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(TargetScanPctSeedFamilyCount, Is.EqualTo(111));
+            Assert.That(Get("GAGGUAG", TargetSiteType.Seed8mer), Is.EqualTo(Let7_8mer));
+            Assert.That(Get("GAGGUAG", TargetSiteType.Seed7merM8), Is.EqualTo(Let7_7merM8));
+            Assert.That(Get("GAGGUAG", TargetSiteType.Seed7merA1), Is.EqualTo(Let7_7merA1));
+            Assert.That(Get("AAGGUGC", TargetSiteType.Seed7merM8), Is.EqualTo(MiR18_7merM8));
+            Assert.That(Get("ACCCUGU", TargetSiteType.Seed7merM8), Is.EqualTo(MiR10_7merM8));
+            Assert.That(Get("ACAGUAC", TargetSiteType.Seed7merA1), Is.EqualTo(MiR101_7merA1));
+            Assert.That(Get("GGAAUGU", TargetSiteType.Seed7merA1), Is.EqualTo(MiR1_7merA1));
+            Assert.That(Get("UCCCUUU", TargetSiteType.Seed8mer), Is.EqualTo(MiR30_8mer), "first row of 8mer_PCT_parameters.txt");
+        });
+    }
+
+    // readMiRNAs: s/T/U/gi, then an exact (ordinal) hash lookup on the 7-nt seed region. A family
+    // name is not a key, there is no 6mer / offset-6mer row, and the non-conserved kit families
+    // (miR-601 … miR-609) have none.
+    [Test]
+    public void TargetScanPctLookup_KeyedBySevenNtSeed_TAsU()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(TryGetTargetScanPctParameters("GAGGTAG", TargetSiteType.Seed8mer, out var dna), Is.True);
+            Assert.That(dna, Is.EqualTo(Let7_8mer), "T read as U");
+            Assert.That(TryGetTargetScanPctParameters("gaggtag", TargetSiteType.Seed8mer, out var lower), Is.True);
+            Assert.That(lower, Is.EqualTo(Let7_8mer), "lower case accepted");
+            Assert.That(TryGetTargetScanPctParameters("GAGGUA", TargetSiteType.Seed8mer, out _), Is.False, "6 nt");
+            Assert.That(TryGetTargetScanPctParameters("GAGGUAGU", TargetSiteType.Seed8mer, out _), Is.False, "8 nt");
+            Assert.That(TryGetTargetScanPctParameters("let-7/98", TargetSiteType.Seed8mer, out _), Is.False, "family name");
+            Assert.That(TryGetTargetScanPctParameters("GAGGUAG", TargetSiteType.Seed6mer, out _), Is.False, "no 6mer table");
+            Assert.That(TryGetTargetScanPctParameters("GAGGUAG", TargetSiteType.Offset6mer, out _), Is.False);
+            Assert.That(IsTargetScanPctSeedFamily("GAGGUAG"), Is.True);
+            foreach (string s in new[] { "GGUCUAG", "ACACGGG", "ACACACU", "GGCUGCG", "AAAUCCC", "AACUACU", "UUCAAAU", "GGGGUGG", "GGGUGUU" })
+                Assert.That(IsTargetScanPctSeedFamily(s), Is.False, s);
+            Assert.Throws<ArgumentNullException>(() => TryGetTargetScanPctParameters(null!, TargetSiteType.Seed8mer, out _));
+            Assert.Throws<ArgumentNullException>(() => IsTargetScanPctSeedFamily(null!));
+        });
+    }
+
+    // context++ with a conservation input and NO caller sigmoid row uses the bundled row for the
+    // miRNA's seed: let-7a 7mer-m8 site, kit species list "9031 9606 9615 10090 10116" on the bin-1
+    // tree → BL 1.6379, PCT 0.0058 (kit LIN28B group 55 row); contribution = −0.048 × 0.0058 / 0.364
+    // (Agarwal_2015_parameters.txt 7mer-m8 PCT row). A caller row still overrides.
+    [Test]
+    public void ContextPlusPlus_NoCallerRow_UsesBundledRow_CallerRowOverrides()
+    {
+        var let7a = CreateMiRna("let-7a", "UGAGGUAGUAGGUUGUAUAGUU");
+        string mrna = "GGGGG" + "CUACCUC" + "G" + "GGGGG";
+        var site = FindTargetSites(mrna, let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed7merM8);
+        var tree = PhylogeneticAnalyzer.ParseNewick(MiRnaPctTargetScanKitData.TreeBin01);
+        string[] species = { "9031", "9606", "9615", "10090", "10116" };
+
+        var byTable = ScoreTargetSiteContextPlusPlus(mrna, let7a, site,
+            new ContextPlusPlusInputs(Conservation: new PctConservation(tree, species)));
+        var byCaller = ScoreTargetSiteContextPlusPlus(mrna, let7a, site,
+            new ContextPlusPlusInputs(Conservation: new PctConservation(tree, species, Let7_7merM8)));
+        var overridden = ScoreTargetSiteContextPlusPlus(mrna, let7a, site,
+            new ContextPlusPlusInputs(Conservation: new PctConservation(tree, species, new PctSigmoidParameters(0, 1, 1, 0))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byTable.BranchLengthScore, Is.EqualTo(1.6379));
+            Assert.That(byTable.Pct, Is.EqualTo(0.0058), "kit: 0.0058");
+            Assert.That(byTable.PctIsNa, Is.False);
+            Assert.That(byTable.PctContribution, Is.EqualTo(-0.048 * 0.0058 / 0.364).Within(1e-15));
+            Assert.That(byTable.OmittedFeatures, Has.None.Contains("PCT"));
+            Assert.That(byCaller.Pct, Is.EqualTo(byTable.Pct));
+            Assert.That(byCaller.ContextScorePartial, Is.EqualTo(byTable.ContextScorePartial));
+            Assert.That(overridden.Pct, Is.EqualTo(0.8372), "caller (0,1,1,0): 1/(1+e^-1.6379) = 0.837249 → 0.8372");
+        });
+    }
+
+    // A seed without TargetScan PCT parameters (miR-601 family GGUCUAG, PCT "NA" in every kit row):
+    // getPCT → "NA", context++ → PCT contribution 0, and this is TargetScan's full score (not omitted).
+    [Test]
+    public void ContextPlusPlus_SeedWithoutPctFamily_PctNa_ContributionZero_NotOmitted()
+    {
+        var mir601 = CreateMiRna("miR-601", "UGGUCUAGGAUUGUUGGAGGAG");
+        string mrna = "GGGGG" + "CUAGACC" + "G" + "GGGGG";
+        var site = FindTargetSites(mrna, mir601, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed7merM8);
+        var tree = PhylogeneticAnalyzer.ParseNewick(MiRnaPctTargetScanKitData.TreeBin01);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, mir601, site,
+            new ContextPlusPlusInputs(Conservation: new PctConservation(tree, new[] { "9606", "9615" })));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.PctIsNa, Is.True);
+            Assert.That(ctx.Pct, Is.EqualTo(0.0));
+            Assert.That(ctx.PctContribution, Is.EqualTo(0.0));
+            Assert.That(ctx.BranchLengthScore, Is.GreaterThan(0.0), "BL is still reported for every site");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("PCT"));
+        });
+    }
 }
