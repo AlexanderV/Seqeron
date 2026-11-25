@@ -137,6 +137,17 @@ public unsafe class WideScanSelfTests
     }
 
     [Test]
+    public void LeftmostOccurrence_TheLargestTextWhoseTableFitsAnArray_PassesTheGuard_AndEndsAtTheLengthCheck()
+    {
+        // n + 1 == Array.MaxLength entries is the largest table that an array holds: the guard lets it pass, and with an LCP array of another length the call ends at the next check, before any allocation
+        // (one entry more is refused above: the guard is exact at both sides of the boundary)
+        long n = Array.MaxLength - 1L;
+        var sa = new SaView((int*)null, n + 1, isChecked: true);
+        CompactLcp lcp = EsaIndex.Build("banana").Lcp;
+        Assert.That(() => LeftmostOccurrence.Compute(sa, lcp), Throws.TypeOf<ArgumentException>().With.Message.Contains("differ in length"));
+    }
+
+    [Test]
     public void LeftmostOccurrence_RefusesAnLcpArrayOfAnotherLength()
     {
         EsaIndex a = EsaIndex.Build("banana");

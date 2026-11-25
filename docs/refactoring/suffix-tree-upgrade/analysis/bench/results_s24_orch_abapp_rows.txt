@@ -1,0 +1,330 @@
+## ab_dna_10m_file_t1.txt
+# ab-dna_10m-file-t1 proc 1
+AB count_present  A       736463  B       732611  B/A median-of-paired 1.0307  p25 0.9839 p75 1.0611  n 5
+AB locate         A      1233823  B      1293321  B/A median-of-paired 1.0961  p25 1.0450 p75 1.0982  n 5
+AB count_absent   A       727415  B       719575  B/A median-of-paired 0.9950  p25 0.9892 p75 1.0216  n 5
+# ab-dna_10m-file-t1 proc 2
+AB count_present  A       686337  B       696937  B/A median-of-paired 1.0177  p25 0.9910 p75 1.0354  n 5
+AB locate         A      1277874  B      1225838  B/A median-of-paired 0.9834  p25 0.9526 p75 0.9921  n 5
+AB count_absent   A       754035  B       753199  B/A median-of-paired 0.9991  p25 0.9948 p75 1.0033  n 5
+# ab-dna_10m-file-t1 proc 3
+AB count_present  A       701662  B       697909  B/A median-of-paired 1.0048  p25 0.9924 p75 1.0142  n 5
+AB locate         A      1187419  B      1261124  B/A median-of-paired 1.0531  p25 1.0515 p75 1.0621  n 5
+AB count_absent   A       717713  B       734245  B/A median-of-paired 1.0159  p25 1.0095 p75 1.0262  n 5
+# ab-dna_10m-file-t1 proc 4
+AB count_present  A       709609  B       708226  B/A median-of-paired 0.9987  p25 0.9981 p75 0.9988  n 5
+AB locate         A      1208405  B      1256648  B/A median-of-paired 1.1188  p25 1.0219 p75 1.1481  n 5
+AB count_absent   A       729715  B       730718  B/A median-of-paired 1.0020  p25 1.0000 p75 1.0073  n 5
+# ab-dna_10m-file-t1 proc 5
+AB count_present  A       686267  B       687015  B/A median-of-paired 1.0012  p25 0.9941 p75 1.0063  n 5
+AB locate         A      1209780  B      1322535  B/A median-of-paired 1.0922  p25 0.9300 p75 1.0932  n 5
+AB count_absent   A       727356  B       701722  B/A median-of-paired 0.9678  p25 0.9610 p75 0.9730  n 5
+## ab_dna_10m_idx_t4.txt
+# ab-dna_10m-idx-t4 proc 1
+AB count_present  A      3465694  B      3431070  B/A median-of-paired 0.9933  p25 0.9695 p75 1.0237  n 5
+AB locate         A      4538403  B      5034029  B/A median-of-paired 1.0419  p25 1.0389 p75 1.0669  n 5
+AB count_absent   A      3670088  B      3696219  B/A median-of-paired 0.9871  p25 0.9695 p75 1.0093  n 5
+# ab-dna_10m-idx-t4 proc 2
+AB count_present  A      3530122  B      3529681  B/A median-of-paired 0.9999  p25 0.9974 p75 1.0178  n 5
+AB locate         A      4652550  B      4746823  B/A median-of-paired 1.0218  p25 1.0092 p75 1.0434  n 5
+AB count_absent   A      3455089  B      3514019  B/A median-of-paired 0.9860  p25 0.9751 p75 1.0044  n 5
+# ab-dna_10m-idx-t4 proc 3
+AB count_present  A      3335472  B      3332874  B/A median-of-paired 0.9982  p25 0.9952 p75 1.0119  n 5
+AB locate         A      4807401  B      5091802  B/A median-of-paired 1.0580  p25 1.0144 p75 1.0592  n 5
+AB count_absent   A      3494502  B      3400509  B/A median-of-paired 0.9676  p25 0.9587 p75 0.9809  n 5
+# ab-dna_10m-idx-t4 proc 4
+AB count_present  A      3265953  B      3238847  B/A median-of-paired 0.9988  p25 0.9708 p75 1.0035  n 5
+AB locate         A      4688441  B      5008905  B/A median-of-paired 1.0684  p25 1.0453 p75 1.0950  n 5
+AB count_absent   A      3471778  B      3505212  B/A median-of-paired 1.0043  p25 0.9953 p75 1.0153  n 5
+# ab-dna_10m-idx-t4 proc 5
+AB count_present  A      3399068  B      3421954  B/A median-of-paired 1.0042  p25 0.9890 p75 1.0129  n 5
+AB locate         A      5057818  B      4792609  B/A median-of-paired 0.9646  p25 0.9340 p75 0.9834  n 5
+AB count_absent   A      3664518  B      3634014  B/A median-of-paired 0.9917  p25 0.9862 p75 1.0035  n 5
+## ab_dna_10m_mem_t1.txt
+# ab-dna_10m-mem-t1 proc 1
+AB count_present  A       726843  B       742828  B/A median-of-paired 1.0165  p25 0.9788 p75 1.0220  n 5
+AB locate         A      1281547  B      1386408  B/A median-of-paired 1.0040  p25 0.9848 p75 1.0264  n 5
+AB count_absent   A       760777  B       749049  B/A median-of-paired 1.0051  p25 0.9879 p75 1.0053  n 5
+# ab-dna_10m-mem-t1 proc 2
+AB count_present  A       736024  B       760437  B/A median-of-paired 0.9558  p25 0.9471 p75 0.9995  n 5
+AB locate         A      1189238  B      1249516  B/A median-of-paired 1.0507  p25 0.9693 p75 1.1669  n 5
+AB count_absent   A       740407  B       773385  B/A median-of-paired 1.0274  p25 1.0080 p75 1.0866  n 5
+# ab-dna_10m-mem-t1 proc 3
+AB count_present  A       737325  B       739303  B/A median-of-paired 1.0007  p25 0.9919 p75 1.0027  n 5
+AB locate         A      1217984  B      1308401  B/A median-of-paired 1.0667  p25 1.0550 p75 1.0734  n 5
+AB count_absent   A       752097  B       759760  B/A median-of-paired 1.0102  p25 0.9909 p75 1.0508  n 5
+# ab-dna_10m-mem-t1 proc 4
+AB count_present  A       828275  B       767048  B/A median-of-paired 0.9906  p25 0.8985 p75 0.9938  n 5
+AB locate         A      1180285  B      1232421  B/A median-of-paired 1.0445  p25 1.0428 p75 1.0530  n 5
+AB count_absent   A       718511  B       727242  B/A median-of-paired 1.0254  p25 1.0122 p75 1.0563  n 5
+# ab-dna_10m-mem-t1 proc 5
+AB count_present  A       726387  B       728638  B/A median-of-paired 1.0031  p25 1.0003 p75 1.0054  n 5
+AB locate         A      1245798  B      1311361  B/A median-of-paired 1.0623  p25 1.0442 p75 1.1083  n 5
+AB count_absent   A       738193  B       749852  B/A median-of-paired 1.0146  p25 1.0107 p75 1.0158  n 5
+## ab_prot_1m_fileT_t1.txt
+# ab-prot_1m-fileT-t1 proc 1
+AB count_present  A      1411475  B      1391798  B/A median-of-paired 1.0050  p25 0.9992 p75 1.0060  n 5
+AB locate         A      1780653  B      1805347  B/A median-of-paired 1.0388  p25 0.9830 p75 1.0759  n 5
+AB count_absent   A      1457177  B      1497018  B/A median-of-paired 1.0242  p25 1.0242 p75 1.0402  n 5
+# ab-prot_1m-fileT-t1 proc 2
+AB count_present  A      1416586  B      1426618  B/A median-of-paired 0.9944  p25 0.9792 p75 1.0247  n 5
+AB locate         A      1836100  B      1965447  B/A median-of-paired 1.0429  p25 1.0420 p75 1.0884  n 5
+AB count_absent   A      1564332  B      1515668  B/A median-of-paired 0.9690  p25 0.9624 p75 0.9984  n 5
+# ab-prot_1m-fileT-t1 proc 3
+AB count_present  A      1414348  B      1403844  B/A median-of-paired 0.9912  p25 0.9894 p75 0.9975  n 5
+AB locate         A      1785533  B      1854077  B/A median-of-paired 1.0170  p25 1.0075 p75 1.0384  n 5
+AB count_absent   A      1502302  B      1491517  B/A median-of-paired 0.9961  p25 0.9927 p75 0.9978  n 5
+# ab-prot_1m-fileT-t1 proc 4
+AB count_present  A      1435602  B      1432634  B/A median-of-paired 0.9979  p25 0.9642 p75 1.0403  n 5
+AB locate         A      1824163  B      1805410  B/A median-of-paired 0.9897  p25 0.9174 p75 1.0019  n 5
+AB count_absent   A      1525762  B      1529342  B/A median-of-paired 0.9517  p25 0.9501 p75 0.9909  n 5
+# ab-prot_1m-fileT-t1 proc 5
+AB count_present  A      1595874  B      1477836  B/A median-of-paired 1.0147  p25 0.9959 p75 1.1058  n 5
+AB locate         A      2062869  B      1918166  B/A median-of-paired 0.9542  p25 0.9313 p75 1.0545  n 5
+AB count_absent   A      1442072  B      1446647  B/A median-of-paired 1.0031  p25 0.9858 p75 1.0061  n 5
+## ab_prot_1m_file_t4.txt
+# ab-prot_1m-file-t4 proc 1
+AB count_present  A      5625109  B      5703150  B/A median-of-paired 1.0021  p25 0.9946 p75 1.0029  n 5
+AB locate         A      7654000  B      7588815  B/A median-of-paired 0.9892  p25 0.9819 p75 1.0103  n 5
+AB count_absent   A      5913121  B      5954589  B/A median-of-paired 1.0024  p25 0.9989 p75 1.0112  n 5
+# ab-prot_1m-file-t4 proc 2
+AB count_present  A      5723772  B      5729999  B/A median-of-paired 0.9945  p25 0.9900 p75 1.0012  n 5
+AB locate         A      6979335  B      6797665  B/A median-of-paired 0.9608  p25 0.9479 p75 0.9856  n 5
+AB count_absent   A      5884596  B      5738523  B/A median-of-paired 0.9804  p25 0.9669 p75 0.9984  n 5
+# ab-prot_1m-file-t4 proc 3
+AB count_present  A      5619782  B      5529164  B/A median-of-paired 0.9934  p25 0.9824 p75 0.9939  n 5
+AB locate         A      7064237  B      6990789  B/A median-of-paired 0.9947  p25 0.9896 p75 0.9975  n 5
+AB count_absent   A      5954911  B      5918859  B/A median-of-paired 0.9939  p25 0.9901 p75 0.9959  n 5
+# ab-prot_1m-file-t4 proc 4
+AB count_present  A      5554603  B      5588878  B/A median-of-paired 1.0103  p25 1.0095 p75 1.0176  n 5
+AB locate         A      7333687  B      7204438  B/A median-of-paired 0.9937  p25 0.9911 p75 1.0001  n 5
+AB count_absent   A      5904619  B      6013962  B/A median-of-paired 1.0090  p25 1.0030 p75 1.0182  n 5
+# ab-prot_1m-file-t4 proc 5
+AB count_present  A      5801410  B      5615267  B/A median-of-paired 0.9881  p25 0.9796 p75 1.0024  n 5
+AB locate         A      7424696  B      6981127  B/A median-of-paired 0.9726  p25 0.9316 p75 0.9803  n 5
+AB count_absent   A      6081982  B      5906550  B/A median-of-paired 0.9652  p25 0.9549 p75 0.9712  n 5
+## ab_prot_1m_idx_t4.txt
+# ab-prot_1m-idx-t4 proc 1
+AB count_present  A      5601120  B      5801980  B/A median-of-paired 1.0129  p25 1.0115 p75 1.0528  n 5
+AB locate         A      7507530  B      7185475  B/A median-of-paired 0.9786  p25 0.9657 p75 0.9813  n 5
+AB count_absent   A      6275060  B      6364692  B/A median-of-paired 1.0107  p25 1.0068 p75 1.0127  n 5
+# ab-prot_1m-idx-t4 proc 2
+AB count_present  A      5588197  B      5673119  B/A median-of-paired 1.0152  p25 1.0126 p75 1.0303  n 5
+AB locate         A      7428321  B      7371294  B/A median-of-paired 0.9874  p25 0.9517 p75 0.9923  n 5
+AB count_absent   A      5927795  B      5944633  B/A median-of-paired 1.0028  p25 0.9896 p75 1.0139  n 5
+# ab-prot_1m-idx-t4 proc 3
+AB count_present  A      5931396  B      5908943  B/A median-of-paired 0.9802  p25 0.9736 p75 0.9933  n 5
+AB locate         A      7315396  B      7047307  B/A median-of-paired 0.9634  p25 0.9631 p75 0.9777  n 5
+AB count_absent   A      6192255  B      6189155  B/A median-of-paired 0.9731  p25 0.9672 p75 0.9903  n 5
+# ab-prot_1m-idx-t4 proc 4
+AB count_present  A      5619306  B      5618174  B/A median-of-paired 0.9957  p25 0.9717 p75 1.0000  n 5
+AB locate         A      7505397  B      7413670  B/A median-of-paired 1.0099  p25 0.9821 p75 1.0136  n 5
+AB count_absent   A      6297206  B      6283684  B/A median-of-paired 0.9941  p25 0.9924 p75 1.0318  n 5
+# ab-prot_1m-idx-t4 proc 5
+AB count_present  A      5779849  B      5957273  B/A median-of-paired 1.0307  p25 1.0259 p75 1.0386  n 5
+AB locate         A      7607289  B      7299759  B/A median-of-paired 0.9720  p25 0.9596 p75 0.9855  n 5
+AB count_absent   A      5875752  B      6003926  B/A median-of-paired 1.0171  p25 1.0142 p75 1.0192  n 5
+# ab-prot_1m-idx-t4 proc 1
+AB count_present  A      5583388  B      5579617  B/A median-of-paired 0.9878  p25 0.9734 p75 1.0025  n 5
+AB locate         A      7213868  B      7050238  B/A median-of-paired 0.9773  p25 0.9578 p75 0.9996  n 5
+AB count_absent   A      5914909  B      6163918  B/A median-of-paired 1.0199  p25 1.0087 p75 1.0421  n 5
+# ab-prot_1m-idx-t4 proc 2
+AB count_present  A      5587580  B      5698641  B/A median-of-paired 1.0119  p25 1.0116 p75 1.0289  n 5
+AB locate         A      7603512  B      7328712  B/A median-of-paired 0.9812  p25 0.9607 p75 1.0023  n 5
+AB count_absent   A      6326437  B      6306155  B/A median-of-paired 1.0155  p25 1.0043 p75 1.0194  n 5
+# ab-prot_1m-idx-t4 proc 3
+AB count_present  A      5804543  B      5760703  B/A median-of-paired 1.0064  p25 0.9940 p75 1.0221  n 5
+AB locate         A      7382784  B      7243672  B/A median-of-paired 0.9821  p25 0.9648 p75 0.9972  n 5
+AB count_absent   A      6158364  B      5927224  B/A median-of-paired 0.9914  p25 0.9727 p75 0.9933  n 5
+# ab-prot_1m-idx-t4 proc 4
+AB count_present  A      5808507  B      6062263  B/A median-of-paired 1.0284  p25 1.0129 p75 1.0437  n 5
+AB locate         A      7625292  B      7199010  B/A median-of-paired 0.9515  p25 0.9353 p75 0.9596  n 5
+AB count_absent   A      5992333  B      6111081  B/A median-of-paired 0.9915  p25 0.9869 p75 0.9953  n 5
+# ab-prot_1m-idx-t4 proc 5
+AB count_present  A      5637613  B      5563345  B/A median-of-paired 1.0034  p25 0.9845 p75 1.0273  n 5
+AB locate         A      7940323  B      7497900  B/A median-of-paired 0.9446  p25 0.9332 p75 0.9515  n 5
+AB count_absent   A      6015052  B      5984057  B/A median-of-paired 0.9911  p25 0.9737 p75 0.9948  n 5
+# ab-prot_1m-idx-t4 proc 6
+AB count_present  A      5694439  B      5598507  B/A median-of-paired 0.9839  p25 0.9832 p75 1.0102  n 5
+AB locate         A      7206494  B      7109895  B/A median-of-paired 0.9750  p25 0.9681 p75 0.9866  n 5
+AB count_absent   A      6231487  B      5976845  B/A median-of-paired 0.9591  p25 0.9517 p75 0.9855  n 5
+# ab-prot_1m-idx-t4 proc 7
+AB count_present  A      5772988  B      5715029  B/A median-of-paired 0.9960  p25 0.9918 p75 1.0074  n 5
+AB locate         A      7268422  B      6975348  B/A median-of-paired 0.9406  p25 0.9310 p75 0.9641  n 5
+AB count_absent   A      6053295  B      5883062  B/A median-of-paired 0.9680  p25 0.9438 p75 0.9967  n 5
+# ab-prot_1m-idx-t4 proc 8
+AB count_present  A      5482780  B      5632220  B/A median-of-paired 1.0394  p25 1.0045 p75 1.0425  n 5
+AB locate         A      7655966  B      7469383  B/A median-of-paired 0.9840  p25 0.9840 p75 0.9887  n 5
+AB count_absent   A      5983561  B      6086683  B/A median-of-paired 1.0213  p25 1.0172 p75 1.0229  n 5
+# ab-prot_1m-idx-t4 proc 9
+AB count_present  A      5894838  B      5860547  B/A median-of-paired 1.0015  p25 0.9950 p75 1.0305  n 5
+AB locate         A      7379667  B      7227489  B/A median-of-paired 0.9864  p25 0.9683 p75 0.9913  n 5
+AB count_absent   A      5868458  B      5792198  B/A median-of-paired 0.9870  p25 0.9627 p75 0.9909  n 5
+# ab-prot_1m-idx-t4 proc 10
+AB count_present  A      5482846  B      5600003  B/A median-of-paired 1.0171  p25 1.0031 p75 1.0214  n 5
+AB locate         A      7339959  B      7240161  B/A median-of-paired 0.9847  p25 0.9794 p75 0.9868  n 5
+AB count_absent   A      5913643  B      5871267  B/A median-of-paired 0.9969  p25 0.9928 p75 1.0036  n 5
+# ab-prot_1m-idx-t4 proc 11
+AB count_present  A      5598624  B      5630570  B/A median-of-paired 1.0057  p25 1.0034 p75 1.0163  n 5
+AB locate         A      7577196  B      7657749  B/A median-of-paired 1.0007  p25 0.9697 p75 1.0286  n 5
+AB count_absent   A      6125864  B      6262043  B/A median-of-paired 1.0133  p25 0.9972 p75 1.0200  n 5
+# ab-prot_1m-idx-t4 proc 12
+AB count_present  A      5730771  B      5618545  B/A median-of-paired 0.9812  p25 0.9731 p75 1.0049  n 5
+AB locate         A      7703725  B      7713597  B/A median-of-paired 0.9947  p25 0.9472 p75 1.0133  n 5
+AB count_absent   A      6813336  B      6383721  B/A median-of-paired 0.9684  p25 0.9555 p75 0.9791  n 5
+# ab-prot_1m-idx-t4 proc 13
+AB count_present  A      5750905  B      5829349  B/A median-of-paired 1.0605  p25 0.9910 p75 1.0671  n 5
+AB locate         A      7573942  B      7570184  B/A median-of-paired 0.9761  p25 0.9728 p75 1.0067  n 5
+AB count_absent   A      6080405  B      6199123  B/A median-of-paired 1.0218  p25 1.0116 p75 1.0282  n 5
+# ab-prot_1m-idx-t4 proc 14
+AB count_present  A      5944283  B      5850262  B/A median-of-paired 0.9926  p25 0.9915 p75 1.0011  n 5
+AB locate         A      7352042  B      6994190  B/A median-of-paired 0.9434  p25 0.9214 p75 0.9900  n 5
+AB count_absent   A      6174167  B      5930500  B/A median-of-paired 0.9851  p25 0.9525 p75 1.0318  n 5
+# ab-prot_1m-idx-t4 proc 15
+AB count_present  A      5552804  B      5827972  B/A median-of-paired 1.0496  p25 1.0103 p75 1.0763  n 5
+AB locate         A      7319152  B      7218837  B/A median-of-paired 0.9608  p25 0.9312 p75 0.9777  n 5
+AB count_absent   A      6179717  B      5957286  B/A median-of-paired 0.9872  p25 0.9439 p75 1.0155  n 5
+## ab_rep_10m_file_t4.txt
+# ab-rep_10m-file-t4 proc 1
+AB count_present  A      3198599  B      3274739  B/A median-of-paired 1.0153  p25 1.0147 p75 1.0309  n 5
+AB locate         A      4559325  B      4680994  B/A median-of-paired 1.0332  p25 1.0235 p75 1.0421  n 5
+AB count_absent   A      4936054  B      4860241  B/A median-of-paired 0.9956  p25 0.9892 p75 1.0023  n 5
+# ab-rep_10m-file-t4 proc 2
+AB count_present  A      3361032  B      3433997  B/A median-of-paired 0.9807  p25 0.9766 p75 1.0574  n 5
+AB locate         A      4418511  B      4668236  B/A median-of-paired 1.0387  p25 1.0309 p75 1.0600  n 5
+AB count_absent   A      4593997  B      4592541  B/A median-of-paired 1.0112  p25 0.9846 p75 1.0202  n 5
+# ab-rep_10m-file-t4 proc 3
+AB count_present  A      3202488  B      3289508  B/A median-of-paired 1.0154  p25 0.9988 p75 1.0387  n 5
+AB locate         A      4576452  B      4734168  B/A median-of-paired 1.0328  p25 1.0310 p75 1.0602  n 5
+AB count_absent   A      4570416  B      4590237  B/A median-of-paired 0.9988  p25 0.9718 p75 1.0054  n 5
+# ab-rep_10m-file-t4 proc 4
+AB count_present  A      3306706  B      3279789  B/A median-of-paired 0.9948  p25 0.9862 p75 1.0239  n 5
+AB locate         A      4606237  B      4839947  B/A median-of-paired 1.0448  p25 1.0106 p75 1.0507  n 5
+AB count_absent   A      4702570  B      4642142  B/A median-of-paired 0.9897  p25 0.9749 p75 1.0183  n 5
+# ab-rep_10m-file-t4 proc 5
+AB count_present  A      3308072  B      3434944  B/A median-of-paired 0.9965  p25 0.9841 p75 1.0149  n 5
+AB locate         A      4731771  B      4688241  B/A median-of-paired 0.9813  p25 0.9703 p75 1.0060  n 5
+AB count_absent   A      4628618  B      4626194  B/A median-of-paired 1.0045  p25 1.0042 p75 1.0147  n 5
+## null_dna_10m_file_t1.txt
+# null-dna_10m-file-t1 proc 1
+AB count_present  A       715358  B       715568  B/A median-of-paired 1.0051  p25 0.9992 p75 1.0089  n 5
+AB locate         A      1275386  B      1130350  B/A median-of-paired 0.8914  p25 0.8692 p75 0.9421  n 5
+AB count_absent   A       720277  B       708344  B/A median-of-paired 0.9911  p25 0.9684 p75 0.9948  n 5
+# null-dna_10m-file-t1 proc 2
+AB count_present  A       721041  B       696367  B/A median-of-paired 0.9872  p25 0.9730 p75 0.9911  n 5
+AB locate         A      1262330  B      1273819  B/A median-of-paired 1.0208  p25 1.0041 p75 1.0502  n 5
+AB count_absent   A       765582  B       943069  B/A median-of-paired 1.0731  p25 1.0181 p75 1.0956  n 5
+# null-dna_10m-file-t1 proc 3
+AB count_present  A       759776  B       789886  B/A median-of-paired 1.0271  p25 1.0163 p75 1.0597  n 5
+AB locate         A      1218523  B      1305096  B/A median-of-paired 1.0710  p25 1.0690 p75 1.0761  n 5
+AB count_absent   A       858857  B       862063  B/A median-of-paired 1.0060  p25 1.0037 p75 1.0212  n 5
+# null-dna_10m-file-t1 proc 4
+AB count_present  A       833065  B       746508  B/A median-of-paired 0.9746  p25 0.8922 p75 1.0035  n 5
+AB locate         A      1166129  B      1223278  B/A median-of-paired 1.0697  p25 1.0490 p75 1.0922  n 5
+AB count_absent   A       768511  B       779909  B/A median-of-paired 1.0150  p25 1.0148 p75 1.0266  n 5
+# null-dna_10m-file-t1 proc 5
+AB count_present  A       764885  B       769806  B/A median-of-paired 1.0041  p25 0.9873 p75 1.0110  n 5
+AB locate         A      1164480  B      1248140  B/A median-of-paired 1.0963  p25 1.0428 p75 1.1327  n 5
+AB count_absent   A       745799  B       763688  B/A median-of-paired 1.0056  p25 0.9913 p75 1.0081  n 5
+## null_prot_1m_idx_t4.txt
+# null-prot_1m-idx-t4 proc 1
+AB count_present  A      5751890  B      5593376  B/A median-of-paired 0.9662  p25 0.9632 p75 0.9951  n 5
+AB locate         A      7453653  B      7690352  B/A median-of-paired 0.9958  p25 0.9900 p75 1.0318  n 5
+AB count_absent   A      5965525  B      5862959  B/A median-of-paired 0.9907  p25 0.9847 p75 0.9958  n 5
+# null-prot_1m-idx-t4 proc 2
+AB count_present  A      5745521  B      5713510  B/A median-of-paired 0.9969  p25 0.9814 p75 1.0179  n 5
+AB locate         A      7335248  B      7061973  B/A median-of-paired 0.9733  p25 0.9671 p75 1.0031  n 5
+AB count_absent   A      6016377  B      5969037  B/A median-of-paired 1.0011  p25 0.9737 p75 1.0152  n 5
+# null-prot_1m-idx-t4 proc 3
+AB count_present  A      5656317  B      5566664  B/A median-of-paired 1.0001  p25 0.9664 p75 1.0238  n 5
+AB locate         A      7067792  B      7312900  B/A median-of-paired 1.0347  p25 1.0121 p75 1.0475  n 5
+AB count_absent   A      5875909  B      5938569  B/A median-of-paired 1.0107  p25 1.0036 p75 1.0130  n 5
+# null-prot_1m-idx-t4 proc 4
+AB count_present  A      5597283  B      5602315  B/A median-of-paired 0.9944  p25 0.9936 p75 0.9967  n 5
+AB locate         A      7605631  B      7514898  B/A median-of-paired 1.0019  p25 0.9874 p75 1.0114  n 5
+AB count_absent   A      5986923  B      5930636  B/A median-of-paired 0.9939  p25 0.9908 p75 0.9970  n 5
+# null-prot_1m-idx-t4 proc 5
+AB count_present  A      5633978  B      5575249  B/A median-of-paired 0.9935  p25 0.9896 p75 1.0049  n 5
+AB locate         A      7233228  B      7432448  B/A median-of-paired 1.0190  p25 1.0135 p75 1.0275  n 5
+AB count_absent   A      6057775  B      6074871  B/A median-of-paired 0.9972  p25 0.9872 p75 1.0157  n 5
+# null-prot_1m-idx-t4 proc 1
+AB count_present  A      5869461  B      5940637  B/A median-of-paired 1.0441  p25 1.0052 p75 1.0565  n 5
+AB locate         A      7577260  B      7655178  B/A median-of-paired 1.0012  p25 0.9361 p75 1.0433  n 5
+AB count_absent   A      6615907  B      6549577  B/A median-of-paired 0.9909  p25 0.9533 p75 1.0457  n 5
+# null-prot_1m-idx-t4 proc 2
+AB count_present  A      5867929  B      5670785  B/A median-of-paired 0.9826  p25 0.9781 p75 0.9855  n 5
+AB locate         A      7310200  B      7430118  B/A median-of-paired 1.0195  p25 1.0038 p75 1.0455  n 5
+AB count_absent   A      6085728  B      6178900  B/A median-of-paired 0.9791  p25 0.9713 p75 1.0379  n 5
+# null-prot_1m-idx-t4 proc 3
+AB count_present  A      5563737  B      5448564  B/A median-of-paired 0.9707  p25 0.9682 p75 0.9829  n 5
+AB locate         A      7477848  B      7433360  B/A median-of-paired 0.9696  p25 0.9453 p75 0.9711  n 5
+AB count_absent   A      6160845  B      6128788  B/A median-of-paired 0.9806  p25 0.9789 p75 0.9812  n 5
+# null-prot_1m-idx-t4 proc 4
+AB count_present  A      5488674  B      5554495  B/A median-of-paired 1.0066  p25 1.0021 p75 1.0145  n 5
+AB locate         A      7465524  B      7445649  B/A median-of-paired 1.0034  p25 0.9871 p75 1.0044  n 5
+AB count_absent   A      5974578  B      5877985  B/A median-of-paired 0.9901  p25 0.9756 p75 1.0007  n 5
+# null-prot_1m-idx-t4 proc 5
+AB count_present  A      5644807  B      5692289  B/A median-of-paired 0.9955  p25 0.9820 p75 1.0008  n 5
+AB locate         A      7636028  B      7577951  B/A median-of-paired 1.0127  p25 1.0052 p75 1.0191  n 5
+AB count_absent   A      5976196  B      5943568  B/A median-of-paired 1.0031  p25 0.9897 p75 1.0047  n 5
+# null-prot_1m-idx-t4 proc 6
+AB count_present  A      5668965  B      5622471  B/A median-of-paired 0.9926  p25 0.9810 p75 1.0012  n 5
+AB locate         A      7319268  B      7620770  B/A median-of-paired 1.0412  p25 1.0219 p75 1.0668  n 5
+AB count_absent   A      5906106  B      5834666  B/A median-of-paired 1.0009  p25 0.9879 p75 1.0049  n 5
+# null-prot_1m-idx-t4 proc 7
+AB count_present  A      5519645  B      5567593  B/A median-of-paired 0.9995  p25 0.9913 p75 1.0059  n 5
+AB locate         A      7376123  B      7597151  B/A median-of-paired 1.0051  p25 0.9959 p75 1.0148  n 5
+AB count_absent   A      6087782  B      6124627  B/A median-of-paired 0.9996  p25 0.9870 p75 1.0061  n 5
+# null-prot_1m-idx-t4 proc 8
+AB count_present  A      5494031  B      5638206  B/A median-of-paired 1.0327  p25 1.0288 p75 1.0363  n 5
+AB locate         A      7378159  B      7461074  B/A median-of-paired 0.9958  p25 0.9939 p75 1.0072  n 5
+AB count_absent   A      6232105  B      6276220  B/A median-of-paired 1.0034  p25 0.9866 p75 1.0366  n 5
+# null-prot_1m-idx-t4 proc 9
+AB count_present  A      5665751  B      5632486  B/A median-of-paired 0.9919  p25 0.9899 p75 0.9993  n 5
+AB locate         A      7269492  B      7296471  B/A median-of-paired 0.9957  p25 0.9909 p75 1.0068  n 5
+AB count_absent   A      5879046  B      5870168  B/A median-of-paired 1.0036  p25 0.9885 p75 1.0150  n 5
+# null-prot_1m-idx-t4 proc 10
+AB count_present  A      5599049  B      5647299  B/A median-of-paired 0.9968  p25 0.9935 p75 1.0088  n 5
+AB locate         A      7880385  B      7654791  B/A median-of-paired 0.9743  p25 0.9714 p75 0.9786  n 5
+AB count_absent   A      6116281  B      5986681  B/A median-of-paired 0.9788  p25 0.9657 p75 0.9810  n 5
+# null-prot_1m-idx-t4 proc 11
+AB count_present  A      5783207  B      5592732  B/A median-of-paired 0.9748  p25 0.9684 p75 1.0075  n 5
+AB locate         A      7548656  B      7533699  B/A median-of-paired 1.0031  p25 0.9787 p75 1.0440  n 5
+AB count_absent   A      5796347  B      5745095  B/A median-of-paired 0.9876  p25 0.9609 p75 1.0016  n 5
+# null-prot_1m-idx-t4 proc 12
+AB count_present  A      5651538  B      5606108  B/A median-of-paired 0.9740  p25 0.9556 p75 1.0187  n 5
+AB locate         A      7309421  B      7347308  B/A median-of-paired 1.0003  p25 0.9932 p75 1.0590  n 5
+AB count_absent   A      5880921  B      5864751  B/A median-of-paired 0.9853  p25 0.9843 p75 0.9931  n 5
+# null-prot_1m-idx-t4 proc 13
+AB count_present  A      5648791  B      5669816  B/A median-of-paired 1.0082  p25 1.0037 p75 1.0147  n 5
+AB locate         A      7253149  B      7530139  B/A median-of-paired 1.0302  p25 1.0300 p75 1.0382  n 5
+AB count_absent   A      6096240  B      6224782  B/A median-of-paired 1.0123  p25 1.0039 p75 1.0364  n 5
+# null-prot_1m-idx-t4 proc 14
+AB count_present  A      5583655  B      5664911  B/A median-of-paired 1.0173  p25 1.0121 p75 1.0193  n 5
+AB locate         A      7292188  B      7384995  B/A median-of-paired 1.0097  p25 0.9766 p75 1.0424  n 5
+AB count_absent   A      5975361  B      6064606  B/A median-of-paired 0.9964  p25 0.9883 p75 1.0105  n 5
+# null-prot_1m-idx-t4 proc 15
+AB count_present  A      5555804  B      5528134  B/A median-of-paired 0.9871  p25 0.9840 p75 1.0024  n 5
+AB locate         A      7753150  B      7585046  B/A median-of-paired 0.9783  p25 0.9764 p75 0.9794  n 5
+AB count_absent   A      6065971  B      5869788  B/A median-of-paired 1.0136  p25 0.9950 p75 1.0239  n 5
+## null_rep_10m_file_t4.txt
+# null-rep_10m-file-t4 proc 1
+AB count_present  A      3234220  B      3265972  B/A median-of-paired 1.0109  p25 1.0048 p75 1.0446  n 5
+AB locate         A      4496502  B      4514748  B/A median-of-paired 1.0041  p25 0.9661 p75 1.0274  n 5
+AB count_absent   A      4442945  B      4371689  B/A median-of-paired 0.9828  p25 0.9804 p75 0.9848  n 5
+# null-rep_10m-file-t4 proc 2
+AB count_present  A      3163052  B      3190246  B/A median-of-paired 1.0094  p25 1.0003 p75 1.0231  n 5
+AB locate         A      4299248  B      4421831  B/A median-of-paired 1.0361  p25 1.0215 p75 1.0404  n 5
+AB count_absent   A      4574738  B      4516918  B/A median-of-paired 0.9761  p25 0.9724 p75 1.0188  n 5
+# null-rep_10m-file-t4 proc 3
+AB count_present  A      3102910  B      3099474  B/A median-of-paired 1.0014  p25 0.9916 p75 1.0172  n 5
+AB locate         A      4437407  B      4492126  B/A median-of-paired 1.0160  p25 1.0077 p75 1.0371  n 5
+AB count_absent   A      4716430  B      4717443  B/A median-of-paired 1.0002  p25 0.9922 p75 1.0241  n 5
+# null-rep_10m-file-t4 proc 4
+AB count_present  A      3183613  B      3129684  B/A median-of-paired 0.9834  p25 0.9776 p75 1.0109  n 5
+AB locate         A      4471629  B      4676686  B/A median-of-paired 1.0057  p25 1.0056 p75 1.0662  n 5
+AB count_absent   A      4486858  B      4535271  B/A median-of-paired 1.0040  p25 0.9938 p75 1.0118  n 5
+# null-rep_10m-file-t4 proc 5
+AB count_present  A      3189124  B      3194841  B/A median-of-paired 1.0018  p25 0.9768 p75 1.0041  n 5
+AB locate         A      4468536  B      4712185  B/A median-of-paired 1.0452  p25 1.0324 p75 1.0469  n 5
+AB count_absent   A      4392727  B      4396663  B/A median-of-paired 1.0101  p25 1.0041 p75 1.0170  n 5
