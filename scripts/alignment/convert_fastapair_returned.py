@@ -8,7 +8,7 @@ tests/Seqeron/Seqeron.Genomics.Tests/TestData/Alignment:
                                  the library has at most 20 sequences; the same two numbers in all 724 such calls of this build) -> "(N=UNINIT) at UNINIT"
   mafft_fastapair_oracle.tsv.gz  id <TAB> options <TAB> seqs ('|') <TAB> rc <TAB> rows ('|') <TAB> compact JSON: names, tree, hat2 (the .hat2 file of the run), stderr (the process number of "Segmentation fault" -> P),
                                  direct = {rc, stderr, hat2, hat3 (the %p of the next block: (nil) -> NIL, an address -> PTR)}
-The archive is untrusted data: it is parsed, never executed. Usage: python3 -I convert_fastapair_returned.py <returned.zip> [suffix: '2' for the second run, handoff/A2-19c-fastapair2]"""
+The archive is untrusted data: it is parsed, never executed. Usage: python3 -I convert_fastapair_returned.py <returned.zip> [<more.zip> ...] [suffix: '2' for the second run, handoff/A2-19c-fastapair2]"""
 import gzip, io, json, os, re, sys, tarfile, tempfile, zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -42,27 +42,65 @@ def normalise_hat3(t):
     return re.sub(r' (\(nil\)|0x[0-9a-f]+)$', lambda m: ' NIL' if m.group(1) == '(nil)' else ' PTR', t, flags=re.M)
 
 
-def main(archive, suffix=''):
-    with tempfile.TemporaryDirectory() as td:
-        with zipfile.ZipFile(archive) as z:
-            for n in z.namelist():
-                assert not n.startswith('/') and '..' not in n, n
-            z.extractall(td)
-        out = os.path.join(td, 'out')
-        calls, sets = [], []
-        for line in open(os.path.join(out, 'results.tsv'), encoding='latin-1', newline='\n'):
+def read_zip(archive, td, tag):
+    with zipfile.ZipFile(archive) as z:
+        for n in z.namelist():
+            assert not n.startswith('/') and '..' not in n, n
+        d = os.path.join(td, tag)
+        z.extractall(d)
+    return os.path.join(d, 'out')
+
+
+def main(archives, suffix=''):
+    """archives: one or more returned zips; a set takes every part it finds in any of them (a run that was stopped before it wrote results.tsv has the raw calls, the direct runs and the
+    standard error of the sets it finished; a later run supplies the complete `mafft` runs). Sets with no results row get rc 'NA' (no complete run to compare)."""
+    inputs = os.path.join(HERE, '..', '..', 'docs', 'Validation', 'review-2026-09', 'handoff', 'A2-19c-fastapair' + suffix, 'inputs', 'sets.tsv')
+    in_sets = {}
+    if suffix != '':
+        for line in open(inputs, encoding='utf-8', newline='\n'):
             f = line.rstrip('\n').split('\t')
-            assert len(f) == 9, len(f)
-            k, opt, seqs, rc, rws, names, sha, tree, hat2 = f
-            stderr = gzip.open(os.path.join(out, 'sets', k + '.stderr.gz'), 'rb').read().decode('latin-1')
-            direct = json.load(gzip.open(os.path.join(out, 'sets', k + '.direct.json.gz'), 'rt', encoding='utf-8'))
+            in_sets[f[0]] = (f[1], f[2], json.loads(f[3]) if len(f) > 3 else {})
+    with tempfile.TemporaryDirectory() as td:
+        outs = [read_zip(a, td, 'z%d' % i) for i, a in enumerate(archives)]
+        results = {}
+        for out in outs:
+            path = os.path.join(out, 'results.tsv')
+            if os.path.exists(path):
+                for line in open(path, encoding='latin-1', newline='\n'):
+                    f = line.rstrip('\n').split('\t')
+                    assert len(f) == 9, len(f)
+                    results[f[0]] = (f, out)
+        ids = sorted({n.split('.')[0] for out in outs for n in os.listdir(os.path.join(out, 'sets'))}, key=int)
+        calls, sets = [], []
+        for k in ids:
+            def find(ext):
+                for out in outs:
+                    p = os.path.join(out, 'sets', k + ext)
+                    if os.path.exists(p):
+                        return p
+                return None
+            p_dir = find('.direct.json.gz')
+            p_log = find('.fastalog.tar.gz')
+            if p_dir is None or p_log is None:
+                continue
+            direct = json.load(gzip.open(p_dir, 'rt', encoding='utf-8'))
+            if k in results:
+                f, out = results[k]
+                _, opt, seqs, rc, rws, names, sha, tree, hat2 = f
+                # the standard error of the complete run belongs to the run that has its results row
+                stderr = gzip.open(os.path.join(out, 'sets', k + '.stderr.gz'), 'rb').read().decode('latin-1')
+                full = True
+            else:
+                opt, seqs, _ = in_sets[k]
+                rc, rws, names, tree, hat2 = 'NA', '', '', '', ''
+                stderr = gzip.open(find('.stderr.gz'), 'rb').read().decode('latin-1')
+                full = False
             sets.append('\t'.join([k, opt, seqs, rc, rws, json.dumps({
-                'names': names.split('|'), 'tree': unesc(tree), 'hat2': unesc(hat2), 'stderr': normalise_err(stderr),
+                'names': names.split('|'), 'tree': unesc(tree), 'hat2': unesc(hat2), 'stderr': normalise_err(stderr), 'full': full, 'files': in_sets[k][2] if k in in_sets else {},
                 'direct': {'rc': direct['rc'], 'stderr': normalise_err(direct['stderr']), 'hat2': direct['hat2'], 'hat3': normalise_hat3(direct['hat3'])}}, separators=(',', ':'))]))
-            with tarfile.open(fileobj=io.BytesIO(open(os.path.join(out, 'sets', k + '.fastalog.tar.gz'), 'rb').read()), mode='r:gz') as t:
+            with tarfile.open(fileobj=io.BytesIO(open(p_log, 'rb').read()), mode='r:gz') as t:
                 members = {m.name: t.extractfile(m).read().decode('latin-1') for m in t.getmembers() if m.isfile()}
-            ids = sorted({n.split('.')[0] for n in members})
-            for i in ids:
+            for i in sorted({n.split('.')[0] for n in members}):
                 args = members[i + '.args'].strip()
                 args = re.sub(r'/tmp/(query|data|fasta)-\d+', r'/tmp/\1-P', args)
                 calls.append('\t'.join(['%s.%s' % (k, i), args, esc(members[i + '.query']), esc(members[i + '.data']), esc(normalise_raw(members[i + '.out']))]))
@@ -70,8 +108,12 @@ def main(archive, suffix=''):
         for name, rows in (('fasta34_align%s_oracle.tsv.gz' % suffix, calls), ('mafft_fastapair%s_oracle.tsv.gz' % suffix, sets)):
             with open(os.path.join(DATA, name), 'wb') as raw_f, gzip.GzipFile(fileobj=raw_f, mode='wb', compresslevel=9, mtime=0, filename='') as f:
                 f.write(('\n'.join(rows) + '\n').encode('utf-8'))
-        print(len(calls), 'fasta34 calls,', len(sets), 'sets')
+        print(len(calls), 'fasta34 calls,', len(sets), 'sets,', sum(1 for r in sets if '"full":true' in r), 'with a complete run')
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else '')
+    args = sys.argv[1:]
+    suffix = ''
+    if args and not args[-1].endswith('.zip'):
+        suffix = args.pop()
+    main(args, suffix)

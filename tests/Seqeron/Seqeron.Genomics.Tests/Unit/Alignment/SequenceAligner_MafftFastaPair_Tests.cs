@@ -24,7 +24,7 @@ public class SequenceAligner_MafftFastaPair_Tests
 {
     internal sealed record Call(string Id, string Args, string Query, string Library, string Out);
 
-    internal sealed record Set(string Id, string Options, string[] Seqs, int Rc, string[] Rows, string[] Names, string Tree, string Hat2, string Stderr, int DirectRc, string DirectStderr, string DirectHat2, string DirectHat3);
+    internal sealed record Set(string Id, string Options, string[] Seqs, int Rc, string[] Rows, string[] Names, string Tree, string Hat2, string Stderr, int DirectRc, string DirectStderr, string DirectHat2, string DirectHat3, bool Full, Dictionary<string, string> Files);
 
     private static string Unescape(string s) => Regex.Replace(s, @"\\(.)", m => m.Groups[1].Value switch { "n" => "\n", "t" => "\t", "r" => "\r", var other => other }, RegexOptions.Singleline);
 
@@ -41,16 +41,35 @@ public class SequenceAligner_MafftFastaPair_Tests
         }
     }
 
-    internal static readonly Lazy<List<Call>> Calls = new(() => Lines("fasta34_align_oracle.tsv.gz").Select(f => new Call(f[0], f[1], Unescape(f[2]), Unescape(f[3]), Unescape(f[4]))).ToList());
+    // run "" = handoff/A2-19c-fastapair (180 sets), run "2" = handoff/A2-19c-fastapair2 (253 of its 288 sets: the run was stopped before results.tsv was written, so no complete run of mafft; the raw calls and the direct runs of dndfast7 are complete)
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<Call>> CallCache = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<Set>> SetCache = new();
 
-    internal static readonly Lazy<List<Set>> Sets = new(() => Lines("mafft_fastapair_oracle.tsv.gz").Select(f =>
+    internal static List<Call> CallsOf(string run) => CallCache.GetOrAdd(run, r => Lines($"fasta34_align{r}_oracle.tsv.gz").Select(f => new Call(f[0], f[1], Unescape(f[2]), Unescape(f[3]), Unescape(f[4]))).ToList());
+
+    internal static List<Set> SetsOf(string run) => SetCache.GetOrAdd(run, r => Lines($"mafft_fastapair{r}_oracle.tsv.gz").Select(f =>
     {
         var extra = JsonDocument.Parse(f[5]).RootElement;
         var direct = extra.GetProperty("direct");
-        return new Set(f[0], f[1], f[2].Split('|'), int.Parse(f[3], CultureInfo.InvariantCulture), f[4].Length == 0 ? [] : f[4].Split('|'),
+        bool full = !extra.TryGetProperty("full", out var fl) || fl.GetBoolean();
+        var files = new Dictionary<string, string>();
+        if (extra.TryGetProperty("files", out var fs))
+        {
+            foreach (var p in fs.EnumerateObject())
+                files[p.Name] = p.Value.GetString()!;
+        }
+
+        return new Set(f[0], f[1], f[2].Split('|'), full ? int.Parse(f[3], CultureInfo.InvariantCulture) : 0, f[4].Length == 0 ? [] : f[4].Split('|'),
             extra.GetProperty("names").EnumerateArray().Select(e => e.GetString()!).Where(n => n.Length > 0).ToArray(), extra.GetProperty("tree").GetString()!, extra.GetProperty("hat2").GetString()!, extra.GetProperty("stderr").GetString()!,
-            direct.GetProperty("rc").GetInt32(), direct.GetProperty("stderr").GetString()!, direct.GetProperty("hat2").GetString()!, direct.GetProperty("hat3").GetString()!);
+            direct.GetProperty("rc").GetInt32(), direct.GetProperty("stderr").GetString()!, direct.GetProperty("hat2").GetString()!, direct.GetProperty("hat3").GetString()!, full, files);
     }).ToList());
+
+    internal static List<Call> Calls => CallsOf("");
+
+    internal static List<Set> Sets => SetsOf("");
+
+    /// <summary>The fasta text of a set: the file <c>in.fa</c> that the generator named, or the sequences as <c>s0, s1, ...</c>.</summary>
+    private static string FastaOf(Set s) => s.Files.TryGetValue("in.fa", out var f) ? f : string.Concat(s.Seqs.Select((q, i) => $">s{i}\n{q}\n"));
 
     private static (List<string> Titles, List<string> Seqs) ParseFasta(string text)
     {
@@ -94,8 +113,8 @@ public class SequenceAligner_MafftFastaPair_Tests
     [Test]
     public void Oracle_Shape()
     {
-        var sets = Sets.Value;
-        var calls = Calls.Value;
+        var sets = Sets;
+        var calls = Calls;
         Assert.Multiple(() =>
         {
             Assert.That(sets, Has.Count.EqualTo(180));
@@ -111,10 +130,31 @@ public class SequenceAligner_MafftFastaPair_Tests
     }
 
     [Test]
-    public void EveryRawFasta34Output_EqualsThePort_ByteForByte()
+    public void Oracle2_Shape()
+    {
+        var sets = SetsOf("2");
+        var calls = CallsOf("2");
+        Assert.Multiple(() =>
+        {
+            Assert.That(sets, Has.Count.EqualTo(253), "the sets of handoff/A2-19c-fastapair2 that the stopped run finished (of 288)");
+            Assert.That(calls, Has.Count.EqualTo(551));
+            Assert.That(sets.Count(s => s.Full), Is.EqualTo(0), "the run was stopped before results.tsv was written: no complete mafft run is recorded");
+            Assert.That(sets.Count(s => s.Files.Count > 0), Is.EqualTo(9), "sets whose options name further files");
+            Assert.That(sets.Select(s => s.Options).Distinct().Count(), Is.EqualTo(38));
+            Assert.That(sets.Count(s => s.DirectRc == -11), Is.EqualTo(199), "dndfast7 stops with a segmentation fault (a null pointer from cutal, then putlocalhom2)");
+            Assert.That(sets.Count(s => s.DirectRc == 1 && s.DirectStderr.Contains("count (fasta34 -z 3) =", StringComparison.Ordinal)), Is.EqualTo(6));
+            Assert.That(sets.Count(s => s.DirectRc == 0), Is.EqualTo(48));
+            Assert.That(calls.Count(c => c.Args.Contains("-n", StringComparison.Ordinal)), Is.GreaterThan(0), "nucleotide calls of fasta34");
+        });
+    }
+
+    [TestCase("")]
+    [TestCase("2")]
+    public void EveryRawFasta34Output_EqualsThePort_ByteForByte(string run)
     {
         var failures = new System.Collections.Concurrent.ConcurrentBag<string>();
-        Parallel.ForEach(Calls.Value, c =>
+        var allCalls = CallsOf(run);
+        Parallel.ForEach(allCalls, c =>
         {
             var a = c.Args.Split(' ');
             var (qt, qs) = ParseFasta(c.Query);
@@ -124,26 +164,29 @@ public class SequenceAligner_MafftFastaPair_Tests
                 failures.Add($"{c.Id} ({c.Args}): exit {run.ExitCode}, {FirstDifference(run.Text, c.Out)}");
         });
 
-        Assert.That(failures, Is.Empty, $"{failures.Count} of 886 calls differ; first: {failures.OrderBy(f => f, StringComparer.Ordinal).FirstOrDefault()}");
+        Assert.That(failures, Is.Empty, $"{failures.Count} of {allCalls.Count} calls differ; first: {failures.OrderBy(f => f, StringComparer.Ordinal).FirstOrDefault()}");
     }
 
-    [Test]
-    public void Dndfast7_Hat2Hat3StandardErrorAndExitStatus_EqualTheProgram_OnEverySet()
+    [TestCase("", 1)]
+    [TestCase("2", 0)]
+    public void Dndfast7_Hat2Hat3StandardErrorAndExitStatus_EqualTheProgram_OnEverySet(string run, int expectedRefused)
     {
         var failures = new System.Collections.Concurrent.ConcurrentBag<string>();
         int refused = 0;
-        Parallel.ForEach(Sets.Value, s =>
+        var allSets = SetsOf(run);
+        Parallel.ForEach(allSets, s =>
         {
-            var names = Enumerable.Range(0, s.Seqs.Length).Select(i => "=s" + i).ToList();
+            var (titles, seqs) = ParseFasta(FastaOf(s));
+            var names = titles.Select(t => "=" + t).ToList();
             SequenceAligner.MafftRun.Dndfast7Result r;
             try
             {
-                r = SequenceAligner.MafftRun.Dndfast7(names, s.Seqs, s.Options.Contains("--fastswpair", StringComparison.Ordinal));
+                r = SequenceAligner.MafftRun.Dndfast7(names, seqs.ToArray(), s.Options.Contains("--fastswpair", StringComparison.Ordinal));
             }
             catch (NotSupportedException e)
             {
                 // the one set whose program reads an unassigned variable (see Dndfast7_TheProgramReadsAnUnassignedScore_IsRefused)
-                if (s.Id == "161" && e.Message.Contains("unassigned variable", StringComparison.Ordinal))
+                if (e.Message.Contains("unassigned variable", StringComparison.Ordinal))
                     Interlocked.Increment(ref refused);
                 else
                     failures.Add($"{s.Id} ({s.Options}): {e.GetType().Name} {e.Message}");
@@ -163,8 +206,8 @@ public class SequenceAligner_MafftFastaPair_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(failures, Is.Empty, $"{failures.Count} of 180 sets differ; first: {failures.OrderBy(f => f, StringComparer.Ordinal).FirstOrDefault()}");
-            Assert.That(refused, Is.EqualTo(1));
+            Assert.That(failures, Is.Empty, $"{failures.Count} of {allSets.Count} sets differ; first: {failures.OrderBy(f => f, StringComparer.Ordinal).FirstOrDefault()}");
+            Assert.That(refused, Is.EqualTo(expectedRefused));
         });
     }
 
@@ -174,7 +217,7 @@ public class SequenceAligner_MafftFastaPair_Tests
         // set 161: the 6th sequence (40 times A) is a DNA query for fasta34 (more than 85 percent ACGTUN in more than 20 residues) in a protein run; the list of the best scores has the lines of DNA ("(  40) [f]  200 ..."),
         // sscanf( pt, "%d ..." ) fails on every one of them and the variable opt of ReadFasta34m10 was never assigned: the program stores 32767 (the upper half of a stack address under the emulator of the oracle run) and prints
         // distances of -25 ... -2728 to hat2. The value depends on the stack of the process, so the port refuses it instead of inventing a number.
-        var s = Sets.Value.Single(x => x.Id == "161");
+        var s = Sets.Single(x => x.Id == "161");
         var names = Enumerable.Range(0, s.Seqs.Length).Select(i => "=s" + i).ToList();
         var e = Assert.Throws<NotSupportedException>(() => SequenceAligner.MafftRun.Dndfast7(names, s.Seqs, true));
         Assert.That(e!.Message, Does.Contain("unassigned variable"));
@@ -183,22 +226,25 @@ public class SequenceAligner_MafftFastaPair_Tests
         Assert.That(guess.All(c => c == 'A') && guess.Length == 40, Is.True);
     }
 
-    [Test]
-    public void EveryMafftRun_ReturnCodeRowsNamesTreeHat2AndStandardError_EqualTheProgram()
+    [TestCase("", 1)]
+    [TestCase("2", 0)]
+    public void EveryMafftRun_ReturnCodeRowsNamesTreeHat2AndStandardError_EqualTheProgram(string run, int expectedRefused)
     {
+        // run "2": the run was stopped before results.tsv was written, so only the standard error of the 253 complete runs is recorded (the status, rows, names, tree and hat2 file are compared where the oracle has them)
         var failures = new System.Collections.Concurrent.ConcurrentBag<string>();
         int refused = 0;
-        Parallel.ForEach(Sets.Value, s =>
+        var allSets = SetsOf(run);
+        Parallel.ForEach(allSets, s =>
         {
             MafftProgramResult res;
             try
             {
-                string fasta = string.Concat(s.Seqs.Select((q, i) => $">s{i}\n{q}\n"));
-                res = MafftProgram.Run([.. s.Options.Split(' ', StringSplitOptions.RemoveEmptyEntries), "in.fa"], new Dictionary<string, string> { ["in.fa"] = fasta });
+                var files = new Dictionary<string, string>(s.Files) { ["in.fa"] = FastaOf(s) };
+                res = MafftProgram.Run([.. s.Options.Split(' ', StringSplitOptions.RemoveEmptyEntries), "in.fa"], files);
             }
             catch (NotSupportedException e)
             {
-                if (s.Id == "161" && e.Message.Contains("unassigned variable", StringComparison.Ordinal))
+                if (e.Message.Contains("unassigned variable", StringComparison.Ordinal))
                     Interlocked.Increment(ref refused);
                 else
                     failures.Add($"{s.Id} ({s.Options}): {e.GetType().Name} {e.Message}");
@@ -209,15 +255,15 @@ public class SequenceAligner_MafftFastaPair_Tests
             string tree = res.Files.TryGetValue("in.fa.tree", out var t) ? t : "";
             string hat2 = res.Files.TryGetValue("in.fa.hat2", out var h) ? h : "";
             string stderr = NormaliseSegfault(res.Stderr);
-            if (res.ExitCode != s.Rc)
+            if (s.Full && res.ExitCode != s.Rc)
                 failures.Add($"{s.Id} ({s.Options}): exit status {res.ExitCode}, program {s.Rc}");
-            else if (!seqs.SequenceEqual(s.Rows))
+            else if (s.Full && !seqs.SequenceEqual(s.Rows))
                 failures.Add($"{s.Id} ({s.Options}): rows differ");
-            else if (!titles.SequenceEqual(s.Names))
+            else if (s.Full && !titles.SequenceEqual(s.Names))
                 failures.Add($"{s.Id} ({s.Options}): names differ");
-            else if (tree != s.Tree)
+            else if (s.Full && tree != s.Tree)
                 failures.Add($"{s.Id} ({s.Options}): tree file differs");
-            else if (hat2 != s.Hat2)
+            else if (s.Full && hat2 != s.Hat2)
                 failures.Add($"{s.Id} ({s.Options}): hat2 file differs: {FirstDifference(hat2, s.Hat2)}");
             else if (stderr != NormaliseSegfault(s.Stderr))
                 failures.Add($"{s.Id} ({s.Options}): standard error differs: {FirstDifference(stderr, NormaliseSegfault(s.Stderr))}");
@@ -225,8 +271,8 @@ public class SequenceAligner_MafftFastaPair_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(failures, Is.Empty, $"{failures.Count} of 180 sets differ; first: {failures.OrderBy(f => f, StringComparer.Ordinal).FirstOrDefault()}");
-            Assert.That(refused, Is.EqualTo(1));
+            Assert.That(failures, Is.Empty, $"{failures.Count} of {allSets.Count} sets differ; first: {failures.OrderBy(f => f, StringComparer.Ordinal).FirstOrDefault()}");
+            Assert.That(refused, Is.EqualTo(expectedRefused));
         });
     }
 }
