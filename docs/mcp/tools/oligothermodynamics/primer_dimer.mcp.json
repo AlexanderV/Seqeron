@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.HasPrimerDimer",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L366",
-  "description": "Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END with PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0): the 3'-anchored dpal alignment score of each primer against the other's reverse complement (+1 per complementary pair, -1 mismatch, -2 per single-base gap; max of both orientations). Flags a dimer when the score is at least min_complementarity (default 4 = Primer3's default PRIMER_PAIR_MAX_COMPL_END 3.00 exceeded). Returns the flag, the integer score and the exact score, plus complAnyScore = Primer3 alignment-mode PRIMER_PAIR_COMPL_ANY (dpal local alignment of primer1 with the reverse complement of primer2, same scoring; Primer3 default limit PRIMER_PAIR_MAX_COMPL_ANY 8.00). Call to screen a primer pair for 3'-dimer formation; for Primer3's default thermodynamic check use the C# API ThermodynamicPrimerDesigner.CalculatePrimer3PairComplementarity.",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L368 (HasPrimerDimer, CalculatePrimerDimerEndComplementarity, CalculatePrimerDimerAnyComplementarity)",
+  "description": "Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END, dpal GLOBAL_END, max of both orientations). Also returns complAnyScore = PRIMER_PAIR_COMPL_ANY (dpal LOCAL of primer1 vs revcomp(primer2)).",
   "inputSchema": {
     "type": "object",
     "properties": {

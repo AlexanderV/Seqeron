@@ -18,32 +18,20 @@ Scores a single primer and returns a candidate record: length, GC%, Tm (Primer3 
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.OligoThermodynamics/ThermodynamicPrimerDesigner.Core.cs#L1876](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicPrimerDesigner.Core.cs#L1876)
+- Source: [ThermodynamicPrimerDesigner.Core.cs#L1880](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicPrimerDesigner.Core.cs#L1880)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | Primer sequence to evaluate. |
-| `position` | integer | Yes | 0-based location of the primer in the template (informational). |
-| `is_forward` | boolean | Yes | True if this is a forward primer; false for reverse. |
-| `parameters` | object | No | Optional primer design parameters. |
-| `salt_monovalent` | number | No | PRIMER_SALT_MONOVALENT: monovalent cation concentration in mM (> 0) for the Tm and ntthal structure values (default 50). |
-| `salt_divalent` | number | No | PRIMER_SALT_DIVALENT: Mg2+ concentration in mM (>= 0; default 1.5). |
-| `dntp_conc` | number | No | PRIMER_DNTP_CONC: dNTP concentration in mM (>= 0; default 0.6). |
-| `dna_conc` | number | No | PRIMER_DNA_CONC: primer concentration in nM (> 0; default 50). |
-| `opt_gc_percent` | number | No | PRIMER_OPT_GC_PERCENT: GC optimum of the GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - Primer3 'Primer GC content is part of objective function while optimum gc_content is not defined'). |
-| `wt_gc_percent_gt` | number | No | PRIMER_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0). |
-| `wt_gc_percent_lt` | number | No | PRIMER_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0). |
-| `gc_clamp` | integer | No | PRIMER_GC_CLAMP: number of consecutive G/C required at the 3' end (default 0). |
-| `max_end_gc` | integer | No | PRIMER_MAX_END_GC: maximum G/C among the five 3'-most bases (0-5; default 5 = no limit). |
-| `max_end_stability` | number | No | PRIMER_MAX_END_STABILITY: maximum 3' end stability (-dG of the 3' pentamer, kcal/mol, >= 0; default 100 = no limit). |
-| `annealing_temp` | number | No | PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 the fraction bound at this temperature is reported as bound and checked against min_bound / max_bound. |
-| `min_bound` | number | No | PRIMER_MIN_BOUND: minimum fraction bound, % (default -10; only with annealing_temp > 0). |
-| `max_bound` | number | No | PRIMER_MAX_BOUND: maximum fraction bound, % (default 110; only with annealing_temp > 0). |
-| `opt_bound` | number | No | PRIMER_OPT_BOUND: optimum fraction bound of the bound penalty terms, % (default 97). |
-| `wt_bound_gt` | number | No | PRIMER_WT_BOUND_GT: penalty weight of the fraction bound above opt_bound (default 0; only with annealing_temp > 0). |
-| `wt_bound_lt` | number | No | PRIMER_WT_BOUND_LT: penalty weight of the fraction bound below opt_bound (default 0; only with annealing_temp > 0). |
+| `sequence` | string | Yes | Primer sequence (non-empty). |
+| `position` | integer | Yes | 0-based location (informational). |
+| `is_forward` | boolean | Yes | Forward/reverse flag. |
+| `parameters` | object | No | Optional design parameters. |
+| `salt_monovalent` / `salt_divalent` / `dntp_conc` / `dna_conc` | number | No | PRIMER_SALT_MONOVALENT (mM, > 0; default 50) / PRIMER_SALT_DIVALENT (mM, ≥ 0; 1.5) / PRIMER_DNTP_CONC (mM, ≥ 0; 0.6) / PRIMER_DNA_CONC (nM, > 0; 50) for the Tm and ntthal values; illegal values → `ArgumentOutOfRangeException`. |
+| `opt_gc_percent` / `wt_gc_percent_gt` / `wt_gc_percent_lt` | number | No | PRIMER_OPT_GC_PERCENT (default undefined, as in Primer3's code) and PRIMER_WT_GC_PERCENT_GT / _LT (default 0) of the `penalty`; a non-zero GC weight without `opt_gc_percent` is Primer3's error "Primer GC content is part of objective function while optimum gc_content is not defined". |
+| `gc_clamp` / `max_end_gc` / `max_end_stability` | integer / integer / number | No | Primer3 3′-end checks: PRIMER_GC_CLAMP (default 0), PRIMER_MAX_END_GC (0–5, default 5), PRIMER_MAX_END_STABILITY (kcal/mol ≥ 0, default 100); a failure adds an issue naming the Primer3 tag (primer3-py `check_primers` parity). |
+| `annealing_temp` / `min_bound` / `max_bound` / `opt_bound` / `wt_bound_gt` / `wt_bound_lt` | number | No | PRIMER_ANNEALING_TEMP (°C ≤ 100; default −10 = off) and the fraction-bound settings PRIMER_MIN/MAX/OPT_BOUND (−10 / 110 / 97 %) and PRIMER_WT_BOUND_GT / _LT (0). With `annealing_temp` > 0 the primer's fraction bound (Primer3 `oligotm`) is reported as `bound`, a value outside [min, max] adds an issue naming PRIMER_MIN_BOUND / PRIMER_MAX_BOUND, and the weights add w × |bound − opt| to the penalty (primer3-py `check_primers` parity, F44). `opt_bound` outside [min, max] or `annealing_temp` > 100 → `ArgumentOutOfRangeException`. |
 
 ## Output Schema
 

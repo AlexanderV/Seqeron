@@ -26,6 +26,7 @@
   <ItemGroup>
     <Compile Include="..\Seqeron.Genomics.Tests\TestDataResource.cs" Link="TestDataResource.cs" />
     <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Parallelization.cs" Link="Parallelization.cs" />
     <Compile Include="..\Seqeron.Genomics.Tests\Helpers\OracleEscapes.cs" Link="Helpers\OracleEscapes.cs" />
     <Compile Include="..\Seqeron.Genomics.Tests\Unit\Alignment\PollCancellation.cs" Link="Unit\Alignment\PollCancellation.cs" />
     <Compile Include="..\Seqeron.Genomics.Emboss.SequenceFormats.Tests\Unit\Alignment\EmbossReferenceDp.cs" Link="Unit\Alignment\EmbossReferenceDp.cs" />

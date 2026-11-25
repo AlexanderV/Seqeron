@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ThermodynamicProbeDesigner.DesignMolecularBeacon",
-  "docRef": "Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L183",
-  "description": "Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse complement) flanking the best target-specific loop of probe_length bases, for real-time detection. The reported Tm is the loop (probe–target) Tm (Primer3 seqtm) and Start/End mark the loop in the target; warnings carry the ntthal stem-loop Tm (beacons ≤ max_align_length nt, default 60). With detection_temperature T the loop Tm window is [T+7, T+10] °C and the stem-loop Tm is checked against T+7 °C (Tyagi & Kramer molecular-beacon rules). Returns probe=null when the target is shorter than probe_length.",
+  "docRef": "Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L187",
+  "description": "Design a hairpin molecular-beacon probe (GC-rich complementary stems flanking a target-specific loop) for real-time detection.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -28,8 +28,12 @@
         "default": 5
       },
       "detection_temperature": {
-        "type": "number",
-        "description": "Optional detection (annealing) temperature in °C for the Tyagi & Kramer 7–10 °C rules."
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Optional detection (annealing) temperature in °C for the Tyagi & Kramer 7–10 °C rules.",
+        "default": null
       },
       "max_align_length": {
         "type": "integer",

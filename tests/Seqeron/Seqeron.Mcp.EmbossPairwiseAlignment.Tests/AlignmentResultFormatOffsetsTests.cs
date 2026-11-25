@@ -4,6 +4,7 @@
 // This file is NOT covered by the MIT licence of the other Seqeron assemblies.
 using NUnit.Framework;
 using Seqeron.Mcp.Alignment.Tools;
+using Seqeron.Mcp.EmbossPairwiseAlignment.Tools;
 
 namespace Seqeron.Mcp.EmbossPairwiseAlignment.Tests;
 
@@ -91,5 +92,21 @@ public class AlignmentResultFormatOffsetsTests
         string text = Emboss(AlignmentTools.LocalAlign(A, B), "sam", A.Length, B.Length, Names);
         Assert.That(text, Does.Contain("@HD").Or.Contain("b\t0\ta\t3\t255\t4M\t"));
         Assert.That(text, Is.Not.EqualTo(AlignmentTools.LocalAlign(A, B, format: "sam", names: Names).Formatted));
+    }
+
+    [Test]
+    public void GlobalAlign_Pair_Needle_Stretcher_AgreeOnTheFullRows()
+    {
+        foreach (string text in new[]
+        {
+            Emboss(AlignmentTools.GlobalAlign(A, B), "pair", A.Length, B.Length, Names),
+            EmbossPairwiseAlignmentTools.NeedleAlign(A, B, format: "pair", names: Names).Formatted!,
+            EmbossPairwiseAlignmentTools.StretcherAlign(A, B, format: "pair", names: Names).Formatted!,
+        })
+        {
+            Assert.That(text, Does.Contain("a                  1 "), text);
+            Assert.That(text, Does.Contain("      8\n"), text);
+            Assert.That(text, Does.Contain("b                  1 ").And.Contain("      4\n"), text);
+        }
     }
 }

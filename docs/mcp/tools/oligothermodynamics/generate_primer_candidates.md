@@ -18,17 +18,17 @@ For every start position `s` in `[region_start, region_end)` and every admissibl
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.OligoThermodynamics/ThermodynamicPrimerDesigner.Core.cs#L2177](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicPrimerDesigner.Core.cs#L2177)
+- Source: [ThermodynamicPrimerDesigner.Core.cs#L2181](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicPrimerDesigner.Core.cs#L2181)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `template` | string | Yes | DNA template sequence. |
-| `region_start` | integer | Yes | 0-based start of the search region (inclusive). |
-| `region_end` | integer | Yes | 0-based end of the search region (exclusive). |
-| `forward` | boolean | No | True for forward-strand candidates, false for reverse-complement candidates. (default: true) |
-| `parameters` | object | No | Optional primer design parameters. |
+| `template` | string | Yes | DNA template sequence, non-empty. |
+| `region_start` | integer | Yes | 0-based inclusive start of the search region (≥ 0). |
+| `region_end` | integer | Yes | Exclusive end of the search region (`region_start < region_end ≤ template.Length`). |
+| `forward` | boolean | No | True for forward-strand candidates; false for reverse complement (default true). |
+| `parameters` | object | No | Optional `PrimerParameters`; defaults (18–25 nt) when null. |
 
 ## Output Schema
 

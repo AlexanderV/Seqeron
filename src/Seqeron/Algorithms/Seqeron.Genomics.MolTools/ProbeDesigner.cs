@@ -490,24 +490,13 @@ public static partial class ProbeDesigner
     // Best local alignment (score, identical columns) of the probe with a strand via the canonical affine
     // Smith–Waterman–Gotoh aligner, chunking long strands so that every positive-scoring alignment lies wholly
     // inside one chunk (its reference span is at most m + ⌈m·match/|extend|⌉ residues).
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)] // shared with the separately licensed Seqeron.Genomics.OligoThermodynamics assembly; not part of the API
     public static (int Score, int Identical, int Start, int End) BestLocalAlignment(
         string probe, string strand, ScoringMatrix matrix)
     {
         ArgumentNullException.ThrowIfNull(probe);
         ArgumentNullException.ThrowIfNull(strand);
         ArgumentNullException.ThrowIfNull(matrix);
-        try
-        {
-            return BestLocalAlignmentCore(probe, strand, matrix);
-        }
-        catch (ArgumentException ex) when (ex.ParamName == "scoring")
-        {
-            throw new ArgumentException(ex.Message, nameof(matrix), ex);
-        }
-    }
-
-    private static (int Score, int Identical, int Start, int End) BestLocalAlignmentCore(string probe, string strand, ScoringMatrix matrix)
-    {
         if (strand.Length == 0)
             return (0, 0, -1, -1);
 

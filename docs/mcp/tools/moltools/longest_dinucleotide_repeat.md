@@ -28,7 +28,7 @@ library default limit `MaxDinucleotideRepeats = 4` (`PrimerDesigner.DefaultParam
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L1732](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1732)
+- Source: [PrimerDesigner.cs#L202](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L202)
 
 ## Input Schema
 

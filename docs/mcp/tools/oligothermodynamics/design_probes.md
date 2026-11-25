@@ -18,16 +18,16 @@ Scans the target for every candidate of admissible length (`parameters.MinLength
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L517](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L517)
+- Source: [ThermodynamicProbeDesigner.Core.cs#L521](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L521)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `target_sequence` | string | Yes | Target DNA sequence. |
-| `parameters` | object | No | Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold; Ranking = AdditiveScore (default, library heuristic) or Primer3Penalty (Primer3 internal-oligo p_obj_fn around OptTm / OptLength)). Defaults to Microarray when null. |
-| `max_probes` | integer | No | Maximum probes to return (default 10). |
-| `thermodynamic_screen_max_length` | integer | No | THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe. |
+| `target_sequence` | string | Yes | Target DNA sequence, non-empty. |
+| `parameters` | object | No | Optional `ProbeParameters` (defaults to Microarray); `Ranking` = `AdditiveScore` (default, library heuristic) or `Primer3Penalty` (Primer3 internal-oligo `p_obj_fn` around `OptTm` / `OptLength`, defaults 60 / 20). |
+| `max_probes` | integer | No | Maximum probes to return (> 0, default 10). |
+| `thermodynamic_screen_max_length` | integer | No | THAL_MAX_ALIGN of the ntthal self-structure screen (`ProbeParameters.ThermodynamicScreenMaxLength`): A/C/G/T probes up to this length get the ntthal screen. Default null = the parameters' value (60 = Primer3); opt-in 61–10 000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with `-DTHAL_MAX_ALIGN`; cost O(n²) per probe). |
 
 ## Output Schema
 

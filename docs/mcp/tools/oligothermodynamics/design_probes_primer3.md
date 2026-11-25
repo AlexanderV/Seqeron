@@ -18,54 +18,40 @@ Port of Primer3's internal-oligo (hybridization-probe) picker (`libprimer3.cc` `
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1645](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1645)
+- Source: [ThermodynamicProbeDesigner.Core.cs#L1649](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1649)
 - Algorithm doc: [Hybridization_Probe_Design.md](../../../algorithms/MolTools/Hybridization_Probe_Design.md)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `template` | string | Yes | Template DNA sequence (probes are picked on this strand; case-insensitive). |
-| `num_return` | integer | No | PRIMER_NUM_RETURN: maximum probes to return (default 5). |
-| `min_size` | integer | No | PRIMER_INTERNAL_MIN_SIZE (default 18). |
-| `opt_size` | integer | No | PRIMER_INTERNAL_OPT_SIZE (default 20). |
-| `max_size` | integer | No | PRIMER_INTERNAL_MAX_SIZE (default 27; at most 36). |
-| `min_tm` | number | No | PRIMER_INTERNAL_MIN_TM in °C (default 57). |
-| `opt_tm` | number | No | PRIMER_INTERNAL_OPT_TM in °C (default 60). |
-| `max_tm` | number | No | PRIMER_INTERNAL_MAX_TM in °C (default 63). |
-| `min_gc_percent` | number | No | PRIMER_INTERNAL_MIN_GC in percent (default 20). |
-| `max_gc_percent` | number | No | PRIMER_INTERNAL_MAX_GC in percent (default 80). |
-| `max_poly_x` | integer | No | PRIMER_INTERNAL_MAX_POLY_X (default 5). |
-| `max_self_any_th` | number | No | PRIMER_INTERNAL_MAX_SELF_ANY_TH in °C (default 47). |
-| `max_self_end_th` | number | No | PRIMER_INTERNAL_MAX_SELF_END_TH in °C (default 47). |
-| `max_hairpin_th` | number | No | PRIMER_INTERNAL_MAX_HAIRPIN_TH in °C (default 47). |
-| `monovalent_mm` | number | No | PRIMER_INTERNAL_SALT_MONOVALENT in mM (default 50). |
-| `divalent_mm` | number | No | PRIMER_INTERNAL_SALT_DIVALENT (Mg²⁺) in mM (default 0). |
-| `dntp_mm` | number | No | PRIMER_INTERNAL_DNTP_CONC in mM (default 0). |
-| `dna_conc_nm` | number | No | PRIMER_INTERNAL_DNA_CONC in nM (default 50). |
-| `thermodynamic_oligo_alignment` | boolean | No | PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT: true (default) = ntthal Tm limits; false = Primer3 alignment-mode dpal self_any / self_end limits. |
-| `max_self_any` | number | No | PRIMER_INTERNAL_MAX_SELF_ANY (alignment mode; default 12). (default: 12) |
-| `max_self_end` | number | No | PRIMER_INTERNAL_MAX_SELF_END (alignment mode; default 12). (default: 12) |
-| `mishyb_library` | object | No | PRIMER_INTERNAL_MISHYB_LIBRARY as a name -> sequence object (primer3-py mishyb_lib), e.g. {"Alu*2": "GGCCGGGCGCGG..."}; an optional '*weight' (0-100) after the name scales that entry; IUPAC codes allowed. Each probe is scored against every entry and its reverse complement (Primer3 dpal, unanchored local alignment); reported as libraryMishyb/libraryMishybName. |
-| `max_library_mishyb` | number | No | PRIMER_INTERNAL_MAX_LIBRARY_MISHYB: maximum weighted library score of a probe (default 12). |
-| `wt_library_mishyb` | number | No | PRIMER_INTERNAL_WT_LIBRARY_MISHYB: penalty weight of the library score (default 0; needs mishyb_library). |
-| `lib_ambiguity_codes_consensus` | boolean | No | PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS: false (Primer3 default 0) = IUPAC codes in the library never match; true = they match every base they represent. (default: false) |
-| `sequence_quality` | integer[] | No | SEQUENCE_QUALITY: one integer base quality per template base (length = template length, values within [quality_range_min, quality_range_max]); each probe then reports minSequenceQuality. |
-| `min_quality` | integer | No | PRIMER_INTERNAL_MIN_QUALITY: minimum base quality of a probe (default 0; non-zero needs sequence_quality). |
-| `quality_range_min` | integer | No | PRIMER_QUALITY_RANGE_MIN (default 0). |
-| `quality_range_max` | integer | No | PRIMER_QUALITY_RANGE_MAX (default 100); the quality penalty is wt_seq_qual x (quality_range_max - min quality). |
-| `wt_seq_qual` | number | No | PRIMER_INTERNAL_WT_SEQ_QUAL: penalty weight of (quality_range_max - the probe's minimum base quality) (default 0; needs sequence_quality). |
-| `wt_end_qual` | number | No | PRIMER_INTERNAL_WT_END_QUAL: accepted for Primer3 compatibility; no effect (as in Primer3 2.3.1). (default: 0) |
-| `opt_gc_percent` | number | No | PRIMER_INTERNAL_OPT_GC_PERCENT: GC optimum of the GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - Primer3 'Hyb probe GC content is part of objective function while optimum gc_content is not defined'). |
-| `wt_gc_percent_gt` | number | No | PRIMER_INTERNAL_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0). |
-| `wt_gc_percent_lt` | number | No | PRIMER_INTERNAL_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0). |
-| `lowercase_masking` | boolean | No | PRIMER_LOWERCASE_MASKING: reject probes whose 3'-terminal template base is lower case (a/c/g/t of the template as given; lower case elsewhere is accepted). Default false. (default: false) |
-| `annealing_temp` | number | No | PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 each probe's fraction bound at this temperature (Primer3 oligotm, at the probe conditions) is reported as bound and probes outside [min_bound, max_bound] are rejected. (default: -10) |
-| `min_bound` | number | No | PRIMER_INTERNAL_MIN_BOUND: minimum fraction bound, % (default -10; only with annealing_temp > 0). |
-| `max_bound` | number | No | PRIMER_INTERNAL_MAX_BOUND: maximum fraction bound, % (default 110; only with annealing_temp > 0). |
-| `opt_bound` | number | No | PRIMER_INTERNAL_OPT_BOUND: optimum of the bound penalty terms, % (default 97; must lie in [min_bound, max_bound]). |
-| `wt_bound_gt` | number | No | PRIMER_INTERNAL_WT_BOUND_GT: penalty weight of the fraction bound above opt_bound (default 0). |
-| `wt_bound_lt` | number | No | PRIMER_INTERNAL_WT_BOUND_LT: penalty weight of the fraction bound below opt_bound (default 0). As in Primer3 the internal-oligo bound terms are not gated by annealing_temp: without it the bound is OLIGOTM_ERROR -999999.9999, so wt_bound_lt adds wt_bound_lt x (opt_bound + 999999.9999). |
+| `template` | string | Yes | Template DNA (non-empty; case-insensitive unless `lowercase_masking`; probes are picked on this strand). |
+| `num_return` | integer | No | PRIMER_NUM_RETURN (≥ 1, default 5; Primer3 rejects < 1). |
+| `min_size` / `opt_size` / `max_size` | integer | No | PRIMER_INTERNAL_MIN/OPT/MAX_SIZE (18 / 20 / 27; 1 ≤ min ≤ max ≤ 36). |
+| `min_tm` / `opt_tm` / `max_tm` | number | No | PRIMER_INTERNAL_MIN/OPT/MAX_TM in °C (57 / 60 / 63). |
+| `min_gc_percent` / `max_gc_percent` | number | No | PRIMER_INTERNAL_MIN/MAX_GC (20 / 80 %). |
+| `max_poly_x` | integer | No | PRIMER_INTERNAL_MAX_POLY_X (5). |
+| `max_self_any_th` / `max_self_end_th` / `max_hairpin_th` | number | No | PRIMER_INTERNAL_MAX_SELF_ANY_TH / _SELF_END_TH / _HAIRPIN_TH (47 °C). |
+| `monovalent_mm` | number | No | PRIMER_INTERNAL_SALT_MONOVALENT (50 mM). |
+| `divalent_mm` | number | No | PRIMER_INTERNAL_SALT_DIVALENT (0 mM). |
+| `dntp_mm` | number | No | PRIMER_INTERNAL_DNTP_CONC (0 mM). |
+| `dna_conc_nm` | number | No | PRIMER_INTERNAL_DNA_CONC (50 nM). |
+| `thermodynamic_oligo_alignment` | boolean | No | PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT (default true). false = Primer3 alignment mode: dpal `self_any` ≤ `max_self_any`, `self_end` ≤ `max_self_end`, no hairpin; `selfAny`/`selfEnd` reported, `*Th` fields NaN. |
+| `max_self_any` / `max_self_end` | number | No | PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END (12, alignment mode). |
+| `mishyb_library` | object | No | PRIMER_INTERNAL_MISHYB_LIBRARY as a name → sequence object (primer3-py `mishyb_lib`), e.g. `{"Alu*2": "GGCCGGGCGCGG…"}`; same entry format as `design_primers` `mispriming_library` (`*weight` 0–100, IUPAC codes, "reverse <name>" entries added). Each probe is aligned with every entry by Primer3's dpal unanchored local alignment (+1/−1/−0.25 N/−2 gap, max gap 1); a probe whose weighted score exceeds `max_library_mishyb` is rejected (and ends the 5′ extension of its 3′ end, as in Primer3). |
+| `max_library_mishyb` | number | No | PRIMER_INTERNAL_MAX_LIBRARY_MISHYB (default 12; compared as a C `short`; > 32767 rejected in alignment mode). |
+| `wt_library_mishyb` | number | No | PRIMER_INTERNAL_WT_LIBRARY_MISHYB (default 0): weight of the library score in the penalty; non-zero without `mishyb_library` → error (Primer3 `_pr_data_control`). |
+| `lib_ambiguity_codes_consensus` | boolean | No | PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS (default false = Primer3 0: IUPAC codes in the library never match; true: they match every base they represent). Verified against primer3-py 2.3.1 `design_primers(mishyb_lib=…)` (B07 F42). |
+| `sequence_quality` | integer[] | No | SEQUENCE_QUALITY: one integer base quality per template base (length = template length, values within [`quality_range_min`, `quality_range_max`]); each probe reports `minSequenceQuality` (PRIMER_INTERNAL_n_MIN_SEQ_QUALITY). |
+| `min_quality` | integer | No | PRIMER_INTERNAL_MIN_QUALITY (default 0): probes whose minimum base quality is lower are rejected (a five-prime problem, as in Primer3); non-zero without `sequence_quality` → error ("Sequence quality data missing"). |
+| `quality_range_min` / `quality_range_max` | integer | No | PRIMER_QUALITY_RANGE_MIN / _MAX (defaults 0 / 100). |
+| `wt_seq_qual` / `wt_end_qual` | number | No | PRIMER_INTERNAL_WT_SEQ_QUAL (default 0): weight × (`quality_range_max` − minimum base quality), needs `sequence_quality`; PRIMER_INTERNAL_WT_END_QUAL is accepted with no effect (never read by Primer3 2.3.1). Verified against primer3-py 2.3.1 (B07 F45). |
+| `opt_gc_percent` | number | No | PRIMER_INTERNAL_OPT_GC_PERCENT (default undefined, as in Primer3's code); required when `wt_gc_percent_gt` / `wt_gc_percent_lt` ≠ 0 (Primer3 "Hyb probe GC content is part of objective function while optimum gc_content is not defined"). |
+| `wt_gc_percent_gt` / `wt_gc_percent_lt` | number | No | PRIMER_INTERNAL_WT_GC_PERCENT_GT / _LT (default 0): weight × the GC% deviation above / below `opt_gc_percent`. |
+| `lowercase_masking` | boolean | No | PRIMER_LOWERCASE_MASKING (default false): reject probes whose 3′-terminal template base is lower case (a/c/g/t of the template as given); lower case elsewhere is accepted. |
+| `annealing_temp` | number | No | PRIMER_ANNEALING_TEMP in °C (≤ 100; default −10 = off). When > 0 each probe's fraction bound at this temperature (Primer3 `oligotm` at the probe conditions) is reported as `bound` and probes outside [`min_bound`, `max_bound`] are rejected. |
+| `min_bound` / `max_bound` / `opt_bound` | number | No | PRIMER_INTERNAL_MIN_BOUND / _MAX_BOUND / _OPT_BOUND in % (−10 / 110 / 97); `opt_bound` must lie in [`min_bound`, `max_bound`] (Primer3 `_pr_data_control`). |
+| `wt_bound_gt` / `wt_bound_lt` | number | No | PRIMER_INTERNAL_WT_BOUND_GT / _LT (default 0): weight × the bound deviation above / below `opt_bound`. Not gated by `annealing_temp` (as in Primer3): without it the bound is OLIGOTM_ERROR −999999.9999, so `wt_bound_lt` adds `wt_bound_lt` × (`opt_bound` + 999999.9999). Verified against primer3-py 2.3.1 (B07 F47). |
 
 ## Output Schema
 

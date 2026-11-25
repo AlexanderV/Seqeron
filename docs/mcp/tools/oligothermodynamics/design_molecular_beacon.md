@@ -18,17 +18,17 @@ Chooses the highest-scoring `probe_length`-bp loop in the target (GC 40–60%, l
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L183](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L183)
+- Source: [ThermodynamicProbeDesigner.Core.cs#L187](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L187)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `target_sequence` | string | Yes | Target DNA sequence. |
-| `probe_length` | integer | No | Loop (target-specific) length in bp (default 25). |
-| `stem_length` | integer | No | Stem length in bp (default 5). |
-| `detection_temperature` | number | No | Optional detection (annealing) temperature in °C for the Tyagi & Kramer 7–10 °C rules. |
-| `max_align_length` | integer | No | THAL_MAX_ALIGN of the ntthal stem-loop (hairpin) Tm: longest beacon (nt) that gets it (default 60 = Primer3; opt-in 61..10000 = thal.c compiled with -DTHAL_MAX_ALIGN, for beacons longer than 60 nt). |
+| `target_sequence` | string | Yes | Target DNA sequence, non-empty. |
+| `probe_length` | integer | No | Loop length in bp (> 0, default 25). |
+| `stem_length` | integer | No | Stem length in bp (> 0, default 5). |
+| `detection_temperature` | number | No | Detection (annealing) temperature in °C for the 7–10 °C rules (default: none). |
+| `max_align_length` | integer | No | THAL_MAX_ALIGN of the ntthal stem-loop Tm (60–10 000, default 60 = Primer3): longest beacon that gets it. |
 
 ## Output Schema
 

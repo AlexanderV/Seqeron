@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Parallelization.cs" Link="Parallelization.cs" />
   </ItemGroup>
 
   <ItemGroup>

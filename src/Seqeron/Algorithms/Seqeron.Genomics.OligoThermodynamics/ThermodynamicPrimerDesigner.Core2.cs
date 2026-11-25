@@ -118,6 +118,7 @@ public static partial class ThermodynamicPrimerDesigner
     // OLIGOTM_ERROR (fewer than 2 bases, a non-ACGT base); Bound is Primer3OligoTmError unless annealingTemperature > 0
     // and the nearest-neighbour branch applies (long_seq_tm leaves bound = OLIGOTM_ERROR).
     // Input: validated conditions, monovalentEq = [Mon] + 120·√([Mg²⁺] − [dNTP]) in mM.
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)] // shared with the separately licensed Seqeron.Genomics.OligoThermodynamics assembly; not part of the API
     public static (double Tm, double Bound) Primer3SeqTm(
         string? primer, double dnaConcentrationNanomolar, double monovalentEq, double annealingTemperature,
         int maxNnLength = Primer3MaxNnTmLength)

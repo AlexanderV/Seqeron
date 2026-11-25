@@ -138,6 +138,7 @@ public static partial class ThermodynamicPrimerDesigner
 
     // pair_repeat_sim: max over entries of (int)(left.score[i] + right.score[i]) (starting at 0), with the first entry
     // reaching the maximum.
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)] // shared with the separately licensed Seqeron.Genomics.OligoThermodynamics assembly; not part of the API
     public static (int Score, string Name) PairLibraryMispriming(LibraryMispriming left, LibraryMispriming right,
         PrimerMisprimingLibrary lib)
     {

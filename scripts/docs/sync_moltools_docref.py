@@ -26,9 +26,14 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SRC = os.path.join(ROOT, 'src', 'Seqeron', 'Algorithms', 'Seqeron.Genomics.MolTools')
-DOCS = os.path.join(ROOT, 'docs', 'mcp', 'tools', 'moltools')
+DOCS_DIRS = [os.path.join(ROOT, 'docs', 'mcp', 'tools', d) for d in ('moltools', 'oligothermodynamics')]
+ASSEMBLIES = ('MolTools', 'OligoThermodynamics')  # the Primer3-derived tools (and their sources) live in the separately licensed OligoThermodynamics assembly
+
+
+def asm_dir(asm):
+    return os.path.join(ROOT, 'src', 'Seqeron', 'Algorithms', 'Seqeron.Genomics.' + asm)
 TRACE = os.path.join(ROOT, 'docs', 'mcp', 'traceability.md')
-ANCHOR = re.compile(r'^Seqeron\.Genomics\.MolTools/(?P<file>[\w.]+\.cs)#L(?P<line>\d+)\b')
+ANCHOR = re.compile(r'^Seqeron\.Genomics\.(?P<asm>MolTools|OligoThermodynamics)/(?P<file>[\w.]+\.cs)#L(?P<line>\d+)\b')
 
 
 def camel(snake):
@@ -128,7 +133,7 @@ def main():
 
     trace = open(TRACE, encoding='utf-8').read()
     drift = 0
-    for jpath in sorted(glob.glob(os.path.join(DOCS, '*.mcp.json'))):
+    for jpath in sorted(p for d in DOCS_DIRS for p in glob.glob(os.path.join(d, '*.mcp.json'))):
         text = open(jpath, encoding='utf-8').read()
         doc = json.loads(text)
         tool, method = doc['toolName'], doc['methodId'].split('.')[-1]
@@ -142,24 +147,34 @@ def main():
             continue
         stem = file.split('.')[0]
         tool_params = {camel(p) for p in doc.get('inputSchema', {}).get('properties', {})}
-        candidates = [file] + sorted(os.path.basename(p) for p in glob.glob(os.path.join(SRC, stem + '*.cs'))
-                                     if os.path.basename(p) != file)
         target = None
-        for cand in candidates:
-            decls = declarations(os.path.join(SRC, cand), method)
-            if decls:
-                # an anchor that already sits on a declaration of the method stays (a manual overload choice is kept)
-                keep = cand == file and old in [d[0] for d in decls]
-                target = (cand, old if keep else best(decls, tool_params, old))
+        for asm in (m['asm'], *[a for a in ASSEMBLIES if a != m['asm']]):
+            global SRC
+            SRC = asm_dir(asm)
+            candidates = [file] + sorted(os.path.basename(p) for p in glob.glob(os.path.join(SRC, '*' + stem + '*.cs'))
+                                         if os.path.basename(p) != file)
+            for cand in candidates:
+                if not os.path.exists(os.path.join(SRC, cand)):
+                    continue
+                decls = declarations(os.path.join(SRC, cand), method)
+                if decls:
+                    # an anchor that already sits on a declaration of the method stays (a manual overload choice is kept)
+                    keep = cand == file and asm == m['asm'] and old in [d[0] for d in decls]
+                    target = (cand, old if keep else best(decls, tool_params, old), asm)
+                    break
+            if target:
                 break
         if target is None:
             print(f'NOT FOUND {tool}: {method} in {file}')
             drift += 1
             continue
-        new_file, new = target
+        new_file, new, new_asm = target
         mpath = jpath[:-len('.mcp.json')] + '.md'
         md = open(mpath, encoding='utf-8').read()
         want = f'{new_file}#L{new}'
+        if new_asm != m['asm']:
+            text = text.replace(f'Seqeron.Genomics.{m["asm"]}/{file}', f'Seqeron.Genomics.{new_asm}/{file}', 1)
+            md = md.replace(f'Seqeron.Genomics.{m["asm"]}/', f'Seqeron.Genomics.{new_asm}/')
         # the md `Source: [File.cs#Ln](...#Ln)` link and the traceability row must carry the same anchor as the json
         md_link = re.compile(r'(Source: \[)[\w.]+\.cs#L\d+(\]\([^)]*/)[\w.]+\.cs#L\d+(\))')
         trace_row = re.compile(r'(?m)^(\| ' + re.escape(tool) + r' \|.*?\| )[\w.]+\.cs#L\d+( \|)')

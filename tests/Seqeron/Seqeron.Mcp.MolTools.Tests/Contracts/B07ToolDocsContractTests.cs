@@ -19,11 +19,7 @@ public sealed class B07ToolDocsContractTests
 {
     private static readonly string[] B07Tools =
     {
-        "design_primers", "evaluate_primer", "primer_melting_temperature", "primer_melting_temperature_salt",
-        "longest_homopolymer", "longest_dinucleotide_repeat", "hairpin_potential", "primer_dimer", "three_prime_stability",
-        "generate_primer_candidates", "design_probes", "design_tiling_probes", "design_antisense_probes",
-        "design_molecular_beacon", "validate_probe", "design_probes_primer3", "analyze_oligo",
-        "oligo_extinction_coefficient", "oligo_concentration_from_absorbance",
+        "primer_melting_temperature", "primer_melting_temperature_salt", "longest_homopolymer", "longest_dinucleotide_repeat", "hairpin_potential", "three_prime_stability", "oligo_extinction_coefficient", "oligo_concentration_from_absorbance",
     };
 
     // Source files whose tool-doc line anchors are pinned (B08 round 4, H29). The tool list is derived from the docs

@@ -5,34 +5,17 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ThermodynamicProbeDesigner.DesignAntisenseProbes",
-  "docRef": "Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1026",
-  "description": "Reverse-complements the supplied mRNA-sense sequence and runs the probe designer on it; every returned probe is tagged type=Antisense. Returns up to max_probes top-scoring antisense probes.",
+  "docRef": "Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1030",
+  "description": "Reverse-complement an mRNA-sense sequence and design antisense hybridization probes on it.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "mrna_sequence": {
-        "type": "string",
-        "description": "mRNA-sense sequence (will be reverse-complemented).",
-        "minLength": 1
-      },
-      "parameters": {
-        "type": "object",
-        "description": "Optional probe-design parameters."
-      },
-      "max_probes": {
-        "type": "integer",
-        "description": "Maximum probes to return (default 5).",
-        "minimum": 1,
-        "default": 5
-      },
-      "thermodynamic_screen_max_length": {
-        "type": "integer",
-        "description": "THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe."
-      }
+      "mrna_sequence": { "type": "string", "description": "mRNA-sense sequence (will be reverse-complemented).", "minLength": 1 },
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters.", "default": null },
+      "max_probes": { "type": "integer", "description": "Maximum probes to return (default 5).", "minimum": 1, "default": 5 },
+      "thermodynamic_screen_max_length": { "type": ["integer", "null"], "description": "THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe.", "default": null }
     },
-    "required": [
-      "mrna_sequence"
-    ]
+    "required": ["mrna_sequence"]
   },
   "outputSchema": {
     "type": "object",
@@ -40,45 +23,25 @@
       "probes": {
         "type": "array",
         "description": "Probe records with Type = Antisense.",
-        "items": {
-          "type": "object"
-        }
+        "items": { "type": "object" }
       }
     },
-    "required": [
-      "probes"
-    ]
+    "required": ["probes"]
   },
   "errors": [
-    {
-      "code": 1001,
-      "message": "mRNA sequence cannot be null or empty"
-    },
-    {
-      "code": 1002,
-      "message": "Maximum probes must be positive"
-    }
+    { "code": 1001, "message": "mRNA sequence cannot be null or empty" },
+    { "code": 1002, "message": "Maximum probes must be positive" }
   ],
   "examples": [
     {
       "name": "81-nt mRNA repeat",
-      "input": {
-        "mrna_sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT",
-        "max_probes": 5
-      },
-      "output": {
-        "probesCount": 5,
-        "allType": "Antisense"
-      }
+      "input": { "mrna_sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT", "max_probes": 5 },
+      "output": { "probesCount": 5, "allType": "Antisense" }
     },
     {
       "name": "Empty input",
-      "input": {
-        "mrna_sequence": ""
-      },
-      "output": {
-        "error": "ArgumentException"
-      }
+      "input": { "mrna_sequence": "" },
+      "output": { "error": "ArgumentException" }
     }
   ]
 }

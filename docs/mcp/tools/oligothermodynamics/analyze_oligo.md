@@ -6,7 +6,7 @@ Analyze the basic physical properties of a short oligonucleotide.
 
 | Property | Value |
 |----------|-------|
-| **Server** | MolTools |
+| **Server** | OligoThermodynamics |
 | **Tool Name** | `analyze_oligo` |
 | **Method ID** | `ThermodynamicProbeDesigner.AnalyzeOligo` |
 | **Version** | 1.0.0 |
@@ -35,14 +35,14 @@ Input is treated case-insensitively.
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1388](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1388) (`AnalyzeOligo`)
+- Source: [ThermodynamicProbeDesigner.Core.cs#L1392](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1392) (`AnalyzeOligo`)
 - Tm constants: [ThermoConstants.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/ThermoConstants.cs)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | Oligonucleotide sequence (non-empty; A/C/G/T/U, case-insensitive). |
+| `sequence` | string | Yes | Oligonucleotide sequence (A/C/G/T/U, case-insensitive; min length: 1) |
 
 ## Output Schema
 

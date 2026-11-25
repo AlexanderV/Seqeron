@@ -18,16 +18,16 @@ Reverse-complements the supplied mRNA-sense sequence and runs the probe designer
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1026](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1026)
+- Source: [ThermodynamicProbeDesigner.Core.cs#L1030](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1030)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `mrna_sequence` | string | Yes | mRNA-sense sequence (will be reverse-complemented). |
-| `parameters` | object | No | Optional probe-design parameters. |
-| `max_probes` | integer | No | Maximum probes to return (default 5). |
-| `thermodynamic_screen_max_length` | integer | No | THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe. |
+| `mrna_sequence` | string | Yes | mRNA-sense sequence (reverse-complemented internally), non-empty. |
+| `parameters` | object | No | Optional `ProbeParameters` (defaults to Microarray). |
+| `max_probes` | integer | No | Maximum probes to return (> 0, default 5). |
+| `thermodynamic_screen_max_length` | integer | No | THAL_MAX_ALIGN of the ntthal self-structure screen (`ProbeParameters.ThermodynamicScreenMaxLength`): A/C/G/T probes up to this length get the ntthal screen. Default null = the parameters' value (60 = Primer3); opt-in 61–10 000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with `-DTHAL_MAX_ALIGN`; cost O(n²) per probe). |
 
 ## Output Schema
 

@@ -69,17 +69,18 @@ public class LicenceSeparationTests
             "assemblies are named by what they hold; the licence is stated in LICENSE and in the file headers");
     }
 
-    /// <summary>The copyleft assemblies of the ports (one per subject area, B09 WP79 / WP80): the set the owner decision "variant 1" asked for must exist, each with a test project.</summary>
-    private static readonly string[] ExpectedCopyleftAssemblies =
-    [
-        "Seqeron.Genomics.AlignmentConsensus", "Seqeron.Genomics.ClustalW", "Seqeron.Genomics.Kalign", "Seqeron.Genomics.PartialOrderAlignment", "Seqeron.Genomics.TCoffee",
-        "Seqeron.Genomics.Emboss.SequenceFormats", "Seqeron.Genomics.Emboss.FeatureTools", "Seqeron.Genomics.Emboss.Repeats", "Seqeron.Genomics.Emboss.PairwiseAlignment",
-        "Seqeron.Genomics.Emboss.Motifs", "Seqeron.Genomics.Emboss.OpenReadingFrames",
-        "Seqeron.Genomics.OptimalClustering", "Seqeron.Genomics.AlleleSpecificCopyNumber", "Seqeron.Genomics.PurityPeakQc",
-        "Seqeron.Genomics.OverrepresentedWords", "Seqeron.Genomics.OligoThermodynamics",
-        "Seqeron.Mcp.AlignmentConsensus", "Seqeron.Mcp.MultipleAlignment", "Seqeron.Mcp.EmbossSequenceFormats", "Seqeron.Mcp.EmbossFeatureTools", "Seqeron.Mcp.EmbossRepeats",
-        "Seqeron.Mcp.EmbossPairwiseAlignment", "Seqeron.Mcp.EmbossMotifs", "Seqeron.Mcp.EmbossOpenReadingFrames", "Seqeron.Mcp.OverrepresentedWords", "Seqeron.Mcp.OligoThermodynamics",
-    ];
+    /// <summary>The copyleft assemblies of the ports (one per subject area, B09 WP79 / WP80) as LICENSES.md section 2 lists them: the set the owner decision "variant 1" asked for. Read as data - this guard never names an assembly literally.</summary>
+    private static IEnumerable<string> ListedCopyleftAssemblies()
+    {
+        string text = File.ReadAllText(Path.Combine(Root, "docs", "Validation", "review-2026-09", "LICENSES.md"));
+        int start = text.IndexOf("## 2. Copyleft assemblies", StringComparison.Ordinal);
+        int end = text.IndexOf("## 3. ", start, StringComparison.Ordinal);
+        foreach (Match row in Regex.Matches(text[start..end], @"(?m)^\| ((?:`Seqeron\.[\w.]+`(?:, )?)+)[^|]*\|"))
+        {
+            foreach (Match name in Regex.Matches(row.Groups[1].Value, @"`(Seqeron\.[\w.]+)`"))
+                yield return name.Groups[1].Value;
+        }
+    }
 
     [Test]
     public void EveryExpectedCopyleftAssembly_ExistsWithItsOwnTestProject()
@@ -87,7 +88,9 @@ public class LicenceSeparationTests
         var copyleft = CopyleftProjects.Select(p => p.Name).ToHashSet();
         var all = Projects.Select(p => p.Name).ToHashSet();
         var violations = new List<string>();
-        foreach (var name in ExpectedCopyleftAssemblies)
+        var listed = ListedCopyleftAssemblies().ToList();
+        Assert.That(listed.Count, Is.GreaterThanOrEqualTo(20), "LICENSES.md section 2 lists the copyleft assemblies and servers");
+        foreach (var name in listed)
         {
             if (!copyleft.Contains(name))
                 violations.Add(name + ": no copyleft project of this name (PackageLicenseExpression missing or MIT)");

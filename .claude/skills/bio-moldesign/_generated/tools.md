@@ -54,7 +54,7 @@
 | `rscu` | MolTools | `CodonUsageAnalyzer.CalculateRscu` | [doc](../../../../docs/mcp/tools/moltools/rscu.md) |
 | `sticky_cutters` | MolTools | `RestrictionAnalyzer.GetStickyCutters` | [doc](../../../../docs/mcp/tools/moltools/sticky_cutters.md) |
 | `three_prime_stability` | MolTools | `PrimerDesigner.Calculate3PrimeStability` | [doc](../../../../docs/mcp/tools/moltools/three_prime_stability.md) |
-| `analyze_oligo` | MolTools | `ThermodynamicProbeDesigner.AnalyzeOligo` | [doc](../../../../docs/mcp/tools/oligothermodynamics/analyze_oligo.md) |
+| `analyze_oligo` | OligoThermodynamics | `ThermodynamicProbeDesigner.AnalyzeOligo` | [doc](../../../../docs/mcp/tools/oligothermodynamics/analyze_oligo.md) |
 | `design_antisense_probes` | OligoThermodynamics | `ThermodynamicProbeDesigner.DesignAntisenseProbes` | [doc](../../../../docs/mcp/tools/oligothermodynamics/design_antisense_probes.md) |
 | `design_molecular_beacon` | OligoThermodynamics | `ThermodynamicProbeDesigner.DesignMolecularBeacon` | [doc](../../../../docs/mcp/tools/oligothermodynamics/design_molecular_beacon.md) |
 | `design_primers` | OligoThermodynamics | `ThermodynamicPrimerDesigner.DesignPrimers` | [doc](../../../../docs/mcp/tools/oligothermodynamics/design_primers.md) |
@@ -63,7 +63,7 @@
 | `design_tiling_probes` | OligoThermodynamics | `ThermodynamicProbeDesigner.DesignTilingProbes` | [doc](../../../../docs/mcp/tools/oligothermodynamics/design_tiling_probes.md) |
 | `evaluate_primer` | OligoThermodynamics | `ThermodynamicPrimerDesigner.EvaluatePrimer` | [doc](../../../../docs/mcp/tools/oligothermodynamics/evaluate_primer.md) |
 | `generate_primer_candidates` | OligoThermodynamics | `ThermodynamicPrimerDesigner.GeneratePrimerCandidates` | [doc](../../../../docs/mcp/tools/oligothermodynamics/generate_primer_candidates.md) |
-| `primer_dimer` | MolTools | `PrimerDesigner.HasPrimerDimer` | [doc](../../../../docs/mcp/tools/oligothermodynamics/primer_dimer.md) |
+| `primer_dimer` | OligoThermodynamics | `PrimerDesigner.HasPrimerDimer` | [doc](../../../../docs/mcp/tools/oligothermodynamics/primer_dimer.md) |
 | `validate_probe` | OligoThermodynamics | `ThermodynamicProbeDesigner.ValidateProbe` | [doc](../../../../docs/mcp/tools/oligothermodynamics/validate_probe.md) |
 
 <!-- END generated -->

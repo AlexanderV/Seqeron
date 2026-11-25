@@ -18,17 +18,17 @@ Walks the target in steps of `probe_length − overlap`, emitting a `probe_lengt
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L957](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L957)
+- Source: [ThermodynamicProbeDesigner.Core.cs#L961](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L961)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `target_sequence` | string | Yes | Target DNA sequence. |
-| `probe_length` | integer | No | Tiling probe length in bp (default 60). |
-| `overlap` | integer | No | Overlap between adjacent probes in bp (default 20). |
-| `parameters` | object | No | Optional probe-design parameters (Tm/GC bounds etc.). |
-| `thermodynamic_screen_max_length` | integer | No | THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe. |
+| `target_sequence` | string | Yes | Target DNA sequence, non-empty. |
+| `probe_length` | integer | No | Probe length in bp (> 0, default 60). |
+| `overlap` | integer | No | Overlap in bp (`0 ≤ overlap < probe_length`, default 20). |
+| `parameters` | object | No | Optional `ProbeParameters` (Tm/GC bounds etc.). |
+| `thermodynamic_screen_max_length` | integer | No | THAL_MAX_ALIGN of the ntthal self-structure screen (`ProbeParameters.ThermodynamicScreenMaxLength`): A/C/G/T probes up to this length get the ntthal screen. Default null = the parameters' value (60 = Primer3); opt-in 61–10 000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with `-DTHAL_MAX_ALIGN`; cost O(n²) per probe). |
 
 ## Output Schema
 

@@ -5,34 +5,17 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ThermodynamicProbeDesigner.DesignProbes",
-  "docRef": "Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L517",
-  "description": "Designs hybridization probes by scanning the target for length-window candidates and ranking them, by default, with an additive penalty score (GC%, Tm, homopolymers, self-structure, simple repeats; returned sorted by score, descending) — a library heuristic whose penalty values have no published source. Set parameters.Ranking = Primer3Penalty for the sourced ranking: Primer3's internal-oligo objective p_obj_fn (PRIMER_INTERNAL_n_PENALTY = |Tm − parameters.OptTm| + |length − parameters.OptLength|, defaults 60 °C / 20 nt, which must lie in the Tm / length window) in Primer3 primer_rec_comp order (penalty ascending, start descending, length ascending), reported per probe as primer3Penalty. Tm is Primer3's seqtm (SantaLucia 1998 nearest-neighbour up to parameters.MaxNearestNeighborLength, default 36 nt, long_seq_tm above) at the parameters' conditions (default Microarray preset: OligoArray 2.0 conditions 1 M Na+, 1 µM oligo, nearest-neighbour Tm up to 60 nt, Tm window 82–90 °C; other presets: Primer3 probe conditions 50 nM, 50 mM monovalent, no Mg/dNTP); probes ≤ thermodynamic_screen_max_length nt (default 60 = Primer3's THAL_MAX_ALIGN; opt-in up to 10000) are screened with Primer3's ntthal self-dimer/hairpin Tm limit (47 °C); longer probes (and StructureScreen = Heuristic) use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > MaxSelfAny / MaxSelfEnd, PRIMER_INTERNAL_MAX_SELF_ANY/_END default 12.00, no length limit) plus a sequence-only inverted-repeat hairpin screen. Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.",
+  "docRef": "Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L521",
+  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-ranked probes (default: additive library-heuristic score; parameters.Ranking = Primer3Penalty: Primer3 internal-oligo penalty p_obj_fn, sourced). Probes longer than thermodynamic_screen_max_length (default 60 = THAL_MAX_ALIGN; opt-in up to 10000) use Primer3's alignment-mode self_any/self_end (<= 12) self-dimer screen plus an inverted-repeat hairpin screen.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "target_sequence": {
-        "type": "string",
-        "description": "Target DNA sequence.",
-        "minLength": 1
-      },
-      "parameters": {
-        "type": "object",
-        "description": "Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold; Ranking = AdditiveScore (default, library heuristic) or Primer3Penalty (Primer3 internal-oligo p_obj_fn around OptTm / OptLength)). Defaults to Microarray when null."
-      },
-      "max_probes": {
-        "type": "integer",
-        "description": "Maximum probes to return (default 10).",
-        "minimum": 1,
-        "default": 10
-      },
-      "thermodynamic_screen_max_length": {
-        "type": "integer",
-        "description": "THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe."
-      }
+      "target_sequence": { "type": "string", "description": "Target DNA sequence.", "minLength": 1 },
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold; Ranking = AdditiveScore (default, library heuristic) or Primer3Penalty (Primer3 internal-oligo p_obj_fn around OptTm / OptLength)). Defaults to Microarray when null.", "default": null },
+      "max_probes": { "type": "integer", "description": "Maximum probes to return (default 10).", "minimum": 1, "default": 10 },
+      "thermodynamic_screen_max_length": { "type": ["integer", "null"], "description": "THAL_MAX_ALIGN of the ntthal thermodynamic self-structure screen: longest A/C/G/T probe (nt) screened by ntthal self-dimer / 3' self-dimer / hairpin Tm (ProbeParameters.ThermodynamicScreenMaxLength; null = the parameters' value, default 60 = Primer3). Opt-in 61..10000 screens longer probes with the unchanged ntthal recursions (= thal.c compiled with -DTHAL_MAX_ALIGN); cost grows as n^2 per probe.", "default": null }
     },
-    "required": [
-      "target_sequence"
-    ]
+    "required": ["target_sequence"]
   },
   "outputSchema": {
     "type": "object",
@@ -40,44 +23,25 @@
       "probes": {
         "type": "array",
         "description": "Probe records, score-descending (default) or Primer3-penalty-ascending (Ranking = Primer3Penalty, with primer3Penalty).",
-        "items": {
-          "type": "object"
-        }
+        "items": { "type": "object" }
       }
     },
-    "required": [
-      "probes"
-    ]
+    "required": ["probes"]
   },
   "errors": [
-    {
-      "code": 1001,
-      "message": "Target sequence cannot be null or empty"
-    },
-    {
-      "code": 1002,
-      "message": "Maximum probes must be positive"
-    }
+    { "code": 1001, "message": "Target sequence cannot be null or empty" },
+    { "code": 1002, "message": "Maximum probes must be positive" }
   ],
   "examples": [
     {
       "name": "81-nt ACGT repeat, top 3 probes",
-      "input": {
-        "target_sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT",
-        "max_probes": 3
-      },
-      "output": {
-        "probesCount": 3
-      }
+      "input": { "target_sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT", "max_probes": 3 },
+      "output": { "probesCount": 3 }
     },
     {
       "name": "Too-short target returns empty",
-      "input": {
-        "target_sequence": "ACGTACGTACGT"
-      },
-      "output": {
-        "probes": []
-      }
+      "input": { "target_sequence": "ACGTACGTACGT" },
+      "output": { "probes": [] }
     }
   ]
 }

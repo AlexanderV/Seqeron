@@ -621,7 +621,7 @@
 | `tcoffee_slow_pair_align` | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/multiplealignment/tcoffee_slow_pair_align.md) |
 | `tcoffee_tblastx_library` | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeTblastxLibraryEntries` | [doc](../../mcp/tools/multiplealignment/tcoffee_tblastx_library.md) |
 
-## MolTools (11 tools)
+## OligoThermodynamics (11 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|

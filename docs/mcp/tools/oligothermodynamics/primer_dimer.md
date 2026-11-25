@@ -6,7 +6,7 @@ Primer3 alignment-mode 3′-end primer-dimer check between two primers (PRIMER_P
 
 | Property | Value |
 |----------|-------|
-| **Server** | MolTools |
+| **Server** | OligoThermodynamics |
 | **Tool Name** | `primer_dimer` |
 | **Method ID** | `PrimerDesigner.HasPrimerDimer` |
 | **Version** | 1.0.0 |
@@ -23,19 +23,19 @@ k bases are reverse complements score k. A dimer is flagged when the score is at
 `min_complementarity` (default 4 = Primer3's default `PRIMER_PAIR_MAX_COMPL_END` 3.00 exceeded).
 Identical poly-A primers are not a dimer (A·A cannot pair). Primer3's default thermodynamic check
 (ntthal `PRIMER_PAIR_COMPL_ANY_TH` / `_COMPL_END_TH`) is the C# method
-`ThermodynamicPrimerDesigner.CalculatePrimer3PairComplementarity`.
+`PrimerDesigner.CalculatePrimer3PairComplementarity`.
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.MolTools/PrimerDesigner.cs#L366](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L366) (`HasPrimerDimer`, `CalculatePrimerDimerEndComplementarity`)
+- Source: [PrimerDesigner.cs#L368](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L368) (`HasPrimerDimer`, `CalculatePrimerDimerEndComplementarity`)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `primer1` | string | Yes | First primer sequence (5'->3'). |
-| `primer2` | string | Yes | Second primer sequence (5'->3'). |
-| `min_complementarity` | integer | No | Minimum 3'-end complementarity score to flag a dimer (default 4). |
+| `primer1` | string | Yes | First primer sequence (non-empty). |
+| `primer2` | string | Yes | Second primer sequence (non-empty). |
+| `min_complementarity` | integer | No | Minimum 3′-end complementarity score to flag (default 4). |
 
 ## Output Schema
 
@@ -44,7 +44,7 @@ Identical poly-A primers are not a dimer (A·A cannot pair). Primer3's default t
 | `hasDimer` | boolean | True if a 3′-dimer is flagged. |
 | `complementaryBases` | integer | The compl_end score truncated to an integer (exact for ACGT primers). |
 | `complEndScore` | number | Primer3 PRIMER_PAIR_COMPL_END score. |
-| `complAnyScore` | number | Primer3 alignment-mode PRIMER_PAIR_COMPL_ANY: dpal local alignment of `primer1` with the reverse complement of `primer2` (same scoring; Primer3 default limit 8.00; `ThermodynamicPrimerDesigner.CalculatePrimerDimerAnyComplementarity`). |
+| `complAnyScore` | number | Primer3 alignment-mode PRIMER_PAIR_COMPL_ANY: dpal local alignment of `primer1` with the reverse complement of `primer2` (same scoring; Primer3 default limit 8.00; `PrimerDesigner.CalculatePrimerDimerAnyComplementarity`). |
 
 ## Errors
 
