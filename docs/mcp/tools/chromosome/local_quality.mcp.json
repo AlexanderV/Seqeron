@@ -5,13 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.CalculateLocalQuality",
-  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1029",
-  "description": "Compute per-window local quality metrics (GC content, N count, linguistic complexity).",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs",
+  "description": "Compute per-window local composition metrics (GC fraction, N count, linguistic complexity).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequences": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
-      "windowSize": { "type": "integer", "default": 1000, "exclusiveMinimum": 0 }
+      "windowSize": { "type": "integer", "default": 1000, "exclusiveMinimum": 0 },
+      "stepSize": { "type": "integer", "exclusiveMinimum": 0, "description": "Distance between window starts (default windowSize/2)." }
     },
     "required": ["sequences"]
   },
@@ -24,7 +25,8 @@
   },
   "errors": [
     { "code": 1001, "message": "Sequences cannot be null" },
-    { "code": 1002, "message": "Window size must be positive" }
+    { "code": 1002, "message": "Window size must be positive" },
+    { "code": 1002, "message": "Step size must be positive" }
   ],
   "examples": [
     { "name": "Single GC window", "input": { "sequences": [ { "id": "s", "sequence": "GCGCGCGCGC" } ], "windowSize": 1000 }, "output": { "items": [ { "sequenceId": "s", "position": 0, "windowSize": 10, "gcContent": 1.0, "nCount": 0 } ] } }

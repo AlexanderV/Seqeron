@@ -556,33 +556,38 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "local_quality", Title = "Assembly — Local quality windows", ReadOnly = true)]
-    [Description("Compute per-window local quality metrics (GC content, N count, linguistic complexity).")]
+    [Description("Compute per-window local composition metrics (GC fraction, N count, linguistic complexity). Windows start at 0, step, 2*step, ...; the last window is truncated at the sequence end; position is the 0-based window start.")]
     public static LocalQualityResult LocalQuality(
         [Description("Sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
-        [Description("Window size (default 1000).")] int windowSize = 1000)
+        [Description("Window size (default 1000).")] int windowSize = 1000,
+        [Description("Step between window starts (default windowSize/2).")] int? stepSize = null)
     {
         if (sequences is null)
             throw new ArgumentException("Sequences cannot be null", nameof(sequences));
         if (windowSize <= 0)
             throw new ArgumentException("Window size must be positive", nameof(windowSize));
+        if (stepSize is <= 0)
+            throw new ArgumentException("Step size must be positive", nameof(stepSize));
 
-        return new(SourceGa.CalculateLocalQuality(sequences.Select(s => (s.Id, s.Sequence)), windowSize)
+        return new(SourceGa.CalculateLocalQuality(sequences.Select(s => (s.Id, s.Sequence)), windowSize, stepSize)
             .Select(q => new LocalQualityWindow(q.SequenceId, q.Position, q.WindowSize, q.GcContent, q.NCount, q.Complexity))
             .ToList());
     }
 
-    [McpServerTool(Name = "find_suspicious_regions", Title = "Assembly — Suspicious regions", ReadOnly = true)]
-    [Description("Flag potentially misassembled regions by GC deviation, low complexity, and high N content.")]
+    [McpServerTool(Name = "find_suspicious_regions", Title = "Assembly — Suspicious regions (sequence-only screen)", ReadOnly = true)]
+    [Description("Sequence-only screen (not a misassembly caller): regions with N-rich windows, windows whose GC deviates from the pooled assembly GC, or SDUST low-complexity intervals (Morgulis 2006). Reports the measured value of each criterion, no composite score.")]
     public static SuspiciousRegionsResult FindSuspiciousRegions(
         [Description("Sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
-        [Description("Allowed GC deviation from global GC (default 0.15).")] double gcDeviation = 0.15,
-        [Description("Minimum linguistic complexity (default 0.3).")] double minComplexity = 0.3)
+        [Description("Allowed |window GC - pooled GC| as a fraction (default 0.15).")] double gcDeviation = 0.15,
+        [Description("DUST score threshold (default 2.0 = dustmasker level 20).")] double dustThreshold = 2.0,
+        [Description("Maximum N fraction per window (default 0.1).")] double maxNFraction = 0.1,
+        [Description("GC/N window size (default 500).")] int windowSize = 500)
     {
         if (sequences is null)
             throw new ArgumentException("Sequences cannot be null", nameof(sequences));
 
-        return new(SourceGa.FindSuspiciousRegions(sequences.Select(s => (s.Id, s.Sequence)), gcDeviation, minComplexity)
-            .Select(r => new SuspiciousRegion(r.SequenceId, r.Start, r.End, r.Reason, r.Score))
+        return new(SourceGa.FindSuspiciousRegions(sequences.Select(s => (s.Id, s.Sequence)), gcDeviation, dustThreshold, maxNFraction, windowSize)
+            .Select(r => new SuspiciousRegion(r.SequenceId, r.Start, r.End, r.Reason, r.MaxGcDeviation, r.MaxNFraction, r.MaxDustScore))
             .ToList());
     }
 

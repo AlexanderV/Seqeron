@@ -6,7 +6,7 @@ namespace Seqeron.Mcp.Chromosome.Tests;
 
 /// <summary>
 /// Tests for <c>local_quality</c>. GenomeAssemblyAnalyzer.CalculateLocalQuality slides a window
-/// (step = windowSize/2) and reports GC fraction, N count and linguistic complexity per window.
+/// (step = stepSize, default windowSize/2) and reports GC fraction, N count and linguistic complexity per window.
 /// </summary>
 [TestFixture]
 public class LocalQualityTests
@@ -37,4 +37,17 @@ public class LocalQualityTests
             Assert.That(w.NCount, Is.EqualTo(0));
         });
     }
+
+    [Test]
+    public void LocalQuality_StepSizeAndTruncatedLastWindow()
+    {
+        var q = ChromosomeTools.LocalQuality(new List<NamedSequence> { new("s", "GGGGAAAACC") }, 4, 3).Items;
+        Assert.That(q.Select(w => (w.Position, w.WindowSize)), Is.EqualTo(new[] { (0, 4), (3, 4), (6, 4), (9, 1) }));
+        Assert.That(q.Select(w => w.GcContent), Is.EqualTo(new[] { 1.0, 0.25, 0.5, 1.0 }).Within(1e-9));
+        Assert.Throws<ArgumentException>(() => ChromosomeTools.LocalQuality(new List<NamedSequence> { new("s", "ACGT") }, 4, 0));
+    }
+
+    [Test]
+    public void LocalQuality_WindowOfOne_Terminates()
+        => Assert.That(ChromosomeTools.LocalQuality(new List<NamedSequence> { new("s", "ACGN") }, 1).Items, Has.Count.EqualTo(4));
 }

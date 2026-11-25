@@ -1917,117 +1917,208 @@ public static class GenomeAssemblyAnalyzer
     #region Quality Assessment
 
     /// <summary>
-    /// Calculates per-base quality metrics.
+    /// Sliding-window sequence-composition metrics of every sequence: GC content, N count and linguistic
+    /// complexity per window (a window-level screen; QUAST reports GC as a whole-assembly value and a
+    /// GC-content distribution over fixed windows).
     /// </summary>
+    /// <remarks>
+    /// Windows start at 0, <paramref name="stepSize"/>, 2·<paramref name="stepSize"/>, … for every start &lt;
+    /// length; the last window(s) are truncated at the sequence end (Biopython <c>GC_skew</c> slicing
+    /// <c>seq[i:i+window]</c>), so a sequence shorter than the window yields one truncated window and no base
+    /// is left uncovered. <c>Position</c> is the 0-based start of the window (not its centre) and
+    /// <c>WindowSize</c> its actual (possibly truncated) length. <c>GcContent</c> is the fraction in [0,1]
+    /// from the canonical <see cref="GcSkewCalculator.CalculateWindowedGcContent(string,int,int,bool,bool)"/>
+    /// (G+C over A+C+G+T+U, the QUAST <c>GC_content</c> rule of ASSEMBLY-STATS-001: N and IUPAC codes are
+    /// not in the denominator; 0 for a window without an A/C/G/T/U base). <c>NCount</c> counts N/n.
+    /// <c>Complexity</c> is the canonical <see cref="SequenceComplexity.CalculateLinguisticComplexity(string,int)"/>
+    /// of the window (m = 10; Troyanskaya et al. 2002).
+    /// </remarks>
+    /// <param name="sequences">(id, sequence) pairs.</param>
+    /// <param name="windowSize">Window length (≥ 1; default 1000).</param>
+    /// <param name="stepSize">Distance between window starts (≥ 1); default max(1, windowSize / 2),
+    /// i.e. 50 % overlap (a convention, not a published value).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is below 1 (windowSize 1 used to make the step 0 and never end).</exception>
     public static IEnumerable<(string SequenceId, int Position, int WindowSize, double GcContent, int NCount, double Complexity)>
         CalculateLocalQuality(
             IEnumerable<(string Id, string Sequence)> sequences,
-            int windowSize = 1000)
+            int windowSize = 1000,
+            int? stepSize = null)
     {
-        foreach (var (id, sequence) in sequences)
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        int step = stepSize ?? Math.Max(1, windowSize / 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(step, 1);
+        return CalculateLocalQualityIterator(sequences, windowSize, step);
+    }
+
+    private static IEnumerable<(string SequenceId, int Position, int WindowSize, double GcContent, int NCount, double Complexity)>
+        CalculateLocalQualityIterator(IEnumerable<(string Id, string Sequence)> sequences, int windowSize, int step)
+    {
+        foreach (var entry in sequences)
         {
-            var upper = sequence.ToUpperInvariant();
-
-            for (int i = 0; i < upper.Length; i += windowSize / 2)
+            string id = entry.Id, sequence = RequireSequence(entry, nameof(sequences));
+            foreach (var w in EnumerateCompositionWindows(sequence, windowSize, step))
             {
-                int end = Math.Min(i + windowSize, upper.Length);
-                string window = upper[i..end];
-
-                int nCount = window.Count(c => c == 'N');
-                double gcContent = window.CalculateGcFractionFast();
-                double complexity = SequenceComplexity.CalculateLinguisticComplexity(window);
-
-                yield return (id, i, end - i, gcContent, nCount, complexity);
+                string window = sequence.Substring(w.Start, w.Length);
+                yield return (id, w.Start, w.Length, w.Gc, w.NCount,
+                    SequenceComplexity.CalculateLinguisticComplexity(window.ToUpperInvariant()));
             }
         }
     }
 
-    /// <summary>
-    /// Identifies potentially misassembled regions.
-    /// </summary>
-    public static IEnumerable<(string SequenceId, int Start, int End, string Reason, double Score)>
-        FindSuspiciousRegions(
-            IEnumerable<(string Id, string Sequence)> sequences,
-            double gcDeviation = 0.15,
-            double minComplexity = 0.3)
+    // The single window driver of the local-quality screens: GC from the canonical windowed GC profile
+    // (includePartialWindow), N count and the number of A/C/G/T/U bases of each window.
+    private static IEnumerable<(int Start, int Length, double Gc, int NCount, int ValidBases)>
+        EnumerateCompositionWindows(string sequence, int windowSize, int step)
     {
-        // First pass: calculate global GC
-        var seqList = sequences.ToList();
-        long totalGc = 0;
-        long totalBases = 0;
+        if (string.IsNullOrEmpty(sequence))
+            yield break;
 
+        foreach (var p in GcSkewCalculator.CalculateWindowedGcContent(
+            sequence, windowSize, step, fraction: true, includePartialWindow: true))
+        {
+            int length = p.WindowEnd - p.WindowStart + 1;
+            var span = sequence.AsSpan(p.WindowStart, length);
+            int n = 0;
+            foreach (char c in span)
+                if (c == 'N' || c == 'n')
+                    n++;
+            yield return (p.WindowStart, length, p.GcContent, n, span.CountGcAndValidNucleotides().ValidCount);
+        }
+    }
+
+    /// <summary>
+    /// A region flagged by <see cref="FindSuspiciousRegions"/>: inclusive 0-based [Start, End] and the
+    /// measured value of every criterion that fired (0 for a criterion that did not).
+    /// </summary>
+    /// <param name="SequenceId">Sequence id.</param>
+    /// <param name="Start">0-based first base.</param>
+    /// <param name="End">0-based last base (inclusive).</param>
+    /// <param name="Reason">"; "-joined criteria in the fixed order High N content, GC deviation, Low complexity.</param>
+    /// <param name="MaxGcDeviation">Largest |window GC − pooled GC| of the GC-flagged windows (fraction).</param>
+    /// <param name="MaxNFraction">Largest N fraction of the N-flagged windows.</param>
+    /// <param name="MaxDustScore">Largest DUST score (Morgulis 2006) of the low-complexity intervals.</param>
+    public readonly record struct SuspiciousRegion(
+        string SequenceId, int Start, int End, string Reason,
+        double MaxGcDeviation, double MaxNFraction, double MaxDustScore);
+
+    /// <summary>
+    /// Sequence-only screen for regions of an assembly that look anomalous. It is <b>not</b> a misassembly
+    /// caller: QUAST/GAGE misassemblies need an alignment to a reference, and no published threshold defines
+    /// "suspicious" for GC or N content, so the cut-offs are caller-set parameters and no composite score is
+    /// reported — each region carries the measured values of the criteria that fired.
+    /// </summary>
+    /// <remarks>
+    /// Criteria (union, then overlapping/adjacent regions of any criterion are merged into one):
+    /// <list type="bullet">
+    /// <item><b>High N content</b> — a window whose N fraction exceeds <paramref name="maxNFraction"/>
+    /// (gaps are N runs in AGP/QUAST; use <see cref="FindGaps"/> for exact gap intervals).</item>
+    /// <item><b>GC deviation</b> — a window whose GC fraction differs from the pooled assembly GC by more than
+    /// <paramref name="gcDeviation"/> (GC-content outlier detection). Pooled GC = Σ(G+C)/Σ(A+C+G+T) over all
+    /// sequences (the ASSEMBLY-STATS-001 / QUAST rule); windows are those of
+    /// <see cref="CalculateLocalQuality"/> (step = windowSize/2), a truncated trailing window is tested only if
+    /// the previous window does not already cover it, and a window without any A/C/G/T/U base has no GC and is
+    /// not tested. No pooled GC (no valid base anywhere) → no GC test.</item>
+    /// <item><b>Low complexity</b> — the perfect intervals of the symmetric DUST algorithm (Morgulis et al.
+    /// 2006; canonical <see cref="SequenceComplexity.FindLowComplexityIntervals(string,int,double,int,DustEngine)"/>,
+    /// window 64, score &gt; <paramref name="dustThreshold"/>, default 2.0 = dustmasker level 20), exact intervals.</item>
+    /// </list>
+    /// Regions are inclusive 0-based [Start, End] = union of the flagged windows/intervals.
+    /// </remarks>
+    /// <param name="sequences">(id, sequence) pairs.</param>
+    /// <param name="gcDeviation">Maximum allowed |window GC − pooled GC| as a fraction (default 0.15; ≥ 0).</param>
+    /// <param name="dustThreshold">DUST score threshold (default 2.0; ≥ 0).</param>
+    /// <param name="maxNFraction">Maximum allowed N fraction per window (default 0.1; in [0,1]).</param>
+    /// <param name="windowSize">GC/N window length (≥ 1; default 500).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A parameter is out of range (also a NaN).</exception>
+    public static IEnumerable<SuspiciousRegion> FindSuspiciousRegions(
+        IEnumerable<(string Id, string Sequence)> sequences,
+        double gcDeviation = 0.15,
+        double dustThreshold = 2.0,
+        double maxNFraction = 0.1,
+        int windowSize = 500)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        if (!(gcDeviation >= 0) || double.IsInfinity(gcDeviation))
+            throw new ArgumentOutOfRangeException(nameof(gcDeviation), gcDeviation, "Must be a finite value ≥ 0.");
+        if (!(maxNFraction >= 0 && maxNFraction <= 1))
+            throw new ArgumentOutOfRangeException(nameof(maxNFraction), maxNFraction, "Must be in [0, 1].");
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        if (!(dustThreshold >= 0) || double.IsInfinity(dustThreshold))
+            throw new ArgumentOutOfRangeException(nameof(dustThreshold), dustThreshold, "Must be a finite value ≥ 0.");
+        return FindSuspiciousRegionsIterator(
+            sequences.Select(e => (e.Id, Sequence: RequireSequence(e, nameof(sequences)))).ToList(), gcDeviation, dustThreshold, maxNFraction, windowSize);
+    }
+
+    private const int NRich = 1, GcOutlier = 2, LowComplexity = 4;
+
+    private static IEnumerable<SuspiciousRegion> FindSuspiciousRegionsIterator(
+        List<(string Id, string Sequence)> seqList, double gcDeviation, double dustThreshold,
+        double maxNFraction, int windowSize)
+    {
+        // Pooled GC over the whole assembly: Σ(G+C) / Σ(A+C+G+T) (QUAST rule, ASSEMBLY-STATS-001).
+        long totalGc = 0, totalValid = 0;
         foreach (var (_, sequence) in seqList)
         {
-            totalGc += sequence.Count(c => c == 'G' || c == 'g' || c == 'C' || c == 'c');
-            totalBases += sequence.Count(c => c != 'N' && c != 'n');
+            var (gc, valid) = sequence.AsSpan().CountGcAndValidNucleotides();
+            totalGc += gc;
+            totalValid += valid;
         }
+        double? globalGc = totalValid > 0 ? totalGc / (double)totalValid : null;
+        int step = Math.Max(1, windowSize / 2);
 
-        double globalGc = totalBases > 0 ? totalGc / (double)totalBases : 0.5;
-
-        // Second pass: find anomalies
         foreach (var (id, sequence) in seqList)
         {
-            var quality = CalculateLocalQuality(
-                new[] { (id, sequence) }, windowSize: 500).ToList();
+            // (start, end inclusive, criterion, measured value)
+            var hits = new List<(int Start, int End, int Flag, double Value)>();
 
-            int regionStart = -1;
-            string? reason = null;
-            double maxScore = 0;
-
-            foreach (var (_, pos, size, gc, nCount, complexity) in quality)
+            int previousStart = -1;
+            foreach (var w in EnumerateCompositionWindows(sequence, windowSize, step))
             {
-                bool suspicious = false;
-                double score = 0;
-                string? currentReason = null;
+                bool covered = w.Length < windowSize && previousStart >= 0 && previousStart + windowSize >= sequence.Length;
+                previousStart = w.Start;
+                if (covered)
+                    continue;
 
-                // High N content
-                if (nCount > size * 0.1)
-                {
-                    suspicious = true;
-                    score = Math.Max(score, nCount / (double)size);
-                    currentReason = "High N content";
-                }
+                int end = w.Start + w.Length - 1;
+                double nFraction = w.NCount / (double)w.Length;
+                if (nFraction > maxNFraction)
+                    hits.Add((w.Start, end, NRich, nFraction));
 
-                // GC deviation
-                if (Math.Abs(gc - globalGc) > gcDeviation)
-                {
-                    suspicious = true;
-                    score = Math.Max(score, Math.Abs(gc - globalGc) / gcDeviation);
-                    currentReason = currentReason == null ? "GC deviation" : currentReason + "; GC deviation";
-                }
-
-                // Low complexity
-                if (complexity < minComplexity && nCount < size * 0.5)
-                {
-                    suspicious = true;
-                    score = Math.Max(score, 1 - complexity / minComplexity);
-                    currentReason = currentReason == null ? "Low complexity" : currentReason + "; Low complexity";
-                }
-
-                if (suspicious && regionStart < 0)
-                {
-                    regionStart = pos;
-                    reason = currentReason;
-                    maxScore = score;
-                }
-                else if (!suspicious && regionStart >= 0)
-                {
-                    yield return (id, regionStart, pos - 1, reason!, maxScore);
-                    regionStart = -1;
-                    reason = null;
-                    maxScore = 0;
-                }
-                else if (suspicious)
-                {
-                    maxScore = Math.Max(maxScore, score);
-                    if (currentReason != null && !reason!.Contains(currentReason))
-                        reason += "; " + currentReason;
-                }
+                if (globalGc is { } g && w.ValidBases > 0 && Math.Abs(w.Gc - g) > gcDeviation)
+                    hits.Add((w.Start, end, GcOutlier, Math.Abs(w.Gc - g)));
             }
 
-            if (regionStart >= 0)
+            foreach (var (start, endExclusive) in SequenceComplexity.FindLowComplexityIntervals(
+                sequence, threshold: dustThreshold))
+                hits.Add((start, endExclusive - 1, LowComplexity,
+                    SequenceComplexity.CalculateDustScore(sequence.Substring(start, endExclusive - start))));
+
+            hits.Sort((x, y) => x.Start != y.Start ? x.Start.CompareTo(y.Start) : x.End.CompareTo(y.End));
+
+            int i = 0;
+            while (i < hits.Count)
             {
-                yield return (id, regionStart, sequence.Length - 1, reason!, maxScore);
+                int rStart = hits[i].Start, rEnd = hits[i].End, flags = 0;
+                double maxGc = 0, maxN = 0, maxDust = 0;
+                for (; i < hits.Count && hits[i].Start <= rEnd + 1; i++)
+                {
+                    var h = hits[i];
+                    rEnd = Math.Max(rEnd, h.End);
+                    flags |= h.Flag;
+                    if (h.Flag == NRich) maxN = Math.Max(maxN, h.Value);
+                    else if (h.Flag == GcOutlier) maxGc = Math.Max(maxGc, h.Value);
+                    else maxDust = Math.Max(maxDust, h.Value);
+                }
+
+                var reasons = new List<string>();
+                if ((flags & NRich) != 0) reasons.Add("High N content");
+                if ((flags & GcOutlier) != 0) reasons.Add("GC deviation");
+                if ((flags & LowComplexity) != 0) reasons.Add("Low complexity");
+                yield return new SuspiciousRegion(id, rStart, rEnd, string.Join("; ", reasons), maxGc, maxN, maxDust);
             }
         }
     }

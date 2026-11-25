@@ -39,7 +39,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_gaps` | Find gaps (N-runs) in assembled sequences; |
 | `find_heterochromatin_regions` | Identify heterochromatin regions by k-mer repeat content; |
 | `find_repetitive_regions` | Identify repetitive regions across assembled sequences using k-mer copy-number frequency. |
-| `find_suspicious_regions` | Flag potentially misassembled regions by GC deviation, low complexity, and high N content. |
+| `find_suspicious_regions` | Sequence-only screen: N-rich windows, GC-outlier windows and SDUST low-complexity intervals (measured values, no composite score). |
 | `find_syntenic_blocks_assemblies` | Find syntenic blocks between two assemblies via k-mer anchor clustering; |
 | `find_synteny_blocks` | Identify collinear synteny blocks between two genomes from a list of ortholog gene pairs. |
 | `find_tandem_repeats` | Identify tandem repeats; |

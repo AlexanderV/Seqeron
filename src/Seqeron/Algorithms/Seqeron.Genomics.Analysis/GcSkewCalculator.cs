@@ -1149,6 +1149,34 @@ public static class GcSkewCalculator
     }
 
     /// <summary>
+    /// Sliding-window GC-content profile that can also report the trailing partial windows
+    /// (additive overload; B10 ASSEMBLY-QC-001). With <paramref name="includePartialWindow"/> = false it is
+    /// identical to <see cref="CalculateWindowedGcContent(string,int,int,bool)"/>; with true every start
+    /// &lt; length is emitted and the last window(s) are truncated at the sequence end (Biopython
+    /// <c>GC_skew</c> slicing <c>seq[i:i+window]</c>, the same rule as
+    /// <see cref="CalculateWindowedGcSkew(string,int,int,bool)"/>); <c>Position</c> =
+    /// <c>WindowStart + actualLength / 2</c>, <c>WindowEnd</c> = last base of the (truncated) window.
+    /// A sequence shorter than <paramref name="windowSize"/> then yields one truncated window.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1.</exception>
+    public static IEnumerable<GcContentPoint> CalculateWindowedGcContent(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool fraction,
+        bool includePartialWindow)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
+
+        if (string.IsNullOrEmpty(sequence))
+            return Enumerable.Empty<GcContentPoint>();
+
+        return CalculateWindowedGcContentCore(sequence, windowSize, stepSize, fraction, null, includePartialWindow);
+    }
+
+    /// <summary>
     /// Sliding-window GC-content profile with Biopython <c>gc_fraction(window, ambiguous=…)</c>
     /// IUPAC-ambiguity handling: each complete window is scored by the canonical
     /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char},SequenceExtensions.GcAmbiguityMode)"/>
@@ -1201,15 +1229,16 @@ public static class GcSkewCalculator
         int windowSize,
         int stepSize,
         bool fraction = false,
-        SequenceExtensions.GcAmbiguityMode? mode = null)
+        SequenceExtensions.GcAmbiguityMode? mode = null,
+        bool includePartialWindow = false)
     {
-        foreach (var (start, _) in EnumerateWindows(seq.Length, windowSize, stepSize, includePartialWindow: false))
+        foreach (var (start, length) in EnumerateWindows(seq.Length, windowSize, stepSize, includePartialWindow))
         {
             yield return new GcContentPoint(
-                Position: start + windowSize / 2,
-                GcContent: CalculateGcContent(seq.AsSpan(start, windowSize), fraction, mode),
+                Position: start + length / 2,
+                GcContent: CalculateGcContent(seq.AsSpan(start, length), fraction, mode),
                 WindowStart: start,
-                WindowEnd: start + windowSize - 1);
+                WindowEnd: start + length - 1);
         }
     }
 

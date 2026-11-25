@@ -5,21 +5,23 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.FindSuspiciousRegions",
-  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1086",
-  "description": "Flag potentially misassembled regions by GC deviation, low complexity, and high N content.",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs",
+  "description": "Sequence-only screen: N-rich windows, GC-outlier windows and SDUST low-complexity intervals; reports measured values, no composite score.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequences": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
-      "gcDeviation": { "type": "number", "default": 0.15, "description": "Allowed GC deviation from the global GC." },
-      "minComplexity": { "type": "number", "default": 0.3, "description": "Minimum linguistic complexity." }
+      "gcDeviation": { "type": "number", "default": 0.15, "description": "Allowed |window GC - pooled GC| as a fraction." },
+      "dustThreshold": { "type": "number", "default": 2.0, "description": "DUST score threshold (2.0 = dustmasker level 20)." },
+      "maxNFraction": { "type": "number", "default": 0.1, "description": "Maximum N fraction per window." },
+      "windowSize": { "type": "integer", "default": 500, "exclusiveMinimum": 0, "description": "GC/N window size." }
     },
     "required": ["sequences"]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "items": { "type": "array", "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer" }, "reason": { "type": "string" }, "score": { "type": "number" } }, "required": ["sequenceId", "start", "end", "reason", "score"] } }
+      "items": { "type": "array", "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer" }, "reason": { "type": "string" }, "maxGcDeviation": { "type": "number" }, "maxNFraction": { "type": "number" }, "maxDustScore": { "type": "number" } }, "required": ["sequenceId", "start", "end", "reason", "maxGcDeviation", "maxNFraction", "maxDustScore"] } }
     },
     "required": ["items"]
   },
@@ -27,6 +29,6 @@
     { "code": 1001, "message": "Sequences cannot be null" }
   ],
   "examples": [
-    { "name": "Poly-A run flagged", "input": { "sequences": [ { "id": "s", "sequence": "…random…AAAA…(2000)…random…" } ], "gcDeviation": 0.15, "minComplexity": 0.3 }, "output": { "items": [ { "sequenceId": "s", "reason": "GC deviation; Low complexity" } ] } }
+    { "name": "Poly-A run flagged", "input": { "sequences": [ { "id": "s", "sequence": "A x 600" } ] }, "output": { "items": [ { "sequenceId": "s", "start": 0, "end": 599, "reason": "Low complexity", "maxGcDeviation": 0.0, "maxNFraction": 0.0, "maxDustScore": 299.0 } ] } }
   ]
 }

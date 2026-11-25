@@ -90,12 +90,10 @@ public class GenomeAssemblyAnalyzer_MutationKillers4_Tests
     }
 
     [Test]
-    public void FindSuspiciousRegions_PolyA_ExactLowComplexityScore()
+    public void FindSuspiciousRegions_PolyA_ExactDustScore()
     {
-        // 600-bp poly(A): a 500-bp window has canonical linguistic complexity (Troyanskaya 2002, m = 10, a = 4)
-        // ΣV_i / Σmin(4^i, 501−i) = 10 / (4+16+64+256+496+495+494+493+492+491) = 10/3301,
-        // giving the peak low-complexity score 1 − (10/3301)/0.3.
+        // 600-bp poly(A): 598 identical triplets ⇒ DUST = 598·597/2/597 = 299 (Morgulis 2006).
         var r = FindSuspiciousRegions(new[] { ("s", new string('A', 600)) }).Single();
-        Assert.That(r.Score, Is.EqualTo(1.0 - (10.0 / 3301.0) / 0.3).Within(1e-9));
+        Assert.That(r.MaxDustScore, Is.EqualTo(299.0).Within(1e-9));
     }
 }

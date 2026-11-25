@@ -334,7 +334,7 @@ public class GenomeAssemblyAnalyzerTests
         };
 
         var suspicious = GenomeAssemblyAnalyzer.FindSuspiciousRegions(
-            sequences, minComplexity: 0.5).ToList();
+            sequences, dustThreshold: 2.0).ToList();
 
         Assert.That(suspicious.Any(r => r.Reason.Contains("complexity")), Is.True);
     }
