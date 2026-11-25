@@ -499,7 +499,7 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "compare_assemblies", Title = "Assembly — Compare two assemblies", ReadOnly = true)]
-    [Description("Compare two assemblies by shared k-mer content; reports aligned fractions and an identity proxy.")]
+    [Description("Compare two assemblies by exact canonical k-mer sets (Mash model): shared/distinct k-mers, containment of each in the other, Jaccard index and Mash distance D = -ln(2J/(1+J))/k. Alignment-free: no aligned bases or breakpoints.")]
     public static SourceGa.AssemblyComparison CompareAssemblies(
         [Description("Assembly 1 sequences.")] IReadOnlyList<NamedSequence> assembly1,
         [Description("Assembly 2 sequences.")] IReadOnlyList<NamedSequence> assembly2,
@@ -521,12 +521,16 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "find_syntenic_blocks_assemblies", Title = "Assembly — Syntenic blocks (k-mer based)", ReadOnly = true)]
-    [Description("Find syntenic blocks between two assemblies via k-mer anchor clustering; flags inverted blocks.")]
+    [Description("Find syntenic blocks between two assemblies as nucmer does: maximal unique matches (MUMs, assembly 1 = reference) clustered by the MUMmer mgaps algorithm on both strands; flags inverted blocks. Coordinates 0-based inclusive.")]
     public static SyntenicBlocksResult FindSyntenicBlocksAssemblies(
         [Description("Assembly 1 sequences.")] IReadOnlyList<NamedSequence> assembly1,
         [Description("Assembly 2 sequences.")] IReadOnlyList<NamedSequence> assembly2,
-        [Description("Minimum block size (default 1000).")] int minBlockSize = 1000,
-        [Description("K-mer size (default 21).")] int kmerSize = 21)
+        [Description("Minimum summed anchor length of a block (nucmer -c; default 1000).")] int minBlockSize = 1000,
+        [Description("Minimum MUM length (nucmer -l; default 21).")] int kmerSize = 21,
+        [Description("Maximum gap between clustered anchors (nucmer -g; default 90).")] int maxGap = 90,
+        [Description("Diagonal separation factor (nucmer -d; default 0.12).")] double diagonalFactor = 0.12,
+        [Description("Fixed diagonal difference between clustered anchors (nucmer -D; default 5).")] int diagonalDifference = 5,
+        [Description("MUMs unique in both assemblies (nucmer --mum) instead of the reference only (--mumreference, default).")] bool uniqueInBoth = false)
     {
         if (assembly1 is null)
             throw new ArgumentException("Assembly 1 cannot be null", nameof(assembly1));
@@ -536,11 +540,17 @@ public class ChromosomeTools
             throw new ArgumentException("Minimum block size must be positive", nameof(minBlockSize));
         if (kmerSize <= 0)
             throw new ArgumentException("K-mer size must be positive", nameof(kmerSize));
+        if (maxGap < 0)
+            throw new ArgumentException("Maximum gap must be non-negative", nameof(maxGap));
+        if (diagonalDifference < 0)
+            throw new ArgumentException("Diagonal difference must be non-negative", nameof(diagonalDifference));
+        if (!(diagonalFactor >= 0))
+            throw new ArgumentException("Diagonal factor must be non-negative", nameof(diagonalFactor));
 
         return new(SourceGa.FindSyntenicBlocks(
                 assembly1.Select(s => (s.Id, s.Sequence)),
                 assembly2.Select(s => (s.Id, s.Sequence)),
-                minBlockSize, kmerSize)
+                minBlockSize, kmerSize, maxGap, diagonalFactor, diagonalDifference, uniqueInBoth)
             .Select(b => new SyntenicBlockItem(b.Seq1, b.Start1, b.End1, b.Seq2, b.Start2, b.End2, b.IsInverted))
             .ToList());
     }

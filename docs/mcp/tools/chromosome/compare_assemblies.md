@@ -1,6 +1,6 @@
 # compare_assemblies
 
-Compare two assemblies by shared k-mer content.
+Compare two assemblies by exact canonical k-mer sets (Mash model).
 
 ## Overview
 
@@ -9,15 +9,19 @@ Compare two assemblies by shared k-mer content.
 | **Server** | Chromosome |
 | **Tool Name** | `compare_assemblies` |
 | **Method ID** | `GenomeAssemblyAnalyzer.CompareAssemblies` |
-| **Version** | 1.0.0 |
+| **Version** | 1.1.0 |
 | **Stability** | Stable |
 
 ## Description
 
-Extracts k-mer sets from each assembly and reports the fraction of each assembly's k-mers shared with
-the other (`alignedFraction1`, `alignedFraction2`) plus an identity proxy = mean of the two fractions.
-Structural counts (`breakpoints`, `inversions`, `translocations`) are reported as 0 by this k-mer
-comparison.
+Alignment-free whole-assembly comparison by exact canonical k-mer sets (Mash model, Ondov et al. 2016).
+All contigs of an assembly are pooled; k-mers are canonical (min of k-mer and reverse complement) and
+windows with any non-ACGT symbol are skipped. Reports `distinctKmers1/2`, `sharedKmers`, containment
+`|K1 ∩ K2| / |Ki|` (`containment1/2`), the Jaccard index `J = |K1 ∩ K2| / |K1 ∪ K2|` and the Mash distance
+`D = −ln(2J/(1+J))/k` (identical sets → 0, no shared k-mer → 1). It reports no aligned bases, identity
+percentage or breakpoints (the former `alignedFraction*`, `breakpoints`, `inversions`, `translocations`
+(always 0) and `sequenceIdentity` (mean of the fractions, unsourced) fields were removed); use
+[find_syntenic_blocks_assemblies](find_syntenic_blocks_assemblies.md) for structure.
 
 ## Core Documentation Reference
 
@@ -35,8 +39,8 @@ comparison.
 
 ## Output Schema
 
-Fields: `assembly1Name`, `assembly2Name`, `alignedFraction1`, `alignedFraction2`, `breakpoints`,
-`inversions`, `translocations`, `sequenceIdentity`.
+Fields: `assembly1Name`, `assembly2Name`, `kmerSize`, `distinctKmers1`, `distinctKmers2`, `sharedKmers`,
+`containment1`, `containment2`, `jaccardIndex`, `mashDistance`.
 
 ## Errors
 
@@ -48,7 +52,7 @@ Fields: `assembly1Name`, `assembly2Name`, `alignedFraction1`, `alignedFraction2`
 
 ## Example
 
-Two identical assemblies → `alignedFraction1 = alignedFraction2 = sequenceIdentity = 1.0`.
+Two identical assemblies → `containment1 = containment2 = jaccardIndex = 1.0`, `mashDistance = 0`. `ACGTACGT` vs `ACGTAAAA` (k = 4) → shared 2, J = 1/3, D = ln 2 / 4 = 0.1733.
 
 ## References
 

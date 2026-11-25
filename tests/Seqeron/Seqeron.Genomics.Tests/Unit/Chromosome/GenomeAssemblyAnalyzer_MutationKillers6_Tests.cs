@@ -58,8 +58,9 @@ public class GenomeAssemblyAnalyzer_MutationKillers6_Tests
             new[] { ("s", RandomDna(60, 1)) },
             new[] { ("s", RandomDna(60, 2)) },
             kmerSize: 21);
-        Assert.That(cmp.AlignedFraction1, Is.EqualTo(0.0).Within(Tol));
-        Assert.That(cmp.AlignedFraction2, Is.EqualTo(0.0).Within(Tol));
-        Assert.That(cmp.SequenceIdentity, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(cmp.Containment1, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(cmp.Containment2, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(cmp.JaccardIndex, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(cmp.MashDistance, Is.EqualTo(1.0).Within(Tol));
     }
 }

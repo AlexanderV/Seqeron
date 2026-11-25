@@ -26,15 +26,18 @@ public class GenomeAssemblyAnalyzer_MutationKillers3_Tests
     public void CompareAssemblies_IdenticalAndDisjoint()
     {
         var a = new[] { ("s", "ACGTACGTACGT") };
-        // Identical ⇒ every k-mer shared ⇒ aligned fractions and identity all 1.0.
+        // Identical ⇒ canonical 4-mers {ACGT, CGTA (= TACG), GTAC} all shared ⇒ J = 1, Mash D = 0.
         var same = CompareAssemblies(a, a, kmerSize: 4);
-        Assert.That(same.AlignedFraction1, Is.EqualTo(1.0).Within(Tol));
-        Assert.That(same.AlignedFraction2, Is.EqualTo(1.0).Within(Tol));
-        Assert.That(same.SequenceIdentity, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(same.SharedKmers, Is.EqualTo(3));
+        Assert.That(same.Containment1, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(same.Containment2, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(same.JaccardIndex, Is.EqualTo(1.0).Within(Tol));
+        Assert.That(same.MashDistance, Is.EqualTo(0.0).Within(Tol));
 
-        // Disjoint alphabets ⇒ no shared k-mers ⇒ identity 0.
+        // Disjoint k-mer sets ⇒ J = 0 ⇒ Mash D = 1 (Mash CommandDistance rule).
         var disjoint = CompareAssemblies(a, new[] { ("s", "GGGGGGGGGGGG") }, kmerSize: 4);
-        Assert.That(disjoint.SequenceIdentity, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(disjoint.JaccardIndex, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(disjoint.MashDistance, Is.EqualTo(1.0).Within(Tol));
     }
 
     #endregion
@@ -44,8 +47,8 @@ public class GenomeAssemblyAnalyzer_MutationKillers3_Tests
     [Test]
     public void FindSyntenicBlocks_CollinearBlockBetweenIdenticalSequences()
     {
-        // Two identical 100-bp sequences with unique 21-mers: anchors at positions 0,21,42,63
-        // cluster into a single collinear (non-inverted) block spanning [0, 63] on both.
+        // Two identical 100-bp sequences: the whole sequence is one MUM (length 100 ≥ 21), so one
+        // collinear (non-inverted) block spans [0, 99] on both (nucmer anchors, inclusive coordinates).
         string seq = RandomDna(100, 7);
         var blocks = FindSyntenicBlocks(
             new[] { ("s1", seq) }, new[] { ("s2", seq) }, minBlockSize: 50, kmerSize: 21).ToList();
@@ -54,10 +57,10 @@ public class GenomeAssemblyAnalyzer_MutationKillers3_Tests
         var b = blocks[0];
         Assert.That(b.Seq1, Is.EqualTo("s1"));
         Assert.That(b.Start1, Is.EqualTo(0));
-        Assert.That(b.End1, Is.EqualTo(63));   // last anchor at i = 63 (step 21)
+        Assert.That(b.End1, Is.EqualTo(99));
         Assert.That(b.Seq2, Is.EqualTo("s2"));
         Assert.That(b.Start2, Is.EqualTo(0));
-        Assert.That(b.End2, Is.EqualTo(63));
+        Assert.That(b.End2, Is.EqualTo(99));
         Assert.That(b.IsInverted, Is.False);
     }
 

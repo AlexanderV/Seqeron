@@ -23,13 +23,15 @@ public class GenomeAssemblyAnalyzer_MutationKillers4_Tests
     [Test]
     public void CompareAssemblies_PartialOverlap_ExactFractions()
     {
-        // a1 4-mers {ACGT,CGTA,GTAC,TACG}; a2 4-mers {ACGT,CGTA,GTAA,TAAA,AAAA}; shared = 2.
+        // canonical 4-mers: a1 {ACGT, CGTA (=TACG), GTAC}; a2 {ACGT, CGTA, GTAA (=TTAC), TAAA (=TTTA), AAAA};
+        // shared = 2, union = 6 ⇒ J = 1/3 ⇒ Mash D = −ln(0.5)/4 (Ondov 2016 eq. 4).
         var a1 = new[] { ("s", "ACGTACGT") };
         var a2 = new[] { ("s", "ACGTAAAA") };
         var cmp = CompareAssemblies(a1, a2, kmerSize: 4);
-        Assert.That(cmp.AlignedFraction1, Is.EqualTo(2.0 / 4).Within(Tol)); // 0.5
-        Assert.That(cmp.AlignedFraction2, Is.EqualTo(2.0 / 5).Within(Tol)); // 0.4
-        Assert.That(cmp.SequenceIdentity, Is.EqualTo((0.5 + 0.4) / 2).Within(Tol)); // 0.45
+        Assert.That(cmp.Containment1, Is.EqualTo(2.0 / 3).Within(Tol));
+        Assert.That(cmp.Containment2, Is.EqualTo(2.0 / 5).Within(Tol));
+        Assert.That(cmp.JaccardIndex, Is.EqualTo(1.0 / 3).Within(Tol));
+        Assert.That(cmp.MashDistance, Is.EqualTo(Math.Log(2) / 4).Within(Tol));
     }
 
     [Test]

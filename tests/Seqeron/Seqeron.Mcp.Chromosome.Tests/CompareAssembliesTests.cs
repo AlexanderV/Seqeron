@@ -33,9 +33,24 @@ public class CompareAssembliesTests
         {
             Assert.That(cmp.Assembly1Name, Is.EqualTo("A"));
             Assert.That(cmp.Assembly2Name, Is.EqualTo("B"));
-            Assert.That(cmp.AlignedFraction1, Is.EqualTo(1.0).Within(1e-9));
-            Assert.That(cmp.AlignedFraction2, Is.EqualTo(1.0).Within(1e-9));
-            Assert.That(cmp.SequenceIdentity, Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(cmp.Containment1, Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(cmp.Containment2, Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(cmp.JaccardIndex, Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(cmp.MashDistance, Is.EqualTo(0.0).Within(1e-9));
+        });
+    }
+
+    [Test]
+    public void CompareAssemblies_PartialOverlap_ReportsMashValues()
+    {
+        // canonical 4-mers {ACGT,CGTA,GTAC} vs {ACGT,CGTA,GTAA,TAAA,AAAA}: J = 2/6, D = ln2/4 (Ondov 2016 eq. 4).
+        var cmp = ChromosomeTools.CompareAssemblies(
+            new List<NamedSequence> { new("s", "ACGTACGT") }, new List<NamedSequence> { new("s", "ACGTAAAA") }, "x", "y", 4);
+        Assert.Multiple(() =>
+        {
+            Assert.That(cmp.SharedKmers, Is.EqualTo(2));
+            Assert.That(cmp.JaccardIndex, Is.EqualTo(1.0 / 3).Within(1e-12));
+            Assert.That(cmp.MashDistance, Is.EqualTo(Math.Log(2) / 4).Within(1e-12));
         });
     }
 }

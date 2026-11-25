@@ -229,7 +229,7 @@ public class GenomeAssemblyAnalyzerTests
     #region Assembly Comparison Tests
 
     [Test]
-    public void CompareAssemblies_IdenticalAssemblies_HighIdentity()
+    public void CompareAssemblies_IdenticalAssemblies_JaccardOneMashZero()
     {
         var assembly = new List<(string, string)>
         {
@@ -239,12 +239,13 @@ public class GenomeAssemblyAnalyzerTests
         var comparison = GenomeAssemblyAnalyzer.CompareAssemblies(
             assembly, assembly, "asm1", "asm2");
 
-        Assert.That(comparison.SequenceIdentity, Is.EqualTo(1.0).Within(0.01));
-        Assert.That(comparison.AlignedFraction1, Is.EqualTo(1.0).Within(0.01));
+        Assert.That(comparison.JaccardIndex, Is.EqualTo(1.0));
+        Assert.That(comparison.Containment1, Is.EqualTo(1.0));
+        Assert.That(comparison.MashDistance, Is.EqualTo(0.0));
     }
 
     [Test]
-    public void CompareAssemblies_DifferentAssemblies_LowIdentity()
+    public void CompareAssemblies_DisjointAssemblies_JaccardZeroMashOne()
     {
         var assembly1 = new List<(string, string)>
         {
@@ -258,7 +259,9 @@ public class GenomeAssemblyAnalyzerTests
 
         var comparison = GenomeAssemblyAnalyzer.CompareAssemblies(assembly1, assembly2);
 
-        Assert.That(comparison.AlignedFraction1, Is.LessThan(0.5));
+        Assert.That(comparison.Containment1, Is.EqualTo(0.0));
+        Assert.That(comparison.JaccardIndex, Is.EqualTo(0.0));
+        Assert.That(comparison.MashDistance, Is.EqualTo(1.0));
     }
 
     [Test]
@@ -279,8 +282,9 @@ public class GenomeAssemblyAnalyzerTests
         var blocks = GenomeAssemblyAnalyzer.FindSyntenicBlocks(
             assembly1, assembly2, minBlockSize: 100).ToList();
 
-        // Algorithm may find blocks depending on k-mer spacing
-        Assert.That(blocks, Is.Not.Null);
+        // The identical 1600-bp string occurs once in each assembly, so it is one MUM (even though it is
+        // (ACGTGCTA)x200, no shorter prefix is needed): one block over the whole sequence.
+        Assert.That(blocks, Is.EqualTo(new[] { ("chr1", 0, 1599, "chrA", 0, 1599, false) }));
     }
 
     #endregion

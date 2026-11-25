@@ -206,17 +206,29 @@ public static class GenomeAssemblyAnalyzer
         int GapLength);
 
     /// <summary>
-    /// Assembly comparison result.
+    /// K-mer comparison of two assemblies (Mash / sourmash model, strand-collapsed exact k-mer sets).
     /// </summary>
+    /// <param name="Assembly1Name">Label of assembly 1.</param>
+    /// <param name="Assembly2Name">Label of assembly 2.</param>
+    /// <param name="KmerSize">k used for both sets.</param>
+    /// <param name="DistinctKmers1">|K1|: distinct canonical k-mers of assembly 1 (all contigs pooled).</param>
+    /// <param name="DistinctKmers2">|K2|: distinct canonical k-mers of assembly 2.</param>
+    /// <param name="SharedKmers">|K1 ∩ K2|.</param>
+    /// <param name="Containment1">|K1 ∩ K2| / |K1| — fraction of assembly 1's k-mers present in assembly 2 (0 when K1 is empty).</param>
+    /// <param name="Containment2">|K1 ∩ K2| / |K2|.</param>
+    /// <param name="JaccardIndex">|K1 ∩ K2| / |K1 ∪ K2| (0 when both sets are empty).</param>
+    /// <param name="MashDistance">D = −(1/k)·ln(2J/(1+J)) (Ondov et al. 2016) with Mash's boundary rules (J = 1 → 0, J = 0 → 1).</param>
     public readonly record struct AssemblyComparison(
         string Assembly1Name,
         string Assembly2Name,
-        double AlignedFraction1,
-        double AlignedFraction2,
-        int Breakpoints,
-        int Inversions,
-        int Translocations,
-        double SequenceIdentity);
+        int KmerSize,
+        int DistinctKmers1,
+        int DistinctKmers2,
+        int SharedKmers,
+        double Containment1,
+        double Containment2,
+        double JaccardIndex,
+        double MashDistance);
 
     #endregion
 
@@ -1469,8 +1481,25 @@ public static class GenomeAssemblyAnalyzer
     #region Assembly Comparison
 
     /// <summary>
-    /// Compares two assemblies using k-mer content.
+    /// Compares two assemblies by their exact, strand-collapsed k-mer sets (Mash / sourmash model).
     /// </summary>
+    /// <remarks>
+    /// All contigs of an assembly are pooled into one set (a multi-FASTA is one genome for <c>mash sketch</c>);
+    /// k-mers never span two contigs. K-mers are canonical, min(w, RC(w)), and any window containing a non-ACGT
+    /// symbol is skipped — Mash <c>Sketch.cpp</c> <c>addMinHashes</c> rule, applied through
+    /// <see cref="KmerAnalyzer.DistinctKmers(string, int, KmerCountingOptions)"/> (<c>Canonical = true</c>).
+    /// <list type="bullet">
+    /// <item>Jaccard J = |K1 ∩ K2| / |K1 ∪ K2| (Ondov et al. 2016, Genome Biol 17:132, eq. 1);</item>
+    /// <item>Mash distance D = −(1/k)·ln(2J/(1+J)) (eq. 4) via <see cref="KmerAnalyzer.MashDistanceFromJaccard"/>;
+    /// identical sets (also both empty) → 0, no shared k-mer → 1 (Mash <c>CommandDistance.cpp</c>);</item>
+    /// <item>containment C(Ki, Kj) = |K1 ∩ K2| / |Ki| (Koslicki &amp; Zabeti 2019; sourmash <c>--containment</c>).</item>
+    /// </list>
+    /// This is a whole-assembly alignment-free similarity, not an alignment: it reports no aligned bases,
+    /// identity percentage or breakpoints (those need nucmer/dnadiff alignments — see <see cref="FindSyntenicBlocks"/>
+    /// for the MUM-cluster blocks).
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">An assembly is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="kmerSize"/> is not positive.</exception>
     public static AssemblyComparison CompareAssemblies(
         IEnumerable<(string Id, string Sequence)> assembly1,
         IEnumerable<(string Id, string Sequence)> assembly2,
@@ -1478,176 +1507,409 @@ public static class GenomeAssemblyAnalyzer
         string name2 = "Assembly2",
         int kmerSize = 21)
     {
-        var kmers1 = ExtractKmers(assembly1, kmerSize);
-        var kmers2 = ExtractKmers(assembly2, kmerSize);
+        ArgumentNullException.ThrowIfNull(assembly1);
+        ArgumentNullException.ThrowIfNull(assembly2);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(kmerSize);
 
-        int shared = kmers1.Keys.Count(k => kmers2.ContainsKey(k));
+        var kmers1 = PooledCanonicalKmers(assembly1, kmerSize);
+        var kmers2 = PooledCanonicalKmers(assembly2, kmerSize);
 
-        double aligned1 = kmers1.Count > 0 ? shared / (double)kmers1.Count : 0;
-        double aligned2 = kmers2.Count > 0 ? shared / (double)kmers2.Count : 0;
+        var (small, large) = kmers1.Count <= kmers2.Count ? (kmers1, kmers2) : (kmers2, kmers1);
+        int shared = small.Count(large.Contains);
+        int union = kmers1.Count + kmers2.Count - shared;
 
-        // Estimate identity from shared k-mers
-        double identity = (aligned1 + aligned2) / 2;
+        double jaccard = union == 0 ? 0.0 : (double)shared / union;
+        // Mash CommandDistance: shared == union (identical sets, incl. both empty) → 0.
+        double mash = shared == union ? 0.0 : KmerAnalyzer.MashDistanceFromJaccard(jaccard, kmerSize);
 
         return new AssemblyComparison(
-            name1, name2,
-            aligned1, aligned2,
-            0, 0, 0, identity);
+            name1, name2, kmerSize,
+            kmers1.Count, kmers2.Count, shared,
+            kmers1.Count > 0 ? (double)shared / kmers1.Count : 0.0,
+            kmers2.Count > 0 ? (double)shared / kmers2.Count : 0.0,
+            jaccard, mash);
     }
 
-    /// <summary>
-    /// Extracts k-mers from assembly.
-    /// </summary>
-    private static Dictionary<string, int> ExtractKmers(
-        IEnumerable<(string Id, string Sequence)> sequences,
-        int kmerSize)
+    /// <summary>Distinct canonical ACGT-only k-mers of every contig, pooled (canonical counter, no private loop).</summary>
+    private static HashSet<string> PooledCanonicalKmers(IEnumerable<(string Id, string Sequence)> sequences, int k)
     {
-        var kmers = new Dictionary<string, int>();
-
+        var options = new KmerCountingOptions(Canonical: true, AcgtOnly: true);
+        var pooled = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (_, sequence) in sequences)
-        {
-            var upper = sequence.ToUpperInvariant();
-            for (int i = 0; i <= upper.Length - kmerSize; i++)
-            {
-                string kmer = upper.Substring(i, kmerSize);
-                if (!kmer.Contains('N'))
-                {
-                    kmers[kmer] = kmers.GetValueOrDefault(kmer) + 1;
-                }
-            }
-        }
-
-        return kmers;
+            pooled.UnionWith(KmerAnalyzer.DistinctKmers(sequence ?? string.Empty, k, options));
+        return pooled;
     }
 
+    /// <summary>nucmer defaults (MUMmer 3/4 usage text): <c>-g</c> maxgap.</summary>
+    private const int NucmerMaxGap = 90;
+
+    /// <summary>nucmer default <c>--diagfactor</c> (<c>-d</c>): clustering diagonal-difference separation factor.</summary>
+    private const double NucmerDiagonalFactor = 0.12;
+
+    /// <summary>nucmer default <c>--diagdiff</c> (<c>-D</c>): fixed diagonal difference allowed between adjacent matches.</summary>
+    private const int NucmerDiagonalDifference = 5;
+
     /// <summary>
-    /// Finds syntenic blocks between assemblies.
+    /// Finds syntenic (collinear) blocks between two assemblies as MUMmer's <c>nucmer</c> does before
+    /// extension: maximal unique matches (MUMs) are anchors, and anchors are clustered by the <c>mgaps</c>
+    /// algorithm (Delcher et al. 2002, NAR 30:2478, <i>Fast algorithms for large-scale genome alignment and
+    /// comparison</i>; Marçais et al. 2018, PLoS Comput Biol 14:e1005944).
     /// </summary>
+    /// <remarks>
+    /// <para>Assembly 1 is the reference, assembly 2 the query (as <c>nucmer ref query</c>). For every pair
+    /// (reference sequence, query sequence) and both query strands the MUMs of length ≥ <paramref name="kmerSize"/>
+    /// are found with the library suffix tree (<c>FindMaximalUniqueMatches</c>; nucmer default
+    /// <c>--mumreference</c> = unique in the reference, <paramref name="uniqueInBoth"/> = <c>--mum</c>); symbols
+    /// other than A, C, G, T never match (case-insensitive). Anchors are then clustered with the <c>mgaps</c>
+    /// routine of MUMmer 4 (<c>src/tigr/mgaps.cc</c>, <c>include/mummer/mgaps.hh</c>): repeat-internal anchors are
+    /// filtered (<c>Filter_Matches</c>), anchors whose gap to the previous one is at most
+    /// <paramref name="maxGap"/> and whose diagonals differ by at most max(<paramref name="diagonalDifference"/>,
+    /// <paramref name="diagonalFactor"/>·gap) are linked (union-find), and from each linked component the
+    /// highest-scoring colinear chain is extracted repeatedly (<c>Process_Cluster</c>: score = Σ length −
+    /// overlap − diagonal drift). A chain whose total anchor length is at least <paramref name="minBlockSize"/>
+    /// (nucmer <c>-c</c>) is reported.</para>
+    /// <para>Coordinates are 0-based inclusive on the forward strand of each sequence; blocks are ordered by
+    /// reference sequence (input order), Start1, then Start2. <c>IsInverted</c> is true when the block matches the
+    /// reverse-complement strand of the query. Unlike nucmer no match extension (Smith–Waterman between anchors)
+    /// is done: a block spans first anchor start to last anchor end.</para>
+    /// </remarks>
+    /// <param name="assembly1">Reference sequences.</param>
+    /// <param name="assembly2">Query sequences.</param>
+    /// <param name="minBlockSize">Minimum summed anchor length of a block (nucmer <c>-c</c>; mgaps <c>-l</c>).</param>
+    /// <param name="kmerSize">Minimum MUM length (nucmer <c>-l</c> minmatch; default 21 as before, nucmer 20).</param>
+    /// <param name="maxGap">Maximum query gap between linked anchors (nucmer <c>-g</c>, 90).</param>
+    /// <param name="diagonalFactor">Diagonal separation factor (nucmer <c>-d</c>, 0.12).</param>
+    /// <param name="diagonalDifference">Fixed diagonal difference (nucmer <c>-D</c>, 5).</param>
+    /// <param name="uniqueInBoth">MUMs unique in both sequences (<c>--mum</c>) instead of the reference only.</param>
     public static IEnumerable<(string Seq1, int Start1, int End1, string Seq2, int Start2, int End2, bool IsInverted)>
         FindSyntenicBlocks(
             IEnumerable<(string Id, string Sequence)> assembly1,
             IEnumerable<(string Id, string Sequence)> assembly2,
             int minBlockSize = 1000,
-            int kmerSize = 21)
+            int kmerSize = 21,
+            int maxGap = NucmerMaxGap,
+            double diagonalFactor = NucmerDiagonalFactor,
+            int diagonalDifference = NucmerDiagonalDifference,
+            bool uniqueInBoth = false)
     {
-        var asm1 = assembly1.ToList();
-        var asm2 = assembly2.ToList();
+        ArgumentNullException.ThrowIfNull(assembly1);
+        ArgumentNullException.ThrowIfNull(assembly2);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(minBlockSize);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(kmerSize);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxGap);
+        ArgumentOutOfRangeException.ThrowIfNegative(diagonalDifference);
+        if (!(diagonalFactor >= 0))
+            throw new ArgumentOutOfRangeException(nameof(diagonalFactor), diagonalFactor, "Must be non-negative.");
 
-        // Build k-mer index for assembly2
-        var kmerIndex = new Dictionary<string, List<(string SeqId, int Position)>>();
+        var uniqueness = uniqueInBoth ? global::SuffixTree.MumUniqueness.Both : global::SuffixTree.MumUniqueness.Reference;
+        var queries = assembly2.Select(q => (q.Id, Forward: NormalizeForMatching(q.Sequence, '$'))).ToList();
+        return FindSyntenicBlocksCore(assembly1, queries, minBlockSize, kmerSize, maxGap, diagonalFactor,
+            diagonalDifference, uniqueness);
+    }
 
-        foreach (var (seqId, sequence) in asm2)
+    private static IEnumerable<(string Seq1, int Start1, int End1, string Seq2, int Start2, int End2, bool IsInverted)>
+        FindSyntenicBlocksCore(
+            IEnumerable<(string Id, string Sequence)> assembly1,
+            List<(string Id, string Forward)> queries,
+            int minBlockSize, int minMatch, int maxGap, double diagonalFactor, int diagonalDifference,
+            global::SuffixTree.MumUniqueness uniqueness)
+    {
+        var clusterer = new MgapsClusterer(diagonalDifference, maxGap, minBlockSize, diagonalFactor);
+
+        // Reverse complement of the (already normalised ACGT/'$') query; '$' passes through the complement.
+        var reverse = queries.Select(q => string.Create(q.Forward.Length, q.Forward, static (span, f) =>
         {
-            var upper = sequence.ToUpperInvariant();
-            for (int i = 0; i <= upper.Length - kmerSize; i++)
-            {
-                string kmer = upper.Substring(i, kmerSize);
-                if (!kmer.Contains('N'))
-                {
-                    if (!kmerIndex.ContainsKey(kmer))
-                        kmerIndex[kmer] = new List<(string, int)>();
-                    kmerIndex[kmer].Add((seqId, i));
-                }
-            }
-        }
+            f.AsSpan().TryGetReverseComplement(span);
+        })).ToList();
 
-        // Find matching regions
-        foreach (var (seq1Id, seq1) in asm1)
+        foreach (var (refId, refSeq) in assembly1)
         {
-            var upper1 = seq1.ToUpperInvariant();
-            var anchors = new List<(int Pos1, string Seq2, int Pos2)>();
+            string reference = NormalizeForMatching(refSeq, '#');
+            if (reference.Length < minMatch)
+                continue;
 
-            for (int i = 0; i <= upper1.Length - kmerSize; i += kmerSize)
+            var tree = global::SuffixTree.SuffixTree.Build(reference);
+            var found = new List<(int Start1, int End1, int Q, int Start2, int End2, bool Inverted)>();
+
+            for (int q = 0; q < queries.Count; q++)
             {
-                string kmer = upper1.Substring(i, kmerSize);
-                if (!kmer.Contains('N') && kmerIndex.TryGetValue(kmer, out var hits))
+                int n = queries[q].Forward.Length;
+                for (int strand = 0; strand < 2; strand++)
                 {
-                    foreach (var (seq2Id, pos2) in hits)
+                    string query = strand == 0 ? queries[q].Forward : reverse[q];
+                    var mums = tree.FindMaximalUniqueMatches(query, minMatch, uniqueness);
+                    if (mums.Count == 0)
+                        continue;
+
+                    foreach (var chain in clusterer.Cluster(mums.Select(m => (m.PositionInText, m.PositionInQuery, m.Length)).ToList()))
                     {
-                        anchors.Add((i, seq2Id, pos2));
+                        int s1 = chain.Min(m => m.Start1), e1 = chain.Max(m => m.Start1 + m.Len) - 1;
+                        int s2 = chain.Min(m => m.Start2), e2 = chain.Max(m => m.Start2 + m.Len) - 1;
+                        // Reverse strand: positions are on RC(query); map back to the forward strand.
+                        if (strand == 1)
+                            (s2, e2) = (n - 1 - e2, n - 1 - s2);
+                        found.Add((s1, e1, q, s2, e2, strand == 1));
                     }
                 }
             }
 
-            // Cluster anchors into blocks
-            var blocks = ClusterAnchors(anchors, minBlockSize);
-
-            foreach (var block in blocks)
-            {
-                yield return (seq1Id, block.Start1, block.End1,
-                             block.Seq2, block.Start2, block.End2, block.IsInverted);
-            }
+            foreach (var b in found.OrderBy(f => f.Start1).ThenBy(f => f.Start2).ThenBy(f => f.Q).ThenBy(f => f.Inverted))
+                yield return (refId, b.Start1, b.End1, queries[b.Q].Id, b.Start2, b.End2, b.Inverted);
         }
     }
 
-    /// <summary>
-    /// Clusters k-mer anchors into syntenic blocks.
-    /// </summary>
-    private static List<(int Start1, int End1, string Seq2, int Start2, int End2, bool IsInverted)>
-        ClusterAnchors(
-            List<(int Pos1, string Seq2, int Pos2)> anchors,
-            int minBlockSize)
+    /// <summary>Upper-cases and replaces every non-ACGT symbol by <paramref name="mismatchSymbol"/> (never matched; distinct per side).</summary>
+    private static string NormalizeForMatching(string? sequence, char mismatchSymbol)
     {
-        var result = new List<(int, int, string, int, int, bool)>();
-
-        if (anchors.Count == 0)
-            return result;
-
-        // Group by target sequence
-        var bySeq2 = anchors.GroupBy(a => a.Seq2);
-
-        foreach (var group in bySeq2)
+        if (string.IsNullOrEmpty(sequence))
+            return string.Empty;
+        return string.Create(sequence.Length, (sequence, mismatchSymbol), static (span, state) =>
         {
-            var sorted = group.OrderBy(a => a.Pos1).ToList();
-
-            int blockStart1 = sorted[0].Pos1;
-            int blockStart2 = sorted[0].Pos2;
-            int lastPos1 = sorted[0].Pos1;
-            int lastPos2 = sorted[0].Pos2;
-            bool? isInverted = null;
-
-            for (int i = 1; i < sorted.Count; i++)
+            for (int i = 0; i < span.Length; i++)
             {
-                int gap1 = sorted[i].Pos1 - lastPos1;
-                int gap2 = sorted[i].Pos2 - lastPos2;
+                char c = char.ToUpperInvariant(state.sequence[i]);
+                span[i] = c is 'A' or 'C' or 'G' or 'T' ? c : state.mismatchSymbol;
+            }
+        });
+    }
 
-                bool currentInverted = gap2 < 0;
+    /// <summary>
+    /// Literal port of MUMmer 4 <c>mgaps</c> (<c>ClusterMatches::Cluster_each</c>, <c>Filter_Matches</c>,
+    /// <c>Process_Cluster</c>; <c>Use_Extents</c> = false, as <c>mgaps</c> without <c>-C</c>).
+    /// Start1 = reference position, Start2 = query position.
+    /// </summary>
+    private sealed class MgapsClusterer
+    {
+        internal sealed class Match
+        {
+            public long Start1, Start2, Len;
+            public long Score, From, Adj;
+            public int ClusterId;
+            public bool Good = true, Tentative;
+        }
 
-                if (isInverted == null)
-                    isInverted = currentInverted;
+        private readonly int _fixedSeparation;
+        private readonly long _maxSeparation;
+        private readonly long _minOutputScore;
+        private readonly double _separationFactor;
 
-                // Check if continuous
-                if (gap1 > minBlockSize || Math.Abs(gap2) > minBlockSize || currentInverted != isInverted)
+        public MgapsClusterer(int fixedSeparation, long maxSeparation, long minOutputScore, double separationFactor)
+        {
+            _fixedSeparation = fixedSeparation;
+            _maxSeparation = maxSeparation;
+            _minOutputScore = minOutputScore;
+            _separationFactor = separationFactor;
+        }
+
+        /// <summary>Clusters (ref, query, length) matches; returns the chains (each ordered as mgaps prints it).</summary>
+        public List<List<(int Start1, int Start2, int Len)>> Cluster(List<(int Ref, int Query, int Length)> matches)
+        {
+            var result = new List<List<(int, int, int)>>();
+            int n = matches.Count;
+            if (n == 0)
+                return result;
+
+            // 1-based, as the C++ (index 0 unused).
+            var a = new Match[n + 1];
+            for (int i = 0; i < n; i++)
+                a[i + 1] = new Match { Start1 = matches[i].Ref, Start2 = matches[i].Query, Len = matches[i].Length };
+
+            var uf = new int[n + 1];
+            Array.Fill(uf, -1);
+
+            Array.Sort(a, 1, n, Comparer<Match>.Create(ByStart2));
+            n = FilterMatches(a, n);
+
+            for (int i = 1; i < n; i++)
+            {
+                long iEnd = a[i].Start2 + a[i].Len;
+                long iDiag = a[i].Start2 - a[i].Start1;
+                for (int j = i + 1; j <= n; j++)
                 {
-                    // End current block
-                    if (lastPos1 - blockStart1 >= minBlockSize)
-                    {
-                        result.Add((blockStart1, lastPos1, group.Key,
-                                   Math.Min(blockStart2, lastPos2),
-                                   Math.Max(blockStart2, lastPos2),
-                                   isInverted ?? false));
-                    }
-
-                    blockStart1 = sorted[i].Pos1;
-                    blockStart2 = sorted[i].Pos2;
-                    isInverted = null;
+                    long sep = a[j].Start2 - iEnd;
+                    if (sep > _maxSeparation)
+                        break;
+                    long diagDiff = Math.Abs(a[j].Start2 - a[j].Start1 - iDiag);
+                    if (diagDiff <= Math.Max(_fixedSeparation, (long)(_separationFactor * sep)))
+                        Union(uf, Find(uf, i), Find(uf, j));
                 }
-
-                lastPos1 = sorted[i].Pos1;
-                lastPos2 = sorted[i].Pos2;
             }
 
-            // Handle last block
-            if (lastPos1 - blockStart1 >= minBlockSize)
+            for (int i = 1; i <= n; i++)
             {
-                result.Add((blockStart1, lastPos1, group.Key,
-                           Math.Min(blockStart2, lastPos2),
-                           Math.Max(blockStart2, lastPos2),
-                           isInverted ?? false));
+                a[i].ClusterId = Find(uf, i);
+                a[i].Good = false;
+            }
+
+            Array.Sort(a, 1, n, Comparer<Match>.Create((x, y) =>
+                x.ClusterId != y.ClusterId ? x.ClusterId.CompareTo(y.ClusterId) : ByStart2(x, y)));
+
+            for (int i = 1; i <= n;)
+            {
+                int j = i + 1;
+                while (j <= n && a[i].ClusterId == a[j].ClusterId)
+                    j++;
+                ProcessCluster(new List<Match>(new ArraySegment<Match>(a, i, j - i)), result);
+                i = j;
+            }
+
+            return result;
+        }
+
+        private static int ByStart2(Match x, Match y)
+            => x.Start2 != y.Start2 ? x.Start2.CompareTo(y.Start2) : x.Start1.CompareTo(y.Start1);
+
+        private static int Find(int[] uf, int a)
+        {
+            if (uf[a] < 0)
+                return a;
+            int i = a;
+            while (uf[i] > 0)
+                i = uf[i];
+            for (int j = a, k; uf[j] != i; j = k)
+            {
+                k = uf[j];
+                uf[j] = i;
+            }
+            return i;
+        }
+
+        private static void Union(int[] uf, int a, int b)
+        {
+            if (a == b)
+                return;
+            if (uf[a] < uf[b])
+            {
+                uf[a] += uf[b];
+                uf[b] = a;
+            }
+            else
+            {
+                uf[b] += uf[a];
+                uf[a] = b;
             }
         }
 
-        return result;
+        /// <summary><c>Filter_Matches</c>: drops repeat-internal matches, merges overlapping same-diagonal matches; returns the new count.</summary>
+        private static int FilterMatches(Match[] a, int n)
+        {
+            // a[1..n]; the C++ works on A+1 with 0-based indices.
+            for (int i = 1; i < n; i++)
+            {
+                if (!a[i].Good)
+                    continue;
+                long iDiag = a[i].Start2 - a[i].Start1;
+                long iEnd = a[i].Start2 + a[i].Len;
+
+                for (int j = i + 1; j <= n && a[j].Start2 <= iEnd; j++)
+                {
+                    if (!a[j].Good)
+                        continue;
+                    long jDiag = a[j].Start2 - a[j].Start1;
+                    if (iDiag == jDiag)
+                    {
+                        long jExtent = a[j].Len + a[j].Start2 - a[i].Start2;
+                        if (jExtent > a[i].Len)
+                        {
+                            a[i].Len = jExtent;
+                            iEnd = a[i].Start2 + jExtent;
+                        }
+                        a[j].Good = false;
+                    }
+                    else if (a[i].Start1 == a[j].Start1)
+                    {
+                        long olap = a[i].Start2 + a[i].Len - a[j].Start2;
+                        if (ResolveTie(a[i], a[j], olap))
+                            break;
+                    }
+                    else if (a[i].Start2 == a[j].Start2)
+                    {
+                        long olap = a[i].Start1 + a[i].Len - a[j].Start1;
+                        if (ResolveTie(a[i], a[j], olap))
+                            break;
+                    }
+                }
+            }
+
+            int w = 1;
+            for (int i = 1; i <= n; i++)
+                if (a[i].Good)
+                    a[w++] = a[i];
+            return w - 1;
+        }
+
+        /// <summary>The shared body of the two repeat-resolution branches; true = <c>break</c> out of the j loop.</summary>
+        private static bool ResolveTie(Match i, Match j, long olap)
+        {
+            if (i.Len < j.Len)
+            {
+                if (olap >= i.Len / 2)
+                {
+                    i.Good = false;
+                    return true;
+                }
+            }
+            else if (j.Len < i.Len)
+            {
+                if (olap >= j.Len / 2)
+                    j.Good = false;
+            }
+            else if (olap >= i.Len / 2)
+            {
+                j.Tentative = true;
+                if (i.Tentative)
+                {
+                    i.Good = false;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary><c>Process_Cluster</c>: repeatedly extract the best chain of the (sorted) component.</summary>
+        private void ProcessCluster(List<Match> a, List<List<(int, int, int)>> output)
+        {
+            while (a.Count > 0)
+            {
+                int n = a.Count;
+                for (int i = 0; i < n; i++)
+                {
+                    a[i].Score = a[i].Len;
+                    a[i].Adj = 0;
+                    a[i].From = -1;
+                    for (int j = 0; j < i; j++)
+                    {
+                        long olap1 = a[j].Start1 + a[j].Len - a[i].Start1;
+                        long olap2 = a[j].Start2 + a[j].Len - a[i].Start2;
+                        long olap = Math.Max(Math.Max(0, olap1), olap2);
+                        long pen = olap + Math.Abs(a[i].Start2 - a[i].Start1 - (a[j].Start2 - a[j].Start1));
+                        if (a[j].Score + a[i].Len - pen > a[i].Score)
+                        {
+                            a[i].From = j;
+                            a[i].Score = a[j].Score + a[i].Len - pen;
+                            a[i].Adj = olap;
+                        }
+                    }
+                }
+
+                int best = 0;
+                for (int i = 1; i < n; i++)
+                    if (a[i].Score > a[best].Score)
+                        best = i;
+
+                long total = 0;
+                for (int i = best; i >= 0; i = (int)a[i].From)
+                {
+                    a[i].Good = true;
+                    total += a[i].Len;
+                }
+
+                if (total >= _minOutputScore)
+                    output.Add(a.Where(m => m.Good).Select(m => ((int)m.Start1, (int)m.Start2, (int)m.Len)).ToList());
+
+                a = a.Where(m => !m.Good).ToList();
+            }
+        }
     }
 
     #endregion

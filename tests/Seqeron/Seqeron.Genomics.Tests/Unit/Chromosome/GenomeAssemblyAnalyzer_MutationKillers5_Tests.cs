@@ -37,20 +37,6 @@ public class GenomeAssemblyAnalyzer_MutationKillers5_Tests
     }
 
     [Test]
-    public void FindSyntenicBlocks_ReverseOrderedAnchors_AreInverted()
-    {
-        // seq2 carries seq1's three 21-mer blocks in reverse order, so anchors map to DECREASING
-        // target positions ⇒ the block is flagged inverted.
-        string seq1 = RandomFrom("ACGT", 63, 5);
-        string seq2 = string.Concat(seq1.AsSpan(42, 21), seq1.AsSpan(21, 21), seq1.AsSpan(0, 21));
-        var blocks = FindSyntenicBlocks(
-            new[] { ("s1", seq1) }, new[] { ("s2", seq2) }, minBlockSize: 25, kmerSize: 21).ToList();
-
-        Assert.That(blocks, Has.Count.EqualTo(1));
-        Assert.That(blocks[0].IsInverted, Is.True);
-    }
-
-    [Test]
     public void FindRepetitiveRegions_TandemSpansWholeSequence()
     {
         // (CAG)×200 = 600 bp: the three 6-mers CAGCAG/AGCAGC/GCAGCA occur 199/198/198 times, every window
