@@ -88,7 +88,8 @@ internal sealed partial class EsaIndex
             return all;
         }
         if (!TryMatch(pattern, out int lo, out int hi)) return Array.Empty<int>();
-        return Sa.ToArray(lo, hi - lo + 1);
+        int count = hi - lo + 1;
+        return count < SaView.UninitializedFrom ? Sa.ToArray(lo, count) : Sa.ToArrayUninitialized(lo, count);
     }
 
     /// <summary>

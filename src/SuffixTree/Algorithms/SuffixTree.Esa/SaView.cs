@@ -141,10 +141,26 @@ internal readonly unsafe struct SaView
     internal int[] ToArray(long start, int count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        int[] result = GC.AllocateUninitializedArray<int>(count); // every entry is written by the copy below (a failed copy drops the array): no zeroing of the 6 KB that the locate of 1,500 hits returns
+        int[] result = new int[count];
         CopyTo(start, result);
         return result;
     }
+
+    /// <summary>
+    /// <see cref="ToArray"/> for a long list, without zeroing the array first: every entry is written by the copy (a failed copy drops the array), which saves the clearing of the 6 KB that the locate of 1,500 hits returns. Out of line:
+    /// the locate of a short pattern (a few entries, below <see cref="UninitializedFrom"/>) calls the small <see cref="ToArray"/> of S1, and a runtime that allocates a zeroed array below 2,048 bytes anyway would only add its dispatch.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal int[] ToArrayUninitialized(long start, int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        int[] result = GC.AllocateUninitializedArray<int>(count);
+        CopyTo(start, result);
+        return result;
+    }
+
+    /// <summary>The number of entries from which <see cref="ToArrayUninitialized"/> pays (2,048 bytes: the size below which the runtime zeroes the array of <see cref="GC.AllocateUninitializedArray{T}(int, bool)"/> anyway).</summary>
+    internal const int UninitializedFrom = 512;
 
     /// <summary>The entries <c>[start, start + count)</c> as a new array of 64-bit positions.</summary>
     internal long[] ToLongArray(long start, int count)

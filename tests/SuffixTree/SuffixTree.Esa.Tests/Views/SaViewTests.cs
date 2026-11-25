@@ -185,6 +185,33 @@ public unsafe class SaViewTests
     }
 
     [Test]
+    public void NonGeneric_TheUninitializedCopyOfALongList_IsTheCopyOfTheSmallOne_OnEveryForm([Values(0, 1, 511, 512, 513, 3000)] int count, [Values(0, 4, 5)] int width)
+    {
+        ulong[] values = Enumerable.Range(0, 3100).Select(i => (ulong)(i * 7 + 3)).ToArray();
+        int[] expected = values.Skip(25).Take(count).Select(v => (int)v).ToArray();
+        using var guarded = width == 0 ? null : new Fuzz.GuardedImage(ViewImage.Encode(values, width, 3), flush: true);
+        SaView view = width == 0 ? new SaView(values.Select(v => (int)v).ToArray()) : SaView.FromMapped(guarded!.Data, values.Length, width, isChecked: true);
+        Assert.That(view.ToArrayUninitialized(25, count), Is.EqualTo(expected), "the page");
+        Assert.That(view.ToArray(25, count), Is.EqualTo(expected), "the small copy gives the same entries");
+        Assert.That(view.ToArrayUninitialized(values.Length - count, count), Is.EqualTo(values.Skip(values.Length - count).Select(v => (int)v)), "up to the last entry");
+        Assert.That(() => view.ToArrayUninitialized(values.Length - count + 1, count), Throws.TypeOf<InvalidDataException>(), "one entry past the end (an empty page one past the end too)");
+        Assert.That(() => view.ToArrayUninitialized(-1, count), Throws.TypeOf<InvalidDataException>());
+        Assert.That(() => view.ToArrayUninitialized(0, -1), Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
+
+    [Test]
+    public void TheLocateOfALongList_ThroughTheIndex_ReturnsEveryPosition_AtTheSwitchOfTheCopy([Values(1, 2, 511, 512, 513, 1500)] int occurrences)
+    {
+        string text = new string('a', occurrences) + "b";
+        EsaIndex index = EsaIndex.Build(text);
+        IReadOnlyList<int> all = index.FindAllOccurrences("a");
+        Assert.That(all.Count, Is.EqualTo(occurrences));
+        Assert.That(all.OrderBy(x => x), Is.EqualTo(Enumerable.Range(0, occurrences)));
+        Assert.That(index.FindAllOccurrences("b"), Is.EqualTo(new[] { occurrences }));
+        Assert.That(index.FindAllOccurrences("c"), Is.Empty);
+    }
+
+    [Test]
     public void NonGeneric_ACopyOfANegativeCount_IsRefused_OnEveryForm([Values(4, 5)] int width)
     {
         using ViewImage image = ViewImage.Of("banana", width, LcpKind.U8);
