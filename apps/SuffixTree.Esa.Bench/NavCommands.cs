@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using SuffixTree.Esa.Bench.Links;
+using SuffixTree.Esa.External;
 using UkkonenTree = global::SuffixTree.SuffixTree;
 
 namespace SuffixTree.Esa.Bench;
@@ -25,7 +26,7 @@ internal static class NavCommands
 
     internal static void Run(string[] args)
     {
-        string? input = null, name = null, queries = null, op = null, other = null;
+        string? input = null, name = null, queries = null, op = null, other = null, container = null;
         string otherKind = "mutated";
         int calls = 10, minLength = 20, sample = 200_000;
         bool ukkonen = true;
@@ -36,6 +37,7 @@ internal static class NavCommands
             switch (args[i])
             {
                 case "--input": input = value; break;
+                case "--container": container = value; break; // work package S2.5: the index reads this SESA container (the file-backed navigator) instead of being built from --input
                 case "--name": name = value; break;
                 case "--queries": queries = value; break;
                 case "--op": op = value; break;
@@ -56,8 +58,9 @@ internal static class NavCommands
         Emit.Row("nav", "text_chars", text.Length, "chars", $"{name}, op {op}");
 
         long t0 = Stopwatch.GetTimestamp();
-        EsaIndex index = EsaIndex.Build(text);
-        Emit.Row("nav", "build_esa_s", Seconds(t0), "s", $"EsaIndex.Build (child layout {index.Child.Kind}), cold JIT");
+        using SesaFile? mapped = container is null ? null : SesaFile.Open(container, new EsaOpenOptions { Validation = EsaValidationLevel.Header, Access = EsaAccessMode.Checked });
+        EsaIndex index = mapped is null ? EsaIndex.Build(text) : EsaIndex.FromFile(mapped);
+        Emit.Row("nav", "build_esa_s", Seconds(t0), "s", mapped is null ? $"EsaIndex.Build (child layout {index.Child.Kind}), cold JIT" : $"EsaIndex.FromFile {container} (Header, Checked), cold JIT");
         Emit.Row("nav", "pack_built_before", index.NavigationBuilt ? 1 : 0, "bool", "the navigation pack must not exist before the first matching call");
 
         if (op == "links")

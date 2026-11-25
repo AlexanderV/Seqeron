@@ -248,7 +248,7 @@ public class ContainerPackTests
     }
 
     /// <summary>One answer of every navigation operation over every node of <paramref name="idx"/>, or the type of the exception that ended it.</summary>
-    private static string Outcome(EsaSuffixIndex idx, string text)
+    private static string Outcome(EsaSuffixIndex idx, EsaIndex index, string text)
     {
         try
         {
@@ -258,6 +258,9 @@ public class ContainerPackTests
                 sb.Append(idx.TrySuffixLink(node, out IndexLocus link)).Append(link).Append(idx.TryParent(node, out IndexLocus parent)).Append(parent).Append(';');
             }
             for (long a = 0; a <= text.Length; a += 7) sb.Append(idx.Lcp(a, text.Length - a)).Append(idx.Lca(a, text.Length - a)).Append(';');
+            // the generic algorithms walk suffix links through the 32-bit navigator: a damaged PSI or RMQ must end in InvalidDataException, never in an index error of the algorithm
+            string query = text[2..Math.Min(text.Length, 30)] + "q" + text[1..Math.Min(text.Length, 12)];
+            sb.Append(index.FindMaximalExactMatches(query, 3).Count).Append(index.FindMaximalUniqueMatches(query, 3).Count).Append(index.FindExactMatchAnchors(query, 3).Count);
             return sb.ToString();
         }
         catch (InvalidDataException)
@@ -278,7 +281,7 @@ public class ContainerPackTests
         string baseline;
         {
             (SesaFile file, EsaIndex index) = Open(dir, good, EsaAccessMode.Checked);
-            using (file) baseline = Outcome(new EsaSuffixIndex(index), text);
+            using (file) baseline = Outcome(new EsaSuffixIndex(index), index, text);
         }
         Assert.That(baseline, Is.Not.EqualTo("InvalidDataException"));
         int refused = 0;
@@ -291,7 +294,7 @@ public class ContainerPackTests
                 (SesaFile file, EsaIndex index) = Open(dir, image, EsaAccessMode.Checked);
                 using (file)
                 {
-                    string outcome = Outcome(new EsaSuffixIndex(index), text);
+                    string outcome = Outcome(new EsaSuffixIndex(index), index, text);
                     if (outcome == "InvalidDataException") refused++;
                 }
             }

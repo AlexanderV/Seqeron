@@ -228,14 +228,14 @@ internal sealed unsafe class SesaFile : IDisposable
         {
             if (s.Kind == SesaFormat.KindRmq) rmq = s;
         }
-        if (rmq is null) return new NavSections(psi, null, SesaFormat.RmqFanout);
+        if (rmq is null) return new NavSections(psi, null, SesaFormat.RmqFanout, IsChecked);
         long fanout = rmq.Param0;
         if (fanout < 2 || fanout > 1024 || (fanout & (fanout - 1)) != 0) throw new InvalidDataException($"the RMQ section has the fanout {fanout}: a power of two from 2 to 1024 is expected: the file is damaged");
         long expected = n == 0 ? 0 : RmqWriter.CountFor(n + 1, checked((int)fanout));
         long padding = posWidth == 5 ? PosReader.Padding40 : 0;
         if (rmq.Count != expected || rmq.ElemWidth != posWidth || rmq.Codec != 1 || rmq.Param1 != 0 || rmq.Length != (expected * posWidth) + padding)
             throw new InvalidDataException($"the RMQ entry has COUNT {rmq.Count}, ELEM_WIDTH {rmq.ElemWidth}, codec {rmq.Codec}, PARAM1 {rmq.Param1} and LENGTH {rmq.Length}; the pyramid of {n + 1} LCP entries at fanout {fanout} has {expected} entries of {posWidth} bytes: the file is damaged");
-        return new NavSections(psi, expected == 0 ? null : SaView.FromMapped(_data + rmq.Offset, expected, posWidth, IsChecked), checked((int)fanout));
+        return new NavSections(psi, expected == 0 ? null : SaView.FromMapped(_data + rmq.Offset, expected, posWidth, IsChecked), checked((int)fanout), IsChecked);
     }
 
     /// <summary>The pointer to the PSI section, or null when the container has none.</summary>

@@ -4,10 +4,13 @@ using SuffixTree.Esa.External;
 namespace SuffixTree.Esa;
 
 /// <summary>The sections that the navigation pack reads where they lie (work package S2.5): PSI and the persisted RMQ pyramid, each absent when the container has none.</summary>
-internal sealed class NavSections(SaView? psi, SaView? rmq, int fanout)
+internal sealed class NavSections(SaView? psi, SaView? rmq, int fanout, bool isChecked = true)
 {
     /// <summary>No section: an index built in memory.</summary>
     internal static NavSections None { get; } = new(null, null, SesaFormat.RmqFanout);
+
+    /// <summary>True in <see cref="EsaAccessMode.Checked"/> mode: what the pack reads from PSI is verified against the suffix array before it is used.</summary>
+    internal bool IsChecked => isChecked;
 
     /// <summary>PSI: <c>PSI[i] = ISA[SA[i] + 1]</c> (0 for the empty suffix), <c>n + 1</c> entries.</summary>
     internal SaView? Psi => psi;
@@ -57,6 +60,7 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
     private readonly Buf<int> _isaBuf;
     private readonly Buf<int> _psiBuf;
     private readonly bool _viaPsi;
+    private readonly bool _verifyPsi;
     private readonly bool _linkable;
     private readonly LcpPyramid? _pyramid;
 
@@ -93,14 +97,20 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
         _psiBuf = psi;
         _viaPsi = viaPsi;
         _linkable = viaPsi || isa is not null;
-        if (viaPsi) _psi = PosSource.Of(index.NavigationSections().Psi!.Value);
+        if (viaPsi)
+        {
+            NavSections sections = index.NavigationSections();
+            _psi = PosSource.Of(sections.Psi!.Value);
+            _verifyPsi = sections.IsChecked;
+        }
         _pyramid = pyramid;
         _ranges = pyramid;
     }
 
     /// <summary>The pack of an index that only the long navigator serves, or that a test made over sources (<paramref name="index"/> null).</summary>
-    private EsaNavigationPack(EsaIndex? index, long n, bool mapped, PosSource sa, PosSource? psi, ILcpRanges ranges)
+    private EsaNavigationPack(EsaIndex? index, long n, bool mapped, PosSource sa, PosSource? psi, ILcpRanges ranges, bool verifyPsi)
     {
+        _verifyPsi = verifyPsi && psi is not null;
         _index = index;
         _n = n;
         _mapped = mapped;
@@ -123,18 +133,18 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
         if (!index.IsNarrow)
         {
             ILcpRanges ranges = LcpPyramid.Create(index.Lcp, pyramidFanout, sections.Rmq is { } rmq ? PosSource.Of(rmq) : null);
-            return new EsaNavigationPack(index, index.TextLength, true, PosSource.Of(index.Sa), sections.Psi is { } psi ? PosSource.Of(psi) : null, ranges);
+            return new EsaNavigationPack(index, index.TextLength, true, PosSource.Of(index.Sa), sections.Psi is { } psi ? PosSource.Of(psi) : null, ranges, sections.IsChecked);
         }
         return BuildNarrowMapped(index, sections, pyramidFanout);
     }
 
     /// <summary>The pack over sources that a test made (generated readers: no container, no <see cref="EsaIndex"/>): the long kernel only; the inverse suffix array does not exist.</summary>
-    internal static EsaNavigationPack FromSources(long n, PosSource sa, PosSource? psi, ILcpRanges ranges, bool mapped = true)
+    internal static EsaNavigationPack FromSources(long n, PosSource sa, PosSource? psi, ILcpRanges ranges, bool mapped = true, bool verifyPsi = true)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(n);
         ArgumentNullException.ThrowIfNull(sa);
         ArgumentNullException.ThrowIfNull(ranges);
-        return new EsaNavigationPack(null, n, mapped, sa, psi, ranges);
+        return new EsaNavigationPack(null, n, mapped, sa, psi, ranges, verifyPsi);
     }
 
     private static EsaNavigationPack BuildMemory(EsaIndex index, int fanout)
@@ -329,6 +339,9 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
             if (_mapped && ((uint)node.Rb > (uint)_n32 || (uint)node.Lb > (uint)_n32)) throw DamagedNode();
             a = _psiBuf[node.Lb];
             b = _psiBuf[node.Rb];
+            // PSI is untrusted: in Checked mode an endpoint must be the rank of the next suffix (SA[Psi(i)] = SA[i] + 1), or the link would be a node of the tree that is not the link; a rank outside 0..n is damage in both modes
+            if (_mapped && ((uint)a > (uint)_n32 || (uint)b > (uint)_n32)) throw DamagedNode();
+            if (_verifyPsi && (sa[a] != node.Pos + 1 || sa[b] != sa[node.Rb] + 1)) throw DamagedNode();
         }
         else
         {
@@ -341,7 +354,9 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
         _pyramid!.Borders(a, b, t, out int left, out int right, out int leftValue, out int rightValue);
         int parentDepth = Math.Max(leftValue, rightValue);
         if (_mapped && (parentDepth >= t || (uint)left > (uint)_n32)) throw DamagedNode(); // the target of a link has a longer edge than a point: otherwise the walks of the generic algorithms would not advance
-        return new EsaNode(left, right - 1, t, parentDepth, sa[left], leftValue > rightValue);
+        int target = sa[left];
+        if (_mapped && (uint)target > (uint)_n32) throw DamagedNode();
+        return new EsaNode(left, right - 1, t, parentDepth, target, leftValue > rightValue);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -356,6 +371,7 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
             if (_mapped && (uint)leaf.Lb > (uint)_n32) throw DamagedNode();
             rank = _psiBuf[leaf.Lb];
             if (_mapped && (uint)rank > (uint)_n32) throw DamagedNode();
+            if (_verifyPsi && _saBuf[rank] != position + 1) throw DamagedNode();
         }
         else
         {
@@ -397,10 +413,13 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
         long a = Psi(node.Lb, "the suffix link");
         long b = Psi(node.Rb, "the suffix link");
         if (_mapped && (a > _n || b < a || b > _n)) throw DamagedNode();
+        if (_verifyPsi && (_sa64[a] != node.Pos + 1 || _sa64[b] != _sa64[node.Rb] + 1)) throw DamagedNode();
         _ranges.Borders(a, b, t, out long left, out long right, out long leftValue, out long rightValue);
         long parentDepth = Math.Max(leftValue, rightValue);
         if (_mapped && (parentDepth >= t || left < 0 || left > _n)) throw DamagedNode();
-        return new EsaNode64(left, right - 1, t, parentDepth, _sa64[left], leftValue > rightValue);
+        long target = _sa64[left];
+        if (_mapped && (ulong)target > (ulong)_n) throw DamagedNode();
+        return new EsaNode64(left, right - 1, t, parentDepth, target, leftValue > rightValue);
     }
 
     private EsaNode64 LeafLink(in EsaNode64 leaf)
@@ -410,6 +429,7 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
         if (_mapped && position < 0) throw DamagedNode();
         long rank = Psi(leaf.Lb, "the suffix link of a leaf");
         if (_mapped && rank > _n) throw DamagedNode();
+        if (_verifyPsi && _sa64[rank] != position + 1) throw DamagedNode();
         long left = _ranges.ValueAt(rank);
         long right = rank < _n ? _ranges.ValueAt(rank + 1) : -1;
         if (_mapped && Math.Max(left, right) >= leaf.Depth - 1) throw DamagedNode();

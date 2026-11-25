@@ -88,14 +88,21 @@ internal readonly struct EsaNavigatorWide : ISuffixTreeNavigator<EsaNode>
     public void CollectLeaves(EsaNode node, int depth, List<int> results)
     {
         // rank 0 is the empty suffix: it belongs to the root, and it is no position
-        for (long rank = Math.Max(node.Lb, 1); rank <= node.Rb; rank++) results.Add(IntBridge.Value(_sa[rank], "a suffix array entry (" + Operations + ")"));
+        for (long rank = Math.Max(node.Lb, 1); rank <= node.Rb; rank++) results.Add(Position(_sa[rank]));
     }
 
     /// <inheritdoc />
     public int FindAnyLeafPosition(EsaNode node, int depthFromRoot)
     {
-        if (node.Lb == 0) return node.Rb >= 1 ? IntBridge.Value(_sa[1], "a suffix array entry (" + Operations + ")") : -1; // the root, or its terminator leaf
+        if (node.Lb == 0) return node.Rb >= 1 ? Position(_sa[1]) : -1; // the root, or its terminator leaf
         return node.Pos;
+    }
+
+    /// <summary>A suffix array entry as a position: a number that is no position of the text is damage (the entry of a container is untrusted).</summary>
+    private int Position(long entry)
+    {
+        if ((ulong)entry >= (ulong)_n) throw new InvalidDataException($"the suffix array holds {entry}, which is no position of a text of {_n} symbols: the file is damaged");
+        return checked((int)entry);
     }
 
     private static EsaNode Narrow(in EsaNode64 node)

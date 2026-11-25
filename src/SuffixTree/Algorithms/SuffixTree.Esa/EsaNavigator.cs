@@ -118,15 +118,30 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
         int count = node.Rb - from + 1;
         if (count <= 0) return;
         SaView sa = _pack.Index.Sa;
-        if (sa.Array is { } array) results.AddRange(new ReadOnlySpan<int>(array, from, count));
-        else results.AddRange(sa.ToArray(from, count));
+        if (sa.Array is { } array)
+        {
+            results.AddRange(new ReadOnlySpan<int>(array, from, count));
+        }
+        else
+        {
+            int[] positions = sa.ToArray(from, count);
+            foreach (int position in positions)
+                if ((uint)position >= (uint)_n) throw new InvalidDataException($"the suffix array holds {position}, which is no position of a text of {_n} symbols: the file is damaged");
+            results.AddRange(positions);
+        }
     }
 
     /// <inheritdoc />
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public int FindAnyLeafPosition(EsaNode node, int depthFromRoot)
     {
-        if (node.Lb == 0) return node.Rb >= 1 ? _sa[1] : -1; // the root, or its terminator leaf
+        if (node.Lb == 0)
+        {
+            if (node.Rb < 1) return -1; // the root, or its terminator leaf
+            int first = _sa[1];
+            if (_isMapped && (uint)first >= (uint)_n) throw new InvalidDataException($"the suffix array holds {first} at rank 1, which is no position of a text of {_n} symbols: the file is damaged");
+            return first;
+        }
         return node.Pos;
     }
 
@@ -211,11 +226,11 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     {
         if (a == b)
         {
-            if (_isMapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();
+            if (_isMapped && ((uint)saA > (uint)_n || _n - saA + 1 <= parentDepth)) ThrowCorruptChildTable(); // S2.5: a suffix array entry of a container is no longer vetted by a permutation check at the build of the pack (PSI is read in place), so a position that enters a node is checked here
             return new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast);
         }
         int first = table.FirstLIndex(a, b, childIsLast);
-        if (_isMapped && (first <= a || first > b)) ThrowCorruptChildTable();
+        if (_isMapped && (first <= a || first > b || (uint)saA > (uint)_n)) ThrowCorruptChildTable();
         int depth = _lcp.ValueAt(first);
         if (_isMapped && depth <= parentDepth) ThrowCorruptChildTable(); // every edge of a damaged tree must still have a length, or the walks of the generic algorithms would not advance
         return new EsaNode(a, b, depth, parentDepth, saA, childIsLast);

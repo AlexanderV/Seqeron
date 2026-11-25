@@ -31,6 +31,10 @@ public class NarrowingLintTests
         ["IntBridge.cs|(int)length"] = "IntBridge.Length: the checked narrowing itself, after the test of the line above",
         ["IntBridge.cs|(int)value"] = "IntBridge.Value: the checked narrowing itself, after the test of the line above",
         // ---- the navigation side (work package S2.5): the 32-bit navigator of S1 and the 32-bit views it reads; the 64-bit navigation (EsaNavigator64, EsaNavigatorWide, WideLcpPyramid, the long kernel of the pack) has no cast to list
+        ["EsaNavigator.cs|(uint)position"] = "CollectLeaves of a container: a suffix array entry (an int, possibly garbage) tested as an unsigned number against n, one comparison for both bounds, before it is handed to the generic algorithms",
+        ["EsaNavigator.cs|(uint)first"] = "FindAnyLeafPosition of a container: the entry at rank 1 tested as an unsigned number against n",
+        ["EsaNavigator.cs|(uint)saA"] = "MakeChild of a container (S2.5): the first suffix array entry of a child tested as an unsigned number against n before it becomes the Pos of a node (the pack no longer vets the suffix array by a permutation check)",
+        ["EsaNavigationPack.cs|(uint)target"] = "the 32-bit kernel: the Pos of the target of a link (SA[left], an int that may be garbage in a container) tested as an unsigned number against n",
         ["EsaNavigator.cs|(uint)node.Pos"] = "GetEdgeSymbol of S1: an int position sum tested as an unsigned number (it cannot wrap below 2^30 symbols, and the sum is below 2n); the 32-bit navigator of S1 (reached only for an index that the 32-bit forms hold: EsaIndex.IsNarrow, fewer than 2^31 - 1 symbols)",
         ["EsaNavigator.cs|(uint)node.ParentDepth"] = "GetEdgeSymbol of S1: an int position sum tested as an unsigned number (it cannot wrap below 2^30 symbols, and the sum is below 2n); the 32-bit navigator of S1 (reached only for an index that the 32-bit forms hold: EsaIndex.IsNarrow, fewer than 2^31 - 1 symbols)",
         ["EsaNavigator.cs|(uint)offset"] = "GetEdgeSymbol of S1: an int position sum tested as an unsigned number (it cannot wrap below 2^30 symbols, and the sum is below 2n); the 32-bit navigator of S1 (reached only for an index that the 32-bit forms hold: EsaIndex.IsNarrow, fewer than 2^31 - 1 symbols)",
@@ -78,7 +82,7 @@ public class NarrowingLintTests
     };
 
     /// <summary>The number of entries that the log of the package says (the list does not grow without a reason in the log).</summary>
-    private const int AllowListSize = 64;
+    private const int AllowListSize = 68;
 
     private static List<NarrowingLint.Cast> Scan()
     {

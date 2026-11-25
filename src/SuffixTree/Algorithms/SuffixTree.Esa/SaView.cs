@@ -23,8 +23,16 @@ internal readonly unsafe struct SaView
 
     private readonly int[]? _array;
     private readonly int* _pointer;
-    private readonly long _count;
-    private readonly byte _flags;
+    private readonly ulong _countFlags; // bits 0-55: the number of entries; bits 56-63: the flags (24 bytes in all, as in S1: the struct is copied by value on every call that reads the suffix array)
+
+    private const int FlagShift = 56;
+    private const ulong CountMask = (1UL << FlagShift) - 1;
+
+    private long Count => (long)(_countFlags & CountMask);
+
+    private byte Flags => (byte)(_countFlags >> FlagShift);
+
+    private static ulong Pack(long count, byte flags) => (ulong)count | ((ulong)flags << FlagShift);
 
     /// <summary>A view of an array.</summary>
     internal SaView(int[] array)
@@ -32,8 +40,7 @@ internal readonly unsafe struct SaView
         ArgumentNullException.ThrowIfNull(array);
         _array = array;
         _pointer = null;
-        _count = array.Length;
-        _flags = Checked;
+        _countFlags = Pack(array.Length, Checked);
     }
 
     /// <summary>A view of <paramref name="count"/> 4-byte entries at <paramref name="pointer"/> (the caller keeps the memory alive and unchanged).</summary>
@@ -42,8 +49,7 @@ internal readonly unsafe struct SaView
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         _array = null;
         _pointer = pointer;
-        _count = count;
-        _flags = FlagsOf(isChecked, 4, count);
+        _countFlags = Pack(count, FlagsOf(isChecked, 4, count));
     }
 
     private static byte FlagsOf(bool isChecked, int posWidth, long count)
@@ -58,8 +64,7 @@ internal readonly unsafe struct SaView
     {
         _array = null;
         _pointer = pointer;
-        _count = count;
-        _flags = flags;
+        _countFlags = Pack(count, flags);
     }
 
     /// <summary>A view of <paramref name="count"/> entries of <paramref name="posWidth"/> (4 or 5) bytes at <paramref name="section"/> (the caller keeps the memory alive and unchanged; a 5-byte section has its 3 bytes of padding).</summary>
@@ -72,10 +77,10 @@ internal readonly unsafe struct SaView
     }
 
     /// <summary>Number of entries (<c>n + 1</c>).</summary>
-    internal long Length => _count;
+    internal long Length => Count;
 
     /// <summary>The stored width in bytes: 4 for an array and a 4-byte section, 5 for a 5-byte section.</summary>
-    internal int StoredWidth => (_flags & FiveBytes) != 0 ? 5 : 4;
+    internal int StoredWidth => (Flags & FiveBytes) != 0 ? 5 : 4;
 
     /// <summary>The entry at <paramref name="rank"/> (the 32-bit engine's read).</summary>
     /// <exception cref="InvalidDataException">The rank is outside the section (a damaged table sent the read there; checked mode only for a file), or the entry of a 5-byte section is not a 32-bit number.</exception>
@@ -85,8 +90,8 @@ internal readonly unsafe struct SaView
         get
         {
             if (_array is not null) return _array[rank];
-            if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);
-            if ((_flags & Bridged) != 0) return BridgedRead(rank);
+            if ((Flags & Checked) != 0 && (ulong)rank >= (ulong)Count) ThrowOutside(rank);
+            if ((Flags & Bridged) != 0) return BridgedRead(rank);
             return _pointer[rank];
         }
     }
@@ -99,8 +104,8 @@ internal readonly unsafe struct SaView
         get
         {
             if (_array is not null) return (uint)_array[rank];
-            if ((_flags & Checked) != 0 && (ulong)rank >= (ulong)_count) ThrowOutside(rank);
-            return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];
+            if ((Flags & Checked) != 0 && (ulong)rank >= (ulong)Count) ThrowOutside(rank);
+            return (Flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];
         }
     }
 
@@ -108,7 +113,7 @@ internal readonly unsafe struct SaView
     /// <exception cref="InvalidDataException">The rank is outside <c>0..n</c>.</exception>
     internal long At(long rank)
     {
-        if ((ulong)rank >= (ulong)_count) ThrowOutside(rank);
+        if ((ulong)rank >= (ulong)Count) ThrowOutside(rank);
         return this[rank];
     }
 
@@ -116,9 +121,9 @@ internal readonly unsafe struct SaView
     /// <exception cref="InvalidDataException">The range is outside the section, or an entry of a 5-byte section is not a 32-bit number.</exception>
     internal void CopyTo(long start, Span<int> destination)
     {
-        if (start < 0 || destination.Length > _count - start) ThrowOutside(start);
+        if (start < 0 || destination.Length > Count - start) ThrowOutside(start);
         if (_array is not null) _array.AsSpan((int)start, destination.Length).CopyTo(destination);
-        else if ((_flags & Bridged) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);
+        else if ((Flags & Bridged) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);
         else CopyBridged(start, destination);
     }
 
@@ -133,7 +138,7 @@ internal readonly unsafe struct SaView
     /// <exception cref="InvalidDataException">The range is outside the section.</exception>
     internal void CopyTo(long start, Span<long> destination)
     {
-        if (start < 0 || destination.Length > _count - start) ThrowOutside(start);
+        if (start < 0 || destination.Length > Count - start) ThrowOutside(start);
         for (int i = 0; i < destination.Length; i++) destination[i] = ReadUnchecked(start + i);
     }
 
@@ -175,7 +180,7 @@ internal readonly unsafe struct SaView
     /// The pointer to the first entry (null for an array); the navigation pack and <see cref="MappedSearch"/> read through it.
     /// </summary>
     /// <exception cref="NotSupportedException">The section has 5-byte entries: no pointer to 32-bit entries exists (the 32-bit engine does not read it).</exception>
-    internal int* Pointer => (_flags & FiveBytes) == 0 ? _pointer : throw new NotSupportedException("the suffix array has 5-byte entries (POS_WIDTH 5): there is no pointer to 32-bit entries; use the 64-bit members");
+    internal int* Pointer => (Flags & FiveBytes) == 0 ? _pointer : throw new NotSupportedException("the suffix array has 5-byte entries (POS_WIDTH 5): there is no pointer to 32-bit entries; use the 64-bit members");
 
     /// <summary>The wrapped array, or null for a mapped section.</summary>
     internal int[]? Array => _array;
@@ -183,7 +188,7 @@ internal readonly unsafe struct SaView
     private long ReadUnchecked(long rank)
     {
         if (_array is not null) return (uint)_array[rank];
-        return (_flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];
+        return (Flags & FiveBytes) != 0 ? (long)Load40(rank) : (uint)_pointer[rank];
     }
 
     /// <summary>The 32-bit read of a bridged section (out of line, so that the indexer that the navigator inlines stays the code of S1).</summary>
@@ -193,7 +198,7 @@ internal readonly unsafe struct SaView
     private ulong Load40(long rank) => Unsafe.ReadUnaligned<ulong>((byte*)_pointer + (5 * rank)) & PosReader.Mask40;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private void ThrowOutside(long index) => SaViewErrors.Outside(index, _count);
+    private void ThrowOutside(long index) => SaViewErrors.Outside(index, Count);
 }
 
 /// <summary>The failure that every suffix-array view shares.</summary>

@@ -171,11 +171,11 @@ internal sealed class EsaNavigator64
     {
         if (a == b)
         {
-            if (_mapped && _n - saA + 1 <= parentDepth) ThrowCorruptChildTable();
+            if (_mapped && ((ulong)saA > (ulong)_n || _n - saA + 1 <= parentDepth)) ThrowCorruptChildTable();
             return new EsaNode64(a, a, _n - saA + 1, parentDepth, saA, childIsLast);
         }
         long first = _cells.First(a, b, childIsLast);
-        if (first <= a || first > b) ThrowCorruptChildTable();
+        if (first <= a || first > b || (_mapped && (ulong)saA > (ulong)_n)) ThrowCorruptChildTable();
         long depth = _cells.Depth(first);
         if (_mapped && depth <= parentDepth) ThrowCorruptChildTable();
         return new EsaNode64(a, b, depth, parentDepth, saA, childIsLast);

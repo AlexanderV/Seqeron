@@ -1,3 +1,5 @@
+using SuffixTree.Esa.External;
+
 namespace SuffixTree.Esa.Tests.Large;
 
 /// <summary>The stored width that a generated section stands for (the byte count of <see cref="IPosReader.ElementBytes"/>).</summary>
@@ -51,6 +53,12 @@ internal enum GenSection
 
     /// <summary>The cell of CHILD codec 2 (tagged: the kind in bits 30-31; texts of at most 2^30 - 1 symbols).</summary>
     ChildTagged,
+
+    /// <summary><c>PSI[r] = ISA[SA[r] + 1]</c> of the closed form, 0 for the empty suffix and for the suffix of the last symbol (work package S2.5).</summary>
+    Psi,
+
+    /// <summary>The entries of the RMQ section of the closed form, level 0 first (fanout 32): the closed-form minimum of the LCP values of the block (work package S2.5).</summary>
+    Rmq,
 }
 
 /// <summary>
@@ -64,13 +72,20 @@ internal readonly struct PosGen<TWidth> : IPosReader
     private readonly GenSection _section;
     private readonly long _count;
     private readonly long _escape;
+    private readonly (long Start, long Count)[]? _levels;
 
     internal PosGen(ClosedFormText form, GenSection section, long escape = long.MaxValue)
     {
         _form = form;
         _section = section;
         _escape = escape;
-        _count = section == GenSection.LcpPairsOfPowerOfA ? 2 * Math.Max(0, form.Length - escape) : form.Length + 1;
+        _levels = section == GenSection.Rmq ? [.. SparseContainer.RmqLevels(form.Length + 1)] : null;
+        _count = section switch
+        {
+            GenSection.LcpPairsOfPowerOfA => 2 * Math.Max(0, form.Length - escape),
+            GenSection.Rmq => _levels!.Sum(l => l.Count),
+            _ => form.Length + 1,
+        };
     }
 
     public static int ElementBytes => TWidth.Bytes;
@@ -95,9 +110,30 @@ internal readonly struct PosGen<TWidth> : IPosReader
                 return Hash(index) % 50;
             case GenSection.ChildPacked:
                 return (ulong)_form.PackedCell(index);
+            case GenSection.Psi:
+                return (ulong)SparseContainer.PsiOf(_form, index);
+            case GenSection.Rmq:
+                return (ulong)RmqEntry(index);
             default:
                 return Tagged(_form, index);
         }
+    }
+
+    /// <summary>The entry <paramref name="index"/> of the RMQ section: the level that holds it, then the minimum of the LCP values of its block.</summary>
+    private long RmqEntry(long index)
+    {
+        long rows = _form.Length + 1;
+        long block = SesaFormat.RmqFanout;
+        foreach ((long start, long count) in _levels!)
+        {
+            if (index < start + count)
+            {
+                long first = (index - start) * block;
+                return _form.LcpMin(first, Math.Min(rows - 1, first + block - 1));
+            }
+            block *= SesaFormat.RmqFanout;
+        }
+        throw new InvalidDataException($"the RMQ section of {_count} entries is read at entry {index}");
     }
 
     /// <summary>The cell of CHILD codec 2 of a closed form: the next l-index (kind 1), else the up field (kind 2), else the down field (kind 3), else 0.</summary>
