@@ -5,7 +5,7 @@ namespace Seqeron.Genomics.Annotation;
 /// <summary>
 /// Provides genome annotation algorithms including ORF finding and gene prediction.
 /// </summary>
-public static class GenomeAnnotator
+public static partial class GenomeAnnotator
 {
     /// <summary>
     /// Represents an open reading frame (ORF).
@@ -219,20 +219,30 @@ public static class GenomeAnnotator
     /// reverse-strand Shine-Dalgarno hits, use
     /// <see cref="FindRibosomeBindingSitesBothStrands"/>.
     /// </remarks>
+    /// <param name="scoreMode">
+    /// <see cref="RbsScoreMode.MotifLength"/> (default, legacy): score = motif length / 6.
+    /// <see cref="RbsScoreMode.LogOdds"/>: score = the Prodigal log-odds weight of the hit's (motif, spacer) bin
+    /// (Hyatt et al. 2010) from <paramref name="model"/>, or from a model trained on <paramref name="dnaSequence"/>
+    /// itself when <paramref name="model"/> is <see langword="null"/> (needs ≥ 20 000 nt).
+    /// </param>
+    /// <param name="model">Trained RBS model for <see cref="RbsScoreMode.LogOdds"/>.</param>
     public static IEnumerable<(int position, string sequence, double score)> FindRibosomeBindingSites(
         string dnaSequence,
         int upstreamWindow = 20,
         int minDistance = 4,
-        int maxDistance = 15)
+        int maxDistance = 15,
+        RbsScoreMode scoreMode = RbsScoreMode.MotifLength,
+        RbsModel? model = null)
     {
         if (string.IsNullOrEmpty(dnaSequence))
             yield break;
 
+        var weights = ResolveRbsWeights(dnaSequence, scoreMode, model);
         var orfs = FindOrfs(dnaSequence, minLength: 30)
             .Where(o => !o.IsReverseComplement)
             .ToList();
 
-        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, orfs, upstreamWindow, minDistance, maxDistance))
+        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, orfs, upstreamWindow, minDistance, maxDistance, weights))
         {
             yield return (hit.position, hit.sequence, hit.score);
         }
@@ -259,16 +269,20 @@ public static class GenomeAnnotator
         string dnaSequence,
         int upstreamWindow = 20,
         int minDistance = 4,
-        int maxDistance = 15)
+        int maxDistance = 15,
+        RbsScoreMode scoreMode = RbsScoreMode.MotifLength,
+        RbsModel? model = null)
     {
         if (string.IsNullOrEmpty(dnaSequence))
             yield break;
+
+        var weights = ResolveRbsWeights(dnaSequence, scoreMode, model);
 
         var allOrfs = FindOrfs(dnaSequence, minLength: 30).ToList();
 
         // Forward strand: scan the genomic sequence as-is.
         var forwardOrfs = allOrfs.Where(o => !o.IsReverseComplement).ToList();
-        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, forwardOrfs, upstreamWindow, minDistance, maxDistance))
+        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, forwardOrfs, upstreamWindow, minDistance, maxDistance, weights))
         {
             yield return (hit.position, hit.sequence, hit.score, '+');
         }
@@ -288,7 +302,7 @@ public static class GenomeAnnotator
             .Select(o => o with { Start = len - o.End, End = len - o.Start })
             .ToList();
 
-        foreach (var hit in ScanStrandForShineDalgarno(revComp, reverseOrfsInRevComp, upstreamWindow, minDistance, maxDistance))
+        foreach (var hit in ScanStrandForShineDalgarno(revComp, reverseOrfsInRevComp, upstreamWindow, minDistance, maxDistance, weights))
         {
             // hit.position is the 5' base of the motif within the reverse-complement string;
             // the motif occupies revComp[position, position+len) ↔ forward
@@ -296,6 +310,26 @@ public static class GenomeAnnotator
             int forwardPosition = len - hit.position - hit.sequence.Length;
             yield return (forwardPosition, hit.sequence, hit.score, '-');
         }
+    }
+
+
+    private static IReadOnlyList<double>? ResolveRbsWeights(string dnaSequence, RbsScoreMode mode, RbsModel? model)
+    {
+        if (mode == RbsScoreMode.MotifLength) return null;
+        return (model ?? TrainRbsModel(dnaSequence)).BinWeights;
+    }
+
+    /// <summary>
+    /// Prodigal exact-match bin of a Shine-Dalgarno hit: motif score = −2 + Σ(2 per A, 3 per G) over the matched
+    /// positions of AGGAGG, spacer class from the distance to the start codon (<c>shine_dalgarno_exact</c>).
+    /// </summary>
+    private static int RbsBinOfHit(string motif, int distanceToStart)
+    {
+        int offset = "AGGAGG".IndexOf(motif, StringComparison.Ordinal);
+        double ctr = -2.0;
+        for (int k = offset; k < offset + motif.Length; k++) ctr += k % 3 == 0 ? 2.0 : 3.0;
+        int bin = ProdigalEngine.ExactBinOf(ctr, ProdigalEngine.ExactSpacerClass(distanceToStart, motif.Length));
+        return bin < 0 ? 0 : bin;
     }
 
     /// <summary>
@@ -322,7 +356,8 @@ public static class GenomeAnnotator
         IReadOnlyList<OpenReadingFrame> orfs,
         int upstreamWindow,
         int minDistance,
-        int maxDistance)
+        int maxDistance,
+        IReadOnlyList<double>? binWeights = null)
     {
         var reported = new HashSet<(int position, string motif)>();
 
@@ -334,7 +369,7 @@ public static class GenomeAnnotator
             if (searchEnd <= searchStart) continue;
 
             string upstream = sequence.Substring(searchStart, searchEnd - searchStart).ToUpperInvariant();
-            var hitsForStart = new List<(int position, string motif)>();
+            var hitsForStart = new List<(int position, string motif, int distance)>();
 
             foreach (string motif in ShineDalgarnoMotifs)
             {
@@ -348,7 +383,7 @@ public static class GenomeAnnotator
                         && !hitsForStart.Any(h => h.position <= genomicPos
                                                   && genomicPos + motif.Length <= h.position + h.motif.Length))
                     {
-                        hitsForStart.Add((genomicPos, motif));
+                        hitsForStart.Add((genomicPos, motif, distanceToStart));
                     }
 
                     pos = upstream.IndexOf(motif, pos + 1, StringComparison.Ordinal);
@@ -357,8 +392,10 @@ public static class GenomeAnnotator
 
             foreach (var hit in hitsForStart)
             {
-                if (reported.Add(hit))
-                    yield return (hit.position, hit.motif, hit.motif.Length / 6.0);
+                if (reported.Add((hit.position, hit.motif)))
+                    yield return (hit.position, hit.motif, binWeights == null
+                        ? hit.motif.Length / 6.0
+                        : binWeights[RbsBinOfHit(hit.motif, hit.distance)]);
             }
         }
     }
@@ -375,19 +412,88 @@ public static class GenomeAnnotator
     /// preceding in-frame STOP. Start choice here follows the longest-ORF (first start) rule;
     /// no RBS- or coding-score-based start refinement is performed.
     /// </remarks>
+    /// <param name="dnaSequence">Genome / contig sequence.</param>
+    /// <param name="minOrfLength">Minimum ORF length in amino acids (ORF-based modes).</param>
+    /// <param name="prefix">Gene id prefix.</param>
+    /// <param name="startSelection">
+    /// <see cref="StartSelection.LongestOrf"/> (default, legacy), <see cref="StartSelection.ProdigalScore"/> (per stop,
+    /// the start with the best Prodigal coding + RBS log-odds + start-type + upstream score) or
+    /// <see cref="StartSelection.ProdigalDynamicProgramming"/> (Prodigal's complete gene model). The Prodigal modes
+    /// need a genome (≥ 20 000 nt) to train on unless <paramref name="model"/> carries a full trained model
+    /// (<see cref="TrainRbsModel(string)"/>); a model trained from a gene set supplies only the RBS/start-type weights.
+    /// </param>
+    /// <param name="model">Optional trained model for the Prodigal modes (default: train on <paramref name="dnaSequence"/>).</param>
     public static IEnumerable<GeneAnnotation> PredictGenes(
         string dnaSequence,
         int minOrfLength = 100,
-        string prefix = "gene")
+        string prefix = "gene",
+        StartSelection startSelection = StartSelection.LongestOrf,
+        RbsModel? model = null)
     {
+        if (startSelection == StartSelection.ProdigalDynamicProgramming)
+            return PredictGenesProdigalDp(dnaSequence, prefix, model);
+
         var orfs = FindOrfs(dnaSequence, minOrfLength, searchBothStrands: true, requireStartCodon: true)
             // Stop codon identity: forward stop ends at End; reverse stop sits at forward Start.
             .GroupBy(o => (o.IsReverseComplement, stop: o.IsReverseComplement ? o.Start : o.End))
-            .Select(g => g.MaxBy(o => o.End - o.Start))
-            .OrderBy(o => o.Start)
-            .ThenBy(o => o.IsReverseComplement)
+            .Select(g => startSelection == StartSelection.ProdigalScore ? g.ToList() : new List<OpenReadingFrame> { g.MaxBy(o => o.End - o.Start) })
             .ToList();
 
+        if (startSelection == StartSelection.ProdigalScore)
+        {
+            var scored = ProdigalEngine.ScoreGenome(dnaSequence, model, out _);
+            orfs = orfs.Select(g => new List<OpenReadingFrame> { ChooseProdigalStart(g, scored) }).ToList();
+        }
+
+        return EmitGenes(orfs.Select(g => g[0]).OrderBy(o => o.Start).ThenBy(o => o.IsReverseComplement), prefix);
+    }
+
+    /// <summary>The candidate start with the highest Prodigal start score; longest ORF when none is a Prodigal node.</summary>
+    private static OpenReadingFrame ChooseProdigalStart(List<OpenReadingFrame> group, ProdigalEngine.ScoredGenome scored)
+    {
+        OpenReadingFrame? best = null; double bestScore = double.NegativeInfinity;
+        foreach (var o in group.OrderBy(o => o.IsReverseComplement ? -o.End : o.Start))
+        {
+            // Prodigal node index of the first base of the start codon in forward coordinates.
+            int ndx = o.IsReverseComplement ? o.End - 1 : o.Start;
+            var s = ProdigalEngine.StartScore(scored, o.IsReverseComplement ? -1 : 1, ndx);
+            if (s is { } v && v > bestScore) { bestScore = v; best = o; }
+        }
+        return best ?? group.MaxBy(o => o.End - o.Start);
+    }
+
+    private static IEnumerable<GeneAnnotation> PredictGenesProdigalDp(string dnaSequence, string prefix, RbsModel? model)
+    {
+        var genes = ProdigalEngine.RunDp(dnaSequence, model);
+        int geneCount = 0;
+        foreach (var g in genes.OrderBy(g => g.Start).ThenBy(g => g.Strand == '-'))
+        {
+            geneCount++;
+            string cds = dnaSequence.Substring(g.Start, g.End - g.Start + 1);
+            if (g.Strand == '-') cds = DnaSequence.GetReverseComplementString(cds);
+            // An initiating codon is translated as Met (Prodigal / getorf convention, as in FindOrfs).
+            string protein = 'M' + Translator.Translate(cds, GeneticCode.BacterialPlastid, 0, false, false).Sequence[1..];
+            yield return new GeneAnnotation(
+                GeneId: $"{prefix}_{geneCount:D4}",
+                Start: g.Start,
+                End: g.End + 1,
+                Strand: g.Strand,
+                Type: "CDS",
+                Product: "hypothetical protein",
+                Attributes: new Dictionary<string, string>
+                {
+                    ["protein_length"] = protein.TrimEnd('*').Length.ToString(),
+                    ["translation"] = protein,
+                    ["start_codon"] = cds[..3],
+                    ["cscore"] = g.Cscore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                    ["sscore"] = g.Sscore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                    ["rbs_bin"] = g.RbsBin.ToString(),
+                });
+        }
+    }
+
+    private static IEnumerable<GeneAnnotation> EmitGenes(IEnumerable<OpenReadingFrame> orfs, string prefix)
+    {
         int geneCount = 0;
 
         foreach (var orf in orfs)

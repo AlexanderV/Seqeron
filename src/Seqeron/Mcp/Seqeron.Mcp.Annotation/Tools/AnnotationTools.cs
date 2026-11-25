@@ -51,18 +51,21 @@ public class AnnotationTools
 
     /// <summary>Locate Shine–Dalgarno motifs upstream of ORFs.</summary>
     [McpServerTool(Name = "find_ribosome_binding_sites", Title = "Annotation — Find Ribosome Binding Sites", ReadOnly = true)]
-    [Description("Locate Shine–Dalgarno (ribosome binding site) motifs upstream of ORFs.")]
+    [Description("Locate Shine–Dalgarno (ribosome binding site) motifs upstream of ORFs. score = motif length / 6 (scoreMode MotifLength, default) or the Prodigal log-odds weight of the hit's motif/spacer bin trained on the input genome itself (scoreMode LogOdds; needs >= 20000 nt; Hyatt et al. 2010).")]
     public static FindRibosomeBindingSitesResult FindRibosomeBindingSites(
         [Description("DNA sequence to scan")] string dnaSequence,
         [Description("Upstream window size (nt) to search before each ORF start")] int upstreamWindow = 20,
         [Description("Minimum distance from motif to start codon (nt)")] int minDistance = 4,
-        [Description("Maximum distance from motif to start codon (nt)")] int maxDistance = 15)
+        [Description("Maximum distance from motif to start codon (nt)")] int maxDistance = 15,
+        [Description("Score: MotifLength (motif length / 6, default) or LogOdds (Prodigal bin log-odds trained on the input genome)")] string scoreMode = "MotifLength")
     {
         if (string.IsNullOrEmpty(dnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(dnaSequence));
+        if (!Enum.TryParse<RbsScoreMode>(scoreMode, ignoreCase: true, out var mode) || !Enum.IsDefined(mode))
+            throw new ArgumentException("scoreMode must be MotifLength or LogOdds", nameof(scoreMode));
 
         var sites = GenomeAnnotator
-            .FindRibosomeBindingSites(dnaSequence, upstreamWindow, minDistance, maxDistance)
+            .FindRibosomeBindingSites(dnaSequence, upstreamWindow, minDistance, maxDistance, mode)
             .Select(t => new RibosomeBindingSite(t.position, t.sequence, t.score))
             .ToList();
         return new FindRibosomeBindingSitesResult(sites);
@@ -70,17 +73,20 @@ public class AnnotationTools
 
     /// <summary>Predict gene annotations from DNA using ORF-based heuristics.</summary>
     [McpServerTool(Name = "predict_genes", Title = "Annotation — Predict Genes", ReadOnly = true)]
-    [Description("Predict gene annotations from a DNA sequence using ORF-based heuristics.")]
+    [Description("Predict gene annotations from a DNA sequence using ORF-based heuristics. startSelection LongestOrf (default): most upstream ATG/GTG/TTG per stop; ProdigalScore: per stop the start with the best Prodigal coding+RBS log-odds+start-type+upstream score; ProdigalDynamicProgramming: Prodigal's complete gene model. Prodigal modes train on the input genome (>= 20000 nt) and are numerically identical to Prodigal V2.6.3.")]
     public static PredictGenesResult PredictGenes(
         [Description("DNA sequence to annotate")] string dnaSequence,
         [Description("Minimum ORF length in amino acids")] int minOrfLength = 100,
-        [Description("Gene identifier prefix")] string prefix = "gene")
+        [Description("Gene identifier prefix")] string prefix = "gene",
+        [Description("Start selection: LongestOrf (default), ProdigalScore or ProdigalDynamicProgramming")] string startSelection = "LongestOrf")
     {
         if (string.IsNullOrEmpty(dnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(dnaSequence));
+        if (!Enum.TryParse<StartSelection>(startSelection, ignoreCase: true, out var selection) || !Enum.IsDefined(selection))
+            throw new ArgumentException("startSelection must be LongestOrf, ProdigalScore or ProdigalDynamicProgramming", nameof(startSelection));
 
         var genes = GenomeAnnotator
-            .PredictGenes(dnaSequence, minOrfLength, prefix)
+            .PredictGenes(dnaSequence, minOrfLength, prefix, selection)
             .Select(ToDto)
             .ToList();
         return new PredictGenesResult(genes);

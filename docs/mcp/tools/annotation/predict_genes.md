@@ -31,6 +31,7 @@ translated length excluding the stop), and `translation` (the protein, ending wi
 | `dnaSequence` | string | Yes | — | DNA sequence to annotate |
 | `minOrfLength` | integer | No | 100 | Minimum ORF length in amino acids |
 | `prefix` | string | No | gene | Gene identifier prefix |
+| `startSelection` | string | No | LongestOrf | `LongestOrf` (most upstream ATG/GTG/TTG per stop), `ProdigalScore` (per stop the start with the best Prodigal coding + RBS log-odds + start-type + upstream score) or `ProdigalDynamicProgramming` (Prodigal's complete gene model). The Prodigal modes train on the input genome (>= 20000 nt) and, on E. coli K-12 and S. enterica Typhi CT18, reproduce Prodigal V2.6.3 (DP mode: 4314/4314 and 4676/4676 genes identical) |
 
 ## Output Schema
 
@@ -43,6 +44,8 @@ translated length excluding the stop), and `translation` (the protein, ending wi
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1001 | startSelection must be LongestOrf, ProdigalScore or ProdigalDynamicProgramming |
+| 1001 | Prodigal modes: sequence shorter than 20000 nt (nothing to train on) |
 
 ## Examples
 

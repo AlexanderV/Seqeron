@@ -13,7 +13,8 @@
       "dnaSequence": { "type": "string", "description": "DNA sequence to scan", "minLength": 1 },
       "upstreamWindow": { "type": "integer", "description": "Upstream window size (nt) to search before each ORF start", "default": 20 },
       "minDistance": { "type": "integer", "description": "Minimum aligned distance from motif to start codon (nt)", "default": 4 },
-      "maxDistance": { "type": "integer", "description": "Maximum aligned distance from motif to start codon (nt)", "default": 15 }
+      "maxDistance": { "type": "integer", "description": "Maximum aligned distance from motif to start codon (nt)", "default": 15 },
+      "scoreMode": { "type": "string", "enum": ["MotifLength", "LogOdds"], "description": "MotifLength (motif length / 6, default) or LogOdds (Prodigal motif/spacer-bin log-odds trained on the input genome; needs >= 20000 nt)", "default": "MotifLength" }
     },
     "required": ["dnaSequence"]
   },
