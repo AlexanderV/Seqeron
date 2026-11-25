@@ -510,6 +510,46 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
         });
     }
 
+    // F31 (B13 WP-1) — 1-nt C bulge, strand-specific NNDB special C. NNDB rna_2004_bulge_loops.html §6.1:
+    // ΔG°bulge(n=1) = initiation(1) + special C bulge (−0.9, "a bulged C adjacent to at least one paired C")
+    // + stack of the closing pairs as though there is no bulge − RT·ln(states).
+    // Duplex CGCAGUAUGCCAAGACU·GUCGUCCUUGGCCUACUGCGCA: target C7 is bulged between pairs m13 A·U t8 and
+    // m14 G·C t6; the paired C (t6) is on the bulged (target) strand, the miRNA side (A13, G14) has none.
+    // Bulge = 3.8 + (5'AG/3'UC −2.08) − 0.9 − 0.6163·ln 2 (t6 = C: 2 states) = 0.39. ViennaRNA 2.8
+    // eval_int_loop = 1.70 (3.8 + stack only: eval_internal.c `if (nl == 1) energy += P->stack[..]`, no
+    // special C, no states). Vienna eval_structure of the same structure −22.60; −22.60 − (1.70 − 0.39)
+    // − 0.06 (Vienna 0.1-kcal stacks / init 4.10) = −23.97. Before the fix the strand was not passed and the
+    // kernel's unknown-strand reading (C on both strands) dropped the −0.9 ⇒ −23.07. Swapping the strands
+    // puts the bulge on the miRNA strand: same duplex, same energy.
+    [TestCase("CGCAGUAUGCCAAGACU", "GUCGUCCUUGGCCUACUGCGCA", "(((((((.((((((((&))).))))).)))))))", TestName = "Fold_CBulge_OnTargetStrand")]
+    [TestCase("GUCGUCCUUGGCCUACUGCGCA", "CGCAGUAUGCCAAGACU", "((.((((((.(((((((&))))))).))))))))", TestName = "Fold_CBulge_OnMiRnaStrand")]
+    public void FoldMiRnaDuplex_OneNtCBulge_NndbSpecialCOnBulgedStrand(string mirna, string target, string structure)
+    {
+        var fold = FoldMiRnaDuplex(mirna, target);
+
+        Assert.That(fold, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fold!.Value.Structure, Is.EqualTo(structure));
+            Assert.That(fold.Value.FreeEnergy, Is.EqualTo(-23.97).Within(1e-9), "NNDB: special C −0.9 and −RT ln 2 included");
+            Assert.That(fold.Value.FreeEnergy - (-22.60), Is.EqualTo(0.39 - 1.70).Within(0.07),
+                "differs from ViennaRNA eval_structure only by the NNDB 1-nt bulge terms (+ Vienna rounding)");
+        });
+    }
+
+    // The loop term itself (canonical kernel): the strand decides the special-C bonus.
+    [Test]
+    public void OneNtCBulge_KernelValue_DependsOnBulgedStrand()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateBulgeLoopEnergy(1, 'C', 'A', 'U', 'G', 'C', 2, bulgeOn5PrimeStrand: false),
+                Is.EqualTo(0.39).Within(1e-9), "C bulge on the strand of the paired C (t6)");
+            Assert.That(Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateBulgeLoopEnergy(1, 'C', 'A', 'U', 'G', 'C', 2, bulgeOn5PrimeStrand: true),
+                Is.EqualTo(1.29).Within(1e-9), "C bulge on the A/G strand: no adjacent paired C, no special C");
+        });
+    }
+
     // F4 — The MFE duplex is never less stable than the fixed-register duplex (whose loops are all ≤ 30 nt
     // for ≤ 23-nt inputs, so it is one of the structures the recursion minimises over).
     [TestCase("UGAGGUAGUAGGUUGUAUAGUU", "GGGGGCUACCUCA")]

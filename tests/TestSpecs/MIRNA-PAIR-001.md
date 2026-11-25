@@ -112,6 +112,7 @@
 | F3 | Fold Vienna cross-check | 5 generated fixtures | Vienna structure + span; energy within 0.35 | ViennaRNA 2.8.0 |
 | F4 | Fold ≤ ungapped | 4 fixtures | INV-7 | RNAduplex |
 | F5 | Fold bounds | maxLoopSize 0 / null / empty / no pair / −1 | helix only / null / null / null / throws | contract |
+| F6 | Fold 1-nt C bulge, special C on the bulged strand | CGCAGUAUGCCAAGACU·GUCGUCCUUGGCCUACUGCGCA and strands swapped | same pairs both ways; −23.97 (bulge 3.8 − 2.08 − 0.9 − RT ln 2 = 0.39; Vienna eval_int_loop 1.70, eval_structure −22.60); kernel strand true/false 1.29/0.39 | NNDB rna_2004 bulge §6.1 (B13 F31) |
 | S3 | DNA input normalised | `AAAA`/`TTTT` | Matches=4 (T→U) | T↔U normalisation |
 | S4 | Unequal lengths | `AAAAAA`/`UUUU` (overlap 4) | alignment length = 4 | INV-5 |
 
@@ -225,7 +226,7 @@
 | M8b | ✅ | GetReverseComplement_IupacAndUnknown_MatchesBiopython |
 | E1–E5 | ✅ | AlignMiRnaToTarget_NndbSelfComplementaryExample_Minus7_94, _NndbNonSelfComplementaryExample_Minus6_04, _ThreePrimeDanglingEnd_NndbValue, _TerminalMismatch_NndbValue, _ShortAuDuplex_PositiveNndbEnergy |
 | E6 | ✅ | AlignMiRnaToTarget_FreeEnergy_MatchesViennaEval (9 cases) |
-| F1–F5 | ✅ | FoldMiRnaDuplex_PerfectComplement_FullHelixSameEnergyAsAlignment, _BulgedSite_RecoversHelixLikeVienna (3), _MatchesViennaDuplexfold (5), _NeverAboveUngappedDuplex (4), _LoopBoundAndDegenerateInputs |
+| F1–F6 | ✅ | FoldMiRnaDuplex_PerfectComplement_FullHelixSameEnergyAsAlignment, _BulgedSite_RecoversHelixLikeVienna (3), _MatchesViennaDuplexfold (5), _NeverAboveUngappedDuplex (4), _LoopBoundAndDegenerateInputs, _OneNtCBulge_NndbSpecialCOnBulgedStrand (2), OneNtCBulge_KernelValue_DependsOnBulgedStrand |
 | S3 | ✅ | AlignMiRnaToTarget_DnaInput_NormalisedAndMatched |
 | S4 | ✅ | AlignMiRnaToTarget_UnequalLengths_AlignsOverOverlap |
 | C1 | ✅ | GetReverseComplement_DoubleApplication_RestoresRna |

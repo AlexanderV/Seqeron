@@ -596,7 +596,13 @@ public static class MiRnaAnalyzer
                     if (s[io] == s[ko - 1]) states++;
                 }
             }
-            return RnaSecondaryStructure.CalculateBulgeLoopEnergy(size, bulged, s[k], s[ko], s[i], s[io], states);
+            // The bulged nucleotide lies on the miRNA strand (n1 > 0: between outer pair base s[k] and inner
+            // pair base s[i], the kernel's 5' strand) or on the target strand (n2 > 0: between s[io] and s[ko]).
+            // The strand decides NNDB's special-C term ("a bulged C adjacent to at least one paired C"), so it is
+            // passed exactly as the canonical MFE recursion does; without it the kernel applies the bonus only
+            // when a paired C flanks the bulge on both strands.
+            return RnaSecondaryStructure.CalculateBulgeLoopEnergy(size, bulged, s[k], s[ko], s[i], s[io], states,
+                bulgeOn5PrimeStrand: n1 > 0);
         }
 
         return RnaSecondaryStructure.CalculateInternalLoopEnergy(
