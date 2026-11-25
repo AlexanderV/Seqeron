@@ -172,3 +172,17 @@ Oracles: scikit-learn 1.9.1 / scipy 1.18.1 (fit), ViennaRNA 2.8.0 `RNA.fold` (ra
   `PreMiRnaFeatures.BasePairingPropensity`; docs no longer attribute raw MFE to Bonnet 2004 nor %paired to Xue 2005;
   threshold doc corrected (training prior 1 : 4, not balanced).
 - **F26 Bonnet 2004 randfold test** was missing: `CalculateRandfoldPValue` (randfold.c counting, ε 1e-7) added.
+
+---
+
+## B13 WP-9 / A12 (2026-11-25) — published classifier obtained: Triplet-SVM
+
+README rule: a published classifier must be implemented when obtainable. Sources tried (outcome):
+- bioinfo.au.tsinghua.edu.cn/mirnasvm/ (original Triplet-SVM site): connection failed from the review host.
+- GitHub repository search (`gh`/api, fetch): `PeterScott/mirna-prediction-nodejs` (web front end bundling the **unmodified Triplet-SVM package** `progs/triplet-svm-classifier060304` and MiPred) — raw files retrievable: trained model `models/trainset_hsa163_cds168_unite.txt.model` (SHA-256 c4f2825c…07f7), Perl scripts 1–4, readme and the 40-example run (`examples/`). **Obtained.**
+- MiPred (Ng & Mishra 2007) package in the same repository (`progs/MiPred`, Perl + R randomForest `microRNAcheck_parallel.pl` retrieved): needs R randomForest model files and RNAfold/RNAfold-derived features not retrievable as a reproducible reference here — not implemented (DOABLE only with the randomForest binaries; not attempted).
+- microPred, HuntMi, miRBoost, MiRPara, HextractoR, mirnaDetect, PyPI/Bioconductor packages: GitHub search returned no repository with a retrievable model (`microPred`: unrelated hits; `miRBoost`, `HuntMi`: none).
+
+Implemented: `ClassifyPreMiRnaTripletSvm` (+ `ComputeTripletFeatures`, `TripletSvmDecisionValue`) in `MiRnaAnalyzer.TripletSvm.cs` with the model in `MiRnaAnalyzer.TripletSvmModel.cs`. Cross-check: libsvm 3.36 (`svm_predict_values`, compiled from the PyPI sdist) on the package model reproduces the shipped `predict_result.txt` 40/40; the C# port equals the Perl pipeline + libsvm on 981 random folds (0 differences) and on 5 Seqeron-folded pri-miRNAs (decision values 1.0197–1.5514, all real) plus shuffles (3 of 5 give no stem-loop with 22 pairs per arm, 2 of 5 are false positives at 0.13 / 0.82).
+Licence note: the package and mirror state no licence; only the numeric model parameters are bundled (source URL + hash in the data file header).
+`ClassifyPreMiRna` stays as the in-repo model; its XML doc and docs now say it is not a published classifier.

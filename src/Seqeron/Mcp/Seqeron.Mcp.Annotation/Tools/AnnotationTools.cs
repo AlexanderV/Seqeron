@@ -1330,12 +1330,12 @@ public class AnnotationTools
     [Description("Enumerate single-nucleotide variants of a seed sequence (the original plus all single-position substitutions over A/C/G/U).")]
     public static GenerateSeedVariantsResult GenerateSeedVariants(
         [Description("Seed nucleotide sequence")] string seedSequence,
-        [Description("Reserved for future wobble-aware expansion (currently unused by the underlying algorithm)")] bool includeWobble = true)
+        [Description("Ignored; accepted for compatibility (the result does not depend on it)")] bool includeWobble = true)
     {
         if (string.IsNullOrEmpty(seedSequence))
             throw new ArgumentException("Seed sequence cannot be null or empty", nameof(seedSequence));
 
-        var variants = MiRnaAnalyzer.GenerateSeedVariants(seedSequence, includeWobble).ToList();
+        var variants = MiRnaAnalyzer.GenerateSeedVariants(seedSequence).ToList();
         return new GenerateSeedVariantsResult(variants);
     }
 

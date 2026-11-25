@@ -110,7 +110,8 @@
 | R-004 | `FindSimilarMiRnas_RealSeeds_UsesSeedHammingDistance` | miR-21 vs miR-590 = 0 mm; vs let-7a = 5 mm (thresholds 0/4/5) |
 | R-005 | `FindSimilarMiRnas_SeedlessEntries_NeverSimilar` | empty seed previously scored 0 mm and matched everything |
 | R-006 | `GenerateSeedVariants_LowercaseDnaSeed_NormalisedWithoutDuplicates` | 1 + 3·7 = 22 distinct, first = GAGGUAG |
-| R-007 | `GenerateSeedVariants_IncludeWobbleFlag_HasNoEffect` | documented no-op flag |
+| R-007 | `GenerateSeedVariants_IncludeWobbleFlag_HasNoEffect` | the `(string, bool includeWobble)` overload ignores the flag (22 variants of a 7-nt seed either way); WP-11 / A14 |
+| R-007b | `GenerateSeedVariants_IncludeWobbleOverload_IsMarkedObsolete` | `[Obsolete]` on the two-argument overload, which stays for binary compatibility; MCP parameter kept, described as "ignored; accepted for compatibility" |
 | R-008 | `NullInputs_ThrowArgumentNullException` | CreateMiRna / GenerateSeedVariants / GroupBySeedFamily / FindSimilarMiRnas |
 | R-009 | `CalculateGcContent_DelegatesToCanonicalGcFraction` | Biopython gc_fraction(let-7a) = 8/22 = 0.363636…; "GCNN" = 1.0 |
 

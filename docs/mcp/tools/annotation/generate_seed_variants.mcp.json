@@ -11,7 +11,7 @@
     "type": "object",
     "properties": {
       "seedSequence": { "type": "string", "description": "Seed nucleotide sequence", "minLength": 1 },
-      "includeWobble": { "type": "boolean", "description": "Reserved for future wobble-aware expansion (currently unused)", "default": true }
+      "includeWobble": { "type": "boolean", "description": "Ignored; accepted for compatibility (the result does not depend on it)", "default": true }
     },
     "required": ["seedSequence"]
   },

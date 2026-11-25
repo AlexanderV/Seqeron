@@ -33,7 +33,7 @@ $$
 \operatorname{mismatches}(a,b) = \sum_{i=1}^{k} [a_i \ne b_i]
 $$
 
-Seeds are first normalised as TargetScan does (`targetscan_70.pl`: `s/T/U/gi; uc()`), the Hamming count uses the canonical `SequenceExtensions.HammingDistance`, and `IsSameFamily = true` only when the normalised seeds are identical (0 mismatches). `GroupBySeedFamily` keys families by the same normalised seed and omits seedless (<8 nt) miRNAs; `FindSimilarMiRnas` uses the `CompareSeedRegions` mismatch count and never reports a seedless miRNA as similar. `GenerateSeedVariants` returns the normalised seed plus all 3·L single-nucleotide substitutions over A/C/G/U (its `includeWobble` flag has no effect).
+Seeds are first normalised as TargetScan does (`targetscan_70.pl`: `s/T/U/gi; uc()`), the Hamming count uses the canonical `SequenceExtensions.HammingDistance`, and `IsSameFamily = true` only when the normalised seeds are identical (0 mismatches). `GroupBySeedFamily` keys families by the same normalised seed and omits seedless (<8 nt) miRNAs; `FindSimilarMiRnas` uses the `CompareSeedRegions` mismatch count and never reports a seedless miRNA as similar. `GenerateSeedVariants` returns the normalised seed plus all 3·L single-nucleotide substitutions over A/C/G/U (the two-argument overload with `includeWobble` is `[Obsolete]`: the flag is ignored, use `GenerateSeedVariants(string)`; MCP `generate_seed_variants` keeps the parameter as "ignored; accepted for compatibility").
 
 ### 2.4 Properties and Invariants
 

@@ -485,8 +485,22 @@ public class MiRnaAnalyzer_SeedAnalysis_Tests
     [Test]
     public void GenerateSeedVariants_IncludeWobbleFlag_HasNoEffect()
     {
-        Assert.That(GenerateSeedVariants("GAGGUAG", includeWobble: false),
-            Is.EqualTo(GenerateSeedVariants("GAGGUAG", includeWobble: true)));
+        // The obsolete two-argument overload is kept for source/binary compatibility; it ignores the flag.
+#pragma warning disable CS0618
+        var withoutFlag = GenerateSeedVariants("GAGGUAG").ToList();
+        Assert.That(GenerateSeedVariants("GAGGUAG", includeWobble: false), Is.EqualTo(withoutFlag));
+        Assert.That(GenerateSeedVariants("GAGGUAG", includeWobble: true), Is.EqualTo(withoutFlag));
+#pragma warning restore CS0618
+        Assert.That(withoutFlag, Has.Count.EqualTo(22));
+    }
+
+    [Test]
+    public void GenerateSeedVariants_IncludeWobbleOverload_IsMarkedObsolete()
+    {
+        var method = typeof(Seqeron.Genomics.Annotation.MiRnaAnalyzer).GetMethod(
+            nameof(GenerateSeedVariants), new[] { typeof(string), typeof(bool) });
+        Assert.That(method, Is.Not.Null, "binary compatibility: (string, bool) overload must remain");
+        Assert.That(method!.GetCustomAttributes(typeof(ObsoleteAttribute), false), Is.Not.Empty);
     }
 
     [Test]

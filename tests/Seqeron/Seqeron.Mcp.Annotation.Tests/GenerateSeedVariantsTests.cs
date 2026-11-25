@@ -40,4 +40,19 @@ public class GenerateSeedVariantsTests
             Assert.That(result.Variants[0], Is.EqualTo("GAGGUAG"));
         });
     }
+
+    [Test]
+    public void GenerateSeedVariants_IncludeWobble_IsIgnored_AndDescribedAsSuch()
+    {
+        // WP-11 / A14: the parameter stays (no MCP parameter is removed) but never changes the result.
+        Assert.That(AnnotationTools.GenerateSeedVariants("GAGGUAG", includeWobble: false).Variants,
+            Is.EqualTo(AnnotationTools.GenerateSeedVariants("GAGGUAG", includeWobble: true).Variants));
+
+        var method = typeof(AnnotationTools).GetMethod(nameof(AnnotationTools.GenerateSeedVariants))!;
+        var parameter = method.GetParameters().Single(p => p.Name == "includeWobble");
+        var description = ((System.ComponentModel.DescriptionAttribute)parameter
+            .GetCustomAttributes(typeof(System.ComponentModel.DescriptionAttribute), false).Single()).Description;
+        Assert.That(description, Does.Contain("Ignored").And.Contain("compatibility"));
+        Assert.That(description, Does.Not.Contain("future").IgnoreCase);
+    }
 }

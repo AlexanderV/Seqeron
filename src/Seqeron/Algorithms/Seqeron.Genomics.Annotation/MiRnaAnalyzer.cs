@@ -3636,6 +3636,12 @@ public static partial class MiRnaAnalyzer
     /// <see cref="FindPreMiRnaHairpinsByMfe"/>) and their defaults are unchanged. The model was
     /// trained from PUBLIC-DOMAIN miRBase precursors against dinucleotide-shuffled negatives
     /// (Bonnet et al. 2004 convention); NO trained GPL miRDeep2 code or weights are used.
+    /// <para>
+    /// <b>This is an in-repo model, NOT a published classifier</b>: a small ridge-logistic regression
+    /// (13 positives, 52 shuffles, 5 features) whose training set and trainer live in this file. For a
+    /// published classifier with the authors' own trained model use
+    /// <see cref="ClassifyPreMiRnaTripletSvm"/> (Triplet-SVM, Xue et al. 2005).
+    /// </para>
     /// </summary>
     /// <param name="sequence">Candidate nucleotide sequence (RNA or DNA; T read as U; case-insensitive).</param>
     /// <param name="threshold">Decision threshold on P(natural) (default 0.5, the Bayes cutoff).</param>
@@ -4022,16 +4028,25 @@ public static partial class MiRnaAnalyzer
     /// </summary>
     /// <remarks>
     /// The input is TargetScan-normalised first (upper-case, T→U) so that no variant duplicates
-    /// the original. <paramref name="includeWobble"/> has no effect: every single substitution,
-    /// including those whose target-site pairing would be a G:U wobble, is always enumerated.
-    /// It is retained only for API compatibility.
+    /// the original. Every single substitution, including those whose target-site pairing would be a
+    /// G:U wobble, is enumerated; no source defines a narrower or wider wobble-specific variant set
+    /// for seeds.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="seedSequence"/> is null.</exception>
-    public static IEnumerable<string> GenerateSeedVariants(string seedSequence, bool includeWobble = true)
+    public static IEnumerable<string> GenerateSeedVariants(string seedSequence)
     {
         ArgumentNullException.ThrowIfNull(seedSequence);
         return GenerateSeedVariantsIterator(NormalizeSeed(seedSequence));
     }
+
+    /// <summary>
+    /// Same as <see cref="GenerateSeedVariants(string)"/>; <paramref name="includeWobble"/> is ignored.
+    /// </summary>
+    /// <param name="seedSequence">Seed sequence.</param>
+    /// <param name="includeWobble">Ignored; accepted for source and binary compatibility. The result never depends on it.</param>
+    [Obsolete("includeWobble is ignored (no source defines wobble semantics for seed variants); call GenerateSeedVariants(string).")]
+    public static IEnumerable<string> GenerateSeedVariants(string seedSequence, bool includeWobble) =>
+        GenerateSeedVariants(seedSequence);
 
     private static IEnumerable<string> GenerateSeedVariantsIterator(string seedSequence)
     {
