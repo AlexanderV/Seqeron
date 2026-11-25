@@ -18,6 +18,8 @@ public class RnaStructureEnergyTests
         Assert.Throws<ArgumentException>(() => AnalysisTools.RnaStructureEnergy("GGGAAACCC", null!));
         Assert.Throws<ArgumentException>(() => AnalysisTools.RnaStructureEnergy("GGGAAACCC", "((....))"));
         Assert.Throws<ArgumentException>(() => AnalysisTools.RnaStructureEnergy("GGGAAACCC", "[[[...]]]"));
+        // RNA-HAIRPIN-001: hairpin loops < 3 nt are prohibited (NNDB; ViennaRNA eval_structure = INF).
+        Assert.Throws<ArgumentException>(() => AnalysisTools.RnaStructureEnergy("GGGAACCC", "(((..)))"));
     }
 
     [Test]

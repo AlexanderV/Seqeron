@@ -5,7 +5,7 @@
 **Algorithm:** Hairpin Loop and Stem Free-Energy Calculation (Turner 2004)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -103,6 +103,16 @@
 | C1 | Hexaloop override | `CalculateHairpinLoopEnergy("CAGUGU",'A','U')` (key ACAGUGUU) | 1.8 | hexaloop.txt |
 | C2 | Determinism (INV-1) | same inputs twice ⇒ identical output | equal | property |
 
+### 4.4 B12 systematic cross-check (2026-11-25) — NNDB Turner 2004 + ViennaRNA 2.7.2
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| V1 | Initiation n = 3..30, 31, 35, 40, 50, 100, 200 (n×A, closing C-G) | NNDB loop.txt (+ tstack CAAG −1.5 for n ≥ 4); n > 30 NNDB formula; = ViennaRNA `eval_hp_loop` (≤ 0.01 for n > 30) | Evidence §B12, loop.txt |
+| V2 | All 22 special tri/tetra/hexaloops | NNDB txt values (= ViennaRNA lists) | triloop/tetraloop/hexaloop txt |
+| V3 | U-A closure, A·G first mismatch | 4.6 (NNDB tstack −1.1; ViennaRNA mismatchH gives 4.7) | terminal_mismatch_dg.txt |
+| V4 | Evaluator hairpin term (13 structures: sizes 3–8, all-C, special GU and non-GG context, N, A-U hexaloop) | ViennaRNA `eval_structure` (NNDB-precision file) + NNDB-only terms | Evidence §B12 |
+| V5 | `CalculateFreeEnergy` with a hairpin of 0/1/2 nt | `ArgumentException` (NNDB prohibits; ViennaRNA INF) | hairpin.html §5.1 |
+
 ---
 
 ## 5. Audit of Existing Tests
@@ -141,7 +151,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `RnaSecondaryStructure_HairpinEnergy_Tests.cs` | Canonical (RNA-HAIRPIN-001) | 16 |
+| `RnaSecondaryStructure_HairpinEnergy_Tests.cs` | Canonical (RNA-HAIRPIN-001) | 19 original [Test] methods + V3 [Test] + 4 parametrised V1/V2/V4/V5 methods (72 cases) |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -191,4 +201,5 @@ Total in-scope cases: 16; ✅ = 16.
 
 ## 7. Open Questions / Decisions
 
+2. ViennaRNA 2.7.2 vs NNDB (Evidence §B12): same special loops and initiation table; ViennaRNA omits special GU closure and all-C terms, uses TerminalAU 0.5 and mismatchH[UA][A][G] −1.0 (NNDB −1.1). Decision: NNDB values.
 1. Loops < 3 nt: the source states they are "prohibited" but assigns no number. The implementation returns a large prohibitive energy (100.0) so an optimizer never selects them; the test asserts ≥ 100 rather than an exact value because the source gives no value. Decision: accepted (INV-2).

@@ -42,7 +42,8 @@ the MFE structure equals the MFE.
 ## Errors
 
 Empty sequence; null structure; a character other than `(`, `)`, `.`; unbalanced or wrong-length structure;
-a pair of bases that cannot pair.
+a pair of bases that cannot pair; a hairpin loop of fewer than 3 unpaired nucleotides (prohibited by the Turner 2004
+rules; ViennaRNA `eval_structure` reports INF).
 
 ## Examples
 

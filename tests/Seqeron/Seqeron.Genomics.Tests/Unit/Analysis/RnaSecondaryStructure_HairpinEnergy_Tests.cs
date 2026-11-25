@@ -253,4 +253,77 @@ public class RnaSecondaryStructure_HairpinEnergy_Tests
     }
 
     #endregion
+
+    #region RNA-HAIRPIN-001 systematic NNDB / ViennaRNA 2.7.2 cross-check (B12 review 2026-11)
+
+    // Initiation table 3..30 = NNDB turner_2004_loop_dg.txt HAIRPIN column (= ViennaRNA 2.7.2 hairpin37), and
+    // n > 30 = NNDB init(9) + 1.75·RT·ln(n/9). Loop = n×A closed by C-G: n = 3 has no first-mismatch term; n ≥ 4 adds
+    // tstack(CAAG) −1.5. Expected = ViennaRNA 2.7.2 default-file eval_hp_loop (C-G closure: no AU-penalty rounding);
+    // n = 100: ViennaRNA truncates lxc·ln(n/30) to whole dcal (7.49), NNDB formula gives 7.50.
+    [TestCase(3, 5.4)] [TestCase(4, 4.1)] [TestCase(5, 4.2)] [TestCase(6, 3.9)] [TestCase(7, 4.5)]
+    [TestCase(8, 4.0)] [TestCase(9, 4.9)] [TestCase(10, 5.0)] [TestCase(11, 5.1)] [TestCase(12, 5.2)]
+    [TestCase(13, 5.3)] [TestCase(14, 5.4)] [TestCase(15, 5.4)] [TestCase(16, 5.5)] [TestCase(17, 5.6)]
+    [TestCase(18, 5.6)] [TestCase(19, 5.7)] [TestCase(20, 5.7)] [TestCase(21, 5.8)] [TestCase(22, 5.8)]
+    [TestCase(23, 5.9)] [TestCase(24, 5.9)] [TestCase(25, 6.0)] [TestCase(26, 6.0)] [TestCase(27, 6.0)]
+    [TestCase(28, 6.1)] [TestCase(29, 6.1)] [TestCase(30, 6.2)] [TestCase(31, 6.23)] [TestCase(35, 6.36)]
+    [TestCase(40, 6.51)] [TestCase(50, 6.75)] [TestCase(100, 7.50)] [TestCase(200, 8.24)]
+    public void RnaHairpin001_Initiation_MatchesNndbLoopTableAndViennaRna(int n, double expected)
+    {
+        Assert.That(CalculateHairpinLoopEnergy(new string('A', n), 'C', 'G'), Is.EqualTo(expected).Within(Tol));
+    }
+
+    // Every special hairpin of NNDB turner_2004_triloop/tetraloop/hexaloop_dg.txt; ViennaRNA 2.7.2 rna_turner2004.par
+    // Triloops/Tetraloops/Hexaloops lists the same 22 sequences with the same values (key = closing pair + loop).
+    [TestCase("CAACG", 6.8)] [TestCase("GUUAC", 6.9)]
+    [TestCase("CUACGG", 2.8)] [TestCase("CUCCGG", 2.7)] [TestCase("CUUCGG", 3.7)] [TestCase("CUUUGG", 3.7)]
+    [TestCase("CCAAGG", 3.3)] [TestCase("CCCAGG", 3.4)] [TestCase("CCGAGG", 3.5)] [TestCase("CCUAGG", 3.7)]
+    [TestCase("CCACGG", 3.7)] [TestCase("CCGCGG", 3.6)] [TestCase("CCUCGG", 2.5)] [TestCase("CUAAGG", 3.6)]
+    [TestCase("CUCAGG", 3.7)] [TestCase("CUUAGG", 3.5)] [TestCase("CUGCGG", 2.8)] [TestCase("CAACGG", 5.5)]
+    [TestCase("ACAGUGCU", 2.9)] [TestCase("ACAGUGAU", 3.6)] [TestCase("ACAGUGUU", 1.8)] [TestCase("ACAGUACU", 2.8)]
+    public void RnaHairpin001_SpecialLoops_AllNndbEntries(string key, double expected)
+    {
+        Assert.That(CalculateHairpinLoopEnergy(key[1..^1], key[0], key[^1]), Is.EqualTo(expected).Within(Tol));
+    }
+
+    // NNDB tstack U-A with first mismatch A·G = −1.1 (turner_2004_terminal_mismatch_dg.txt); ViennaRNA 2.7.2
+    // mismatch_hairpin[UA][A][G] = −50 (= −1.0 + TerminalAU 0.5) is the only one of its 150 hairpin-mismatch
+    // entries that departs from NNDB tstack + bonuses + 0.5. NNDB kept: init(5) 5.7 − 1.1 = 4.6 (ViennaRNA: 4.7).
+    [Test]
+    public void RnaHairpin001_UAClosure_AGMismatch_UsesNndbTstack()
+    {
+        Assert.That(CalculateHairpinLoopEnergy("AAAAG", 'U', 'A'), Is.EqualTo(4.6).Within(Tol));
+    }
+
+    // Full hairpin term inside the structure evaluator (MFE/PF/eval share it) vs ViennaRNA 2.7.2 RNA.eval_structure
+    // with the NNDB-precision parameter file (RNA-STRUCT-001 Evidence §12.2) plus the NNDB-only terms ViennaRNA omits.
+    [TestCase("GGCAAAGCC", "(((...)))", -1.28, 0.0)]            // 3-nt, G-C closure: init(3) only
+    [TestCase("GGAAAAUCC", "(((...)))", 0.24, 0.0)]             // 3-nt, A-U closure: init(3) + 0.45, no mismatch
+    [TestCase("GGGUAAUCC", "(((...)))", 1.06, 0.0)]             // 3-nt G-U closure: special GU closure is a >3-nt term
+    [TestCase("GGACCCUCC", "(((...)))", 0.24, 1.5)]             // all-C 3-nt: C3 penalty +1.5
+    [TestCase("GGACCCCUCC", "(((....)))", -0.26, 2.8)]          // all-C 4-nt: 0.3·4 + 1.6
+    [TestCase("GGACCCCCCCCUCC", "(((........)))", -0.36, 4.0)] // all-C 8-nt: 0.3·8 + 1.6
+    [TestCase("CGGGGAAAGUCCG", "((((.....))))", -2.60, -2.2)]   // NNDB §5.3 special GU closure example = −4.8
+    [TestCase("CAGGGAAAGUCUG", "((((.....))))", -1.17, 0.0)]    // G-U closure preceded by A,G: no bonus
+    [TestCase("GGUAAAAGACC", "(((.....)))", -0.45, 0.0)]        // U-A closure, A·G mismatch (NNDB −1.1)
+    [TestCase("GGGAANAAACCC", "(((......)))", -2.22, 0.0)]      // N in the loop body: no effect
+    [TestCase("GGGNAAAANCCC", "(((......)))", -1.62, 0.0)]      // N first mismatch: max over A/C/G/U
+    [TestCase("GGACAGUGUUCC", "(((......)))", -3.81, 0.0)]      // A-U-closed hexaloop: total, no extra 0.45
+    [TestCase("GGGUCGACCC", "(((....)))", -2.02, 0.0)]          // C-G closure, U·A mismatch
+    public void RnaHairpin001_EvaluatorHairpinTerm_MatchesViennaRnaPlusNndbOnlyTerms(
+        string sequence, string dotBracket, double viennaNndbFile, double nndbOnly)
+    {
+        Assert.That(CalculateFreeEnergy(sequence, dotBracket), Is.EqualTo(viennaNndbFile + nndbOnly).Within(1e-6));
+    }
+
+    // NNDB: "The nearest neighbor rules prohibit hairpin loops with fewer than 3 nucleotides"; ViennaRNA 2.7.2
+    // eval_structure returns INF (100000) for these. Before the fix the 100.0 sentinel leaked into a finite 93.48.
+    [TestCase("GGGAACCC", "(((..)))")]
+    [TestCase("GGGACCC", "(((.)))")]
+    [TestCase("GGGCCC", "((()))")]
+    public void RnaHairpin001_FreeEnergy_HairpinShorterThanThree_Throws(string sequence, string dotBracket)
+    {
+        Assert.Throws<ArgumentException>(() => CalculateFreeEnergy(sequence, dotBracket));
+    }
+
+    #endregion
 }

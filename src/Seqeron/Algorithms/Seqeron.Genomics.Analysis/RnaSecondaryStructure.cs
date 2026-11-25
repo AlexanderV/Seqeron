@@ -791,8 +791,15 @@ public static class RnaSecondaryStructure
     /// For special loops (tri/tetra/hexaloops), the total energy from experimental data
     /// replaces the model calculation. Otherwise uses:
     /// ΔG° = initiation(n) + terminal_mismatch + UU/GA_bonus + GG_bonus + special_GU_closure + all_C_penalty
+    /// (n ≥ 4); ΔG° = initiation(3) + C3 penalty (n = 3, no first-mismatch term). Initiation n = 3..30 is the NNDB
+    /// <c>turner_2004_loop_dg.txt</c> table (= ViennaRNA 2.7.2 <c>hairpin37</c>); n &gt; 30 is init(9) + 1.75·RT·ln(n/9).
+    /// The closing pair's terminal AU/GU penalty is NOT included (NNDB counts it in the helix; see
+    /// <see cref="CalculateStemEnergy"/>); a special loop's tabulated value is the loop total. Case-insensitive,
+    /// T read as U; an unknown first-mismatch base takes the maximum over A/C/G/U (ViennaRNA 'N').
+    /// Loops shorter than 3 nt return the prohibitive sentinel 100.0.
     /// </summary>
-    /// <param name="specialGUClosure">True when closing pair is G-U preceded by two Gs on 5' side.</param>
+    /// <param name="specialGUClosure">True when the closing pair is G(5')-U(3') and the two nucleotides 5' of that G
+    /// are both G (NNDB / Mathews et al. 2004); ignored for other closing pairs and for 3-nt loops.</param>
     public static double CalculateHairpinLoopEnergy(
         string loopSequence, char closingBase5, char closingBase3,
         bool specialGUClosure = false)
@@ -1738,8 +1745,9 @@ public static class RnaSecondaryStructure
     /// <param name="dotBracket">Structure of the same length using only '(', ')' and '.'.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">
-    /// The structure has another character, is unbalanced, has the wrong length, or pairs bases that cannot pair
-    /// (see <see cref="CanPair"/>).
+    /// The structure has another character, is unbalanced, has the wrong length, pairs bases that cannot pair
+    /// (see <see cref="CanPair"/>), or contains a hairpin loop of fewer than 3 unpaired nucleotides (prohibited by
+    /// the Turner 2004 rules; ViennaRNA evaluates such a structure to INF).
     /// </exception>
     public static double CalculateFreeEnergy(string rnaSequence, string dotBracket)
     {
@@ -1758,7 +1766,8 @@ public static class RnaSecondaryStructure
     /// <c>vrna_eval_structure</c> with <c>md.dangles = 2</c>. Interior loops are evaluated without the
     /// MAXLOOP cut-off, as in ViennaRNA. Used to verify that the MFE equals the energy of its own structure.
     /// </summary>
-    /// <exception cref="ArgumentException">The dot-bracket is unbalanced, has the wrong length, or pairs non-canonical bases.</exception>
+    /// <exception cref="ArgumentException">The dot-bracket is unbalanced, has the wrong length, pairs non-canonical bases, or
+    /// has a hairpin loop of fewer than 3 unpaired nucleotides.</exception>
     internal static double EvaluateStructureEnergy(string rnaSequence, string dotBracket)
     {
         ArgumentNullException.ThrowIfNull(rnaSequence);
@@ -1774,6 +1783,13 @@ public static class RnaSecondaryStructure
         {
             if (PairType(seq[a], seq[b]) == 0)
                 throw new ArgumentException($"Non-canonical pair ({a},{b}).", nameof(dotBracket));
+            // NNDB Turner 2004: "The nearest neighbor rules prohibit hairpin loops with fewer than 3 nucleotides"
+            // (ViennaRNA 2.7.2 vrna_E_hairpin: hairpin[0..2] = INF; eval_structure reports 100000). A pair spanning
+            // fewer than 3 positions cannot enclose another pair, so it always closes such a hairpin.
+            if (b - a - 1 < MinHairpinLoop)
+                throw new ArgumentException(
+                    $"Pair ({a},{b}) closes a hairpin loop of {b - a - 1} nucleotides; Turner 2004 prohibits hairpin loops of fewer than 3.",
+                    nameof(dotBracket));
             partner[a] = b;
             partner[b] = a;
         }
