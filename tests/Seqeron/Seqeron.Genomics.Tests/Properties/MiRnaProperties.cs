@@ -28,7 +28,7 @@ public class MiRnaProperties
     {
         // A sequence long enough to contain potential hairpins
         string sequence = string.Concat(Enumerable.Repeat("GCGCUUUUGCGC", 20));
-        var hairpins = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength: 30).ToList();
+        var hairpins = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength: 30, useConsecutiveScreen: true).ToList();
 
         foreach (var hp in hairpins)
         {
@@ -47,7 +47,7 @@ public class MiRnaProperties
     public void FindPreMiRnaHairpins_Bounds_WithinSequence()
     {
         string sequence = string.Concat(Enumerable.Repeat("GCGCUUUUGCGC", 20));
-        var hairpins = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength: 30).ToList();
+        var hairpins = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength: 30, useConsecutiveScreen: true).ToList();
 
         foreach (var hp in hairpins)
         {
@@ -65,7 +65,7 @@ public class MiRnaProperties
     public void FindPreMiRnaHairpins_StructureLength_EqualsSequenceLength()
     {
         string sequence = string.Concat(Enumerable.Repeat("GCGCUUUUGCGC", 20));
-        var hairpins = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength: 30).ToList();
+        var hairpins = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength: 30, useConsecutiveScreen: true).ToList();
 
         foreach (var hp in hairpins)
             Assert.That(hp.Structure.Length, Is.EqualTo(hp.Sequence.Length),
@@ -1220,7 +1220,7 @@ public class MiRnaProperties
             var (sequence, stem, loop) = built;
             string expectedStructure = ExpectedStructure(stem, loop);
 
-            var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence).ToList();
+            var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, useConsecutiveScreen: true).ToList();
             var full = candidates.Where(c => c.Sequence == sequence).ToList();
 
             if (full.Count == 0)
@@ -1263,7 +1263,7 @@ public class MiRnaProperties
             var (sequence, stem, loop) = built;
             int expectedArmLen = Math.Min(DefaultMatureLength, stem);
 
-            var full = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence)
+            var full = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, useConsecutiveScreen: true)
                 .Where(c => c.Sequence == sequence).ToList();
             if (full.Count == 0)
                 return false.Label($"setup: no full-length candidate stem={stem} loop={loop}");
@@ -1292,7 +1292,7 @@ public class MiRnaProperties
         return Prop.ForAll(PerfectHairpinArbitrary(), built =>
         {
             var (sequence, _, _) = built;
-            var hp = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence)
+            var hp = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, useConsecutiveScreen: true)
                 .FirstOrDefault(c => c.Sequence == sequence);
             if (hp.Sequence != sequence)
                 return false.Label($"setup: no full-length candidate for '{sequence}'");
@@ -1314,7 +1314,7 @@ public class MiRnaProperties
     {
         return Prop.ForAll(ArbitraryRnaArbitrary(), seq =>
         {
-            var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).ToList();
+            var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, useConsecutiveScreen: true).ToList();
             foreach (var hp in candidates)
             {
                 var (ok, detail) = ValidateCandidate(hp, seq, DefaultMatureLength);
@@ -1339,8 +1339,8 @@ public class MiRnaProperties
 
         return Prop.ForAll(arb, seq =>
         {
-            var run1 = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).ToList();
-            var run2 = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).ToList();
+            var run1 = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, useConsecutiveScreen: true).ToList();
+            var run2 = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, useConsecutiveScreen: true).ToList();
             return run1.SequenceEqual(run2).Label($"D: {run1.Count} vs {run2.Count} candidates for '{seq}'");
         });
     }
@@ -1352,7 +1352,7 @@ public class MiRnaProperties
     [TestCase("")]
     public void Anchor_NullOrEmptyInput_YieldsNoCandidates(string? seq)
     {
-        Assert.That(MiRnaAnalyzer.FindPreMiRnaHairpins(seq!).ToList(), Is.Empty);
+        Assert.That(MiRnaAnalyzer.FindPreMiRnaHairpins(seq!, useConsecutiveScreen: true).ToList(), Is.Empty);
     }
 
     /// <summary>Edge (§6.1): input shorter than minHairpinLength (55) yields no candidates.</summary>
@@ -1362,7 +1362,7 @@ public class MiRnaProperties
         // A would-be perfect hairpin of total length 54 (< 55) — too short to be scanned.
         var (shortSeq, _, _) = BuildPerfectHairpin(stem: 22, loop: 10, seed: 7); // length 54
         Assert.That(shortSeq.Length, Is.EqualTo(54));
-        Assert.That(MiRnaAnalyzer.FindPreMiRnaHairpins(shortSeq).ToList(), Is.Empty);
+        Assert.That(MiRnaAnalyzer.FindPreMiRnaHairpins(shortSeq, useConsecutiveScreen: true).ToList(), Is.Empty);
     }
 
     /// <summary>
@@ -1375,7 +1375,7 @@ public class MiRnaProperties
         // stem 17, loop 21 ⇒ length 55. Detected uninterrupted stem = 17 < 18 ⇒ reject.
         var (seq, _, _) = BuildPerfectHairpin(stem: 17, loop: 21, seed: 3);
         Assert.That(seq.Length, Is.EqualTo(55));
-        var full = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).Where(c => c.Sequence == seq).ToList();
+        var full = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, useConsecutiveScreen: true).Where(c => c.Sequence == seq).ToList();
         Assert.That(full, Is.Empty, "stem-17 hairpin must be rejected (INV-02)");
     }
 
@@ -1389,7 +1389,7 @@ public class MiRnaProperties
     {
         var (seq, _, _) = BuildPerfectHairpin(stem: 22, loop: 26, seed: 11);
         Assert.That(seq.Length, Is.EqualTo(70));
-        var full = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).Where(c => c.Sequence == seq).ToList();
+        var full = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, useConsecutiveScreen: true).Where(c => c.Sequence == seq).ToList();
         Assert.That(full, Is.Empty, "loop-26 hairpin must be rejected (INV-03)");
     }
 
@@ -1406,7 +1406,7 @@ public class MiRnaProperties
         var (seq, _, _) = BuildPerfectHairpin(stem: 27, loop: 2, seed: 11);
         Assert.That(seq.Length, Is.EqualTo(56));
 
-        var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).ToList();
+        var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, useConsecutiveScreen: true).ToList();
         Assert.That(candidates.Single(c => c.Sequence == seq).Structure, Is.EqualTo(ExpectedStructure(26, 4)));
         foreach (var hp in candidates)
         {
@@ -1431,7 +1431,7 @@ public class MiRnaProperties
             "GAAAUUU" +
             "UAGCUAGCUAGCUAGCUAGCUAUGC";
 
-        var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence).ToList();
+        var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, useConsecutiveScreen: true).ToList();
         Assert.That(candidates, Is.Not.Empty);
 
         var full = candidates.Single(c => c.Sequence == sequence.ToUpperInvariant().Replace('T', 'U'));

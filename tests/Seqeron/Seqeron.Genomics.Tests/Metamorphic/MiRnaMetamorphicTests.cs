@@ -238,7 +238,7 @@ public class MiRnaMetamorphicTests
 
     /// <summary>The full-length precursor (the designed hairpin spanning the whole sequence).</summary>
     private static MiRnaAnalyzer.PreMiRna FullHairpin(string sequence) =>
-        MiRnaAnalyzer.FindPreMiRnaHairpins(sequence).Single(p => p.Start == 0 && p.End == sequence.Length - 1);
+        MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, useConsecutiveScreen: true).Single(p => p.Start == 0 && p.End == sequence.Length - 1);
 
     #region MIRNA-PRECURSOR-001 MON — a longer stem yields a more stable precursor
 

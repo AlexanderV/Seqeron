@@ -26,17 +26,29 @@ public class FindPreMiRnaHairpinsTests
     [Test]
     public void FindPreMiRnaHairpins_Binding_InvokesSuccessfully()
     {
-        // 57 nt input with minHairpinLength=55 yields exactly 2 candidates:
-        // the full 57-nt window (Start=0, End=56, stem=27, loop 3) and a 55-nt sub-window at offset 1.
+        // Default = MFE fold per window (F40). The 57-nt hairpin (27 bp, 3-nt loop) yields exactly 6 accepted
+        // windows (starts 0..2, ends 54..56); the full window folds to ΔG° −48.48 (ViennaRNA 2.8 −48.40).
         var result = AnnotationTools.FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55);
 
-        Assert.That(result.Hairpins, Has.Count.EqualTo(2));
+        Assert.That(result.Hairpins, Has.Count.EqualTo(6));
+        var full = result.Hairpins.Single(h => h.Start == 0 && h.End == 56);
         Assert.Multiple(() =>
         {
-            Assert.That(result.Hairpins[0].Start, Is.EqualTo(0));
-            Assert.That(result.Hairpins[0].End, Is.EqualTo(56));
-            Assert.That(result.Hairpins[0].Sequence, Is.EqualTo(ValidHairpin57));
+            Assert.That(full.Sequence, Is.EqualTo(ValidHairpin57));
+            Assert.That(full.Structure, Is.EqualTo(new string('(', 27) + "..." + new string(')', 27)));
+            Assert.That(full.FreeEnergy, Is.EqualTo(-48.48).Within(0.01));
+            Assert.That(full.MatureSequence, Is.EqualTo("GCAUAGCUAGCUAGCUAGCUAG"));
+            Assert.That(full.StarSequence, Is.EqualTo("AGCUAGCUAGCUAGCUAUGC"), "find_star: 2-nt 3' overhang, clipped at the window end");
         });
+    }
+
+    [Test]
+    public void FindPreMiRnaHairpins_BulgedRealPreMiRna_DetectedByDefault()
+    {
+        // hsa-mir-21 (MI0000077): bulged stem, missed by the consecutive-pairing screen; ViennaRNA 2.8 −34.70.
+        const string mir21 = "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA";
+        var h = AnnotationTools.FindPreMiRnaHairpins(mir21).Hairpins.Single(x => x.Start == 1 && x.End == 71);
+        Assert.That(h.FreeEnergy, Is.EqualTo(-34.70).Within(0.5));
     }
 
     [Test]

@@ -138,7 +138,7 @@
 |-----------|-------|
 | Sequence | `UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA` |
 | Length | 72 nt |
-| Expected result | **NOT detected** — known limitation of consecutive-pairing model |
+| Expected result | Screen mode (`useConsecutiveScreen: true`): **NOT detected** — known limitation of consecutive-pairing model. **Default (MFE fold, F40): detected** — best window [1,71], ΔG° −35.17 (ViennaRNA 2.8 `RNA.fold` −34.70, identical dot-bracket) |
 | Reason | Internal mismatches and bulges yield only 16 consecutive pairs from ends (< 18 threshold) |
 
 ### Dataset 4: Real miRBase — hsa-let-7a-1 (MI0000060)
@@ -149,7 +149,7 @@
 |-----------|-------|
 | Sequence | `UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA` |
 | Length | 80 nt |
-| Expected result | **NOT detected** — known limitation of consecutive-pairing model |
+| Expected result | Screen mode: **NOT detected**. **Default (MFE fold, F40): detected** — window [0,79], ΔG° −34.31 (ViennaRNA 2.8 −34.20, identical dot-bracket) |
 | Reason | Only 5 consecutive pairs from ends (< 18 threshold) |
 
 ### Dataset 5: Short-stem hairpin (55 nt)
@@ -166,9 +166,13 @@
 
 ---
 
+## F40 (2026-11-25): MFE-fold default
+
+`FindPreMiRnaHairpins` now defaults to the MFE fold (`FindPreMiRnaHairpinsByMfe` windows mapped onto `PreMiRna`; Structure/FreeEnergy = canonical MFE; mature = 22 nt from the outermost pair, star = Dicer 2-nt-overhang `find_star` partner, miRDeep2 `miRDeep2_core_algorithm.pl` L795–837, Friedländer 2008; Park 2011 5′ counting). Oracle (ViennaRNA 2.8 `RNA.fold`, the 5 miRBase pri-miRNA hairpins of `RealPriMiRnas`, all 554 accepted windows): identical dot-bracket in every window, max |ΔG° − Vienna| 0.53 kcal/mol. Best windows: hsa-mir-21 [1,71] −35.17/−34.70, let-7a-1 [0,79] −34.31/−34.20, mir-16-1 [0,88] −37.05/−37.00, mir-155 [0,64] −29.76/−29.50, mir-30a [0,70] −37.37/−37.20. All 5 were rejected by the consecutive screen (0 windows). The consecutive-pairing screen is kept as `useConsecutiveScreen: true`.
+
 ## Design Limitations
 
-1. **Consecutive stem pairing model** — The implementation requires consecutive base pairs scanning from the 5’/3’ ends inward, breaking at the first non-pairing position. Real pre-miRNAs have asymmetric internal loops (bulges) that offset the pairing alignment. A full RNA folding algorithm (Zuker/Nussinov) would be required to detect them. Tests M18/M19 document this limitation using real miRBase sequences.
+1. **Consecutive stem pairing model (screen mode only; the default is the MFE fold since F40)** — The implementation requires consecutive base pairs scanning from the 5’/3’ ends inward, breaking at the first non-pairing position. Real pre-miRNAs have asymmetric internal loops (bulges) that offset the pairing alignment. A full RNA folding algorithm (Zuker/Nussinov) would be required to detect them. Tests M18/M19 document this limitation using real miRBase sequences.
 
 ---
 

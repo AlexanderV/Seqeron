@@ -2504,26 +2504,45 @@ public static partial class MiRnaAnalyzer
     private const int HeuristicMaxTerminalLoop = 25;
 
     /// <summary>
-    /// Finds potential pre-miRNA hairpin structures in a sequence with the consecutive-pairing screen:
-    /// every window of length [<paramref name="minHairpinLength"/>, <paramref name="maxHairpinLength"/>]
-    /// is accepted when its two ends pair UNINTERRUPTEDLY inward (Watson–Crick or G·U) for ≥ 18 bp and the
-    /// remaining apical loop is 3–25 nt. The stem is extended as far as the mirrored bases pair (leaving
-    /// at least the 3-nt minimum hairpin loop), so the reported structure is the full consecutive stem.
-    /// For bulge/internal-loop tolerant detection use <see cref="FindPreMiRnaHairpinsByMfe"/>.
+    /// Finds potential pre-miRNA hairpins. DEFAULT (<paramref name="useConsecutiveScreen"/> = <c>false</c>):
+    /// every window of length [<paramref name="minHairpinLength"/>, <paramref name="maxHairpinLength"/>] is
+    /// folded with the canonical Zuker–Stiegler MFE engine and accepted by the published criteria of
+    /// <see cref="AssessHairpinByMfe"/> (single hairpin, ≥ 16 bp — Ambros 2003, loop 3–25 nt — Bartel 2004,
+    /// MFEI ≥ <paramref name="minMfei"/> — Zhang 2006), i.e. exactly the windows of
+    /// <see cref="FindPreMiRnaHairpinsByMfe"/>. Bulges and internal loops in the stem are therefore tolerated
+    /// (e.g. hsa-mir-21 is detected). With <paramref name="useConsecutiveScreen"/> = <c>true</c> the previous
+    /// consecutive-pairing screen is used instead: the window's two ends must pair UNINTERRUPTEDLY inward
+    /// (Watson–Crick or G·U) for ≥ 18 bp with a 3–25 nt apical loop (the stem is extended as far as the
+    /// mirrored bases pair), and the labels are blunt (see below).
     /// </summary>
+    /// <remarks>
+    /// <para>COST: the default folds every window — O(#windows · W³), ≈ 20 ms per 55–120-nt window on a
+    /// desktop core — and the scan is parallelised over window starts (results keep the sequential order).
+    /// Use <paramref name="useConsecutiveScreen"/> = <c>true</c> for long sequences when a fast screen is enough.</para>
+    /// <para>Mature/star in the default mode: the window is read as a Drosha product (pre-miRNA), so the 5p
+    /// product starts at the 5′ base of the outermost base pair of the MFE stem and is
+    /// <paramref name="matureLength"/> nt long (Dicer 5′ counting, Park et al. 2011 — the rule of
+    /// <see cref="PredictDroshaDicerCleavage(string, int, string?, DicerCountingRule)"/>; capped at the 5′ arm).
+    /// The star is the opposite-arm product of the Dicer 2-nt-3′-overhang rule (miRDeep2 <c>find_star</c>,
+    /// Friedländer et al. 2008; the same code as <c>PredictDroshaDicerCleavage</c>): it starts at
+    /// partner(mature end − 2 − off) − off and ends at partner(mature start) + 2 (clipped to the window).
+    /// A window carries no basal-junction knowledge, so no Drosha ruler is applied: mature/star are the
+    /// arm-dominant ends of the stem, not an annotated guide/passenger assignment.</para>
+    /// </remarks>
     /// <param name="sequence">RNA or DNA sequence (case-insensitive; T read as U). Null/empty ⇒ no candidates.</param>
     /// <param name="minHairpinLength">Minimum window length (default 55 nt; must be ≥ 1).</param>
     /// <param name="maxHairpinLength">Maximum window length (default 120 nt; a value below
     /// <paramref name="minHairpinLength"/> yields no candidates).</param>
-    /// <param name="matureLength">Length of the 5'-arm "mature" and mirrored 3'-arm "star" labels
-    /// (default 22 nt; must be ≥ 1; capped at the stem length).</param>
+    /// <param name="matureLength">Length of the 5p product (default 22 nt; must be ≥ 1; capped at the arm).</param>
+    /// <param name="useConsecutiveScreen"><c>true</c> = previous consecutive-pairing screen (fast, no bulges);
+    /// <c>false</c> (default) = MFE-fold based detection.</param>
+    /// <param name="minMfei">MFEI threshold of the default mode (Zhang 2006, 0.85); ignored by the screen.</param>
     /// <returns>
-    /// Candidates whose <c>Structure</c> and <c>FreeEnergy</c> come from the canonical
-    /// <see cref="RnaSecondaryStructure.FindStemLoops"/> stem-loop of the window: dot-bracket from the
-    /// canonical renderer and ΔG° = Turner 2004 stacking + AU/GU helix-end penalties
-    /// (<see cref="RnaSecondaryStructure.CalculateStemEnergy"/>) + full hairpin-loop model
-    /// (<see cref="RnaSecondaryStructure.CalculateHairpinLoopEnergy"/>: special tri/tetra/hexaloops,
-    /// terminal mismatch, UU/GA and GG first-mismatch bonuses, special GU closure, all-C penalty).
+    /// Default mode: <c>Structure</c>/<c>FreeEnergy</c> = canonical MFE dot-bracket/ΔG° of the window.
+    /// Screen mode: <c>Structure</c>/<c>FreeEnergy</c> from the canonical
+    /// <see cref="RnaSecondaryStructure.FindStemLoops"/> stem-loop (Turner 2004 stacks + AU/GU end penalties +
+    /// full hairpin-loop model), mature = first <paramref name="matureLength"/> nt of the window and star = the
+    /// last (blunt base-paired partner; no 2-nt overhang).
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minHairpinLength"/> or
     /// <paramref name="matureLength"/> is &lt; 1.</exception>
@@ -2531,11 +2550,44 @@ public static partial class MiRnaAnalyzer
         string sequence,
         int minHairpinLength = 55,
         int maxHairpinLength = 120,
-        int matureLength = 22)
+        int matureLength = 22,
+        bool useConsecutiveScreen = false,
+        double minMfei = DefaultMinMfei)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(minHairpinLength, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(matureLength, 1);
-        return FindPreMiRnaHairpinsIterator(sequence, minHairpinLength, maxHairpinLength, matureLength);
+        return useConsecutiveScreen
+            ? FindPreMiRnaHairpinsIterator(sequence, minHairpinLength, maxHairpinLength, matureLength)
+            : FindPreMiRnaHairpinsByMfe(sequence, minHairpinLength, maxHairpinLength, minMfei)
+                .Select(h => ToPreMiRna(h, matureLength));
+    }
+
+    /// <summary>
+    /// Maps an MFE-assessed window onto <see cref="PreMiRna"/>: Structure/FreeEnergy of the fold, mature = 5p
+    /// product from the 5′ base of the outermost pair (Dicer 5′ counting), star by miRDeep2 find_star
+    /// (2-nt 3′ overhang) — the helpers of <see cref="PredictDroshaDicerCleavage(string, int, string?, DicerCountingRule)"/>.
+    /// </summary>
+    private static PreMiRna ToPreMiRna(PreMiRnaMfe h, int matureLength)
+    {
+        string db = h.DotBracket;
+        int n = db.Length;
+        int[] partner = BuildPairTable(db);
+        int matureStart = db.IndexOf('(');                    // outermost pair (single hairpin ⇒ first '(')
+        int lastOpen = h.TerminalLoopStart - 1;               // 5' arm ends at the last '('
+        int matureEnd = Math.Min(matureStart + matureLength - 1, lastOpen);
+        int starEnd = Math.Min(partner[matureStart] + RNaseIII3PrimeOverhang, n - 1);
+        if (!TryFindOppositeArmStart(partner, matureStart, matureEnd, out int starStart))
+            starStart = partner[matureEnd];                   // unreachable for ≥ 16 bp stems; blunt partner
+        starStart = Math.Clamp(starStart, matureEnd + 1, starEnd);
+
+        return new PreMiRna(
+            Start: h.Start,
+            End: h.End,
+            Sequence: h.Sequence,
+            MatureSequence: h.Sequence.Substring(matureStart, matureEnd - matureStart + 1),
+            StarSequence: h.Sequence.Substring(starStart, starEnd - starStart + 1),
+            Structure: db,
+            FreeEnergy: h.FreeEnergy);
     }
 
     private static IEnumerable<PreMiRna> FindPreMiRnaHairpinsIterator(
@@ -2678,8 +2730,9 @@ public static partial class MiRnaAnalyzer
     /// Finds pre-miRNA hairpins by folding each candidate window with the validated Zuker–Stiegler
     /// MFE engine (<see cref="Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure"/>,
     /// RNA-STRUCT-001) and deriving the hairpin features (single terminal loop, paired-stem count,
-    /// ΔG°, AMFE, MFEI) from the ACTUAL MFE dot-bracket structure — an opt-in alternative to the
-    /// consecutive-pairing heuristic <see cref="FindPreMiRnaHairpins"/> (which remains the default).
+    /// ΔG°, AMFE, MFEI) from the ACTUAL MFE dot-bracket structure. This is the scan behind the default of
+    /// <see cref="FindPreMiRnaHairpins"/> (which maps its windows onto <see cref="PreMiRna"/> with mature/star
+    /// labels); the consecutive-pairing screen is its opt-in alternative (useConsecutiveScreen = true).
     /// </summary>
     /// <remarks>
     /// Acceptance criteria (all from primary sources):
@@ -2717,29 +2770,40 @@ public static partial class MiRnaAnalyzer
 
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
 
-        for (int i = 0; i <= upper.Length - minHairpinLength; i++)
+        // Window starts are independent folds: scan them in parallel, emit in the sequential (start, length) order.
+        var perStart = Enumerable.Range(0, upper.Length - minHairpinLength + 1)
+            .AsParallel().AsOrdered()
+            .Select(i => ScanMfeWindowsAt(upper, i, minHairpinLength, maxHairpinLength, minMfei, minLoopSize));
+        foreach (var windows in perStart)
+            foreach (var w in windows)
+                yield return w;
+    }
+
+    private static List<PreMiRnaMfe> ScanMfeWindowsAt(
+        string upper, int i, int minHairpinLength, int maxHairpinLength, double minMfei, int minLoopSize)
+    {
+        var found = new List<PreMiRnaMfe>();
+        for (int len = minHairpinLength; len <= Math.Min(maxHairpinLength, upper.Length - i); len++)
         {
-            for (int len = minHairpinLength; len <= Math.Min(maxHairpinLength, upper.Length - i); len++)
+            string candidate = upper.Substring(i, len);
+            var assessed = AssessHairpinByMfe(candidate, minMfei, minLoopSize);
+            if (assessed != null)
             {
-                string candidate = upper.Substring(i, len);
-                var assessed = AssessHairpinByMfe(candidate, minMfei, minLoopSize);
-                if (assessed != null)
-                {
-                    var a = assessed.Value;
-                    yield return new PreMiRnaMfe(
-                        Start: i,
-                        End: i + len - 1,
-                        Sequence: candidate,
-                        DotBracket: a.DotBracket,
-                        StemBasePairs: a.StemBasePairs,
-                        TerminalLoopStart: a.TerminalLoopStart,
-                        TerminalLoopSize: a.TerminalLoopSize,
-                        FreeEnergy: a.FreeEnergy,
-                        Amfe: a.Amfe,
-                        Mfei: a.Mfei);
-                }
+                var a = assessed.Value;
+                found.Add(new PreMiRnaMfe(
+                    Start: i,
+                    End: i + len - 1,
+                    Sequence: candidate,
+                    DotBracket: a.DotBracket,
+                    StemBasePairs: a.StemBasePairs,
+                    TerminalLoopStart: a.TerminalLoopStart,
+                    TerminalLoopSize: a.TerminalLoopSize,
+                    FreeEnergy: a.FreeEnergy,
+                    Amfe: a.Amfe,
+                    Mfei: a.Mfei));
             }
         }
+        return found;
     }
 
     /// <summary>

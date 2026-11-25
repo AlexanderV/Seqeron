@@ -150,7 +150,7 @@ public class MiRnaCombinatorialTests
         int innerLen = 2 * stem + loop;
         string seq = new string('U', 10) + hairpin + new string('U', 10);
 
-        var found = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, minH, maxH, matureLength: 22).ToList();
+        var found = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, minH, maxH, matureLength: 22, useConsecutiveScreen: true).ToList();
 
         bool expected = stem >= 18 && loop is >= 3 and <= 25 && innerLen >= minH && innerLen <= maxH;
         found.Any(p => p.Sequence == hairpin)
@@ -174,7 +174,7 @@ public class MiRnaCombinatorialTests
         bool Found(int stem, int loop, int minH = 40)
         {
             string hp = new string('G', stem) + new string('A', loop) + new string('C', stem);
-            return MiRnaAnalyzer.FindPreMiRnaHairpins(new string('U', 10) + hp + new string('U', 10), minH, 200, 22)
+            return MiRnaAnalyzer.FindPreMiRnaHairpins(new string('U', 10) + hp + new string('U', 10), minH, 200, 22, useConsecutiveScreen: true)
                 .Any(p => p.Sequence == hp);
         }
 
