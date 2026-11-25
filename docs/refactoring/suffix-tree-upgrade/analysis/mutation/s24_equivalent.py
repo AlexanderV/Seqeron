@@ -1,3 +1,20 @@
 # Mutants of the audit of S2.4 that no test kills, argued (id -> argument). Quoted in PROGRESS-S2.md (S2 2026-11-24 work package S2.4).
 EQUIVALENT = {
+    's24_K08': 'with limit == c + 1 the edge compare has length 0 and a start below n (the child is deeper than c, so its first suffix has at least c + 1 symbols): it compares nothing',
+    's24_K12': 'a first boundary of rb + 1 is refused one step later: either the cell at rb is read again as the first l-index of the child (the child is the interval itself) and "childEll <= ell" fails, or the walk moves to rank rb + 1 and the checked read of the suffix array refuses it; the same InvalidDataException (every value of every cell swept by WideDamageSweepTests)',
+    's24_K21': 'boundary == 0 cannot pass the check above it in Checked mode (boundary > a >= 0) and is not a boundary of a valid table in Trusted mode (an l-index is above the left bound)',
+    's24_K40': 'the cell v > n is refused one line later by the checked read of LCP[v] (rank above n): the same InvalidDataException',
+    's24_A07': 'LCP[1] is the LCP of the empty suffix with the first one: 0, never the longest repeat (LrsDepth > 0 here)',
+    's24_A09': 'the repeat is read at another of its occurrences: the same string',
+    's24_A21': 'the next rank of the repeat interval is another occurrence of the same repeat: the same string',
+    's24_T14': 'a first l-index equal to the left bound gives ell = LCP[lb] <= the depth of the parent, which "ell <= f.Ell" refuses next (LCP[lb] is at most the depth of the parent for every child interval)',
+    's24_X16': 'CheckLocus has Length <= Aux and the line before requires parentDepth < Length, while LCP[first = lb] == depth makes parentDepth >= depth: a first l-index at lb never validates',
+    's24_Y06': 'in a container the next line refuses depth <= parentDepth (LCP[lb] <= parentDepth) with the same exception; an index in memory has a table that the builder made (first > lb)',
+    's24_Y12': 'offset == n: the line below computes index = Pos + ParentDepth + offset >= n and answers -1 as well; the guard only avoids the addition',
+    's24_Y16': 'PrevLess is inclusive (the largest j <= pos): every rank in (Lb, Rb] has an LCP above the parent depth, so the scan from Rb stops where the scan from Lb does',
+    's24_R05': 'PrevLess is inclusive: every rank in (lo, hi] has an LCP of at least value, so the scan from hi stops where the scan from lo does',
+    's24_F10': 'the stored width of the header is 4 for every container that the header reader opens until S2.7 (width 5 is refused there); the 5-byte rows of the matrix are exercised through WideImage',
+    's24_S26': 'the code of the mutant (DescendMappedWide, a second long descent that no code and no test called) is deleted',
+    's24_S27': 'the code of the mutant (DescendMappedWide) is deleted',
+    's24_S28': 'the code of the mutant (DescendMappedWide) is deleted',
 }

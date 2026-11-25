@@ -1,0 +1,206 @@
+[
+ {
+  "id": "s24_K08",
+  "desc": "the edge compare starts at the first symbol",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/WideSearch.cs",
+  "old": "if (limit > c + 1 && (",
+  "new": "if (limit > c && (",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDescentTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests)"
+ },
+ {
+  "id": "s24_K12",
+  "desc": "Checked: a first boundary above the right bound passes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/WideSearch.cs",
+  "old": "long boundary = cells.First(lb, rb, isLast);\n            if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary > rb))",
+  "new": "long boundary = cells.First(lb, rb, isLast);\n            if (TAccess.IsChecked && boundary >= 0 && (boundary <= a || boundary > rb + 1))",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDescentTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests)"
+ },
+ {
+  "id": "s24_K17",
+  "desc": "Checked: a child deeper than the text passes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/WideSearch.cs",
+  "old": "if (TAccess.IsChecked && (childEll <= ell || childEll > n))",
+  "new": "if (TAccess.IsChecked && (childEll <= ell || childEll > n + 1))",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDescentTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests)"
+ },
+ {
+  "id": "s24_K21",
+  "desc": "the last-child flag of a child is true one l-index early",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/WideSearch.cs",
+  "old": "bool childIsLast = boundary < 0;",
+  "new": "bool childIsLast = boundary <= 0;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDescentTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests)"
+ },
+ {
+  "id": "s24_K40",
+  "desc": "Checked: a cell above n is not refused",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/WideSearch.cs",
+  "old": "if (TAccess.IsChecked && v > (ulong)n) MappedSearch.ThrowDamaged();\n        return LcpAt((long)v) == lk",
+  "new": "if (false && v > (ulong)n) MappedSearch.ThrowDamaged();\n        return LcpAt((long)v) == lk",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDescentTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests)"
+ },
+ {
+  "id": "s24_K45",
+  "desc": "the 32-bit value is not checked against the text",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/WideSearch.cs",
+  "old": "if (TAccess.IsChecked && TLcp.ElementBytes >= 4 && v > (ulong)(n + 1))",
+  "new": "if (false && TLcp.ElementBytes >= 4 && v > (ulong)(n + 1))",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDescentTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests)"
+ },
+ {
+  "id": "s24_K46",
+  "desc": "the 32-bit value check starts at 8 bytes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/WideSearch.cs",
+  "old": "TLcp.ElementBytes >= 4 && v > (ulong)(n + 1)",
+  "new": "TLcp.ElementBytes >= 8 && v > (ulong)(n + 1)",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDescentTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests)"
+ },
+ {
+  "id": "s24_K47",
+  "desc": "the 32-bit value check refuses a value equal to the length of the array",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/WideSearch.cs",
+  "old": "TLcp.ElementBytes >= 4 && v > (ulong)(n + 1)",
+  "new": "TLcp.ElementBytes >= 4 && v > (ulong)n",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDescentTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests)"
+ },
+ {
+  "id": "s24_S24",
+  "desc": "TryMatch (long): the interval of the in-memory index ends at its left bound",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Search.cs",
+  "old": "bool found = TryMatch(pattern, out int l, out int h);\n        lo = l;\n        hi = h;\n        return found;\n    }\n\n    private bool Match<TSym>",
+  "new": "bool found = TryMatch(pattern, out int l, out int h);\n        lo = l;\n        hi = l;\n        return found;\n    }\n\n    private bool Match<TSym>",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideMembersTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.EsaSearchTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.MappedSearchTests)"
+ },
+ {
+  "id": "s24_A07",
+  "desc": "the ties: the scan starts at rank 2",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "old": "long runStart = -1;      // left boundary of the interval whose run of the maximum value is open\n        for (long rank = 1;",
+  "new": "long runStart = -1;      // left boundary of the interval whose run of the maximum value is open\n        for (long rank = 2;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Analysis.|FullyQualifiedName~SuffixTree.Esa.Tests.Tree.EsaIndexTests)"
+ },
+ {
+  "id": "s24_A09",
+  "desc": "the ties: the repeat is read from the second position",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "old": "return (TextView.Substring(positions[0], IntBridge.Length(length,",
+  "new": "return (TextView.Substring(positions[^1], IntBridge.Length(length,",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Analysis.|FullyQualifiedName~SuffixTree.Esa.Tests.Tree.EsaIndexTests)"
+ },
+ {
+  "id": "s24_A14",
+  "desc": "the distinct substrings: the 64-bit result is not checked",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "old": "total > long.MaxValue ? throw new NotSupportedException($\"the number of distinct substrings is {total}, more than 64 bits hold\") : (long)total;",
+  "new": "(long)total;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideMembersTests)"
+ },
+ {
+  "id": "s24_A21",
+  "desc": "the repeat is read at the next rank",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Analysis.cs",
+  "old": "TextView.Substring(Sa[Statistics.LrsRank], IntBridge.Length(Statistics.LrsDepth, \"EsaIndex.LongestRepeatedSubstring",
+  "new": "TextView.Substring(Sa[Statistics.LrsRank + 1], IntBridge.Length(Statistics.LrsDepth, \"EsaIndex.LongestRepeatedSubstring",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Analysis.|FullyQualifiedName~SuffixTree.Esa.Tests.Tree.EsaIndexTests)"
+ },
+ {
+  "id": "s24_T14",
+  "desc": "the first l-index equal to the left bound passes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaIndex.Traverse.cs",
+  "old": "if (first <= lb || first > rb) throw DamagedChildTable();",
+  "new": "if (first < lb || first > rb) throw DamagedChildTable();",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Tree.EsaTraverseTests|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaTraverseDamageTests)"
+ },
+ {
+  "id": "s24_X16",
+  "desc": "Resolve: the first l-index may be the left bound",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.cs",
+  "old": "valid = first > lb && first <= rb && lcp[first] == depth;",
+  "new": "valid = first >= lb && first <= rb && lcp[first] == depth;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Contract.)"
+ },
+ {
+  "id": "s24_Y06",
+  "desc": "MakeChild: a first l-index at the left bound passes",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "old": "if (first <= a || first > b) ThrowCorruptChildTable();",
+  "new": "if (first < a || first > b) ThrowCorruptChildTable();",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Contract.)"
+ },
+ {
+  "id": "s24_Y12",
+  "desc": "EdgeSymbol: an offset equal to n is inside",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "old": "if (offset >= _n) return -1;",
+  "new": "if (offset > _n) return -1;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Contract.)"
+ },
+ {
+  "id": "s24_Y16",
+  "desc": "TryParent: the left border is read at the right bound",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Tree.cs",
+  "old": "long left = pyramid.PrevLess(node.Lb, parentDepth);",
+  "new": "long left = pyramid.PrevLess(node.Rb, parentDepth);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Contract.)"
+ },
+ {
+  "id": "s24_R05",
+  "desc": "Lca: the left border is read at the right rank",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaSuffixIndex.Arrays.cs",
+  "old": "return new IndexLocus(pyramid.PrevLess(lo, value),",
+  "new": "return new IndexLocus(pyramid.PrevLess(hi, value),",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Contract.)"
+ },
+ {
+  "id": "s24_F02",
+  "desc": "the narrow test admits n = int.MaxValue - 2 only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "bool narrow = n < int.MaxValue && posWidth == 4 && parsed.LcpKind != LcpKind.U64;",
+  "new": "bool narrow = n < int.MaxValue - 1 && posWidth == 4 && parsed.LcpKind != LcpKind.U64;",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.Large.WideEngineSelfTests)",
+  "stage3": "(FullyQualifiedName~SuffixTree.Esa.Tests.Large.WideEngineSparseLargeTests)"
+ },
+ {
+  "id": "s24_F10",
+  "desc": "the wide sections: the stored width is 4",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "new(IsChecked, _parsed.Header.PosWidth, _parsed.LcpKind,",
+  "new": "new(IsChecked, 4, _parsed.LcpKind,",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.Large.WideEngineSelfTests)",
+  "stage3": "(FullyQualifiedName~SuffixTree.Esa.Tests.Large.WideEngineSparseLargeTests)"
+ },
+ {
+  "id": "s24_F11",
+  "desc": "the wide sections: the access mode is inverted",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/External/Sesa/SesaFile.cs",
+  "old": "new(IsChecked, _parsed.Header.PosWidth",
+  "new": "new(!IsChecked, _parsed.Header.PosWidth",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideDamageSweepTests|FullyQualifiedName~SuffixTree.Esa.Tests.External.SesaReader|FullyQualifiedName~SuffixTree.Esa.Tests.Large.WideEngineSelfTests)",
+  "stage3": "(FullyQualifiedName~SuffixTree.Esa.Tests.Large.WideEngineSparseLargeTests)"
+ },
+ {
+  "id": "s24_N01",
+  "desc": "EsaNode64: a leaf test on the right bound only",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNode.cs",
+  "old": "internal bool IsLeaf => Lb == Rb;\n\n    /// <summary>True for the null node.</summary>\n    internal bool IsNull => Lb < 0;\n\n    /// <summary>Length of the incoming edge, <c>Depth - ParentDepth</c> (0 for the root).</summary>\n    internal long EdgeLength => Depth - ParentDepth;\n\n    /// <summary>Number of ranks in the interval (the leaf count; the root counts the empty suffix too).</summary>\n    internal long RankCount => Rb - Lb + 1;\n\n    /// <summary>The node as the 32-bit navigator",
+  "new": "internal bool IsLeaf => Lb == Rb;\n\n    /// <summary>True for the null node.</summary>\n    internal bool IsNull => Lb < 0;\n\n    /// <summary>Length of the incoming edge, <c>Depth - ParentDepth</c> (0 for the root).</summary>\n    internal long EdgeLength => Depth - ParentDepth;\n\n    /// <summary>Number of ranks in the interval (the leaf count; the root counts the empty suffix too).</summary>\n    internal long RankCount => Rb - Lb;\n\n    /// <summary>The node as the 32-bit navigator",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideMembersTests)"
+ },
+ {
+  "id": "s24_N03",
+  "desc": "EsaNode64.Of: the last-child flag is lost",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNode.cs",
+  "old": "new(node.Lb, node.Rb, node.Depth, node.ParentDepth, node.Pos, node.LastChild);",
+  "new": "new(node.Lb, node.Rb, node.Depth, node.ParentDepth, node.Pos, false);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideMembersTests)"
+ },
+ {
+  "id": "s24_N04",
+  "desc": "EsaNode64.ToNode: the position is narrowed without a check",
+  "file": "src/SuffixTree/Algorithms/SuffixTree.Esa/EsaNode.cs",
+  "old": "IntBridge.Length(Pos, member), LastChild);",
+  "new": "unchecked((int)Pos), LastChild);",
+  "filter": "(FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideIndexTests|FullyQualifiedName~SuffixTree.Esa.Tests.Search.WideMembersTests)",
+  "stage3": "(FullyQualifiedName~SuffixTree.Esa.Tests.Large.WideEngineSparseLargeTests)"
+ }
+]

@@ -1,0 +1,35 @@
+mutants listed: 253; round 1 (the first verdict of every id): {'killed': 225, 'survived': 28}
+equivalent (argued)        17
+killed in stage 1          213
+killed in stage 2          20
+killed in stage 3          3
+
+id	description	round 1	final
+s24_A07	the ties: the scan starts at rank 2	survived round 1	equivalent
+s24_A09	the ties: the repeat is read from the second position	survived round 1	equivalent
+s24_A14	the distinct substrings: the 64-bit result is not checked	survived round 1	killed (round 2)
+s24_A21	the repeat is read at the next rank	survived round 1	equivalent
+s24_F02	the narrow test admits n = int.MaxValue - 2 only	survived round 1	killed (round 2)
+s24_F10	the wide sections: the stored width is 4	survived round 1	equivalent
+s24_F11	the wide sections: the access mode is inverted	survived round 1	killed (round 2)
+s24_K08	the edge compare starts at the first symbol	survived round 1	equivalent
+s24_K12	Checked: a first boundary above the right bound passes	survived round 1	equivalent
+s24_K17	Checked: a child deeper than the text passes	survived round 1	killed (round 2)
+s24_K21	the last-child flag of a child is true one l-index early	survived round 1	equivalent
+s24_K40	Checked: a cell above n is not refused	survived round 1	equivalent
+s24_K45	the 32-bit value is not checked against the text	survived round 1	killed (round 2)
+s24_K46	the 32-bit value check starts at 8 bytes	survived round 1	killed (round 2)
+s24_K47	the 32-bit value check refuses a value equal to the length of the array	survived round 1	killed (round 2)
+s24_N01	EsaNode64: a leaf test on the right bound only	survived round 1	killed (round 2)
+s24_N03	EsaNode64.Of: the last-child flag is lost	survived round 1	killed (round 2)
+s24_N04	EsaNode64.ToNode: the position is narrowed without a check	survived round 1	killed (round 2)
+s24_R05	Lca: the left border is read at the right rank	survived round 1	equivalent
+s24_S24	TryMatch (long): the interval of the in-memory index ends at its left bound	survived round 1	killed (round 2)
+s24_S26	the long reference compares one symbol late at a leaf	survived round 1	equivalent
+s24_S27	the long reference clamps the text at n inclusive	survived round 1	equivalent
+s24_S28	the long reference takes the larger limit	survived round 1	equivalent
+s24_T14	the first l-index equal to the left bound passes	survived round 1	equivalent
+s24_X16	Resolve: the first l-index may be the left bound	survived round 1	equivalent
+s24_Y06	MakeChild: a first l-index at the left bound passes	survived round 1	equivalent
+s24_Y12	EdgeSymbol: an offset equal to n is inside	survived round 1	equivalent
+s24_Y16	TryParent: the left border is read at the right bound	survived round 1	equivalent
