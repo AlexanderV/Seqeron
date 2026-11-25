@@ -2,10 +2,10 @@
 
 **Test Unit ID:** ASSEMBLY-DBG-001
 **Area:** Assembly
-**Algorithm:** De Bruijn graph assembly — graph construction (`BuildDeBruijnGraph`) and Eulerian-walk reconstruction (`AssembleDeBruijn`)
+**Algorithm:** De Bruijn graph assembly — graph construction (`BuildDeBruijnGraph`), maximal non-branching paths (`FindMaximalNonBranchingPaths`) and unitig contigs (`AssembleDeBruijn`)
 **Status:** ☑ Validated (ASSEMBLY-DBG-001, 2026-06-15)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25 (B10 re-validation, see §8)
 
 ---
 
@@ -18,15 +18,17 @@
 | 1 | Langmead B. "De Bruijn Graph assembly" (JHU lecture notes) | 3 | https://www.cs.jhu.edu/~langmea/resources/lecture_notes/assembly_dbg.pdf | 2026-06-13 |
 | 2 | Jones NC, Pevzner PA. 2004. *An Introduction to Bioinformatics Algorithms*, MIT Press (Theorems 8.1, 8.2; §8.8-8.9) | 1 | https://eclass.uoa.gr/modules/document/file.php/NURS565/BioinformaticsAlgsBook.pdf | 2026-06-13 |
 | 3 | Compeau PEC, Pevzner PA, Tesler G. 2011. How to apply de Bruijn graphs to genome assembly. *Nat Biotechnol* 29:987-991 | 1 | https://doi.org/10.1038/nbt.2023 | 2026-06-13 |
+| 4 | Compeau P, Pevzner P. *Bioinformatics Algorithms* ch.3 — Rosalind BA3K, BA3M | 1 | https://rosalind.info/problems/ba3k/ , https://rosalind.info/problems/ba3m/ | 2026-11-25 |
+| 5 | Zerbino DR, Birney E. 2008. Velvet. *Genome Res* 18:821-829 | 1 | https://doi.org/10.1101/gr.074492.107 | 2026-11-25 |
 
 ### 1.2 Key Evidence Points
 
 1. Nodes are (k-1)-mers; each input k-mer is a directed edge from its prefix (left k-1-mer) to its suffix (right k-1-mer); repeated k-mers create multiedges — Langmead DBG p.5-9.
 2. Construction iterates `i in [0, len(read)-(k-1))`, `kmer = read[i:i+k]`, edge `read[i:i+k-1] → read[i+1:i+k]`; reads shorter than k contribute no edges — Langmead DBG p.16.
-3. Assembly = an Eulerian walk that visits each edge exactly once; a connected graph is Eulerian (has an Eulerian path) iff it has at most two semibalanced nodes, all others balanced — Langmead DBG p.10; Jones & Pevzner Theorems 8.1, 8.2.
-4. With perfect sequencing the construction is Eulerian: left-end node has one extra out-edge, right-end node one extra in-edge, all others balanced — Langmead DBG p.15.
+3. Contigs = strings spelled by the maximal non-branching paths of the de Bruijn graph, plus isolated cycles (BA3K, BA3M); a single Eulerian walk fails on real data with coverage gaps (BA3K; Langmead p.24-28).
+4. Read data: the graph is built from k-mers, not reads — redundancy adds no nodes/edges (Velvet); each k-mer may be recorded with its reverse complement (Velvet, option).
 5. Reconstruction spells the walk: `path[0] + concat(node[-1] for node in path[1:])` — Langmead DBG p.18-19.
-6. Worked reconstructions (exact): `AAABBBA` k=3 → `AAABBBA`; `a_long_long_long_time` k=5 → itself; `to_every…season` k=4 → itself — Langmead DBG p.11, p.18, p.19/22.
+6. Oracle values (BA3M pseudocode + Velvet merge rule, agreeing): see Evidence "Re-validation 2026-11-25" table.
 
 ### 1.3 Documented Corner Cases
 
@@ -46,7 +48,8 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `BuildDeBruijnGraph(reads, k)` | SequenceAssembler | Canonical | (k-1)-mer multigraph adjacency; node/edge correctness |
-| `AssembleDeBruijn(reads, parameters)` | SequenceAssembler | Canonical | Eulerian-walk reconstruction into contigs + stats |
+| `AssembleDeBruijn(reads, parameters[, includeReverseComplement])` | SequenceAssembler | Canonical | unitig contigs over distinct k-mers + stats |
+| `FindMaximalNonBranchingPaths(graph)` | SequenceAssembler | Canonical | BA3M |
 
 ---
 
@@ -57,8 +60,8 @@
 | INV-01 | Every emitted graph edge goes from a (k-1)-mer prefix to the (k-1)-mer suffix of some input k-mer | Yes | Langmead DBG p.6-7 |
 | INV-02 | The total number of directed edges equals the total number of k-mers chopped from all reads (multigraph; repeats counted) | Yes | Langmead DBG p.7-8 |
 | INV-03 | A read of length < k contributes zero edges | Yes | Langmead DBG p.16 |
-| INV-04 | For a connected graph with a unique Eulerian walk, the reconstruction equals `path[0] + concat(last char of each subsequent node)` and is the source genome | Yes | Langmead DBG p.18; J&P Thm 8.2 |
-| INV-05 | Every input k-mer's spelled string appears as a substring of some emitted contig | Yes | Langmead DBG p.7, p.18 |
+| INV-04 | A sequence without a repeated (k-1)-mer (any coverage of it) assembles to exactly one contig equal to it | Yes | BA3M; Velvet |
+| INV-05 | Every distinct input k-mer lies in exactly one contig; no contig contains a foreign k-mer | Yes | BA3M; Chikhi 2016 |
 | INV-06 | Result statistics are consistent: `TotalLength` = sum of contig lengths, `LongestContig` = max contig length | Yes | definition (mirrors `AssembleOLC`) |
 
 ---
@@ -209,3 +212,41 @@ Fixture count after validation: **20** (17 prior + 3). Full unfiltered suite: 64
 
 1. **Decision:** `BuildDeBruijnGraph` is promoted from private to public (per the unit's Methods table listing it as a tested method) returning the (k-1)-mer adjacency multigraph.
 2. **Decision:** the prior `AssembleDeBruijn` (greedy non-branching-stretch tracer via `FindContigs`/`TraceContig`) did not compute an Eulerian walk and could not reconstruct the published examples (e.g. `a_long_long_long_time`). It is replaced by an Eulerian-path (Hierholzer) reconstruction conforming to Langmead p.18 / J&P Theorem 8.2. The checklist text ("Find Eulerian paths / contigs") is consistent with this correction.
+
+---
+
+## 8. Re-validation 2026-11-25 (review campaign B10)
+
+**Stage A:** FAIL-fixed — the description (one Eulerian walk per component over every k-mer
+occurrence) is the String Reconstruction model, not contig assembly from reads. Corrected to
+BA3K/BA3M contigs over distinct k-mers (Velvet). **Stage B:** FAIL-fixed (F-DBG-1 duplicate /
+overlapping reads produced chimeric contigs; F-DBG-2 null parameters threw instead of using
+`DefaultParameters`). Rows M4-M6 and C-rows now assert the oracle unitig sets; the Eulerian
+exact-reconstruction expectations (Assumption 1) are withdrawn.
+
+| Test | Expected | Source |
+|------|----------|--------|
+| `AssembleDeBruijn_Aaabbba_EmitsMaximalNonBranchingPaths` | `AAA, AABB, BBA, BBB` | BA3M + oracle |
+| `AssembleDeBruijn_ALongRepeat_SplitsAtRepeatBranches` | `A_LON, ONG_LON, ONG_TIME, _LONG_` | oracle |
+| `AssembleDeBruijn_ToEveryK4_SplitsAtTurnRepeat` | 6 unitigs | oracle |
+| `AssembleDeBruijn_OverlappingReads_AssembleIntoGenome` | `ATGGCGTGCA` | Velvet + oracle (F-DBG-1) |
+| `AssembleDeBruijn_DuplicateReads_DoNotDoubleTheGenome` | `ACGT` | F-DBG-1 |
+| `AssembleDeBruijn_SharedKmersAcrossReads_CountedOnce` | `AAA, AABB, BBB, BBC` | F-DBG-1 |
+| `AssembleDeBruijn_IsolatedCycle_IsEmitted` | `ACGTTACG` | BA3M |
+| `AssembleDeBruijn_LoopThroughBranchNode_EmittedAsPath` | `ACGTACGT, ACGTTTT, TTTTT` | oracle |
+| `AssembleDeBruijn_ToEveryK3_ContigsPartitionTheKmerSet` | INV-05 | BA3M |
+| `AssembleDeBruijn_MixedCaseReads_JoinCaseInsensitively` | `ATGGCGTGCA` | CountKmersSpan |
+| `AssembleDeBruijn_ReadShorterThanK_IsSkipped` | `ATGGCGTGCA`, TotalReads 2 | INV-03 |
+| `AssembleDeBruijn_ReverseComplementOption_*` (2) | `GATTACAGGTCCTTA` | Velvet + oracle |
+| `AssembleDeBruijn_NullParameters_UseDocumentedDefaults` | 120-bp genome; 99-bp read filtered | F-DBG-2 |
+| `AssembleDeBruijn_KmerSizeBelowTwo_Throws` (3 cases) | `ArgumentOutOfRangeException` | k ≥ 2 |
+| `AssembleDeBruijn_ReadOrder_DoesNotChangeContigs` | INV-07 | distinct sorted k-mer set |
+| `FindMaximalNonBranchingPaths_Ba3mSample` | `1->2->3, 3->4, 3->5, 6->7->6` | Rosalind BA3M |
+| `FindMaximalNonBranchingPaths_Ba3kSample_OverKmerMultigraph` | `AGA ATG ATG CAT GAT TGGA TGT` | Rosalind BA3K |
+| `FindMaximalNonBranchingPaths_EmptyGraph_NoPaths`, `_NullGraph_Throws` | contract | — |
+
+Fuzz (`AssemblyDeBruijnFuzzTests`): worked example, identical-reads (now exact for every copy
+count), tandem-repeat cycle (`ACACA`), permutation invariance, and new
+`AssembleDeBruijn_RandomReads_ContigsPartitionDistinctKmers` (INV-05, 600 trials).
+MCP (`Seqeron.Mcp.Alignment.Tests/AssembleDeBruijnTests`): 4 tests incl. new
+`includeReverseComplement` parameter.

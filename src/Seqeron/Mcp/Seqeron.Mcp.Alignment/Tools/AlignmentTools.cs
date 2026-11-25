@@ -436,18 +436,19 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "assemble_de_bruijn", Title = "Assembly — de Bruijn Graph", ReadOnly = true)]
-    [Description("Assembles input reads using a de Bruijn graph: shreds reads into k-mers, builds the (k-1)-mer node graph, traces non-branching paths into contigs, then reports assembly statistics.")]
+    [Description("Assembles input reads using a de Bruijn graph: shreds reads into their distinct k-mers (case-insensitive; coverage adds no edges), builds the (k-1)-mer node graph, and outputs every maximal non-branching path (unitig) and isolated cycle as a contig (Compeau & Pevzner; Velvet), then reports assembly statistics. Optionally adds reverse-complement k-mers so reads from both strands join; each contig/reverse-complement pair is then reported once.")]
     public static AssemblyResultDto AssembleDeBruijn(
         [Description("Input sequence reads.")] string[] reads,
         [Description("Minimum overlap length (shared parameter; not the operative knob here).")] int minOverlap = 20,
         [Description("Minimum identity (shared parameter).")] double minIdentity = 0.9,
-        [Description("K-mer size used to build the de Bruijn graph.")] int kmerSize = 31,
-        [Description("Minimum contig length to keep (bp).")] int minContigLength = 100)
+        [Description("K-mer size used to build the de Bruijn graph (>= 2; odd recommended with includeReverseComplement).")] int kmerSize = 31,
+        [Description("Minimum contig length to keep (bp).")] int minContigLength = 100,
+        [Description("Treat reads as double-stranded DNA: add each k-mer's reverse complement (Velvet).")] bool includeReverseComplement = false)
     {
         var p = new global::Seqeron.Genomics.Alignment.SequenceAssembler.AssemblyParameters(
             minOverlap, minIdentity, kmerSize, minContigLength);
         var r = global::Seqeron.Genomics.Alignment.SequenceAssembler.AssembleDeBruijn(
-            reads ?? Array.Empty<string>(), p);
+            reads ?? Array.Empty<string>(), p, includeReverseComplement);
         return ToAssemblyDto(r);
     }
 

@@ -1,7 +1,7 @@
 # Evidence Artifact: ASSEMBLY-DBG-001
 
 **Test Unit ID:** ASSEMBLY-DBG-001
-**Algorithm:** De Bruijn graph genome assembly — graph construction (`BuildDeBruijnGraph`) and Eulerian-walk reconstruction (`AssembleDeBruijn`)
+**Algorithm:** De Bruijn graph genome assembly — graph construction (`BuildDeBruijnGraph`), maximal non-branching paths (`FindMaximalNonBranchingPaths`) and unitig contigs (`AssembleDeBruijn`)
 **Date Collected:** 2026-06-13
 
 ---
@@ -158,6 +158,170 @@ All 7 of its 4-mers are distinct and no 3-mer repeats, so the Eulerian path is u
 
 ---
 
+## Re-validation 2026-11-25 (review campaign B10) — contig definition
+
+The 2026-06 version spelled ONE Eulerian walk per weakly-connected component of the k-mer
+multigraph built from every read occurrence. That is the String Reconstruction model for a
+perfect single-copy k-mer composition; on read data it is wrong (findings F-DBG-1/2 in the
+B10 report). Sources opened in this session:
+
+### Compeau & Pevzner, *Bioinformatics Algorithms* ch.3 — Rosalind BA3K / BA3M (rank 1, textbook problem set)
+
+**URLs:** https://rosalind.info/problems/ba3k/ , https://rosalind.info/problems/ba3m/ (fetched with a
+neutral User-Agent, HTML text extracted locally).
+
+1. BA3K: "most assemblies still have gaps in k-mer coverage, causing the de Bruijn graph to have
+   missing edges, and so the search for an Eulerian path fails. In this case, biologists often settle
+   on assembling contigs ... A path in a graph is called non-branching if in(v) = out(v) = 1 for each
+   intermediate node v ... A maximal non-branching path is a non-branching path that cannot be extended
+   ... contigs correspond to strings spelled by maximal non-branching paths in the de Bruijn graph."
+   Sample: k-mers `ATG ATG TGT TGG CAT GGA GAT AGA` → `AGA ATG ATG CAT GAT TGGA TGT`.
+2. BA3M: "the definition from the main text does not handle the special case when Graph has a
+   connected component that is an isolated cycle"; pseudocode MaximalNonBranchingPaths (iterate all
+   non-1-in-1-out nodes with out(v) > 0, extend each out-edge through 1-in-1-out nodes, then add every
+   isolated cycle). Sample `1->2, 2->3, 3->4,5, 6->7, 7->6` → `1->2->3`, `3->4`, `3->5`, `7->6->7`.
+
+### Zerbino & Birney (2008), Velvet, Genome Res 18:821-829 (rank 1, primary paper)
+
+**URL:** https://www.cs.utexas.edu/~tandy/velvet.pdf (PDF, text extracted with pypdf). DOI 10.1101/gr.074492.107.
+
+1. Introduction: "The fundamental data structure in the de Bruijn graph is based on k-mers, not reads,
+   thus high redundancy is naturally handled by the graph without affecting the number of nodes."
+2. Construction: "For each k-mer observed in the set of reads, the hash table records the ID of the
+   first read encountered containing that k-mer ... Each k-mer is recorded simultaneously to its
+   reverse complement. To ensure that each k-mer cannot be its own reverse complement, k must be odd."
+   Reads traversing an existing arc increment it ("creating a new directed arc or incrementing an
+   existing one") — coverage is a weight, not a parallel edge.
+3. Structure: each node has a twin node of reverse-complement k-mers, "This ensures that overlaps
+   between reads from opposite strands are taken into account."
+4. Simplification: "Whenever a node A has only one outgoing arc that points to another node B that has
+   only one ingoing arc, the two nodes (and their twins) are merged. Iteratively, chains of blocks are
+   collapsed into single blocks." (= maximal non-branching paths.)
+
+### Unitig definition (BCALM 2) — via WebSearch snippets only
+
+Chikhi, Limasset & Medvedev (2016), Bioinformatics 32(12):i201 — "BCALM 2 outputs the set of unitigs of
+the de Bruijn graph"; a unitig is a path whose inner nodes have in/out-degree 1, maximal when it cannot
+be extended; the set of maximal unitigs is unique and forms a node decomposition. (Snippets from the
+BCALM README / Cuttlefish 2 paper; full text not opened.)
+
+### Reference implementations (oracles) and numbers
+
+`dbg_oracle.py` (listed below): (A) the BA3M pseudocode verbatim over `DeBruijn(sorted distinct
+k-mers)`; (B) Velvet's node-centric merge rule over the k-mer node graph — independent code paths.
+A reproduces both Rosalind samples exactly; A and B agree on every case (cycles up to rotation):
+
+| Reads | k | Contigs (A = B) |
+|---|---|---|
+| `AAABBBA` | 3 | `AAA, AABB, BBA, BBB` |
+| `a_long_long_long_time` | 5 | `A_LON, ONG_LON, ONG_TIME, _LONG_` |
+| `to_every_thing_turn_turn_turn_there_is_a_season` | 4 | `N_TH, N_TU, TO_EVERY_TH, _THERE_IS_A_SEASON, _THING_TU, _TURN_T` |
+| `ATGGCGTGCA` | 4 | `ATGGCGTGCA` |
+| `ATGGCGT, GGCGTGCA` | 4 | `ATGGCGTGCA` (pre-fix code: `ATGGCGGTTGCA`) |
+| `ACGT, ACGT` | 3 | `ACGT` (pre-fix: `ACGGTT`) |
+| `AAABBB, AABBBC` | 3 | `AAA, AABB, BBB, BBC` (pre-fix: `AAABBBBBBC`) |
+| `ACGTACGTACGT, ACGTACGTTTTT` | 5 | `ACGTACGT, ACGTTTT, TTTTT` |
+| `ACGTTACG` | 4 | `ACGTTACG` (isolated cycle) |
+| `ACACACACACACAC` ×30 | 4 | `ACACA` (isolated 2-cycle) |
+| `ATGGCGTGCA, GATTACAGGTC` | 4 | `ATGGCGTGCA, GATTACAGGTC` |
+| `GATTACAGGT, TAAGGACCTG` | 5 | forward `GATTACAGGT, TAAGGACCTG`; with reverse complements `GATTACAGGTCCTTA` |
+| 120-bp genome reads [0,80) + [50,120) | 31 | the genome (default parameters) |
+
+Pre-fix values from a Python emulation of the removed Hierholzer-per-component code.
+
+Oracle source (Python 3, stdlib only; the reverse-complement mode adds `revc(x)` for every k-mer
+and keeps one contig per {U, revc(U)} pair):
+
+```python
+"""Independent oracles for ASSEMBLY-DBG-001.
+A: Compeau & Pevzner BA3M MaximalNonBranchingPaths pseudocode, verbatim, over DeBruijn(Patterns).
+B: Velvet-style node-centric compaction (Zerbino & Birney 2008 'Simplification': merge A->B when
+   A has one outgoing arc and B one ingoing arc), over the distinct k-mer set.
+"""
+import sys
+from collections import defaultdict
+
+def debruijn(patterns):
+    g = defaultdict(list)
+    for p in patterns:
+        g[p[:-1]].append(p[1:])
+    return g
+
+def mnbp(g):
+    indeg = defaultdict(int); outdeg = defaultdict(int); nodes = set(g)
+    for v, ws in g.items():
+        outdeg[v] += len(ws)
+        for w in ws:
+            indeg[w] += 1; nodes.add(w)
+    one = lambda v: indeg[v] == 1 and outdeg[v] == 1
+    paths = []; used = set()
+    for v in sorted(nodes):
+        if not one(v) and outdeg[v] > 0:
+            for i, w in enumerate(g[v]):
+                path = [v, w]; used.add((v, i))
+                while one(w):
+                    used.add((w, 0)); u = g[w][0]; path.append(u); w = u
+                paths.append(path)
+    # isolated cycles
+    for v in sorted(nodes):
+        if one(v) and (v, 0) not in used:
+            cyc = [v]; w = v
+            while True:
+                used.add((w, 0)); w = g[w][0]; cyc.append(w)
+                if w == v: break
+            paths.append(cyc)
+    return paths
+
+def spell(path):
+    return path[0] + ''.join(n[-1] for n in path[1:])
+
+def kmer_set(reads, k, rc=False):
+    s = set()
+    for r in reads:
+        r = r.upper()
+        for i in range(len(r) - k + 1):
+            s.add(r[i:i+k])
+    if rc:
+        s |= {revc(x) for x in s}
+    return s
+
+COMP = str.maketrans('ACGT', 'TGCA')
+def revc(x): return x.translate(COMP)[::-1]
+
+def contigs_A(reads, k, rc=False):
+    ks = sorted(kmer_set(reads, k, rc))
+    return [spell(p) for p in mnbp(debruijn(ks))]
+
+def contigs_B(reads, k, rc=False):
+    """Velvet node-centric: nodes = k-mers; arc x->y iff x[1:]==y[:-1]. Merge chains."""
+    ks = kmer_set(reads, k, rc)
+    succ = {x: [x[1:] + c for c in sorted({y[-1] for y in ks if y[:-1] == x[1:]})] for x in ks}
+    pred = defaultdict(list)
+    for x, ys in succ.items():
+        for y in ys: pred[y].append(x)
+    def mergeable(a, b):  # a has one outgoing arc to b, b has one ingoing arc
+        return len(succ[a]) == 1 and succ[a][0] == b and len(pred[b]) == 1
+    seen = set(); out = []
+    for x in sorted(ks):
+        if x in seen: continue
+        # walk back to chain start
+        s = x; guard = set([s])
+        while len(pred[s]) == 1 and mergeable(pred[s][0], s) and pred[s][0] not in guard:
+            s = pred[s][0]; guard.add(s)
+        chain = [s]; seen.add(s); c = s
+        while mergeable(c, succ[c][0] if len(succ[c]) == 1 else None) if len(succ[c]) == 1 else False:
+            n = succ[c][0]
+            if n in seen: break
+            chain.append(n); seen.add(n); c = n
+        out.append(chain[0] + ''.join(y[-1] for y in chain[1:]))
+    return out
+```
+
+**Multiplicity decision:** `BuildDeBruijnGraph` / `FindMaximalNonBranchingPaths` keep the textbook
+multigraph (BA3K sample reproduced with ATG twice); `AssembleDeBruijn` uses distinct k-mers (Velvet 1-2),
+since read redundancy is not genomic multiplicity.
+
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-25**: B10 re-validation — contigs = maximal non-branching paths over distinct k-mers (Rosalind BA3K/BA3M, Velvet); reverse-complement option; Python oracles.

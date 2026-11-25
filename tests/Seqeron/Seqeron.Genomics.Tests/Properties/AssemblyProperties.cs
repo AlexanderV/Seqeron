@@ -348,9 +348,9 @@ public class AssemblyProperties
 
     #region ASSEMBLY-DBG-001: P: reconstructs an unambiguous genome; M: larger k → ≤ branching; R: result fields consistent; D: deterministic
 
-    // AssembleDeBruijn decomposes reads into k-mers (edges of a (k-1)-mer graph) and spells one
-    // Eulerian walk per component (Compeau et al. 2011; Langmead DBG notes). Reconstruction is exact
-    // when the walk is unique — i.e. when no (k-1)-mer repeats. Larger k makes (k-1)-mers more
+    // AssembleDeBruijn decomposes reads into distinct k-mers (edges of a (k-1)-mer graph) and spells
+    // every maximal non-branching path (Compeau & Pevzner BA3K/BA3M; Velvet). Reconstruction is exact
+    // when no (k-1)-mer repeats (the graph is one simple path). Larger k makes (k-1)-mers more
     // specific, removing the repeat-induced branch nodes.
 
     private static SequenceAssembler.AssemblyResult Dbg(string[] reads, int k) =>
@@ -362,7 +362,7 @@ public class AssemblyProperties
 
     /// <summary>
     /// INV-1 (P): When a sequence has no repeated (k-1)-mer its de Bruijn graph is a simple path, so
-    /// the unique Eulerian walk reconstructs exactly that sequence as a single contig.
+    /// its single maximal non-branching path reconstructs exactly that sequence as a single contig.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property Dbg_UnambiguousSequence_IsReconstructedExactly()
