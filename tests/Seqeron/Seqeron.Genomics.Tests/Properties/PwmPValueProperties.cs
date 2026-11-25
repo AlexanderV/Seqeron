@@ -133,54 +133,6 @@ public class PwmPValueProperties
     }
 
     [Test]
-    public void P5_MarkovOrder0_EqualsIid_AndOrder1Table_EqualsBruteForce()
-    {
-        var rng = new Random(290_005);
-        for (int trial = 0; trial < 25; trial++)
-        {
-            var pwm = RandomPwm(rng, rng.Next(1, 6));
-            var q = RandomBackground(rng, 4);
-            double alpha = pwm.MinScore + rng.NextDouble() * (pwm.MaxScore - pwm.MinScore);
-            string msg = $"trial {trial} alpha={alpha:R}";
-            AssertClose(MotifFinder.PwmMarkovScorePValue(pwm, alpha, OligoBackgroundModel.Bernoulli(q)).PValue,
-                MotifFinder.PwmScorePValue(pwm, alpha, q).PValue, msg + " bernoulli");
-            AssertClose(MotifFinder.PwmMarkovScorePValue(pwm, alpha, OligoBackgroundModel.Equiprobable).PValue,
-                MotifFinder.PwmScorePValue(pwm, alpha).PValue, msg + " equiprobable");
-
-            // Order-1 table of dinucleotide frequencies (some zero) with pseudo-frequency ψ.
-            var table = new Dictionary<string, double>();
-            foreach (var w in AllWords(Acgt, 2))
-                table[w] = rng.Next(4) == 0 ? 0 : rng.Next(1, 50);
-            if (table.Values.Sum() == 0) table["AC"] = 1;
-            double psi = rng.Next(3) switch { 0 => 0.0, 1 => 0.01, _ => rng.NextDouble() * 0.5 };
-            double total = table.Values.Sum();
-            double S(char x) => Acgt.Sum(b => table[$"{x}{b}"]);
-            double Prefix(char x) => (1 - psi) * S(x) / total + psi / 4;
-            double Trans(char x, char b) => S(x) == 0 ? 0.25 : (1 - psi) * table[$"{x}{b}"] / S(x) + psi / 4;
-            double Prob(string w)
-            {
-                double p = Prefix(w[0]);
-                for (int i = 1; i < w.Length; i++) p *= Trans(w[i - 1], w[i]);
-                return p;
-            }
-            var model = OligoBackgroundModel.MarkovFromOligoFrequencies(table, psi);
-            var words = Enumerate(pwm, Prob);
-            AssertClose(words.Sum(x => x.Prob), 1.0, msg + " normalisation");
-            foreach (double a in Probes(rng, words))
-            {
-                var r = MotifFinder.PwmMarkovScorePValue(pwm, a, model);
-                AssertClose(r.PValue, Tail(words, a), $"{msg} markov a={a:R} psi={psi}");
-            }
-            var t = MotifFinder.PwmMarkovScoreThresholdForPValue(pwm, 0.05, model);
-            if (!double.IsPositiveInfinity(t.Score))
-            {
-                Assert.That(t.PValue, Is.LessThanOrEqualTo(0.05 * (1 + 1e-12)), msg);
-                AssertClose(MotifFinder.PwmMarkovScorePValue(pwm, t.Score, model).PValue, t.PValue, msg + " markov round trip");
-            }
-        }
-    }
-
-    [Test]
     public void P6_AlphabetPwmOverAcgt_EqualsDnaPwm()
     {
         var rng = new Random(290_006);

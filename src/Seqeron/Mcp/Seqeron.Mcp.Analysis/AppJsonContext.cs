@@ -150,17 +150,6 @@ namespace Seqeron.Mcp.Analysis;
 [JsonSerializable(typeof(StrandedRegulatoryElementItem))]
 [JsonSerializable(typeof(StrandedRegulatoryElementItem[]))]
 [JsonSerializable(typeof(FindRegulatoryElementsBothStrandsResult))]
-[JsonSerializable(typeof(OligoMotifItem))]
-[JsonSerializable(typeof(OligoMotifItem[]))]
-[JsonSerializable(typeof(OligoAnalysisResultDto))]
-[JsonSerializable(typeof(DyadItem))]
-[JsonSerializable(typeof(DyadItem[]))]
-[JsonSerializable(typeof(DyadSpacingItem))]
-[JsonSerializable(typeof(DyadSpacingItem[]))]
-[JsonSerializable(typeof(DyadAnalysisResultDto))]
-[JsonSerializable(typeof(SharedMotifSignificanceItem))]
-[JsonSerializable(typeof(SharedMotifSignificanceItem[]))]
-[JsonSerializable(typeof(SharedMotifSignificanceResult))]
 
 // ProteinMotifFinder
 [JsonSerializable(typeof(ProteinMotifMatchItem))]

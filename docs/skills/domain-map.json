@@ -3,7 +3,7 @@
   "bio-qc": ["sequence", "parsers", "embosssequenceformats", "embossfeaturetools"],
   "bio-alignment": ["alignment", "multiplealignment", "alignmentconsensus", "embosspairwisealignment", "core"],
   "bio-assembly": ["analysis", "core"],
-  "bio-annotation": ["annotation", "analysis", "embossmotifs", "embossopenreadingframes", "embossrepeats"],
+  "bio-annotation": ["annotation", "analysis", "embossmotifs", "embossopenreadingframes", "embossrepeats", "overrepresentedwords"],
   "bio-phylo-popgen": ["phylogenetics", "population"],
   "bio-metagenomics": ["metagenomics"],
   "bio-moldesign": ["moltools"],

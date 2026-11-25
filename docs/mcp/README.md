@@ -32,13 +32,14 @@ guessing a number. Same math as the C# API; the tool call is just a different fr
 ## The servers
 
 Tools are split into focused, per-domain servers so you attach only what a task needs — a smaller
-tool surface loads faster and is easier for the model to reason about. **663 tools across 19 servers:**
+tool surface loads faster and is easier for the model to reason about. **663 tools across 20 servers:**
 
 | Server | What it's for | Tools |
 |--------|---------------|------:|
 | [`Seqeron.Mcp.Sequence`](../../src/Seqeron/Mcp/Seqeron.Mcp.Sequence) | DNA/RNA/Protein models, composition, complexity, k-mers, Tm | 35 |
 | [`Seqeron.Mcp.Parsers`](../../src/Seqeron/Mcp/Seqeron.Mcp.Parsers) | FASTA/FASTQ/GenBank/GFF/VCF/BED/EMBL parsing & utilities | 41 |
 | [`Seqeron.Mcp.Alignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment) | Pairwise & multiple sequence alignment | 59 |
+| [`Seqeron.Mcp.OverrepresentedWords`](../../src/Seqeron/Mcp/Seqeron.Mcp.OverrepresentedWords) | Over-represented words and spaced dyads (RSAT oligo-analysis / dyad-analysis port) - separately licensed (AGPL-3.0-only) | 3 |
 | [`Seqeron.Mcp.EmbossOpenReadingFrames`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossOpenReadingFrames) | EMBOSS open reading frame programs (getorf, plotorf, tcode, checktrans) - separately licensed (GPL-2.0-or-later) | 4 |
 | [`Seqeron.Mcp.EmbossMotifs`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossMotifs) | EMBOSS pattern and motif programs (fuzzpro, fuzztran, patmatmotifs, patmatdb, prosextract, marscan, consambig) - separately licensed (GPL-2.0-or-later) | 12 |
 | [`Seqeron.Mcp.EmbossPairwiseAlignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossPairwiseAlignment) | EMBOSS pairwise alignment programs (needle, water, stretcher, matcher, supermatcher, merger, est2genome, diffseq, ...) - separately licensed (GPL-2.0-or-later) | 16 |

@@ -111,11 +111,13 @@ sequence shorter than k yields no words (no length-k window). Matching is exact 
 
 ### 5.1 Location and Entry Points
 
+**Licence note:** the RSAT-derived overloads (background models, `AnalyzeOligos`, `AnalyzeOligoStrings`, `AnalyzeDyads`, the significance overloads of `FindSharedMotifs` / `DiscoverMotifs`) live in the separately licensed assembly `Seqeron.Genomics.OverrepresentedWords` (AGPL-3.0-only; [LICENSES.md](../../Validation/review-2026-09/LICENSES.md)); the MIT `MotifFinder` keeps the uniform / Bernoulli `DiscoverMotifs`, the quorum `FindSharedMotifs` and the exact PWM p-value over an explicit `PwmBackgroundChain`.
+
 **Implementation location:** [MotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs)
 
 - `MotifFinder.FindSharedMotifs(IEnumerable<DnaSequence>, int, int)`: enumerates fixed-length words and reports those meeting the matching-sequence quorum.
-- `MotifFinder.FindSharedMotifs(IEnumerable<DnaSequence>, int k, int minSequences, OligoBackgroundModel, OligoStrandMode = Single)` → `SharedMotifAnalysisResult` ([MotifFinder.OligoAnalysis.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs)): the same quorum words with RSAT `oligo-analysis -return mseq,proba` statistics — exp_freq, exp_ms, `ms_P`, `ms_E`, `ms_sig` — under any `OligoBackgroundModel` (equiprobable, input Bernoulli, given Bernoulli, `-markov m`, `-bgfile` table, `-lexicon`) and `-1str`/`-2str` [5].
-- `MotifFinder.FindSharedMotifs(…, OligoStrandMode, double pseudoFrequency)`: the same with RSAT `-pseudo` — exp_freq ← (1 − ψ)·exp_freq + ψ/NPO per strand before the reverse-complement sum (`CalcExpected`); equals RSAT `-return mseq,proba -pseudo ψ` (40 random runs, all backgrounds, ≤ 4.7e-14); ψ = 0 is the plain overload.
+- `OverrepresentedWordAnalyzer.FindSharedMotifs(IEnumerable<DnaSequence>, int k, int minSequences, OligoBackgroundModel, OligoStrandMode = Single)` → `SharedMotifAnalysisResult` ([OverrepresentedWordAnalyzer.OligoAnalysis.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.OverrepresentedWords/OverrepresentedWordAnalyzer.OligoAnalysis.cs)): the same quorum words with RSAT `oligo-analysis -return mseq,proba` statistics — exp_freq, exp_ms, `ms_P`, `ms_E`, `ms_sig` — under any `OligoBackgroundModel` (equiprobable, input Bernoulli, given Bernoulli, `-markov m`, `-bgfile` table, `-lexicon`) and `-1str`/`-2str` [5].
+- `OverrepresentedWordAnalyzer.FindSharedMotifs(…, OligoStrandMode, double pseudoFrequency)`: the same with RSAT `-pseudo` — exp_freq ← (1 − ψ)·exp_freq + ψ/NPO per strand before the reverse-complement sum (`CalcExpected`); equals RSAT `-return mseq,proba -pseudo ψ` (40 random runs, all backgrounds, ≤ 4.7e-14); ψ = 0 is the plain overload.
 
 ### 5.2 Current Behavior
 
@@ -164,9 +166,9 @@ scan is used; correctness is unchanged.
   exp_freq(D) = Σ over the matching words, NPO = k·|codes|·4^(k−1) (`-2str`-reduced); checked against the repaired
   RSAT oracle on 300 random runs (68,997 patterns, ≤ 1.3e-13).
 
-**Related RSAT analyses elsewhere:** spaced dyads (RSAT `dyad-analysis`) are `MotifFinder.AnalyzeDyads` / MCP
+**Related RSAT analyses elsewhere:** spaced dyads (RSAT `dyad-analysis`) are `OverrepresentedWordAnalyzer.AnalyzeDyads` / MCP
 `dyad_analysis`; occurrence significance with z-scores, calibrations, lexicon and degenerate occurrences is
-`MotifFinder.AnalyzeOligos` / MCP `oligo_analysis` (discovery doc §5.3–§5.5); a single IUPAC pattern is searched with
+`OverrepresentedWordAnalyzer.AnalyzeOligos` / MCP `oligo_analysis` (discovery doc §5.3–§5.5); a single IUPAC pattern is searched with
 `FindDegenerateMotif`.
 
 ### 5.4 Deviations and Assumptions (Optional)
@@ -218,7 +220,7 @@ ms_P 0.00087319490302470882, ms_E = ms_P × 136, ms_sig 0.9253498996301337.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MotifFinder_FindSharedMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_FindSharedMotifs_Tests.cs) — covers `INV-01`–`INV-05`; [MotifFinder_OligoAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_OligoAnalysis_Tests.cs) — RSAT-run ms_P/ms_E/ms_sig (`-1str`, `-2str`, `-markov 1`, `-bg equi`)
+- Tests: [MotifFinder_FindSharedMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_FindSharedMotifs_Tests.cs) — covers `INV-01`–`INV-05`; [MotifFinder_OligoAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.OverrepresentedWords.Tests/Unit/Analysis/MotifFinder_OligoAnalysis_Tests.cs) — RSAT-run ms_P/ms_E/ms_sig (`-1str`, `-2str`, `-markov 1`, `-bg equi`)
 - Evidence: [MOTIF-SHARED-001-Evidence.md](../../../docs/Evidence/MOTIF-SHARED-001-Evidence.md)
 - Related algorithms: [Overrepresented_Kmer_Discovery](./Overrepresented_Kmer_Discovery.md)
 

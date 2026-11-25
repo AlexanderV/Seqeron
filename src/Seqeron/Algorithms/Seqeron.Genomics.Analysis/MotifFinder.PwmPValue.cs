@@ -111,8 +111,8 @@ public static partial class MotifFinder
 
     /// <summary>
     /// Exact p-value of a PWM score under a Markov background: P(S ≥ <paramref name="score"/>) for a random word
-    /// whose probability is the RSAT <c>segment_proba</c> of <paramref name="background"/>,
-    /// P(w) = P(w[0..m−1]) · ∏_{c=m}^{L−1} P(w_c | w[c−m..c−1]) (for L &lt; m, the marginal of the prefix distribution).
+    /// whose probability is P(w) = P(w[0..m−1]) · ∏_{c=m}^{L−1} P(w_c | w[c−m..c−1]) under the order-m
+    /// <paramref name="background"/> chain (for L &lt; m, the marginal of the prefix distribution).
     /// </summary>
     /// <remarks>
     /// <para>The Touzet–Varré refinement of <see cref="PwmScorePValue(PositionWeightMatrix, double, IReadOnlyList{double}?)"/>
@@ -121,25 +121,19 @@ public static partial class MotifFinder
     /// the band enumeration keeps (integer partial score, context, exact partial window score). Exact as for the
     /// i.i.d. case (same <see cref="PwmPValueResult.IsExact"/> contract).</para>
     /// <para>Scores are the log-odds window scores of <see cref="CalculatePwmScores(string, PositionWeightMatrix)"/>
-    /// (a PWM is scored against the background it was built with; only the null distribution of the words changes).</para>
-    /// <para>Supported models: <see cref="OligoBackgroundModel.Equiprobable"/>, <see cref="OligoBackgroundModel.Bernoulli"/>
-    /// (i.i.d.; identical to the <c>IReadOnlyList&lt;double&gt;</c> overload) and
-    /// <see cref="OligoBackgroundModel.MarkovFromOligoFrequencies"/> (order m = table word length − 1 ≤ 10). The
-    /// input-estimated models (<see cref="OligoBackgroundModel.BernoulliFromInput"/>, <see cref="OligoBackgroundModel.MarkovFromInput"/>)
-    /// need sequences and RSAT's input Markov estimate is not a normalised word distribution (m-mer and (m+1)-mer
-    /// frequencies come from different window sets), and <see cref="OligoBackgroundModel.Lexicon"/> is a maximal
-    /// segmentation frequency, not a probability: these throw — build the chain with
-    /// <see cref="OligoBackgroundModel.MarkovFromOligoFrequencies"/> from the (m+1)-mer counts instead.</para>
+    /// (a PWM is scored against the background it was built with; only the null distribution of the words changes).
+    /// Build the chain with <see cref="PwmBackgroundChain.FromWordFrequencies"/> from a table of (m+1)-mer frequencies
+    /// (order m ≤ 10).</para>
     /// </remarks>
     /// <param name="pwm">Position weight matrix with finite cells.</param>
     /// <param name="score">Score threshold α (finite).</param>
-    /// <param name="background">The background model.</param>
+    /// <param name="background">The Markov background chain over A, C, G, T.</param>
     /// <param name="options">Search options; null = <see cref="PwmPValueOptions.Default"/>.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    /// <exception cref="ArgumentException">Non-finite matrix cell, unsupported model kind, or invalid options.</exception>
+    /// <exception cref="ArgumentException">Non-finite matrix cell, a chain over another alphabet, or invalid options.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="score"/> is NaN or infinite.</exception>
     public static PwmPValueResult PwmMarkovScorePValue(
-        PositionWeightMatrix pwm, double score, OligoBackgroundModel background, PwmPValueOptions? options = null)
+        PositionWeightMatrix pwm, double score, PwmBackgroundChain background, PwmPValueOptions? options = null)
     {
         ValidatePValueScore(score);
         return CreateMarkovEngine(pwm, background, options).ScoreToPValue(score);
@@ -151,10 +145,10 @@ public static partial class MotifFinder
     /// </summary>
     /// <param name="pwm">Position weight matrix with finite cells.</param>
     /// <param name="pValue">Target p-value in [0, 1].</param>
-    /// <param name="background">The background model (see <see cref="PwmMarkovScorePValue"/>).</param>
+    /// <param name="background">The Markov background chain (see <see cref="PwmMarkovScorePValue"/>).</param>
     /// <param name="options">Search options; null = <see cref="PwmPValueOptions.Default"/>.</param>
     public static PwmPValueResult PwmMarkovScoreThresholdForPValue(
-        PositionWeightMatrix pwm, double pValue, OligoBackgroundModel background, PwmPValueOptions? options = null)
+        PositionWeightMatrix pwm, double pValue, PwmBackgroundChain background, PwmPValueOptions? options = null)
     {
         ValidatePValue(pValue);
         return CreateMarkovEngine(pwm, background, options).PValueToScore(pValue);
@@ -210,11 +204,12 @@ public static partial class MotifFinder
     }
 
     private static PwmPValueEngine CreateMarkovEngine(
-        PositionWeightMatrix pwm, OligoBackgroundModel background, PwmPValueOptions? options)
+        PositionWeightMatrix pwm, PwmBackgroundChain chain, PwmPValueOptions? options)
     {
         ArgumentNullException.ThrowIfNull(pwm);
-        ArgumentNullException.ThrowIfNull(background);
-        PwmBackgroundChain chain = background.ToPValueChain(nameof(background));
+        ArgumentNullException.ThrowIfNull(chain);
+        if (chain.K != PwmAlphabetSize)
+            throw new ArgumentException($"The background chain must be over {PwmAlphabetSize} symbols (A, C, G, T).", nameof(chain));
         return chain.Order == 0
             ? new PwmPValueEngine(pwm, chain.Residues, options)
             : new PwmPValueEngine(pwm.Matrix, PwmAlphabetSize, pwm.Length, chain.Residues, chain, options, nameof(pwm));
@@ -986,8 +981,9 @@ public sealed record PwmPValueOptions
 /// An order-m background chain over K symbols for the p-value engine: prefix marginals P(w[0..j)) (j = 1 … m) and
 /// transitions P(b | last m letters); contexts are base-K codes, first letter most significant.
 /// </summary>
-internal sealed class PwmBackgroundChain
+public sealed class PwmBackgroundChain
 {
+    /// <summary>An order-0 (i.i.d.) chain: <paramref name="residues"/> are the symbol probabilities.</summary>
     public PwmBackgroundChain(int k, double[] residues)
     {
         K = k;
@@ -1027,10 +1023,113 @@ internal sealed class PwmBackgroundChain
         PrefixProbabilities[0] = new[] { 1.0 };
     }
 
+    /// <summary>Alphabet size.</summary>
     public int K { get; }
+
+    /// <summary>Markov order m (0 = i.i.d.).</summary>
     public int Order { get; }
+
+    /// <summary>Number of m-letter contexts (K^m; 1 for order 0).</summary>
     public int ContextCount { get; }
+
+    /// <summary>Symbol probabilities of an order-0 chain.</summary>
     public double[] Residues { get; }
+
+    /// <summary>P(w[0..j)) for j = 0 … m, by prefix code.</summary>
     public double[][] PrefixProbabilities { get; }
+
+    /// <summary>P(b | context) at [context·K + b].</summary>
     public double[] Transitions { get; }
+
+    /// <summary>Largest Markov order accepted by the p-value DP (4^10 contexts).</summary>
+    public const int MaxOrder = 10;
+
+    /// <summary>
+    /// The A, C, G, T Markov chain of order m = (word length − 1) from a table of (m+1)-mer frequencies f with
+    /// pseudo-frequency ψ: with S(x) = Σ_b f(xb) and F = Σ f, P(b | x) = (1 − ψ)·f(xb)/S(x) + ψ/4 (¼ when S(x) = 0) and
+    /// P(x) = (1 − ψ)·S(x)/F + ψ/4^m for the m-letter prefixes (order 0: P(b) = (1 − ψ)·f(b)/F + ψ/4). The table scale is irrelevant.
+    /// With <paramref name="strandInsensitive"/> the table holds strand-insensitive pair frequencies: a missing reverse
+    /// complement takes its partner's value, then every non-palindromic frequency is halved.
+    /// </summary>
+    /// <param name="frequencies">(m+1)-mer → frequency (A/C/G/T words of one length, finite, ≥ 0, positive total; missing = 0).</param>
+    /// <param name="pseudoFrequency">ψ in [0, 1].</param>
+    /// <param name="strandInsensitive">The table holds strand-insensitive pair frequencies.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="frequencies"/> is null.</exception>
+    /// <exception cref="ArgumentException">Empty table, mixed lengths, non-ACGT word, zero total, or order above <see cref="MaxOrder"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A negative / non-finite frequency, or ψ outside [0, 1].</exception>
+    public static PwmBackgroundChain FromWordFrequencies(
+        IReadOnlyDictionary<string, double> frequencies, double pseudoFrequency = 0.01, bool strandInsensitive = false)
+    {
+        ArgumentNullException.ThrowIfNull(frequencies);
+        if (!(pseudoFrequency >= 0 && pseudoFrequency <= 1))
+            throw new ArgumentOutOfRangeException(nameof(pseudoFrequency), pseudoFrequency, "The pseudo-frequency must be in [0, 1].");
+        if (frequencies.Count == 0)
+            throw new ArgumentException("The frequency table is empty.", nameof(frequencies));
+
+        var table = new Dictionary<string, double>(StringComparer.Ordinal);
+        int length = -1;
+        foreach (var (raw, value) in frequencies)
+        {
+            string word = raw.Trim().ToUpperInvariant().Replace('U', 'T');
+            if (length < 0) length = word.Length;
+            if (word.Length == 0 || word.Length != length)
+                throw new ArgumentException("All words of a Markov frequency table must have the same length.", nameof(frequencies));
+            if (word.Any(c => c is not ('A' or 'C' or 'G' or 'T')))
+                throw new ArgumentException($"Word '{raw}' contains a non-ACGT character.", nameof(frequencies));
+            if (!double.IsFinite(value) || value < 0)
+                throw new ArgumentOutOfRangeException(nameof(frequencies), value, "Frequencies must be finite and non-negative.");
+            if (!table.TryAdd(word, value))
+                throw new ArgumentException($"Duplicate word '{raw}' in the frequency table.", nameof(frequencies));
+        }
+
+        if (strandInsensitive)
+        {
+            foreach (string word in table.Keys.ToList())
+            {
+                string rc = DnaSequence.GetReverseComplementString(word);
+                if (!table.ContainsKey(rc) && table[word] != 0)
+                    table[rc] = table[word];
+            }
+
+            foreach (string word in table.Keys.ToList())
+            {
+                if (DnaSequence.GetReverseComplementString(word) != word)
+                    table[word] /= 2;
+            }
+        }
+
+        int order = length - 1;
+        if (order > MaxOrder)
+            throw new ArgumentException($"Markov order {order} exceeds the maximum ({MaxOrder}) supported by the p-value DP.", nameof(frequencies));
+        const int K4 = 4;
+        int contexts = 1 << (2 * order);
+        var word4 = new double[contexts * K4];
+        double total = 0;
+        foreach (var (word, value) in table)
+        {
+            int code = 0;
+            foreach (char c in word)
+                code = (code * K4) + "ACGT".IndexOf(c);
+            word4[code] = value;
+            total += value;
+        }
+
+        if (!(total > 0))
+            throw new ArgumentException("The frequency table has a zero total.", nameof(frequencies));
+
+        double psi = pseudoFrequency;
+        var transitions = new double[contexts * K4];
+        var initial = new double[contexts];
+        for (int x = 0; x < contexts; x++)
+        {
+            double rowSum = 0;
+            for (int b = 0; b < K4; b++)
+                rowSum += word4[(x * K4) + b];
+            initial[x] = ((1 - psi) * rowSum / total) + (psi / contexts);
+            for (int b = 0; b < K4; b++)
+                transitions[(x * K4) + b] = rowSum > 0 ? ((1 - psi) * word4[(x * K4) + b] / rowSum) + (psi / K4) : 1.0 / K4;
+        }
+
+        return order == 0 ? new PwmBackgroundChain(K4, transitions) : new PwmBackgroundChain(K4, order, initial, transitions);
+    }
 }

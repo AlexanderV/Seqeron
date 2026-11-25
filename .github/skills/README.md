@@ -26,7 +26,7 @@ or the equivalent **C# `Method ID`** — so you never need MCP unless you want i
 
 ## Why a skill layer
 
-With **663 tools across 19 MCP servers**, attaching every schema drowns the model — thousands of
+With **663 tools across 20 MCP servers**, attaching every schema drowns the model — thousands of
 tokens of tool definitions before it reads a word of your question. Skills solve this with
 **progressive disclosure**: only a skill's one-line `description` sits in context. When your request
 matches, its body loads and teaches the model to do three things well —

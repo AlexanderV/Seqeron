@@ -1,7 +1,7 @@
 {
   "name": "seqeron-bio-skills",
   "version": "1.0.0",
-  "description": "Agent skills that turn the Seqeron.Genomics bioinformatics library (247 algorithms) and its 19 MCP servers (663 tools) into an assistant that solves whole biological tasks — with tool-only rigor and no schema bloat.",
+  "description": "Agent skills that turn the Seqeron.Genomics bioinformatics library (247 algorithms) and its 20 MCP servers (663 tools) into an assistant that solves whole biological tasks — with tool-only rigor and no schema bloat.",
   "author": "AlexanderV",
   "repository": "https://github.com/AlexanderV/Seqeron",
   "license": "MIT",

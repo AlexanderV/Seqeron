@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **160 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **157 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (160)
+## Tools (157)
 
 | Tool | Description |
 |------|-------------|
@@ -45,7 +45,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `discover_motifs` | Overrepresented k-mers (de novo motif discovery) in a DNA sequence. |
 | `disorder_propensity` | Returns the TOP-IDP propensity value for a single amino acid (Campen 2008). |
 | `dust_score` | DUST low-complexity score (BLAST-style, triplet-based) for a DNA sequence. |
-| `dyad_analysis` | RSAT dyad-analysis: over-represented spaced dyads M1 n{s} M2 (any / dr / ir / rep) with monad-based expected frequencies, z-scores and binomial occ_P / occ_E / occ_sig… |
 | `entropy_profile` | Shannon entropy in sliding windows along the sequence; optional k-mer (block) entropy (`k`) and trailing partial windows (`includePartialWindow`). |
 | `find_all_longest_repeats` | Every longest repeated substring of a DNA sequence (all length ties) with all positions; `bothStrands` gives the longest repeat classes over both strands (MUMmer repeat-match); IUPAC input accepted (B09 A2-36 / A2-33). |
 | `find_longest_common_region_multi` | Longest substring shared by at least minSupport of N >= 2 sequences (k-common substring, Rosalind LCSM) with its first occurrence in each. |
@@ -148,7 +147,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `multibranch_loop_energy` | Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain). |
 | `alignment_summary_info` | Bio.Align.AlignInfo.SummaryInfo of Biopython 1.79: consensus, replacement dictionary, PSSM, information content; equal to the Biopython test values. |
 | `msa_conservation` | Capra and Singh (2007) column conservation: Jensen-Shannon divergence (default), Shannon entropy, property / relative entropy, sum of pairs; window, gap penalty, Henikoff weights. |
-| `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equipr… |
 | `parse_dot_bracket` | Parses dot-bracket notation into a list of base-pair coordinates. |
 | `predict_chou_fasman` | Propensity profile: per-window mean Chou-Fasman helix/sheet/turn parameters (window 1 = per residue); not an assignment (see `chou_fasman_assign`). |
 | `predict_coiled_coils` | Heptad-repeat-based coiled-coil prediction. |
@@ -168,7 +166,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `scan_with_alphabet_pwm` | Build a PWM over an arbitrary alphabet from aligned instances (as create_alphabet_pwm) and score every window of a sequence (Biopython pssm.calculate rule)… |
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
 | `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |
-| `shared_motifs_significance` | RSAT oligo-analysis matching-sequence statistics: k-mers (or reverse-complement pairs) present in at least minSequences of the input DNA se… |
 | `spaced_word_distance` | Multiple-pattern spaced-word distance (Leimeister et al. 2014): mean over equal-weight patterns of the per-pattern word-vector distance (euclidean, jensen_shannon, euclidean_counts, …), or `ev` = spaced -d EV evolutionary distance (Morgenstern et al. 2015). Optional `acgtOnly` (spaced's reader and N-word rule; non-letters deleted) and `bothStrands` (spaced default reverse-complement mode). |
 | `standardize_repeat_motif` | Standardizes a repeat unit two ways. canonicalClass — the MISA repeat-type class "considering sequence complementary" (misa.pl .statistics,… |
 | `stem_energy` | Free energy of an RNA stem (Turner 2004 nearest-neighbor stacking + AU/GU terminal penalties). |

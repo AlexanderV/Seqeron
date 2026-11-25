@@ -74,7 +74,7 @@
 |------|-----------|-----|
 | `generate_decipher_consensus` | `Seqeron.Genomics.AlignmentConsensus.DecipherConsensus.GenerateDecipherConsensus` | [doc](../../mcp/tools/alignmentconsensus/generate_decipher_consensus.md) |
 
-## Analysis (160 tools)
+## Analysis (157 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -110,7 +110,6 @@
 | `disorder_propensity` | `DisorderPredictor.GetDisorderPropensity` | [doc](../../mcp/tools/analysis/disorder_propensity.md) |
 | `dnadiff` | `GenomicAnalyzer.Dnadiff` | [doc](../../mcp/tools/analysis/dnadiff.md) |
 | `dust_score` | `SequenceComplexity.CalculateDustScore` | [doc](../../mcp/tools/analysis/dust_score.md) |
-| `dyad_analysis` | `MotifFinder.AnalyzeDyads` | [doc](../../mcp/tools/analysis/dyad_analysis.md) |
 | `entropy_profile` | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../mcp/tools/analysis/entropy_profile.md) |
 | `exact_tandems` | `MummerExactTandems.Run` | [doc](../../mcp/tools/analysis/exact_tandems.md) |
 | `find_all_longest_repeats` | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../mcp/tools/analysis/find_all_longest_repeats.md) |
@@ -198,7 +197,6 @@
 | `nucmer` | `GenomicAnalyzer.Nucmer` | [doc](../../mcp/tools/analysis/nucmer.md) |
 | `nucmer2xfig` | `MummerNucmer2Xfig.Run` | [doc](../../mcp/tools/analysis/nucmer2xfig.md) |
 | `nucmer_clusters` | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../mcp/tools/analysis/nucmer_clusters.md) |
-| `oligo_analysis` | `MotifFinder.DiscoverMotifs` | [doc](../../mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../mcp/tools/analysis/parse_dot_bracket.md) |
 | `predict_chou_fasman` | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../mcp/tools/analysis/predict_chou_fasman.md) |
 | `predict_coiled_coils` | `ProteinMotifFinder.PredictCoiledCoils` | [doc](../../mcp/tools/analysis/predict_coiled_coils.md) |
@@ -222,7 +220,6 @@
 | `scan_with_alphabet_pwm` | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | `MotifFinder.ScanWithPwm` | [doc](../../mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../mcp/tools/analysis/scan_with_pwm_both_strands.md) |
-| `shared_motifs_significance` | `MotifFinder.FindSharedMotifs` | [doc](../../mcp/tools/analysis/shared_motifs_significance.md) |
 | `show_aligns` | `MummerShowAligns.Run` | [doc](../../mcp/tools/analysis/show_aligns.md) |
 | `show_coords` | `MummerShowCoords.Run` | [doc](../../mcp/tools/analysis/show_coords.md) |
 | `show_diff` | `MummerShowDiff.Run` | [doc](../../mcp/tools/analysis/show_diff.md) |
@@ -634,6 +631,14 @@
 | `tcoffee_primary_library` | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeePrimaryLibraryEntries` | [doc](../../mcp/tools/multiplealignment/tcoffee_primary_library.md) |
 | `tcoffee_slow_pair_align` | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/multiplealignment/tcoffee_slow_pair_align.md) |
 | `tcoffee_tblastx_library` | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeTblastxLibraryEntries` | [doc](../../mcp/tools/multiplealignment/tcoffee_tblastx_library.md) |
+
+## Analysis (3 tools)
+
+| tool | Method ID | doc |
+|------|-----------|-----|
+| `dyad_analysis` | `OverrepresentedWordAnalyzer.AnalyzeDyads` | [doc](../../mcp/tools/overrepresentedwords/dyad_analysis.md) |
+| `oligo_analysis` | `OverrepresentedWordAnalyzer.DiscoverMotifs` | [doc](../../mcp/tools/overrepresentedwords/oligo_analysis.md) |
+| `shared_motifs_significance` | `OverrepresentedWordAnalyzer.FindSharedMotifs` | [doc](../../mcp/tools/overrepresentedwords/shared_motifs_significance.md) |
 
 ## Parsers (41 tools)
 

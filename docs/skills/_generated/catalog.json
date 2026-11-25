@@ -644,13 +644,6 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L864"
   },
   {
-    "tool": "dyad_analysis",
-    "server": "Analysis",
-    "methodId": "MotifFinder.AnalyzeDyads",
-    "docPath": "docs/mcp/tools/analysis/dyad_analysis.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.DyadAnalysis.cs#L56"
-  },
-  {
     "tool": "entropy_profile",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateEntropyProfile",
@@ -1260,13 +1253,6 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.NucmerClusters.cs"
   },
   {
-    "tool": "oligo_analysis",
-    "server": "Analysis",
-    "methodId": "MotifFinder.DiscoverMotifs",
-    "docPath": "docs/mcp/tools/analysis/oligo_analysis.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs#L58"
-  },
-  {
     "tool": "parse_dot_bracket",
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.ParseDotBracket",
@@ -1426,13 +1412,6 @@
     "methodId": "MotifFinder.ScanWithPwmBothStrands",
     "docPath": "docs/mcp/tools/analysis/scan_with_pwm_both_strands.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.PwmScoring.cs#L100"
-  },
-  {
-    "tool": "shared_motifs_significance",
-    "server": "Analysis",
-    "methodId": "MotifFinder.FindSharedMotifs",
-    "docPath": "docs/mcp/tools/analysis/shared_motifs_significance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs#L140"
   },
   {
     "tool": "show_aligns",
@@ -3890,6 +3869,27 @@
     "methodId": "Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeTblastxLibraryEntries",
     "docPath": "docs/mcp/tools/multiplealignment/tcoffee_tblastx_library.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Blast.cs"
+  },
+  {
+    "tool": "dyad_analysis",
+    "server": "Analysis",
+    "methodId": "OverrepresentedWordAnalyzer.AnalyzeDyads",
+    "docPath": "docs/mcp/tools/overrepresentedwords/dyad_analysis.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OverrepresentedWords/OverrepresentedWordAnalyzer.DyadAnalysis.cs#L56"
+  },
+  {
+    "tool": "oligo_analysis",
+    "server": "Analysis",
+    "methodId": "OverrepresentedWordAnalyzer.DiscoverMotifs",
+    "docPath": "docs/mcp/tools/overrepresentedwords/oligo_analysis.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OverrepresentedWords/OverrepresentedWordAnalyzer.OligoAnalysis.cs#L58"
+  },
+  {
+    "tool": "shared_motifs_significance",
+    "server": "Analysis",
+    "methodId": "OverrepresentedWordAnalyzer.FindSharedMotifs",
+    "docPath": "docs/mcp/tools/overrepresentedwords/shared_motifs_significance.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OverrepresentedWords/OverrepresentedWordAnalyzer.OligoAnalysis.cs#L140"
   },
   {
     "tool": "bed_filter",

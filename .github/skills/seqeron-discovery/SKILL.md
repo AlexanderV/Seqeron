@@ -14,7 +14,7 @@ allowed-tools: Bash, Read
 
 # Seqeron Discovery
 
-Seqeron exposes **663 MCP tools across 19 servers** plus **247 algorithm docs**.
+Seqeron exposes **663 MCP tools across 20 servers** plus **247 algorithm docs**.
 Attaching every server (or reading every schema) blows up context. This skill
 routes a plain-language need to the **right tool name + `Method ID` + doc path**
 by grepping the docs — cheap, deterministic, no schemas loaded.

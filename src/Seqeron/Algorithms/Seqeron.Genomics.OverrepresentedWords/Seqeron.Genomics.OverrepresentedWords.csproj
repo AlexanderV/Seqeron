@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Copyleft assembly (AGPL-3.0-only); NOT part of the MIT-licensed Seqeron assemblies.
+       Licence text: LICENSE in this directory; inventory: docs/Validation/review-2026-09/LICENSES.md. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Seqeron.Genomics.OverrepresentedWords</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <Description>Port of the RSAT word-statistics programs oligo-analysis (v1.169) and dyad-analysis (v1.78) with the RSA.disco library: over-represented words, spaced dyads, background models, shared-motif significance. Licensed under AGPL-3.0-only.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Seqeron.Genomics.OverrepresentedWords.Tests" />
+  </ItemGroup>
+
+</Project>

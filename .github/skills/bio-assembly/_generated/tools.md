@@ -38,7 +38,6 @@
 | `disorder_propensity` | Analysis | `DisorderPredictor.GetDisorderPropensity` | [doc](../../../../docs/mcp/tools/analysis/disorder_propensity.md) |
 | `dnadiff` | Analysis | `GenomicAnalyzer.Dnadiff` | [doc](../../../../docs/mcp/tools/analysis/dnadiff.md) |
 | `dust_score` | Analysis | `SequenceComplexity.CalculateDustScore` | [doc](../../../../docs/mcp/tools/analysis/dust_score.md) |
-| `dyad_analysis` | Analysis | `MotifFinder.AnalyzeDyads` | [doc](../../../../docs/mcp/tools/analysis/dyad_analysis.md) |
 | `entropy_profile` | Analysis | `SequenceStatistics.CalculateEntropyProfile` | [doc](../../../../docs/mcp/tools/analysis/entropy_profile.md) |
 | `exact_tandems` | Analysis | `MummerExactTandems.Run` | [doc](../../../../docs/mcp/tools/analysis/exact_tandems.md) |
 | `find_all_longest_repeats` | Analysis | `GenomicAnalyzer.FindAllLongestRepeats` | [doc](../../../../docs/mcp/tools/analysis/find_all_longest_repeats.md) |
@@ -126,7 +125,6 @@
 | `nucmer` | Analysis | `GenomicAnalyzer.Nucmer` | [doc](../../../../docs/mcp/tools/analysis/nucmer.md) |
 | `nucmer2xfig` | Analysis | `MummerNucmer2Xfig.Run` | [doc](../../../../docs/mcp/tools/analysis/nucmer2xfig.md) |
 | `nucmer_clusters` | Analysis | `GenomicAnalyzer.FindNucmerClusters` | [doc](../../../../docs/mcp/tools/analysis/nucmer_clusters.md) |
-| `oligo_analysis` | Analysis | `MotifFinder.DiscoverMotifs` | [doc](../../../../docs/mcp/tools/analysis/oligo_analysis.md) |
 | `parse_dot_bracket` | Analysis | `RnaSecondaryStructure.ParseDotBracket` | [doc](../../../../docs/mcp/tools/analysis/parse_dot_bracket.md) |
 | `predict_chou_fasman` | Analysis | `SequenceStatistics.PredictSecondaryStructure` | [doc](../../../../docs/mcp/tools/analysis/predict_chou_fasman.md) |
 | `predict_coiled_coils` | Analysis | `ProteinMotifFinder.PredictCoiledCoils` | [doc](../../../../docs/mcp/tools/analysis/predict_coiled_coils.md) |
@@ -150,7 +148,6 @@
 | `scan_with_alphabet_pwm` | Analysis | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
-| `shared_motifs_significance` | Analysis | `MotifFinder.FindSharedMotifs` | [doc](../../../../docs/mcp/tools/analysis/shared_motifs_significance.md) |
 | `show_aligns` | Analysis | `MummerShowAligns.Run` | [doc](../../../../docs/mcp/tools/analysis/show_aligns.md) |
 | `show_coords` | Analysis | `MummerShowCoords.Run` | [doc](../../../../docs/mcp/tools/analysis/show_coords.md) |
 | `show_diff` | Analysis | `MummerShowDiff.Run` | [doc](../../../../docs/mcp/tools/analysis/show_diff.md) |

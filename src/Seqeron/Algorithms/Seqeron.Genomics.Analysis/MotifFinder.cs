@@ -184,7 +184,8 @@ public static partial class MotifFinder
     #region Position Weight Matrix
 
     /// <summary>Number of rows of a DNA PWM (A, C, G, T).</summary>
-    private const int PwmAlphabetSize = 4;
+    /// <summary>Alphabet size of the DNA position weight matrix (A, C, G, T).</summary>
+    public const int PwmAlphabetSize = 4;
 
     /// <summary>
     /// Creates a log-odds Position Weight Matrix (PWM) from aligned sequences against a
@@ -337,7 +338,8 @@ public static partial class MotifFinder
         return matrix;
     }
 
-    internal static double[] NormalizeBackground(IReadOnlyList<double> background)
+    /// <summary>Background of exactly 4 finite, strictly positive probabilities (A, C, G, T) normalised to sum 1.</summary>
+    public static double[] NormalizeBackground(IReadOnlyList<double> background)
         => NormalizeBackground(background, PwmAlphabetSize, "Background must have exactly 4 probabilities (A, C, G, T).");
 
     /// <summary>
@@ -366,7 +368,7 @@ public static partial class MotifFinder
     }
 
     /// <summary>Row index of a PWM for an upper-case base (A=0, C=1, G=2, T=3), or −1.</summary>
-    internal static int AcgtIndex(char c) => c switch
+    public static int AcgtIndex(char c) => c switch
     {
         'A' => 0,
         'C' => 1,
@@ -376,7 +378,7 @@ public static partial class MotifFinder
     };
 
     /// <summary>Upper-case bases in PWM row order (inverse of <see cref="AcgtIndex"/>); shared with <see cref="PositionWeightMatrix"/>.</summary>
-    internal static readonly char[] AcgtBases = { 'A', 'C', 'G', 'T' };
+    public static readonly char[] AcgtBases = { 'A', 'C', 'G', 'T' };
 
     /// <summary>
     /// Materialises an aligned-sequence collection and enforces the shared alignment contract of
@@ -732,9 +734,8 @@ public static partial class MotifFinder
     /// "equiprobable" model of RSAT <c>oligo-analysis</c> (van Helden et al. 1998); use
     /// <see cref="DiscoverMotifs(DnaSequence, int, int, IReadOnlyList{double})"/> for a
     /// non-uniform (Bernoulli) background. Occurrences overlap (every window is counted).
-    /// Results are yielded in order of each k-mer's first occurrence. For RSAT binomial significance
-    /// (occ_P / occ_E / occ_sig), Markov backgrounds and both-strand counting use
-    /// <see cref="DiscoverMotifs(DnaSequence, int, int, OligoBackgroundModel, OligoStrandMode, bool)"/>.
+    /// Results are yielded in order of each k-mer's first occurrence. Binomial significance
+    /// (occ_P / occ_E / occ_sig), Markov backgrounds and both-strand counting are not part of this method.
     /// </remarks>
     /// <param name="sequence">DNA sequence to analyze.</param>
     /// <param name="k">K-mer length (default: 6).</param>
@@ -811,7 +812,7 @@ public static partial class MotifFinder
     /// then 0-based start positions (ascending) collected only for k-mers with count ≥
     /// <paramref name="minCount"/>. Insertion order = order of first occurrence.
     /// </summary>
-    private static Dictionary<string, List<int>> CollectKmerPositions(string seq, int k, int minCount)
+    public static Dictionary<string, List<int>> CollectKmerPositions(string seq, int k, int minCount)
     {
         Dictionary<string, int> counts = seq.AsSpan().CountKmersSpan(k);
 
@@ -883,8 +884,7 @@ public static partial class MotifFinder
     /// </summary>
     /// <remarks>
     /// Equals the RSAT <c>oligo-analysis</c> <c>mseq</c> column for <c>-1str -ovlp</c> (single strand;
-    /// the reverse complement is not merged; RSAT ms_P / ms_E / ms_sig, background models and <c>-2str</c> are provided by
-    /// <see cref="FindSharedMotifs(IEnumerable{DnaSequence}, int, int, OligoBackgroundModel, OligoStrandMode)"/>). Words are enumerated with the canonical
+    /// the reverse complement is not merged; ms_P / ms_E / ms_sig, background models and <c>-2str</c> are not part of this method). Words are enumerated with the canonical
     /// <see cref="SequenceExtensions.CountKmersSpan"/>. Results are yielded in order of each word's
     /// first occurrence (lowest sequence index, then lowest position); <see cref="SharedMotif.SequenceIndices"/>
     /// is strictly ascending. This is not the longest-common-substring (Rosalind LCSM) problem:

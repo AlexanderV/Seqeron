@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Copyleft MCP server (AGPL-3.0-only); NOT part of the MIT-licensed Seqeron servers.
+       Licence text: LICENSE in this directory; inventory: docs/Validation/review-2026-09/LICENSES.md. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Seqeron.Mcp.OverrepresentedWords</RootNamespace>
+    <AssemblyName>Seqeron.Mcp.OverrepresentedWords</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PublishAot>true</PublishAot>
+    <!-- MCP tool-schema export uses reflection-based JSON; keep it on so the server
+         starts under `dotnet run` (JIT). Native-AOT publish would need source-gen. -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <IlcInstructionSet>native</IlcInstructionSet>
+    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+    <StripSymbols>true</StripSymbols>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\Algorithms\Seqeron.Genomics.OverrepresentedWords\Seqeron.Genomics.OverrepresentedWords.csproj" />
+    <ProjectReference Include="..\Seqeron.Mcp.Analysis\Seqeron.Mcp.Analysis.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.OverrepresentedWords" />
+    <Using Include="Seqeron.Mcp.Analysis.Tools" />
+    <Using Include="Seqeron.Mcp.Analysis.Tools.AnalysisTools" Static="true" />
+  </ItemGroup>
+
+</Project>
