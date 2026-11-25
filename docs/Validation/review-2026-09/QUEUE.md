@@ -439,7 +439,7 @@ sentence, B05 D3 rationale.
   owed review pass (spec: Standing user rules → "Scope of a model re-verification pass"). Validation will come later,
   not soon; the final summary lists what is still owed, per batch and per F-entry.
 - B02 (FIN-B02 final report `b36eecb3`) → requests to batches not yet reviewed, each to be honoured when that batch runs:
-  B11 `GenomeAnnotator.GetCodonUsage` (:1175, :1232) → `Translator.CountCodons` + `CodonUsageAnalyzer.CalculateRscu` — done (B11) 43f20e4d6;
+  B11 `GenomeAnnotator.GetCodonUsage` (:1175, :1232) → `Translator.CountCodons` + `CodonUsageAnalyzer.CalculateRscu` — done (B11) 854cb9360;
   B11/B09 ORF-engine unification on `Translator.FindOrfs`; B20 `GenBankParser` private translate (:686-697) →
   `Translator.Translate`; B09 `GenomicAnalyzer` hard-coded stops (:413, :506) → `GeneticCode.Standard.IsStopCodon`;
   B23 `OncologyAnalyzer.Fusions` to-first-stop loop (:546-557) → `Translator.Translate(…, toFirstStop: true)`;
