@@ -240,3 +240,17 @@ Evidence § "B11 review".
 Files: `GenomeAnnotator_FickettScore_Tests.cs`, `GenomeAnnotator_CpatCodingProbability_Tests.cs`; MCP:
 `CodingPotentialTests.cs` (`fickett_score`, `fickett_scan`, `cpat_coding_probability`).
 
+
+### 8.3 CPAT training — `CpatModel.BuildHexamerTable`, `ToHexamerTable`, `Train` (A4)
+
+| ID | Test | Expected | Evidence |
+|---|---|---|---|
+| C-T1 | hand-checkable tables (coding step 3, non-coding step 1, N hexamers skipped) | exact fractions | `make_hexamer_tab` |
+| C-T2 | table from the synthetic sets | cells/counts equal `make_hexamer_tab` output | oracle |
+| C-T3 | `ToHexamerTable` format, Python float repr, round trip through `ParseHexamerTable` | identical doubles | `str(float)` |
+| C-T4 | `Train` coefficients, deviance, iterations, sample counts | R `glm` binomial within 1e-9 % | R / `make_logitModel` |
+| C-T5 | TG-ROC cutoff, Se, Sp | independent argmin scan | CPAT docs, Greiner 2000 |
+| C-T6 | held-out probabilities of the trained model | `cpat` `ORF_prob.best.tsv` within 1e-9, no-ORF null | `cpat` |
+| C-T7 | stop-codon option honoured; table round trip; argument contract | as stated | design |
+
+File: `GenomeAnnotator_CpatTraining_Tests.cs`. No MCP tool: `cpat_coding_probability` takes a ready model; training needs whole transcript sets (thousands of sequences) as inputs, which does not fit a tool call - it is an API capability.

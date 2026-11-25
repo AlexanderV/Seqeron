@@ -1337,7 +1337,401 @@ public static class GenomeAnnotator
 
             return (coding, noncoding);
         }
+
+        /// <summary>
+        /// Writes the model's hexamer tables in the CPAT <c>make_hexamer_tab</c> format that
+        /// <see cref="ParseHexamerTable"/> reads: a <c>hexamer\tcoding\tnoncoding</c> header, then one
+        /// tab-separated row per hexamer present in both tables (rows absent from either table are never
+        /// scored, so they are not written), in ordinal (A&lt;C&lt;G&lt;T) order — the order CPAT writes
+        /// — with frequencies in Python <c>str(float)</c> form (shortest round-trip), so
+        /// <c>ParseHexamerTable(ToHexamerTable())</c> reproduces the tables exactly.
+        /// </summary>
+        public IReadOnlyList<string> ToHexamerTable()
+        {
+            var lines = new List<string> { "hexamer\tcoding\tnoncoding" };
+            foreach (string kmer in CodingHexamerFrequencies.Keys.Where(NoncodingHexamerFrequencies.ContainsKey).OrderBy(k => k, StringComparer.Ordinal))
+                lines.Add($"{kmer}\t{PythonFloat(CodingHexamerFrequencies[kmer])}\t{PythonFloat(NoncodingHexamerFrequencies[kmer])}");
+            return lines;
+        }
+
+        private static string PythonFloat(double value)
+        {
+            string s = value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            if (s.Contains('E')) return s.Replace('E', 'e');
+            return s.Contains('.') ? s : s + ".0";
+        }
+
+        private const string Acgt = "ACGT";
+
+        /// <summary>
+        /// Builds the CPAT hexamer-frequency tables (CPAT <c>make_hexamer_tab</c>, Wang et al. 2013):
+        /// the coding table counts the in-frame hexamers (frame 0, step 3) of the coding sequences
+        /// (CDS from start to stop codon, no UTR), the non-coding table every hexamer (step 1) of the
+        /// non-coding sequences; each count is divided by the table's total over all 4,096 A/C/G/T hexamers
+        /// (hexamers containing N are not counted). Returns all 4,096 hexamers, A&lt;C&lt;G&lt;T order.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">A sequence set is null.</exception>
+        /// <exception cref="ArgumentException">A sequence has a character other than A, C, G, T, N (case-insensitive), or a set contains no complete A/C/G/T hexamer.</exception>
+        public static (IReadOnlyDictionary<string, double> Coding, IReadOnlyDictionary<string, double> Noncoding)
+            BuildHexamerTable(IEnumerable<string> codingSequences, IEnumerable<string> noncodingSequences)
+        {
+            ArgumentNullException.ThrowIfNull(codingSequences);
+            ArgumentNullException.ThrowIfNull(noncodingSequences);
+            var coding = CountHexamers(codingSequences, step: 3, nameof(codingSequences));
+            var noncoding = CountHexamers(noncodingSequences, step: 1, nameof(noncodingSequences));
+            return (coding, noncoding);
+        }
+
+        private static Dictionary<string, double> CountHexamers(IEnumerable<string> sequences, int step, string paramName)
+        {
+            var counts = new Dictionary<string, long>(StringComparer.Ordinal);
+            foreach (string raw in sequences)
+            {
+                string seq = ValidateCpatSequence(raw, paramName);
+                for (int i = 0; i + HexamerWordSize <= seq.Length; i += step)
+                {
+                    string kmer = seq.Substring(i, HexamerWordSize);
+                    if (kmer.Contains('N')) continue;
+                    counts[kmer] = counts.GetValueOrDefault(kmer) + 1;
+                }
+            }
+
+            double total = counts.Values.Sum();
+            if (total == 0) throw new ArgumentException("The sequence set contains no complete A/C/G/T hexamer.", paramName);
+
+            var table = new Dictionary<string, double>(4096, StringComparer.Ordinal);
+            var buffer = new char[HexamerWordSize];
+            for (int index = 0; index < 4096; index++)
+            {
+                int rest = index;
+                for (int p = HexamerWordSize - 1; p >= 0; p--, rest /= 4) buffer[p] = Acgt[rest % 4];
+                string kmer = new(buffer);
+                table[kmer] = counts.GetValueOrDefault(kmer) / total;
+            }
+
+            return table;
+        }
+
+        private static string ValidateCpatSequence(string? raw, string paramName)
+        {
+            if (raw is null) throw new ArgumentException("Sequence set contains a null sequence.", paramName);
+            string seq = raw.ToUpperInvariant();
+            foreach (char c in seq)
+                if (c is not ('A' or 'C' or 'G' or 'T' or 'N'))
+                    throw new ArgumentException($"CPAT sequences may contain only A, C, G, T, N; found '{c}'.", paramName);
+            return seq;
+        }
+
+        /// <summary>
+        /// Trains a CPAT model (Wang et al. 2013) from caller-supplied data: builds the hexamer tables with
+        /// <see cref="BuildHexamerTable"/> from <paramref name="codingCds"/> and
+        /// <paramref name="noncodingTranscripts"/>, then <see cref="Train(IEnumerable{string}, IEnumerable{string}, IReadOnlyDictionary{string, double}, IReadOnlyDictionary{string, double}, CpatTrainingOptions?)"/>.
+        /// </summary>
+        public static CpatTrainingResult Train(
+            IEnumerable<string> codingTranscripts,
+            IEnumerable<string> noncodingTranscripts,
+            IEnumerable<string> codingCds,
+            CpatTrainingOptions? options = null)
+        {
+            ArgumentNullException.ThrowIfNull(codingTranscripts);
+            ArgumentNullException.ThrowIfNull(noncodingTranscripts);
+            ArgumentNullException.ThrowIfNull(codingCds);
+            var noncodingList = noncodingTranscripts as IReadOnlyCollection<string> ?? noncodingTranscripts.ToList();
+            var (coding, noncoding) = BuildHexamerTable(codingCds, noncodingList);
+            return Train(codingTranscripts, noncodingList, coding, noncoding, options);
+        }
+
+        /// <summary>
+        /// Trains a CPAT model from data the caller supplies (no CPAT data is bundled).
+        /// Per CPAT <c>make_logitModel</c>: for every coding / non-coding transcript the longest ORF
+        /// (CPAT <c>ORFFinder</c>, sense strand, longer than <see cref="CpatTrainingOptions.MinOrfLength"/> nt)
+        /// gives the features mRNA length, ORF length, Fickett TESTCODE (<see cref="FickettTableSet.Cpat"/>)
+        /// and hexamer score; transcripts without an ORF are skipped. The coefficients are the maximum-likelihood
+        /// fit of R <c>glm(Label ~ mRNA + ORF + Fickett + Hexamer, family = binomial)</c> (Label 1 = coding),
+        /// computed by the same iteratively-reweighted least squares (R <c>glm.fit</c> start values, deviance stop
+        /// <c>|Δdev|/(|dev|+0.1) &lt; 1e−8</c>, 25 iterations). The cutoff is the TG-ROC optimum documented by
+        /// CPAT (<c>docs: "Optimum cutoffs were determined from TG-ROC"</c>, Greiner et al. 2000): the coding-probability
+        /// threshold (call coding when p ≥ cutoff) at which sensitivity and specificity on the training set are
+        /// closest (ties: higher sum, then lower cutoff).
+        /// </summary>
+        /// <param name="codingTranscripts">Protein-coding transcript sequences (mRNA).</param>
+        /// <param name="noncodingTranscripts">Non-coding transcript sequences.</param>
+        /// <param name="codingHexamerFrequencies">Coding hexamer table (see <see cref="BuildHexamerTable"/>).</param>
+        /// <param name="noncodingHexamerFrequencies">Non-coding hexamer table.</param>
+        /// <param name="options">ORF-search options (CPAT <c>make_logitModel</c> defaults when null).</param>
+        /// <exception cref="ArgumentNullException">An argument is null.</exception>
+        /// <exception cref="ArgumentException">A sequence has a character other than A, C, G, T, N; or a class has no transcript with an ORF.</exception>
+        /// <exception cref="InvalidOperationException">The design matrix is rank-deficient (e.g. all features constant).</exception>
+        public static CpatTrainingResult Train(
+            IEnumerable<string> codingTranscripts,
+            IEnumerable<string> noncodingTranscripts,
+            IReadOnlyDictionary<string, double> codingHexamerFrequencies,
+            IReadOnlyDictionary<string, double> noncodingHexamerFrequencies,
+            CpatTrainingOptions? options = null)
+        {
+            ArgumentNullException.ThrowIfNull(codingTranscripts);
+            ArgumentNullException.ThrowIfNull(noncodingTranscripts);
+            ArgumentNullException.ThrowIfNull(codingHexamerFrequencies);
+            ArgumentNullException.ThrowIfNull(noncodingHexamerFrequencies);
+            options ??= new CpatTrainingOptions();
+            ArgumentNullException.ThrowIfNull(options.StartCodons);
+            ArgumentNullException.ThrowIfNull(options.StopCodons);
+            ArgumentOutOfRangeException.ThrowIfNegative(options.MinOrfLength);
+
+            var starts = new HashSet<string>(options.StartCodons.Select(c => c.ToUpperInvariant()), StringComparer.Ordinal);
+            var stops = new HashSet<string>(options.StopCodons.Select(c => c.ToUpperInvariant()), StringComparer.Ordinal);
+
+            var rows = new List<(double Mrna, double Orf, double Fickett, double Hexamer, double Label)>();
+            int codingCount = AddFeatureRows(codingTranscripts, 1.0, nameof(codingTranscripts));
+            int noncodingCount = AddFeatureRows(noncodingTranscripts, 0.0, nameof(noncodingTranscripts));
+            if (codingCount == 0) throw new ArgumentException("No coding transcript has an ORF.", nameof(codingTranscripts));
+            if (noncodingCount == 0) throw new ArgumentException("No non-coding transcript has an ORF.", nameof(noncodingTranscripts));
+
+            int n = rows.Count;
+            var x = new double[n, 5];
+            var y = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                x[i, 0] = 1; x[i, 1] = rows[i].Mrna; x[i, 2] = rows[i].Orf; x[i, 3] = rows[i].Fickett; x[i, 4] = rows[i].Hexamer;
+                y[i] = rows[i].Label;
+            }
+
+            var (beta, deviance, iterations, converged) = FitLogisticIrls(x, y);
+            if (!beta.All(double.IsFinite))
+                throw new InvalidOperationException("The CPAT logistic fit diverged (non-finite coefficients; the classes are perfectly separable).");
+
+            // TG-ROC cutoff over the training probabilities (R predict(type = "response") on the training rows).
+            var probabilities = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                double eta = 0;
+                for (int j = 0; j < 5; j++) eta += beta[j] * x[i, j];
+                probabilities[i] = RLogitInverse(eta);
+            }
+
+            var (cutoff, sensitivity, specificity) = SelectTgRocCutoff(probabilities, y);
+            var model = new CpatModel(codingHexamerFrequencies, noncodingHexamerFrequencies,
+                beta[0], beta[1], beta[2], beta[3], beta[4], cutoff);
+            return new CpatTrainingResult(model, codingCount, noncodingCount, deviance, iterations, converged, sensitivity, specificity);
+
+            int AddFeatureRows(IEnumerable<string> transcripts, double label, string paramName)
+            {
+                int added = 0;
+                foreach (string raw in transcripts)
+                {
+                    string seq = ValidateCpatSequence(raw, paramName);
+                    var candidates = new List<(char Strand, int Frame, int Start, int End, string Sequence)>();
+                    for (int frame = 0; frame < 3; frame++)
+                        FindCpatOrfsInFrame(seq, frame, '+', starts, stops, options.MinOrfLength, candidates);
+                    if (candidates.Count == 0) continue;
+
+                    // extract_feature_from_seq: sorted(by length, reverse)[0]; the sort is stable, so ties keep the earlier frame/ORF.
+                    string orf = candidates.OrderByDescending(c => c.Sequence.Length).First().Sequence;
+                    rows.Add((seq.Length, orf.Length,
+                        CalculateFickettScore(orf, FickettTableSet.Cpat),
+                        CalculateCodingPotential(orf, codingHexamerFrequencies, noncodingHexamerFrequencies),
+                        label));
+                    added++;
+                }
+
+                return added;
+            }
+        }
+
+        // R glm.fit(family = binomial(link = "logit")) for an n×p design (unit weights): mustart = (y + 0.5)/2,
+        // eta = logit(mu); repeat { z = eta + (y−mu)/(mu(1−mu)), w = mu(1−mu); beta = WLS(z ~ X, w);
+        // eta = Xβ; mu = expit(eta); dev = Σ 2[y ln(y/mu) + (1−y) ln((1−y)/(1−mu))] } until |dev − devold|/(|dev| + 0.1) < 1e−8
+        // (epsilon) or 25 iterations (maxit). The WLS solve uses column-scaled normal equations (same solution as R's QR).
+        private static (double[] Beta, double Deviance, int Iterations, bool Converged) FitLogisticIrls(double[,] x, double[] y)
+        {
+            const int maxIterations = 25;
+            const double epsilon = 1e-8;
+            int n = y.Length, p = x.GetLength(1);
+
+            var mu = new double[n];
+            var eta = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                mu[i] = (y[i] + 0.5) / 2.0;
+                eta[i] = Math.Log(mu[i] / (1 - mu[i]));
+            }
+
+            double devOld = BinomialDeviance(y, mu);
+            var beta = new double[p];
+            double dev = devOld;
+            bool converged = false;
+            int iteration = 0;
+            while (iteration < maxIterations)
+            {
+                iteration++;
+                var z = new double[n];
+                var w = new double[n];
+                for (int i = 0; i < n; i++)
+                {
+                    // R binomial()$mu.eta = max(e^−|η| / (1 + e^−|η|)², DBL_EPSILON); variance = μ(1−μ); IRLS weight μ.eta²/variance.
+                    double t = Math.Exp(-Math.Abs(eta[i]));
+                    double muEta = Math.Max(t / ((1 + t) * (1 + t)), DblEpsilon);
+                    double variance = mu[i] * (1 - mu[i]);
+                    z[i] = eta[i] + (y[i] - mu[i]) / muEta;
+                    w[i] = muEta * muEta / variance;
+                }
+
+                beta = SolveWeightedLeastSquares(x, z, w);
+                for (int i = 0; i < n; i++)
+                {
+                    double e = 0;
+                    for (int j = 0; j < p; j++) e += x[i, j] * beta[j];
+                    eta[i] = e;
+                    mu[i] = RLogitInverse(e);
+                }
+
+                dev = BinomialDeviance(y, mu);
+                if (Math.Abs(dev - devOld) / (Math.Abs(dev) + 0.1) < epsilon) { converged = true; break; }
+                devOld = dev;
+            }
+
+            return (beta, dev, iteration, converged);
+        }
+
+        private const double DblEpsilon = 2.220446049250313e-16;
+
+        // R logit_linkinv (family.c): η < −30 → ε/(1+ε), η > 30 → 1/(1+ε), else e^η/(1+e^η).
+        private static double RLogitInverse(double eta)
+        {
+            double t;
+            if (eta < -30) t = DblEpsilon;
+            else if (eta > 30) t = 1.0 / DblEpsilon;
+            else t = Math.Exp(eta);
+            return t / (1 + t);
+        }
+
+        private static double BinomialDeviance(double[] y, double[] mu)
+        {
+            double dev = 0;
+            for (int i = 0; i < y.Length; i++)
+                dev += y[i] > 0.5 ? -2 * Math.Log(mu[i]) : -2 * Math.Log(1 - mu[i]);
+            return dev;
+        }
+
+        private static double[] SolveWeightedLeastSquares(double[,] x, double[] z, double[] w)
+        {
+            int n = z.Length, p = x.GetLength(1);
+            var scale = new double[p];
+            for (int j = 0; j < p; j++)
+            {
+                double sumSquares = 0;
+                for (int i = 0; i < n; i++) sumSquares += x[i, j] * x[i, j];
+                scale[j] = sumSquares > 0 ? Math.Sqrt(sumSquares / n) : 1.0;
+            }
+
+            var a = new double[p, p + 1];
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < p; j++)
+                {
+                    double xj = w[i] * x[i, j] / scale[j];
+                    for (int k = 0; k <= j; k++) a[j, k] += xj * x[i, k] / scale[k];
+                    a[j, p] += xj * z[i];
+                }
+
+            for (int j = 0; j < p; j++)
+                for (int k = j + 1; k < p; k++) a[j, k] = a[k, j];
+
+            var diagonal = new double[p];
+            for (int j = 0; j < p; j++) diagonal[j] = a[j, j];
+
+            // Gaussian elimination with partial pivoting (singular: pivot ≤ 1e−11 of the column's original diagonal, cf. R's QR tol).
+            for (int col = 0; col < p; col++)
+            {
+                int pivot = col;
+                for (int r = col + 1; r < p; r++)
+                    if (Math.Abs(a[r, col]) > Math.Abs(a[pivot, col])) pivot = r;
+                if (!(Math.Abs(a[pivot, col]) > 1e-11 * diagonal[col]))
+                    throw new InvalidOperationException("The CPAT logistic design matrix is rank-deficient (a feature is constant or collinear).");
+                if (pivot != col)
+                    for (int k = 0; k <= p; k++) (a[col, k], a[pivot, k]) = (a[pivot, k], a[col, k]);
+                for (int r = col + 1; r < p; r++)
+                {
+                    double f = a[r, col] / a[col, col];
+                    for (int k = col; k <= p; k++) a[r, k] -= f * a[col, k];
+                }
+            }
+
+            var beta = new double[p];
+            for (int r = p - 1; r >= 0; r--)
+            {
+                double sum = a[r, p];
+                for (int k = r + 1; k < p; k++) sum -= a[r, k] * beta[k];
+                beta[r] = sum / a[r, r];
+            }
+
+            for (int j = 0; j < p; j++) beta[j] /= scale[j];
+            return beta;
+        }
+
+        // TG-ROC (Greiner et al. 2000; CPAT docs "How to choose cutoff"): the cutoff c (coding when p ≥ c) where the
+        // sensitivity and specificity curves intersect. Candidates are the observed probabilities.
+        private static (double Cutoff, double Sensitivity, double Specificity) SelectTgRocCutoff(double[] probabilities, double[] labels)
+        {
+            int positives = labels.Count(l => l > 0.5), negatives = labels.Length - positives;
+            var order = Enumerable.Range(0, labels.Length).OrderBy(i => probabilities[i]).ToArray();
+
+            double bestCutoff = double.NaN, bestGap = double.PositiveInfinity, bestSum = double.NegativeInfinity;
+            double bestSe = 0, bestSp = 0;
+            int belowPositives = 0, belowNegatives = 0; // samples with p < c
+            for (int k = 0; k < order.Length;)
+            {
+                double c = probabilities[order[k]];
+                // sensitivity = coding with p ≥ c; specificity = non-coding with p < c.
+                double se = (positives - belowPositives) / (double)positives;
+                double sp = belowNegatives / (double)negatives;
+                double gap = Math.Abs(se - sp), sum = se + sp;
+                if (gap < bestGap || (gap == bestGap && sum > bestSum))
+                {
+                    bestCutoff = c; bestGap = gap; bestSum = sum; bestSe = se; bestSp = sp;
+                }
+
+                while (k < order.Length && probabilities[order[k]] == c)
+                {
+                    if (labels[order[k]] > 0.5) belowPositives++; else belowNegatives++;
+                    k++;
+                }
+            }
+
+            return (bestCutoff, bestSe, bestSp);
+        }
     }
+
+    /// <summary>CPAT training options (defaults = CPAT 3.0.5 <c>make_logitModel</c>: ATG / TAG,TAA,TGA, <c>--min-orf</c> 30).</summary>
+    public sealed record CpatTrainingOptions
+    {
+        /// <summary>Start codons (<c>--start</c>, default ATG). Empty: any non-stop codon opens an ORF.</summary>
+        public IReadOnlyList<string> StartCodons { get; init; } = new[] { "ATG" };
+
+        /// <summary>Stop codons (<c>--stop</c>, default TAG, TAA, TGA).</summary>
+        public IReadOnlyList<string> StopCodons { get; init; } = new[] { "TAG", "TAA", "TGA" };
+
+        /// <summary>An ORF is kept when its length in nt (stop included) is strictly greater than this (<c>--min-orf</c>, default 30).</summary>
+        public int MinOrfLength { get; init; } = 30;
+    }
+
+    /// <summary>A trained CPAT model with fit diagnostics.</summary>
+    /// <param name="Model">The model (tables, coefficients, TG-ROC cutoff), ready for <see cref="PredictCodingProbability"/>.</param>
+    /// <param name="CodingSamples">Coding transcripts with an ORF used in the fit.</param>
+    /// <param name="NoncodingSamples">Non-coding transcripts with an ORF used in the fit.</param>
+    /// <param name="Deviance">Residual deviance of the fit (R <c>deviance(glm)</c>).</param>
+    /// <param name="Iterations">IRLS iterations (R <c>glm$iter</c>).</param>
+    /// <param name="Converged">Deviance criterion met within 25 iterations (R <c>glm$converged</c>).</param>
+    /// <param name="Sensitivity">Training-set sensitivity at the cutoff.</param>
+    /// <param name="Specificity">Training-set specificity at the cutoff.</param>
+    public sealed record CpatTrainingResult(
+        CpatModel Model,
+        int CodingSamples,
+        int NoncodingSamples,
+        double Deviance,
+        int Iterations,
+        bool Converged,
+        double Sensitivity,
+        double Specificity);
 
     /// <summary>CPAT ORF-search options (defaults = CPAT 3.0.5 command-line defaults).</summary>
     public sealed record CpatOptions
