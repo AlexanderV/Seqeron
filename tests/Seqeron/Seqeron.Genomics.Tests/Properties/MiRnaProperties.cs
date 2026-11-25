@@ -1667,9 +1667,9 @@ public class MiRnaProperties
 
     #region MIRNA-CLEAVAGE-001: R: cleavage positions within precursor; R: 2-nt 3' overhang; D: deterministic
 
-    // PredictDroshaDicerCleavage — Drosha basal-junction ruler (~11 bp, Han 2006) + Dicer 5'-counting (~22 nt,
-    // Park 2011); the RNase III staggered cut leaves a 2-nt 3' overhang. Returns null when the geometry runs
-    // off the sequence.
+    // PredictDroshaDicerCleavage — 11 base pairs up the folded stem from the basal junction (Han 2006) +
+    // Dicer 5'-counting (~22 nt, Park 2011); the RNase III staggered cut leaves a 2-nt 3' overhang and the
+    // 3p product lies on the opposite arm. Returns null when no ≥ 12-bp stem starts at the junction.
 
     private static Arbitrary<(string seq, int basal)> CleavageArbitrary() =>
         (from len in Gen.Choose(40, 130)
@@ -1693,8 +1693,9 @@ public class MiRnaProperties
             bool inBounds = new[] { v.BasalJunction, v.DroshaCut5Prime, v.DroshaCut3Prime,
                                     v.MatureStart, v.MatureEnd, v.StarStart, v.StarEnd }
                 .All(p => p >= 0 && p <= n);
-            return (inBounds && v.ThreePrimeOverhang == 2)
-                .Label($"positions in-bounds={inBounds}, overhang={v.ThreePrimeOverhang}");
+            bool oppositeArms = v.MatureEnd < v.StarStart;
+            return (inBounds && oppositeArms && v.ThreePrimeOverhang == 2)
+                .Label($"positions in-bounds={inBounds}, opposite arms={oppositeArms}, overhang={v.ThreePrimeOverhang}");
         });
     }
 

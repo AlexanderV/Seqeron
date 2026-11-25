@@ -384,43 +384,43 @@ public class MiRnaCombinatorialTests
     // Spec: tests/TestSpecs/MIRNA-CLEAVAGE-001.md (MiRnaAnalyzer.PredictDroshaDicerCleavage). ADVANCED §10.
     //
     // Sources: Han et al. (2006) Cell 125:887 (Drosha ~11 bp basal-junction ruler); Park et al. (2011)
-    //   Nature 475:201 (Dicer 5' counting rule, ~22 nt mature).
+    //   Nature 475:201 (Dicer 5' counting rule, ~22 nt); miRDeep2 find_star (2-nt 3' overhang partner rule).
     //
-    // Model: with basal junction j the Drosha 5' cut is at j+11 and the mature 5p product is exactly the
-    //   22-nt window pri[j+11 .. j+33) — an integer measuring rule independent of the stem/loop content.
+    // Model: a perfect hairpin = 5-nt flank, S G·C pairs, L-nt loop, 10-nt flank, structure supplied,
+    //   junction 5. Pair k = (5+k, 4+2S+L−k). Drosha 5' cut = 5' base of pair 11 = 16; Drosha 3' cut =
+    //   partner(16)+2 = 2S+L−5; 5p = [16, 37]; 3p start = partner(37−2) = 2S+L−26 ⇒ 3p = 22 nt.
     //
-    // Dimensions: stemLen(3) × loopLen(2) × strand(2). Grid 3×2×2 = 12 (exhaustive).
-    //
-    // The combinatorial point: across stem and loop sizes the integer rulers place the 5p mature at
-    // j+11 with length 22 nt equal to the precursor substring; the strand axis checks the 5p mature vs
-    // the 3p star product. The placement is content-independent — it holds in every cell.
+    // Dimensions: stemLen(3) × loopLen(2) × arm(2). Grid 3×2×2 = 12 (exhaustive).
     // ═══════════════════════════════════════════════════════════════════════
 
-    private static string CleavagePriSeq(int stemLen, int loopLen) =>
-        new string('C', 11) + ContextFlank(stemLen, "ACGU") + new string('A', loopLen) + new string('G', stemLen) + "UU";
+    private static (string Pri, string Fold) CleavageHairpin(int stemLen, int loopLen) =>
+        (new string('A', 5) + new string('G', stemLen) + new string('A', loopLen) + new string('C', stemLen) + new string('A', 10),
+         new string('.', 5) + new string('(', stemLen) + new string('.', loopLen) + new string(')', stemLen) + new string('.', 10));
 
     public enum CleavageArm { Mature5p, Star3p }
 
     [Test, Combinatorial]
     public void MiRnaCleavage_IntegerRulers_AcrossStemLoopAndArm(
-        [Values(14, 18, 22)] int stemLen,
+        [Values(32, 35, 40)] int stemLen,
         [Values(6, 10)] int loopLen,
         [Values(CleavageArm.Mature5p, CleavageArm.Star3p)] CleavageArm arm)
     {
-        string pri = CleavagePriSeq(stemLen, loopLen);
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, basalJunction: 0);
-        cut.Should().NotBeNull("a sufficiently long pri-miRNA admits the cleavage rulers");
+        var (pri, fold) = CleavageHairpin(stemLen, loopLen);
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 5, fold);
+        cut.Should().NotBeNull("a ≥ 32-bp stem admits both products");
 
-        cut!.Value.DroshaCut5Prime.Should().Be(11, "Drosha cuts ~11 bp from the basal junction (Han 2006)");
-        cut.Value.MatureStart.Should().Be(11, "the 5p mature starts at the Drosha 5' cut");
-        cut.Value.MatureSequence.Length.Should().Be(22, "the Dicer 5' counting rule fixes the mature at 22 nt (Park 2011)");
-        (cut.Value.MatureEnd - cut.Value.MatureStart + 1).Should().Be(22, "the inclusive mature span is 22 nt");
-        cut.Value.MatureSequence.Should().Be(pri.Substring(11, 22), "the mature is exactly the measured precursor window");
-
-        if (arm == CleavageArm.Star3p)
+        if (arm == CleavageArm.Mature5p)
         {
-            cut.Value.StarSequence.Should().NotBeNullOrEmpty("the 3p star product is reported");
-            cut.Value.StarStart.Should().BeGreaterThan(cut.Value.MatureStart, "the 3p star lies 3' of the 5p mature");
+            cut!.Value.DroshaCut5Prime.Should().Be(16, "11 bp above junction 5 (Han 2006)");
+            (cut.Value.MatureStart, cut.Value.MatureEnd).Should().Be((16, 37), "22-nt 5p (Park 2011)");
+            cut.Value.MatureSequence.Should().Be(pri.Substring(16, 22), "the 5p may run into the loop (S = 32: 21 G + 1 loop A)");
+        }
+        else
+        {
+            int e3 = 2 * stemLen + loopLen - 5;
+            cut!.Value.DroshaCut3Prime.Should().Be(e3, "partner(16) + 2");
+            (cut.Value.StarStart, cut.Value.StarEnd).Should().Be((e3 - 21, e3), "partner(35) .. partner(16)+2");
+            cut.Value.StarSequence.Should().Be(new string('C', 22), "the 3p product lies on the 3' arm");
         }
     }
 }

@@ -2206,8 +2206,6 @@ public static class MiRnaAnalyzer
     // Turner 2004 parameters live in the single source Seqeron.Genomics.Core.Turner2004Parameters. Neither the
     // miRNA–target duplex energy (CalculateDuplexEnergy) nor the pre-miRNA hairpin energy (AnalyzeHairpin) is
     // computed here: both are delegated to the canonical RnaSecondaryStructure Turner 2004 kernels.
-    internal static bool IsTerminalPenaltyPair(char b1, char b2) =>
-        Turner2004Parameters.IsTerminalPenaltyPair(b1, b2);
 
     #endregion
 
@@ -2579,39 +2577,56 @@ public static class MiRnaAnalyzer
     #region Drosha/Dicer cleavage-site prediction (Han 2006 / Park 2011 measuring rules) — opt-in
 
     /// <summary>
-    /// Predicted Drosha (basal) and Dicer (apical) cleavage coordinates of a pri-/pre-miRNA hairpin and
-    /// the resulting mature-miRNA (5p) and miRNA* (3p) spans, derived from the PUBLISHED measuring rules.
-    /// All coordinates are 0-based indices into the input <see cref="Sequence"/>; spans are inclusive.
+    /// Which end Dicer measures from when it places the apical (loop-side) cut of a pre-miRNA.
+    /// </summary>
+    public enum DicerCountingRule
+    {
+        /// <summary>
+        /// 5' counting rule (Park et al. 2011, Nature 475:201): Dicer cleaves ~22 nt from the
+        /// 5'-phosphorylated 5' end of the pre-miRNA, so the 5p product is 22 nt long. Default
+        /// (pre-miRNAs made by Drosha carry a 5' monophosphate).
+        /// </summary>
+        FivePrimeCounting = 0,
+
+        /// <summary>
+        /// 3' counting rule (Park et al. 2011: Dicer "anchors not only the 3' end but also the 5' end"):
+        /// Dicer cleaves ~22 nt from the 2-nt-overhang 3' end, so the 3p product is 22 nt long.
+        /// </summary>
+        ThreePrimeCounting = 1,
+    }
+
+    /// <summary>
+    /// Predicted Drosha (basal) and Dicer (apical) cleavage coordinates of a folded pri-miRNA hairpin
+    /// and the resulting 5p and 3p products. All coordinates are 0-based indices into
+    /// <see cref="Sequence"/>; spans are inclusive.
     /// </summary>
     /// <remarks>
     /// Measuring rules (each constant cited at its declaration):
     /// <list type="bullet">
-    /// <item>Drosha cleaves ~11 bp from the basal ssRNA-dsRNA junction (Han et al. 2006).</item>
-    /// <item>Dicer cleaves ~22 nt from the Drosha-generated 5' end — the 5' counting rule (Park et al. 2011).</item>
-    /// <item>Each RNase III (Drosha, Dicer) cut leaves a 2-nt 3' overhang (Lee et al. 2003; Han et al. 2006).</item>
+    /// <item>Drosha cleaves ~11 bp (base PAIRS of the folded stem, not nucleotides) from the basal
+    /// ssRNA–dsRNA junction (Han et al. 2006; "an 11 bp basal stem was preferred", Auyeung et al. 2013).</item>
+    /// <item>Dicer cleaves ~22 nt from the 5' end (5' counting) or from the 3' end (3' counting) of the
+    /// pre-miRNA (Park et al. 2011).</item>
+    /// <item>Each RNase III cut leaves a 2-nt 3' overhang; the opposite-arm end is the base-pairing
+    /// partner + 2 (miRDeep2 <c>find_star</c>, Friedländer et al. 2008; the same rule Auyeung et al. 2013
+    /// used to infer Microprocessor sites from RNAfold structures).</item>
     /// </list>
-    /// <para>
-    /// <b>Scope / limitation.</b> The mature (5p) coordinates and length are the validated product of the
-    /// Han (2006) +11-bp Drosha ruler and the Park (2011) 22-nt 5'-counting Dicer rule. The 3p (miRNA*)
-    /// span is a <i>linear-geometry approximation</i>: it is placed 2 nt 3' of the 5p mature end in linear
-    /// sequence coordinates, NOT on the folded opposite (3') arm. Because this method does not fold the
-    /// hairpin, the star coordinates do not in general reproduce the biological 3p miRNA (e.g. miRBase
-    /// hsa-miR-21-3p), which lies across the terminal loop on the 3' arm. Recovering the true 3p arm
-    /// requires hairpin folding / arm pairing (out of scope here, as is the trained miRDeep2 classifier).
-    /// </para>
+    /// The 5p product is <see cref="MatureStart"/>..<see cref="MatureEnd"/> and the 3p product is
+    /// <see cref="StarStart"/>..<see cref="StarEnd"/>. Which arm is the dominant (guide) miRNA is not
+    /// predicted; the names follow the 5p/3p arm, not strand selection.
     /// </remarks>
-    /// <param name="BasalJunction">0-based index of the first paired base of the 5' arm (the basal ssRNA-dsRNA junction).</param>
-    /// <param name="DroshaCut5Prime">0-based index of the 5' end of the 5p mature = Drosha cut on the 5' arm (basal junction + 11 bp).</param>
-    /// <param name="DroshaCut3Prime">0-based index of the Drosha-generated 3' end of the 3p (miRNA*) span, placed 2 nt 3' of the 5p mature 3' end in LINEAR sequence coordinates (the RNase III 2-nt 3' overhang). NOTE: this is a linear-geometry approximation — the method does NOT fold the hairpin, so this is not the true opposite-(3')-arm coordinate of the biological 3p miRNA (see remarks).</param>
-    /// <param name="MatureStart">0-based start of the 5p mature (= <see cref="DroshaCut5Prime"/>).</param>
-    /// <param name="MatureEnd">0-based inclusive end of the 5p mature (= MatureStart + 22 − 1; Dicer 5' counting rule).</param>
-    /// <param name="StarStart">0-based start of the 3p (miRNA*) span (= <see cref="StarEnd"/> − 22 + 1) in linear coordinates; see <see cref="DroshaCut3Prime"/> for the linear-geometry caveat.</param>
-    /// <param name="StarEnd">0-based inclusive end of the 3p (miRNA*) span (= <see cref="DroshaCut3Prime"/>).</param>
-    /// <param name="MatureSequence">The predicted 5p mature subsequence of <see cref="Sequence"/>.</param>
-    /// <param name="StarSequence">The predicted 3p (miRNA*) subsequence of <see cref="Sequence"/>.</param>
+    /// <param name="BasalJunction">0-based index of the 5'-arm base of the basal junction pair (the first base pair of the stem).</param>
+    /// <param name="DroshaCut5Prime">0-based 5' end of the pre-miRNA on the 5' arm = 5' base of the 12th stem pair (11 bp below it are removed).</param>
+    /// <param name="DroshaCut3Prime">0-based 3' end of the pre-miRNA on the 3' arm = pairing partner of <see cref="DroshaCut5Prime"/> + 2 (2-nt 3' overhang).</param>
+    /// <param name="MatureStart">0-based start of the 5p product (= <see cref="DroshaCut5Prime"/>).</param>
+    /// <param name="MatureEnd">0-based inclusive end of the 5p product (Dicer cut on the 5' arm).</param>
+    /// <param name="StarStart">0-based start of the 3p product (Dicer cut on the 3' arm).</param>
+    /// <param name="StarEnd">0-based inclusive end of the 3p product (= <see cref="DroshaCut3Prime"/>).</param>
+    /// <param name="MatureSequence">The predicted 5p product.</param>
+    /// <param name="StarSequence">The predicted 3p product.</param>
     /// <param name="Sequence">The upper-cased (T→U) sequence the coordinates index into.</param>
-    /// <param name="ThreePrimeOverhang">Length of the RNase III 2-nt 3' overhang produced at each cut.</param>
-    /// <param name="HasCnncMotif">True iff a CNNC motif is present 16–18 nt 3' of the Drosha basal cut (Auyeung et al. 2013) — an optional confidence flag, not required.</param>
+    /// <param name="ThreePrimeOverhang">Length of the RNase III 3' overhang produced at each cut (2).</param>
+    /// <param name="HasCnncMotif">True iff a CNNC starts 16–18 nt downstream of the 3p Drosha cut (positions +16..+18, Auyeung et al. 2013).</param>
     public readonly record struct DroshaDicerCleavage(
         int BasalJunction,
         int DroshaCut5Prime,
@@ -2624,91 +2639,137 @@ public static class MiRnaAnalyzer
         string StarSequence,
         string Sequence,
         int ThreePrimeOverhang,
-        bool HasCnncMotif);
+        bool HasCnncMotif)
+    {
+        /// <summary>Dot-bracket structure the stem was measured on (caller-supplied or the canonical MFE fold).</summary>
+        public string Structure { get; init; } = "";
+
+        /// <summary>The Dicer counting rule that placed the apical cut.</summary>
+        public DicerCountingRule DicerRule { get; init; }
+
+        /// <summary>True iff U and G sit at positions −14 and −13 upstream of the 5p Drosha cut (basal UG motif, Auyeung et al. 2013).</summary>
+        public bool HasBasalUgMotif { get; init; }
+    }
 
     // Drosha basal-junction "ruler": Drosha cleaves ~11 bp (≈ one helical turn) from the basal
     // stem-ssRNA junction — Han J et al. (2006), Cell 125:887-901, doi:10.1016/j.cell.2006.03.043:
     // "The cleavage site is determined mainly by the distance (approximately 11 bp) from the
-    // stem-ssRNA junction."
+    // stem-ssRNA junction." Counted in base pairs of the stem — Auyeung et al. (2013) Cell 152:844: "an
+    // 11 bp basal stem was preferred" for all four selected pri-miRNAs; bulged nucleotides do not count.
     private const int DroshaCutBpFromBasalJunction = 11;
 
-    // Dicer 5'-counting "ruler": Dicer cleaves ~22 nt from the Drosha-generated 5' end — Park JE et al.
-    // (2011), Nature 475:201-205, doi:10.1038/nature10198: "the cleavage site determined mainly by the
-    // distance (∼22 nucleotides) from the 5' end (5' counting rule)." This also fixes the mature length.
+    // Dicer counting "ruler": ~22 nt from the 5' end (5' counting rule) — Park JE et al. (2011),
+    // Nature 475:201-205, doi:10.1038/nature10198 — or from the 3' end (3' counting rule).
     private const int DicerCutNtFrom5PrimeEnd = 22;
 
     // RNase III staggered cut leaves a 2-nt 3' overhang (both Drosha and Dicer) — Lee Y et al. (2003);
-    // Han et al. (2006). "Cleavage by RNase III domains results in 2-nt 3'-overhang end."
+    // Han et al. (2006).
     private const int RNaseIII3PrimeOverhang = 2;
 
-    // CNNC motif is positioned 16-18 nt downstream (3') of the Drosha basal cut — Auyeung VC et al.
-    // (2013), Cell 152:844-858, doi:10.1016/j.cell.2013.01.031. Used only as an optional confidence flag.
+    // Auyeung VC, Ulitsky I, McGeary SE, Bartel DP (2013), Cell 152:844-858. Positions are numbered from
+    // the inferred Drosha sites: negative = upstream of the 5p cut, positive = downstream of the 3p cut.
+    // CNNC: "enrichment was limited to a small range of positions 16–18 nt downstream of the site".
     private const int CnncMinNtDownstreamOfDroshaCut = 16;
     private const int CnncMaxNtDownstreamOfDroshaCut = 18;
     private const int CnncMotifLength = 4; // C-N-N-C
+    // Basal UG: "a U at position −14 … immediately preceded the position [−13] that … displayed a
+    // strong primary-sequence preference for a G".
+    private const int BasalUgUPosition = 14;
 
     /// <summary>
-    /// Predicts the Drosha (basal) and Dicer (apical) cleavage coordinates and the resulting 5p mature
-    /// / 3p (miRNA*) spans of a pri-/pre-miRNA hairpin from the PUBLISHED distance ("ruler") rules, as
-    /// an OPT-IN method (the existing detection methods and their defaults are unchanged):
-    /// Drosha cuts ~11 bp from the basal ssRNA-dsRNA junction (Han et al. 2006); Dicer cuts ~22 nt from
-    /// the Drosha-generated 5' end — the 5' counting rule (Park et al. 2011); each RNase III cut leaves
-    /// a 2-nt 3' overhang (Lee et al. 2003; Han et al. 2006). It does NOT use a trained classifier.
+    /// Predicts the Drosha and Dicer cleavage sites of a pri-miRNA hairpin with the published measuring
+    /// rules applied to its folded stem, using the canonical MFE structure
+    /// (<see cref="RnaSecondaryStructure.CalculateMfeStructure"/>) and the 5' counting rule.
     /// </summary>
-    /// <param name="sequence">The pri-/pre-miRNA nucleotide sequence (RNA or DNA; T read as U; case-insensitive).</param>
-    /// <param name="basalJunction">
-    /// 0-based index of the basal ssRNA-dsRNA junction = the first paired base of the 5' arm of the stem
-    /// (the position from which the ~11 bp Drosha ruler is measured). For a pri-miRNA this is the first
-    /// base after the flanking basal ssRNA segment; for a miRBase-trimmed pre-miRNA whose annotated stem
-    /// base coincides with the Drosha cut, pass the index of the stem base.
-    /// </param>
+    /// <param name="sequence">The pri-miRNA nucleotide sequence (RNA or DNA; T read as U; case-insensitive).</param>
+    /// <param name="basalJunction">0-based index of the 5'-arm base of the basal junction pair, i.e. the first
+    /// base pair of the stem above the basal ssRNA flank.</param>
+    /// <returns>The prediction, or <c>null</c> (see <see cref="PredictDroshaDicerCleavage(string, int, string?, DicerCountingRule)"/>).</returns>
+    public static DroshaDicerCleavage? PredictDroshaDicerCleavage(string sequence, int basalJunction) =>
+        PredictDroshaDicerCleavage(sequence, basalJunction, null, DicerCountingRule.FivePrimeCounting);
+
+    /// <summary>
+    /// Predicts the Drosha (basal) and Dicer (apical) cleavage sites and the 5p/3p products of a
+    /// pri-miRNA hairpin:
+    /// <list type="number">
+    /// <item>Drosha: walk up the unbranched stem from the basal junction pair counting BASE PAIRS; the
+    /// 5' end of the pre-miRNA is the 5' base of pair 12 (11-bp lower stem, Han 2006); its 3' end is that
+    /// base's partner + 2 (2-nt 3' overhang).</item>
+    /// <item>Dicer: the product measured from the anchored end is 22 nt (Park 2011, <paramref name="dicerRule"/>);
+    /// the opposite product ends are found with the 2-nt-overhang pairing rule (miRDeep2 <c>find_star</c>:
+    /// start = partner(end − 2) with bulge compensation, end = partner(start) + 2).</item>
+    /// <item>Auyeung (2013) basal UG (−14/−13) and downstream CNNC (+16..+18) flags. The apical UGU/GUG
+    /// motif is not flagged: the paper defines it only as enrichment "in this region of the loop"
+    /// (Fig. S7F window not given in the text; Fig. 7A says GUG at P22–P24, the mir-30a example is UGUG at
+    /// P24–P27, and that UGUG is paired in the RNAfold MFE apical stem), so no reproducible rule exists.</item>
+    /// </list>
+    /// </summary>
+    /// <param name="sequence">The pri-miRNA nucleotide sequence (RNA or DNA; T read as U; case-insensitive).</param>
+    /// <param name="basalJunction">0-based index of the 5'-arm base of the basal junction pair.</param>
+    /// <param name="dotBracket">Optional secondary structure (e.g. RNAfold output) of the same length; when
+    /// null, the canonical MFE structure of <paramref name="sequence"/> is used.</param>
+    /// <param name="dicerRule">Dicer counting rule (default 5' counting, Park 2011).</param>
     /// <returns>
-    /// The predicted cleavage coordinates and mature/star spans, or <c>null</c> when the sequence is
-    /// null/empty, the junction is out of range, or the hairpin is too short to place the predicted cuts.
+    /// The prediction, or <c>null</c> when the sequence is null/empty, the junction is out of range or not
+    /// the 5' base of a pair, the unbranched stem above it has fewer than 12 pairs, or a product would fall
+    /// outside the sequence or not on opposite arms.
     /// </returns>
-    public static DroshaDicerCleavage? PredictDroshaDicerCleavage(string sequence, int basalJunction)
+    /// <exception cref="ArgumentException"><paramref name="dotBracket"/> has a different length than
+    /// <paramref name="sequence"/> or is not balanced.</exception>
+    public static DroshaDicerCleavage? PredictDroshaDicerCleavage(
+        string sequence, int basalJunction, string? dotBracket, DicerCountingRule dicerRule = DicerCountingRule.FivePrimeCounting)
     {
         if (string.IsNullOrEmpty(sequence))
             return null;
+        if (dotBracket is not null && (dotBracket.Length != sequence.Length || !RnaSecondaryStructure.ValidateDotBracket(dotBracket)))
+            throw new ArgumentException("Dot-bracket must be balanced and as long as the sequence.", nameof(dotBracket));
         if (basalJunction < 0 || basalJunction >= sequence.Length)
             return null;
 
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+        string structure = dotBracket ?? RnaSecondaryStructure.CalculateMfeStructure(upper).DotBracket;
+        int n = upper.Length;
+        int[] partner = BuildPairTable(structure);
 
-        // Drosha cut on the 5' arm = basal junction + 11 bp (Han 2006). This is the 5' end of the 5p
-        // mature (the base of the pre-miRNA on the 5' arm).
-        int droshaCut5Prime = basalJunction + DroshaCutBpFromBasalJunction;
-        if (droshaCut5Prime >= upper.Length)
+        // Drosha: count base pairs up the unbranched stem from the junction pair (bulges skipped).
+        if (partner[basalJunction] <= basalJunction)
+            return null;
+        var stem5 = WalkUnbranchedStem(partner, basalJunction);
+        if (stem5.Count <= DroshaCutBpFromBasalJunction)
+            return null;
+        int droshaCut5Prime = stem5[DroshaCutBpFromBasalJunction];
+        int droshaCut3Prime = partner[droshaCut5Prime] + RNaseIII3PrimeOverhang;
+        if (droshaCut3Prime >= n)
             return null;
 
-        // 5p mature: Dicer 5' counting rule fixes the mature length at ~22 nt (Park 2011), so the
-        // mature spans [droshaCut5Prime, droshaCut5Prime + 22 - 1].
-        int matureStart = droshaCut5Prime;
-        int matureEnd = matureStart + DicerCutNtFrom5PrimeEnd - 1;
-        if (matureEnd >= upper.Length)
+        int matureStart, matureEnd, starStart, starEnd;
+        if (dicerRule == DicerCountingRule.FivePrimeCounting)
+        {
+            matureStart = droshaCut5Prime;
+            matureEnd = matureStart + DicerCutNtFrom5PrimeEnd - 1;
+            starEnd = droshaCut3Prime;
+            if (matureEnd >= n || !TryFindOppositeArmStart(partner, matureStart, matureEnd, out starStart))
+                return null;
+        }
+        else if (dicerRule == DicerCountingRule.ThreePrimeCounting)
+        {
+            starEnd = droshaCut3Prime;
+            starStart = starEnd - DicerCutNtFrom5PrimeEnd + 1;
+            matureStart = droshaCut5Prime;
+            if (starStart < 0 || !TryFindOppositeArmEnd(partner, starStart, starEnd, out matureEnd))
+                return null;
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(dicerRule), dicerRule, "Unknown Dicer counting rule.");
+        }
+
+        // Products must sit on opposite arms of the hairpin (5p entirely 5' of the 3p).
+        if (matureEnd < matureStart || starEnd < starStart || matureEnd >= starStart)
             return null;
 
-        // 3p (miRNA*) span — LINEAR-GEOMETRY APPROXIMATION (the method does not fold the hairpin).
-        // The RNase III staggered cut leaves a 2-nt 3' overhang, so the Drosha-generated 3' end of the
-        // 3p span is modelled 2 nt 3' of the 5p mature 3' end in LINEAR sequence coordinates, and the
-        // 3p span has the same ~22-nt length. This is NOT the true opposite-(3')-arm coordinate of the
-        // biological 3p miRNA (which would require folding the hairpin); see the record's <remarks>.
-        int starEnd = matureEnd + RNaseIII3PrimeOverhang; // 3p 3' end (linear-coordinate approximation)
-        int starStart = starEnd - DicerCutNtFrom5PrimeEnd + 1;
-        if (starEnd >= upper.Length || starStart < 0)
-            return null;
-
-        int droshaCut3Prime = starEnd;
-
-        string matureSeq = upper.Substring(matureStart, matureEnd - matureStart + 1);
-        string starSeq = upper.Substring(starStart, starEnd - starStart + 1);
-
-        bool hasCnnc = HasCnncMotifDownstream(upper, droshaCut5Prime);
-
-        // The 5p Drosha/Dicer cut reproduces miRBase exactly, but the opposite-arm (3p / star) span
-        // (StarStart/StarEnd) is a linear 2-nt-3'-overhang approximation, not the read-defined miRBase
-        // boundary. Strict mode throws rather than returning the approximate star arm.
-        Seqeron.Genomics.Core.LimitationPolicy.Enforce("MIRNA-CLEAVAGE-001");
+        int u = droshaCut5Prime - BasalUgUPosition;
+        bool basalUg = u >= 0 && upper[u] == 'U' && upper[u + 1] == 'G';
 
         return new DroshaDicerCleavage(
             BasalJunction: basalJunction,
@@ -2718,25 +2779,99 @@ public static class MiRnaAnalyzer
             MatureEnd: matureEnd,
             StarStart: starStart,
             StarEnd: starEnd,
-            MatureSequence: matureSeq,
-            StarSequence: starSeq,
+            MatureSequence: upper.Substring(matureStart, matureEnd - matureStart + 1),
+            StarSequence: upper.Substring(starStart, starEnd - starStart + 1),
             Sequence: upper,
             ThreePrimeOverhang: RNaseIII3PrimeOverhang,
-            HasCnncMotif: hasCnnc);
+            HasCnncMotif: HasCnncMotifDownstream(upper, droshaCut3Prime))
+        {
+            Structure = structure,
+            DicerRule = dicerRule,
+            HasBasalUgMotif = basalUg,
+        };
+    }
+
+    /// <summary>Pair table from a balanced dot-bracket (canonical parser): partner index, or −1 if unpaired.</summary>
+    private static int[] BuildPairTable(string dotBracket)
+    {
+        var partner = new int[dotBracket.Length];
+        Array.Fill(partner, -1);
+        foreach (var (i, j) in RnaSecondaryStructure.ParseDotBracket(dotBracket))
+        {
+            partner[i] = j;
+            partner[j] = i;
+        }
+        return partner;
     }
 
     /// <summary>
-    /// Returns true iff a CNNC motif (C, any, any, C) occurs within the 16–18 nt window 3' of the
-    /// Drosha basal cut (Auyeung et al. 2013). Optional confidence signal only.
+    /// 5'-arm indices of the consecutive pairs of the unbranched helix chain that starts at pair
+    /// (<paramref name="i0"/>, partner[i0]), from the base upward. The next pair is the first paired
+    /// base 3' of the current 5' base, accepted only when its partner is the last paired base 5' of the
+    /// current 3' base (interior loops and bulges are crossed; a multiloop branch ends the chain).
     /// </summary>
-    private static bool HasCnncMotifDownstream(string seq, int droshaCut5Prime)
+    private static List<int> WalkUnbranchedStem(int[] partner, int i0)
     {
-        // Window: positions [cut + 16, cut + 18] start a CNNC (4-mer) downstream of the basal cut.
+        var stem = new List<int> { i0 };
+        int i = i0, j = partner[i0];
+        while (true)
+        {
+            int a = i + 1;
+            while (a < j && partner[a] < 0) a++;
+            if (a >= j) return stem; // hairpin loop
+            int b = j - 1;
+            while (b > i && partner[b] < 0) b--;
+            if (partner[a] != b || b <= a) return stem; // multiloop branch
+            stem.Add(a);
+            i = a; j = b;
+        }
+    }
+
+    // miRDeep2 find_star (Friedländer et al. 2008; rajewsky-lab/mirdeep2 src/miRDeep2_core_algorithm.pl):
+    // star_beg = partner(mature_end − 2 − off) − off, where off skips unpaired (bulged) bases inward.
+    private static bool TryFindOppositeArmStart(int[] partner, int start, int end, out int oppositeStart)
+    {
+        int anchor = end - RNaseIII3PrimeOverhang;
+        int length = anchor - start + 1;
+        for (int off = 0; off < length; off++)
+        {
+            if (partner[anchor - off] >= 0)
+            {
+                oppositeStart = partner[anchor - off] - off;
+                return oppositeStart >= 0 && oppositeStart < partner.Length;
+            }
+        }
+        oppositeStart = -1;
+        return false;
+    }
+
+    // miRDeep2 find_star: star_end = partner(mature_beg + off) + off + 2.
+    private static bool TryFindOppositeArmEnd(int[] partner, int start, int end, out int oppositeEnd)
+    {
+        int length = end - RNaseIII3PrimeOverhang - start + 1;
+        for (int off = 0; off < length; off++)
+        {
+            if (partner[start + off] >= 0)
+            {
+                oppositeEnd = partner[start + off] + off + RNaseIII3PrimeOverhang;
+                return oppositeEnd >= 0 && oppositeEnd < partner.Length;
+            }
+        }
+        oppositeEnd = -1;
+        return false;
+    }
+
+    /// <summary>
+    /// True iff a CNNC motif (C, any, any, C) starts at positions +16..+18 downstream of the 3p Drosha
+    /// cut (position +1 = the first nucleotide after the pre-miRNA 3' end; Auyeung et al. 2013).
+    /// </summary>
+    private static bool HasCnncMotifDownstream(string seq, int droshaCut3Prime)
+    {
         for (int offset = CnncMinNtDownstreamOfDroshaCut; offset <= CnncMaxNtDownstreamOfDroshaCut; offset++)
         {
-            int start = droshaCut5Prime + offset;
-            if (start < 0 || start + CnncMotifLength > seq.Length)
-                continue;
+            int start = droshaCut3Prime + offset;
+            if (start + CnncMotifLength > seq.Length)
+                break;
             if (seq[start] == 'C' && seq[start + CnncMotifLength - 1] == 'C')
                 return true;
         }

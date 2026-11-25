@@ -381,6 +381,16 @@ doi:10.1016/j.cell.2013.01.031 (https://pubmed.ncbi.nlm.nih.gov/23415231/).
    only as an OPTIONAL confidence flag (reported, not required); when a CNNC (C-N-N-C) is present in
    the 16–18 nt window 3' of the Drosha basal cut, `HasCnncMotif = true`.
 
+
+> **B13 correction (2026-11-25, F27–F30).** The Auyeung PDF (Cell 152:844, opened) numbers positions from
+> the inferred Drosha sites: negative upstream of the 5p cut, positive downstream of the **3p** cut. CNNC
+> enrichment is at +16..+18 ("a small range of positions 16–18 nt downstream of the site"), i.e. 3' of the
+> pre-miRNA 3' end, not 3' of the 5p cut; the basal UG is U −14 / G −13; "an 11 bp basal stem was
+> preferred". Cleavage sites were inferred from RNAfold structures (hairpin ± 20 nt) with a 2-nt 3'
+> overhang — the same partner rule as miRDeep2 `find_star` (rajewsky-lab/mirdeep2, opened). The
+> implementation now counts 11 base pairs on the folded stem and places the 3p on the opposite arm; see
+> `tests/TestSpecs/MIRNA-CLEAVAGE-001.md`.
+
 ### Cross-check dataset: hsa-mir-21 (miRBase MI0000077)
 
 **Retrieved via:** WebFetch of https://mirbase.org/hairpin/MI0000077 (2026-06-24).

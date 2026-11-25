@@ -293,25 +293,20 @@ public class LimitationPolicy_Strict_Tests
         }
     }
 
-    // ── 5) MIRNA-CLEAVAGE-001: approximate 3p (star) span ────────────────────────────────────
+    // ── 5) MIRNA-CLEAVAGE-001: the approximate-3p branch was removed by B13 F27 (3p product now taken on
+    //    the opposite arm of the fold via the miRDeep2 find_star rule, Auyeung 2013). The method no longer
+    //    calls LimitationPolicy.Enforce, so it returns the cleavage in every mode. The catalog entry itself
+    //    lives in the shared Core file and is left for the orchestrator to retire (B13.md cross-batch requests).
 
     private const string PriMiRna =
         "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
 
     [Test]
-    public void DroshaDicer_ThrowsStrict_ReturnsCleavagePermissive()
+    public void DroshaDicer_DoesNotThrow_InAnyMode()
     {
-        using (LimitationPolicy.UseStrict())
-        {
-            var ex = Assert.Throws<SeqeronLimitationException>(
-                () => MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMiRna, 0))!;
-            Assert.That(ex.LimitationId, Is.EqualTo("MIRNA-CLEAVAGE-001"));
-        }
-        using (LimitationPolicy.UsePermissive())
-        {
-            var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMiRna, 0);
-            Assert.That(cut, Is.Not.Null);
-        }
+        foreach (var mode in new[] { LimitationMode.Strict, LimitationMode.Moderate, LimitationMode.Permissive })
+            using (LimitationPolicy.Use(mode))
+                Assert.DoesNotThrow(() => MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMiRna, 0), mode.ToString());
     }
 
     [Test]

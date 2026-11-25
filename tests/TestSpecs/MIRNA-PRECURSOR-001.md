@@ -51,7 +51,7 @@
 12. **Drosha basal ruler:** "The cleavage site is determined mainly by the distance (approximately 11 bp) from the stem-ssRNA junction" — Han et al. (2006). ⇒ Drosha 5' cut = basal junction + 11 bp (`DroshaCutBpFromBasalJunction = 11`).
 13. **Dicer 5' counting rule:** "the cleavage site determined mainly by the distance (∼22 nucleotides) from the 5' end (5' counting rule)" — Park et al. (2011). ⇒ mature length fixed at ~22 nt (`DicerCutNtFrom5PrimeEnd = 22`).
 14. **2-nt 3' overhang:** "Cleavage by RNase III domains results in 2-nt 3'-overhang end" — Lee et al. (2003)/Han et al. (2006). ⇒ both Drosha and Dicer leave a 2-nt 3' overhang (`RNaseIII3PrimeOverhang = 2`).
-15. **CNNC motif:** "positioned 16–18 nt from the Drosha cut" — Auyeung et al. (2013). ⇒ optional confidence flag only (`HasCnncMotif`).
+15. **CNNC motif:** enriched at positions +16..+18 downstream of the **3p** Drosha cut — Auyeung et al. (2013) (B13 F29: previously measured from the 5p cut). ⇒ optional confidence flag only (`HasCnncMotif`); basal UG at −14/−13 (`HasBasalUgMotif`).
 16. **miRBase cross-check:** hsa-miR-21-5p (MIMAT0000076) = `UAGCUUAUCAGACUGAUGUUGA` (22 nt). With an 11-nt lower stem prepended so the +11 ruler lands at the 5p start, the predicted 5p mature equals this exactly.
 
 ### 1.3 Documented Corner Cases
@@ -105,10 +105,7 @@
 | INV-11 | (MFE path) `AssessHairpinByMfe(s).FreeEnergy == RnaSecondaryStructure.CalculateMinimumFreeEnergy(s)` | Yes | MfeStructure.FreeEnergy equals scalar MFE by construction (RNA-STRUCT-001) |
 | INV-12 | (MFE path) An accepted `PreMiRnaMfe` has `StemBasePairs ≥ 16`, `TerminalLoopSize ∈ [3,25]`, `Mfei ≥ minMfei` | Yes | Ambros (2003), Bartel (2004), Zhang (2006) |
 | INV-13 | (MFE path) `Mfei == CalculateMfeIndex(FreeEnergy, length, GC%)` = (100·\|ΔG°\|/length)/(G+C)% | Yes | Zhang (2006) |
-| INV-14 | (Cleavage path) `DroshaCut5Prime == BasalJunction + 11` | Yes | Han et al. (2006) |
-| INV-15 | (Cleavage path) `MatureSequence.Length == 22` and `MatureEnd − MatureStart + 1 == 22` | Yes | Park et al. (2011) |
-| INV-16 | (Cleavage path) `DroshaCut3Prime − MatureEnd == 2` and `ThreePrimeOverhang == 2` | Yes | Lee (2003)/Han (2006) RNase III 2-nt 3' overhang |
-| INV-17 | (Cleavage path) `StarEnd − StarStart + 1 == 22` (3p span length) | Yes | Park et al. (2011) |
+| INV-14..17 | (Cleavage path) superseded — see `tests/TestSpecs/MIRNA-CLEAVAGE-001.md` §3 (B13 F27–F30: 11 bp counted on the folded stem, 3p on the opposite arm via the 2-nt-overhang partner rule) | Yes | Han 2006 / Park 2011 / miRDeep2 find_star / Auyeung 2013 |
 | INV-18 | (Classifier path) `DinucleotideShuffle` preserves exact dinucleotide counts, first base, last base, and length | Yes | Altschul & Erickson (1985) |
 | INV-19 | (Classifier path) `ClassifyPreMiRna` returns P(natural) ∈ [0,1]; `IsNatural == (P ≥ threshold)` | Yes | Logistic model (ESL §4.4.1) |
 | INV-20 | (Classifier path) `PairedFraction == 2·StemBasePairs/Length` from the MFE structure | Yes | %paired feature (microPred, Batuwita 2009) |
@@ -151,16 +148,7 @@
 | MF8 | AssessHairpinByMfe_MfeiBelowThreshold_Rejected | hsa-let-7a-1 with `minMfei=1.5` (MFEI 1.009 < 1.5) | Rejected; accepted at 0.85 | Zhang (2006) cutoff |
 | MF9 | CalculateMfeIndex_MatchesZhang2006 | MFEI(−48.48, 57, 25/57·100) = 1.939200; zero length / zero GC% ⇒ 0 | Exact + guards | Zhang (2006) |
 | MF10 | MfeFoldMethods_NullOrEmpty | null/empty/too-short inputs to both MFE methods | null / empty | Defensive coding |
-| DD1 | PredictDroshaDicerCleavage_DroshaCut_Is11BpFromBasalJunction | Synthetic pri-miRNA (11-nt lower stem + miR-21 stem), junction=0 | DroshaCut5Prime == 11 | Han et al. (2006): ~11 bp ruler |
-| DD2 | PredictDroshaDicerCleavage_MatureLength_Is22Nt | Same pri-miRNA | MatureSequence.Length == 22; MatureStart == DroshaCut5Prime | Park et al. (2011): 5' counting rule |
-| DD3 | PredictDroshaDicerCleavage_ThreePrimeOverhang_Is2Nt | Same pri-miRNA | ThreePrimeOverhang == 2; DroshaCut3Prime − MatureEnd == 2; star length 22 | Lee (2003)/Han (2006) RNase III |
-| DD4 | PredictDroshaDicerCleavage_HsaMir21_MatchesMirBaseMature5p | miRBase cross-check | MatureSequence == `UAGCUUAUCAGACUGAUGUUGA` (MIMAT0000076) | miRBase MI0000077 |
-| DD5 | PredictDroshaDicerCleavage_StarSpan_HasExpectedCoordinatesAndSequence | Same pri-miRNA | matureStart=11, matureEnd=32, starEnd=34, starStart=13; star = pri[13..34] | Park (2011) + 2-nt overhang |
-| DD6 | PredictDroshaDicerCleavage_DnaInput_NormalisesToRna | DNA spelling of the pri-miRNA | Mature == RNA `UAGCUUAUCAGACUGAUGUUGA`, no 'T' | RNA biology standard |
-| DD7 | PredictDroshaDicerCleavage_NullOrEmpty_ReturnsNull | null / empty | null | Defensive coding |
-| DD8 | PredictDroshaDicerCleavage_JunctionOutOfRange_ReturnsNull | junction < 0 or ≥ length | null | Defensive coding |
-| DD9 | PredictDroshaDicerCleavage_TooShortForCuts_ReturnsNull | 30 nt (< 11+22+2 from junction) | null | Geometry guard |
-| DD10 | PredictDroshaDicerCleavage_CnncMotif_DetectedWhenPresentDownstream | CNNC 16 nt 3' of Drosha cut vs none | HasCnncMotif true vs false | Auyeung et al. (2013) |
+| DD1–DD14 | PredictDroshaDicerCleavage_* | see `tests/TestSpecs/MIRNA-CLEAVAGE-001.md` (rewritten in B13 F27–F30: real pri-miRNAs + RNAfold oracle, hand-derived synthetic stems) | — | Han 2006 / Park 2011 / Auyeung 2013 |
 | CL1 | ExtractPreMiRnaFeatures_HsaMir21_PinsExactStructureFeatures | hsa-mir-21: MFE=−35.13, AMFE=48.79166666666667, MFEI=1.0037142857142858, GC=0.48611111111111116, %paired=0.8888888888888888, bp=32, len=72 | Exact values | miRBase MI0000077; Zhang 2006; RNA-STRUCT-001 |
 | CL2 | ExtractPreMiRnaFeatures_NullOrEmpty_ReturnsNull | null / empty | null | Defensive coding |
 | CL3 | ClassifyPreMiRna_HsaMir21_IsNatural | hsa-mir-21 (real precursor) | IsNatural true; P > 0.95 | miRBase; trained model |
@@ -232,16 +220,6 @@
 | MF8 | ✅ Covered | minMfei gate: rejected at 1.5, accepted at 0.85 |
 | MF9 | ✅ Covered | CalculateMfeIndex exact 1.939200 + zero-guards |
 | MF10 | ✅ Covered | null/empty/too-short handled |
-| DD1 | ✅ Covered | DroshaCut5Prime == 11 (exact) |
-| DD2 | ✅ Covered | Mature length == 22 (exact) |
-| DD3 | ✅ Covered | 2-nt 3' overhang; star length 22 |
-| DD4 | ✅ Covered | Mature == miRBase hsa-miR-21-5p exactly |
-| DD5 | ✅ Covered | Exact star coords 11/32/34/13 + sequence |
-| DD6 | ✅ Covered | DNA T→U normalisation |
-| DD7 | ✅ Covered | null/empty ⇒ null |
-| DD8 | ✅ Covered | out-of-range junction ⇒ null |
-| DD9 | ✅ Covered | too short ⇒ null |
-| DD10 | ✅ Covered | CNNC flag true/false |
 | S1 | ✅ Covered | Multiple hairpins in long sequence |
 | S2 | ✅ Covered | maxHairpinLength upper bound enforced |
 | S3 | ✅ Covered | Custom minHairpinLength applied |
@@ -256,7 +234,7 @@
 | R-F10b | ✅ Covered (B13) | matureLength < 1 / minHairpinLength < 1 ⇒ eager ArgumentOutOfRangeException (both scans); max < min ⇒ empty |
 | R-GC | ✅ Covered (B13) | AssessHairpinByMfe GC% excludes non-nucleotide symbols (canonical CalculateGcFractionFast) |
 
-**Summary:** 0 missing, 0 weak, 0 duplicate. 25 heuristic + 10 MFE-fold + 10 cleavage-site = 45 cases covered.
+**Summary:** 0 missing, 0 weak, 0 duplicate. 25 heuristic + 10 MFE-fold cases covered here; the cleavage-site cases (DD1–DD14) are specified in `tests/TestSpecs/MIRNA-CLEAVAGE-001.md`.
 
 ### 5.3 Strengthening Log (2026-03-16)
 
