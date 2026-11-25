@@ -1,3 +1,5 @@
+**RUN 2 RETURNED 2026-11-25 on d3a57117e (`returned/heavy-tier-out.run2-d3a57117e.zip`): 7 674 passed, 2 failed (MatchingFuzzTests FindWithEdits_NullDnaSequence_Throws / FindWithMismatches_NullDnaSequence_Throws: the guards of F175 throw ArgumentNullException, the fuzz tests expected NullReferenceException; tests corrected to the F175 contract). A final run 3 on the last commit is still needed.**
+
 # STATUS: RUN 1 DONE (f419048e: 7993/0); RUN 2 REQUIRED on the final commit (code added since) - TEMPORARY hand-off package HEAVY-TIER
 
 **Run 1 (user, 2026-11-20, aarch64, 18 cores, .NET 10.0.404, commit f419048e):** `genomics_heavy rc=0 seconds=240 :: Passed! - Failed: 0, Passed: 7993, Skipped: 0, Total: 7993, Duration: 3 m 57 s`; returned archive: `returned/heavy-tier-out.zip`. This was an early check; commits after f419048e (megamerger, nucmer clusters, minimap2 chaining, dotmatcher and every audit round-4 item) are NOT covered. Run 2 = this same package on the final commit, exactly once at the very end (campaign README rule); the package tests the commit that is checked out, so the next run needs no change to it.

@@ -803,8 +803,8 @@ public class MatchingFuzzTests
     {
         var act = () => ApproximateMatcher.FindWithMismatches((DnaSequence)null!, "ACGT", 1).ToList();
 
-        act.Should().Throw<NullReferenceException>(
-            "the typed wrapper dereferences sequence.Sequence with no null guard (documented strict surface)");
+        act.Should().Throw<ArgumentNullException>(
+            "the typed wrapper guards a null DnaSequence with ArgumentNullException (fuzz-escape guard F175, CrossBatchContract_B09_Tests)");
     }
 
     #endregion
@@ -1182,8 +1182,8 @@ public class MatchingFuzzTests
     {
         var act = () => ApproximateMatcher.FindWithEdits((DnaSequence)null!, "ACGT", 1).ToList();
 
-        act.Should().Throw<NullReferenceException>(
-            "the typed wrapper dereferences sequence.Sequence with no null guard (documented strict surface)");
+        act.Should().Throw<ArgumentNullException>(
+            "the typed wrapper guards a null DnaSequence with ArgumentNullException (fuzz-escape guard F175, CrossBatchContract_B09_Tests)");
     }
 
     #endregion

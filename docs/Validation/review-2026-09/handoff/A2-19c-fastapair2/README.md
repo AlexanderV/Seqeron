@@ -1,3 +1,5 @@
+**STATUS: RETURNED 2026-11-25 (`returned/A2-19c-fastapair2-out.zip`, 760 files in sets/, fasta34 rebuilt from the sha256-checked 3.4 shar) - to be integrated by B09 WP81 (`scripts/alignment/convert_fastapair_returned.py <zip> 2`).**
+
 **STATUS: DOABLE-AWAITING-USER (created 2026-11-24 by B09 WP75; result to be returned as `returned/A2-19c-fastapair2-out.zip`).** Second run of `mafft --fastapair` / `--fastswpair` with the logging `fasta34` wrapper (same image, scripts and logging as `handoff/A2-19c-fastapair`; only `inputs/sets.tsv` differs).
 
 # TEMPORARY hand-off package A2-19c-fastapair2 (for the user's Mac)
