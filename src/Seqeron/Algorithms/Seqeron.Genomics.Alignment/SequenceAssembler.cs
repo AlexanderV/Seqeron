@@ -99,42 +99,102 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Assembles reads using the de Bruijn graph (DBG) paradigm. The reads are decomposed
-    /// into k-mers; each k-mer is a directed edge from its (k-1)-prefix to its (k-1)-suffix
-    /// in a directed multigraph whose nodes are (k-1)-mers (see <see cref="BuildDeBruijnGraph"/>).
-    /// Each weakly-connected component is then spelled out by an Eulerian walk — a walk that
-    /// traverses every edge exactly once — and the resulting superstring is emitted as one
-    /// contig. Reconstruction is exact when a component's Eulerian walk is unique (no repeated
-    /// (k-1)-mer); when a (k-1)-mer repeats, several Eulerian walks exist and only one is the
-    /// true genome, so the emitted contig may not be the original sequence.
+    /// Assembles reads using the de Bruijn graph (DBG) paradigm and returns its contigs — the
+    /// strings spelled by the <b>maximal non-branching paths</b> (unitigs) of the graph.
+    /// (1) The reads are decomposed into their <b>distinct</b> k-mers (case-insensitive,
+    /// upper-cased; reads shorter than k contribute none), so read redundancy (coverage) does not
+    /// add edges; (2) each distinct k-mer is a directed edge from its (k-1)-prefix to its
+    /// (k-1)-suffix node; (3) every maximal non-branching path — a path whose internal nodes are
+    /// 1-in-1-out and whose end nodes are not — and every isolated cycle is spelled out
+    /// (<c>path[0]</c> + last character of each subsequent node) as one contig
+    /// (<see cref="FindMaximalNonBranchingPaths"/>); (4) contigs shorter than
+    /// <see cref="AssemblyParameters.MinContigLength"/> are discarded. Every distinct k-mer lies in
+    /// exactly one contig; repeats longer than k-2 split the genome at the branch nodes, so a
+    /// repeat-free genome is reconstructed as one contig while repeats yield several contigs, each
+    /// of which must occur in any genome with this k-mer set. Only the forward strand is used;
+    /// see the overload with <c>includeReverseComplement</c> for double-stranded reads.
     /// </summary>
     /// <remarks>
-    /// References: Langmead B., "De Bruijn Graph assembly" (JHU lecture notes), p.5-11
-    /// (nodes = (k-1)-mers, edges = k-mers), p.15-19 (Eulerian walk spells the genome,
-    /// <c>path[0] + concat(last char of each subsequent node)</c>); Jones &amp; Pevzner (2004),
-    /// <i>An Introduction to Bioinformatics Algorithms</i>, MIT Press, Theorems 8.1/8.2
-    /// (a connected graph has an Eulerian path iff it has at most two semi-balanced nodes,
-    /// all others balanced); Compeau, Pevzner &amp; Tesler (2011), Nat Biotechnol 29:987-991,
-    /// DOI 10.1038/nbt.2023.
+    /// References: Compeau &amp; Pevzner, <i>Bioinformatics Algorithms</i> ch.3 (Rosalind BA3K
+    /// "contigs correspond to strings spelled by maximal non-branching paths in the de Bruijn
+    /// graph"; BA3M MaximalNonBranchingPaths, incl. isolated cycles); Zerbino &amp; Birney (2008),
+    /// Genome Res 18:821–829, DOI 10.1101/gr.074492.107 ("the fundamental data structure ... is
+    /// based on k-mers, not reads, thus high redundancy is naturally handled by the graph without
+    /// affecting the number of nodes"; Simplification: a node with one outgoing arc to a node with
+    /// one ingoing arc is merged); Compeau, Pevzner &amp; Tesler (2011), Nat Biotechnol
+    /// 29:987–991, DOI 10.1038/nbt.2023; Langmead B., "De Bruijn Graph assembly" (JHU notes),
+    /// p.5–9 (nodes/edges), p.18 (spelling), p.24–28 (gaps, coverage and errors make the graph
+    /// non-Eulerian, so a single Eulerian walk is not a practical contig definition).
+    /// When <paramref name="parameters"/> is null, <see cref="DefaultParameters"/> (k = 31,
+    /// MinContigLength 100) apply.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><see cref="AssemblyParameters.KmerSize"/> &lt; 2.</exception>
     public static AssemblyResult AssembleDeBruijn(
         IReadOnlyList<string> reads,
         AssemblyParameters? parameters = null)
+        => AssembleDeBruijn(reads, parameters, includeReverseComplement: false);
+
+    /// <summary>
+    /// De Bruijn graph assembly as in <see cref="AssembleDeBruijn(IReadOnlyList{string}, AssemblyParameters?)"/>,
+    /// optionally treating the reads as double-stranded DNA. With
+    /// <paramref name="includeReverseComplement"/> = true every k-mer is entered together with its
+    /// reverse complement (Velvet: "each k-mer is recorded simultaneously to its reverse complement
+    /// ... this ensures that overlaps between reads from opposite strands are taken into account"),
+    /// so reads from either strand join into one contig. The resulting graph is
+    /// reverse-complement symmetric — each unitig's reverse complement is also a unitig — so each
+    /// such pair is reported once, as the ordinally smaller of the two strings. Reverse
+    /// complements use the canonical IUPAC complement (<see cref="SequenceExtensions.TryGetReverseComplement"/>).
+    /// An odd k guarantees no k-mer is its own reverse complement (Velvet requires odd k);
+    /// an even k is accepted.
+    /// </summary>
+    /// <remarks>Reference: Zerbino &amp; Birney (2008), Genome Res 18:821, "Construction" and "Structure" (twin nodes).</remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><see cref="AssemblyParameters.KmerSize"/> &lt; 2.</exception>
+    public static AssemblyResult AssembleDeBruijn(
+        IReadOnlyList<string> reads,
+        AssemblyParameters? parameters,
+        bool includeReverseComplement)
     {
-        var param = parameters ?? new AssemblyParameters();
+        // NB: `new AssemblyParameters()` on a record struct is zero-initialisation (KmerSize 0,
+        // MinContigLength 0), NOT the declared defaults — use DefaultParameters.
+        var param = parameters ?? DefaultParameters;
+        int k = param.KmerSize;
+        ValidateDeBruijnK(k);
 
         if (reads == null || reads.Count == 0)
             return new AssemblyResult(Array.Empty<string>(), 0, 0, 0, 0, 0);
 
-        int k = param.KmerSize;
+        // (1) Distinct k-mers through the canonical counter (case-insensitive, upper-case keys).
+        var kmers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string read in reads)
+        {
+            if (read == null || read.Length < k)
+                continue; // a read shorter than k contributes no k-mers (Langmead DBG p.16)
 
-        // Build the (k-1)-mer de Bruijn multigraph (edges = input k-mers).
-        var graph = BuildDeBruijnGraph(reads, k);
+            foreach (string kmer in read.AsSpan().CountKmersSpan(k).Keys)
+            {
+                kmers.Add(kmer);
+                if (includeReverseComplement)
+                    kmers.Add(ReverseComplement(kmer));
+            }
+        }
 
-        // One Eulerian walk per weakly-connected component -> one contig per component.
-        var contigs = ReconstructContigs(graph);
+        // (2) One edge per distinct k-mer; nodes and edges in ordinal order for determinism.
+        var graph = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (string kmer in kmers.Order(StringComparer.Ordinal))
+        {
+            string prefix = kmer[..^1];
+            if (!graph.TryGetValue(prefix, out var successors))
+                graph[prefix] = successors = new List<string>();
+            successors.Add(kmer[1..]);
+        }
 
-        // Filter by minimum contig length.
+        // (3) Contigs = spelled maximal non-branching paths and isolated cycles.
+        var paths = FindMaximalNonBranchingPaths(graph);
+        var contigs = includeReverseComplement
+            ? SpellStrandPairsOnce(paths)
+            : paths.Select(SpellPath).ToList();
+
+        // (4) Filter by minimum contig length.
         contigs = contigs.Where(c => c.Length >= param.MinContigLength).ToList();
 
         return CalculateStats(contigs, reads.Count);
@@ -496,11 +556,7 @@ public static class SequenceAssembler
     public static Dictionary<string, List<string>> BuildDeBruijnGraph(
         IReadOnlyList<string> reads, int k)
     {
-        // k-mers split into two (k-1)-mers, so k must be at least 2 (Langmead DBG p.5).
-        const int MinKmerLength = 2;
-        if (k < MinKmerLength)
-            throw new ArgumentOutOfRangeException(nameof(k), k,
-                $"k-mer length must be at least {MinKmerLength} so that (k-1)-mer nodes are non-empty.");
+        ValidateDeBruijnK(k);
 
         var graph = new Dictionary<string, List<string>>();
 
@@ -532,170 +588,140 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Reconstructs contigs from a de Bruijn multigraph by computing one Eulerian walk per
-    /// weakly-connected component and spelling each walk out into a superstring. Each
-    /// component contributes one contig: the first node is emitted in full and the last
-    /// character of every subsequent node is appended (Langmead DBG p.18). A walk starts at a
-    /// semi-balanced source node (out-degree − in-degree = 1) when one exists, otherwise at any
-    /// node of the component (an Eulerian cycle); this realizes the Eulerian-path existence
-    /// condition of Jones &amp; Pevzner Theorems 8.1/8.2.
+    /// Finds all maximal non-branching paths of a directed (multi)graph given as an
+    /// out-adjacency list (Compeau &amp; Pevzner, <i>Bioinformatics Algorithms</i> ch.3; Rosalind
+    /// BA3M MaximalNonBranchingPaths). A node is 1-in-1-out when its in-degree and out-degree
+    /// are both 1. For every node that is not 1-in-1-out and has out-degree &gt; 0, each of its
+    /// outgoing edges (v, w) starts a path that is extended through w while w is 1-in-1-out;
+    /// afterwards every isolated cycle (a component made only of 1-in-1-out nodes) is added as a
+    /// path that starts and ends at its ordinally smallest node. Parallel edges are separate
+    /// paths. Every edge lies on exactly one returned path.
     /// </summary>
-    private static List<string> ReconstructContigs(Dictionary<string, List<string>> graph)
+    /// <param name="graph">Out-adjacency list (e.g. from <see cref="BuildDeBruijnGraph"/>); nodes
+    /// that appear only as successors are included.</param>
+    /// <returns>The paths as node sequences (each of at least two nodes), the non-1-in-1-out start
+    /// nodes taken in ordinal order and their edges in stored order, followed by the isolated
+    /// cycles.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="graph"/> is null.</exception>
+    public static IReadOnlyList<IReadOnlyList<string>> FindMaximalNonBranchingPaths(
+        IReadOnlyDictionary<string, List<string>> graph)
     {
-        var contigs = new List<string>();
-        if (graph.Count == 0)
-            return contigs;
+        ArgumentNullException.ThrowIfNull(graph);
 
-        // Mutable copy of the out-adjacency (edges are consumed by the walk).
-        var adjacency = new Dictionary<string, List<string>>();
-        var inDegree = new Dictionary<string, int>();
-        var outDegree = new Dictionary<string, int>();
-        var allNodes = new HashSet<string>();
-
-        foreach (var kvp in graph)
+        var inDegree = new Dictionary<string, int>(StringComparer.Ordinal);
+        var nodes = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var (node, successors) in graph)
         {
-            adjacency[kvp.Key] = new List<string>(kvp.Value);
-            allNodes.Add(kvp.Key);
-            outDegree[kvp.Key] = outDegree.GetValueOrDefault(kvp.Key, 0) + kvp.Value.Count;
-            foreach (string target in kvp.Value)
+            nodes.Add(node);
+            foreach (string w in successors)
             {
-                allNodes.Add(target);
-                inDegree[target] = inDegree.GetValueOrDefault(target, 0) + 1;
+                nodes.Add(w);
+                inDegree[w] = inDegree.GetValueOrDefault(w) + 1;
             }
         }
 
-        // Undirected adjacency for connectivity (weakly-connected components).
-        var undirected = BuildUndirectedAdjacency(graph, allNodes);
+        int OutDegree(string v) => graph.TryGetValue(v, out var s) ? s.Count : 0;
+        bool IsOneInOneOut(string v) => inDegree.GetValueOrDefault(v) == 1 && OutDegree(v) == 1;
 
-        var visitedNodes = new HashSet<string>();
-        // Deterministic component order: by lexicographically smallest node.
-        foreach (string node in allNodes.OrderBy(n => n, StringComparer.Ordinal))
+        var paths = new List<IReadOnlyList<string>>();
+        // A 1-in-1-out node has exactly one out-edge, so "its edge was used" identifies it.
+        var usedOneInOneOut = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (string v in nodes)
         {
-            if (visitedNodes.Contains(node))
+            if (IsOneInOneOut(v) || OutDegree(v) == 0)
                 continue;
 
-            var component = CollectComponent(node, undirected, visitedNodes);
-            string start = ChooseEulerStart(component, inDegree, outDegree);
-            string contig = SpellEulerianWalk(adjacency, start);
-            if (contig.Length > 0)
-                contigs.Add(contig);
+            foreach (string first in graph[v])
+            {
+                var path = new List<string> { v, first };
+                string w = first;
+                while (IsOneInOneOut(w))
+                {
+                    usedOneInOneOut.Add(w);
+                    w = graph[w][0];
+                    path.Add(w);
+                }
+                paths.Add(path);
+            }
+        }
+
+        // Isolated cycles: 1-in-1-out nodes not reached from any branching / end node.
+        foreach (string v in nodes)
+        {
+            if (!IsOneInOneOut(v) || usedOneInOneOut.Contains(v))
+                continue;
+
+            var cycle = new List<string> { v };
+            string w = v;
+            do
+            {
+                usedOneInOneOut.Add(w);
+                w = graph[w][0];
+                cycle.Add(w);
+            }
+            while (w != v);
+            paths.Add(cycle);
+        }
+
+        return paths;
+    }
+
+    /// <summary>
+    /// Spells a node path: the first (k-1)-mer in full, then the last character of every
+    /// subsequent node (Langmead DBG p.18; Compeau &amp; Pevzner PathToGenome).
+    /// </summary>
+    private static string SpellPath(IReadOnlyList<string> path)
+    {
+        var sb = new StringBuilder(path[0], path[0].Length + path.Count - 1);
+        for (int i = 1; i < path.Count; i++)
+            sb.Append(path[i][^1]);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// For a reverse-complement-symmetric graph, keeps one contig of each {unitig, reverse
+    /// complement} pair: a path is skipped when its first k-mer already belongs to an emitted
+    /// path or to that path's reverse complement; an emitted contig is the ordinally smaller of
+    /// the spelled path and its reverse complement.
+    /// </summary>
+    private static List<string> SpellStrandPairsOnce(IReadOnlyList<IReadOnlyList<string>> paths)
+    {
+        var covered = new HashSet<string>(StringComparer.Ordinal);
+        var contigs = new List<string>();
+        foreach (var path in paths)
+        {
+            string contig = SpellPath(path);
+            int k = path[0].Length + 1;
+            if (covered.Contains(contig[..k]))
+                continue;
+
+            for (int i = 0; i + k <= contig.Length; i++)
+            {
+                string kmer = contig.Substring(i, k);
+                covered.Add(kmer);
+                covered.Add(ReverseComplement(kmer));
+            }
+
+            string reverse = ReverseComplement(contig);
+            contigs.Add(StringComparer.Ordinal.Compare(reverse, contig) < 0 ? reverse : contig);
         }
 
         return contigs;
     }
 
-    private static Dictionary<string, List<string>> BuildUndirectedAdjacency(
-        Dictionary<string, List<string>> graph, HashSet<string> allNodes)
+    /// <summary>Reverse complement through the canonical Core helper.</summary>
+    private static string ReverseComplement(string sequence) =>
+        string.Create(sequence.Length, sequence,
+            static (dest, src) => src.AsSpan().TryGetReverseComplement(dest));
+
+    /// <summary>k-mers split into two (k-1)-mer nodes, so k must be at least 2 (Langmead DBG p.5).</summary>
+    private static void ValidateDeBruijnK(int k)
     {
-        var undirected = new Dictionary<string, List<string>>();
-        foreach (string n in allNodes)
-            undirected[n] = new List<string>();
-
-        foreach (var kvp in graph)
-        {
-            foreach (string target in kvp.Value)
-            {
-                undirected[kvp.Key].Add(target);
-                undirected[target].Add(kvp.Key);
-            }
-        }
-
-        return undirected;
-    }
-
-    private static List<string> CollectComponent(
-        string start,
-        Dictionary<string, List<string>> undirected,
-        HashSet<string> visitedNodes)
-    {
-        var component = new List<string>();
-        var stack = new Stack<string>();
-        stack.Push(start);
-        visitedNodes.Add(start);
-
-        while (stack.Count > 0)
-        {
-            string current = stack.Pop();
-            component.Add(current);
-            foreach (string neighbor in undirected[current])
-            {
-                if (visitedNodes.Add(neighbor))
-                    stack.Push(neighbor);
-            }
-        }
-
-        return component;
-    }
-
-    /// <summary>
-    /// Picks the Eulerian-walk start node for one component: the unique semi-balanced node
-    /// with one more outgoing than incoming edge (Langmead DBG p.15; J&amp;P Theorem 8.2),
-    /// or — for a balanced component (Eulerian cycle) or any imperfect graph — the
-    /// lexicographically smallest node, for determinism.
-    /// </summary>
-    private static string ChooseEulerStart(
-        List<string> component,
-        Dictionary<string, int> inDegree,
-        Dictionary<string, int> outDegree)
-    {
-        string fallback = component[0];
-        foreach (string node in component)
-        {
-            if (StringComparer.Ordinal.Compare(node, fallback) < 0)
-                fallback = node;
-
-            int outD = outDegree.GetValueOrDefault(node, 0);
-            int inD = inDegree.GetValueOrDefault(node, 0);
-            if (outD - inD == 1)
-                return node; // semi-balanced source: start of the Eulerian path
-        }
-
-        return fallback;
-    }
-
-    /// <summary>
-    /// Hierholzer's algorithm: traverses each out-edge of the component exactly once starting
-    /// from <paramref name="start"/>, then spells the resulting node walk into a superstring
-    /// (<c>walk[0] + concat(last char of walk[i] for i &gt; 0)</c>). Runs in O(|E|) time
-    /// (Langmead DBG p.17).
-    /// </summary>
-    private static string SpellEulerianWalk(
-        Dictionary<string, List<string>> adjacency, string start)
-    {
-        // Index of next unused out-edge per node (edges consumed in stored order).
-        var edgeCursor = new Dictionary<string, int>();
-        var stack = new Stack<string>();
-        var walk = new List<string>();
-        stack.Push(start);
-
-        while (stack.Count > 0)
-        {
-            string node = stack.Peek();
-            int cursor = edgeCursor.GetValueOrDefault(node, 0);
-
-            if (adjacency.TryGetValue(node, out var neighbors) && cursor < neighbors.Count)
-            {
-                edgeCursor[node] = cursor + 1;
-                stack.Push(neighbors[cursor]);
-            }
-            else
-            {
-                walk.Add(node);
-                stack.Pop();
-            }
-        }
-
-        // Hierholzer produces the Eulerian walk in reverse order.
-        walk.Reverse();
-
-        if (walk.Count == 0)
-            return string.Empty;
-
-        var sb = new StringBuilder(walk[0]);
-        for (int i = 1; i < walk.Count; i++)
-            sb.Append(walk[i][^1]); // append last character of each subsequent (k-1)-mer node
-
-        return sb.ToString();
+        const int MinKmerLength = 2;
+        if (k < MinKmerLength)
+            throw new ArgumentOutOfRangeException(nameof(k), k,
+                $"k-mer length must be at least {MinKmerLength} so that (k-1)-mer nodes are non-empty.");
     }
 
     /// <summary>

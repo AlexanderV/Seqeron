@@ -6,11 +6,11 @@
 | Test Unit ID | MIRNA-PRECURSOR-001 |
 | Related Projects | Seqeron.Genomics.Annotation |
 | Implementation Status | Simplified (default heuristic) + Production (opt-in MFE fold + opt-in trained classifier) |
-| Last Reviewed | 2026-06-25 |
+| Last Reviewed | 2026-11-25 (B13 review: F8–F10) |
 
 ## 1. Overview
 
-Pre-miRNA detection scans RNA sequence windows for stem-loop candidates that satisfy basic precursor-miRNA length, stem, and loop constraints [1][2][4]. The repository implements this in `MiRnaAnalyzer.FindPreMiRnaHairpins` by enumerating candidate windows, requiring uninterrupted complementary pairing from both ends inward, extracting a 5' mature strand and 3' star strand, and assigning a Turner-parameter-based hairpin free energy. The search is deterministic and exhaustive within the caller's length bounds, but it is intentionally stricter than real pre-miRNA structure because internal bulges, asymmetric loops, and arm switching are not modeled. This makes the implementation suitable for exact educational hairpin screening rather than production-grade precursor discovery on natural miRBase sequences [1][4][5].
+Pre-miRNA detection scans RNA sequence windows for stem-loop candidates that satisfy basic precursor-miRNA length, stem, and loop constraints [1][2][4]. The repository implements this in `MiRnaAnalyzer.FindPreMiRnaHairpins` by enumerating candidate windows, requiring uninterrupted complementary pairing from both ends inward, extracting a 5' mature strand and 3' star strand, and assigning the Turner 2004 free energy of the reported stem-loop computed by the canonical `RnaSecondaryStructure` loop model. The search is deterministic and exhaustive within the caller's length bounds, but it is intentionally stricter than real pre-miRNA structure because internal bulges, asymmetric loops, and arm switching are not modeled. This makes the implementation suitable for exact educational hairpin screening rather than production-grade precursor discovery on natural miRBase sequences [1][4][5].
 
 ## 2. Scientific / Formal Basis
 
@@ -26,7 +26,7 @@ $$
 S = \text{5' stem} + \text{loop} + \text{3' stem}
 $$
 
-with uninterrupted pairing between mirrored positions from the two ends inward under the pairing set:
+with uninterrupted pairing between mirrored positions from the two ends inward (extended as far as the bases pair, but never closing a loop shorter than the 3-nt NNDB minimum) under the pairing set:
 
 $$
 \{A\!-\!U,\; U\!-\!A,\; G\!-\!C,\; C\!-\!G,\; G\!-\!U,\; U\!-\!G\}
@@ -38,13 +38,20 @@ The current acceptance criteria are:
 - loop length $= n - 2 \times \text{stem length}$ with $3 \le \text{loop length} \le 25$,
 - candidate length constrained by the caller, defaulting to 55-120 nt.
 
-Hairpin energy is then estimated with Turner-style nearest-neighbor terms:
+The free energy is that of the reported structure under the full Turner 2004 model [3], computed by the
+canonical stem-loop evaluator (`RnaSecondaryStructure.FindStemLoops` with the loop fixed →
+`CalculateStemEnergy` + `CalculateHairpinLoopEnergy`):
 
 $$
-\Delta G = \sum \Delta G_{\text{stack}} + \Delta G_{\text{loop}} + \Delta G_{\text{terminal mismatch}} + 0.45 \times n_{\text{terminal AU/GU}}
+\Delta G = \sum \Delta G_{\text{stack}} + 0.45 \times n_{\text{AU/GU helix ends}} + \Delta G_{\text{hairpin}}
 $$
 
-using the repository's Turner 2004 lookup tables [3].
+where $\Delta G_{\text{hairpin}}$ is the NNDB hairpin-loop term: the experimental total for special
+tri/tetra/hexaloops, otherwise initiation(n) + terminal mismatch + UU/GA and GG first-mismatch bonuses +
+special GU closure + all-C penalty (triloops: initiation + all-C penalty only). The AU/GU end penalty is
+applied to both helix ends, including the pair closing the loop (NNDB 2004 hairpin example 5.3). For a
+perfect hairpin this structure is the MFE structure and the energy equals
+`RnaSecondaryStructure.CalculateMinimumFreeEnergy`.
 
 #### 2.2.1 Opt-in MFE-structure-based assessment (default unchanged)
 
@@ -97,14 +104,14 @@ miRBase mature exactly.
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
 | ASM-01 | Candidate stems are approximated by uninterrupted end-to-end pairing with no internal bulges or mismatches. | Natural pre-miRNAs with internal loops or asymmetric bulges can be missed even if they are biologically valid. |
-| ASM-02 | Turner nearest-neighbor parameters are used as a stability proxy for the accepted hairpin topology. | Energies are meaningful only to the extent that the simplified topology resembles a real RNA hairpin at standard conditions [3]. |
+| ASM-02 | The reported energy is the full Turner 2004 energy of the reported (consecutive-stem) structure, not the MFE of the window. | For windows whose MFE fold differs (bulges, internal loops), the energy is that of the consecutive stem; use the opt-in MFE path for the optimal fold. |
 | ASM-03 | The mature product is extracted from the 5' arm and the star sequence from the mirrored 3' arm. | Valid precursors whose dominant mature product comes from the opposite arm are represented asymmetrically. |
 
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | Every reported precursor has a balanced dot-bracket structure string of the same length as `Sequence`. | `AnalyzeHairpin` fills the first `stemLength` positions with `(`, the last `stemLength` with `)`, and the loop with `.`. |
+| INV-01 | Every reported precursor has a balanced dot-bracket structure string of the same length as `Sequence`. | The structure is the canonical rendering of the stem-loop (first `stemLength` positions `(`, loop `.`, last `stemLength` `)`). |
 | INV-02 | Every reported precursor has stem length `>= 18`. | Candidates with shorter uninterrupted stems are rejected before record creation. |
 | INV-03 | Every reported precursor has loop length between `3` and `25` nt. | `AnalyzeHairpin` explicitly rejects loops outside that range. |
 | INV-04 | `Start` and `End` are zero-based inclusive coordinates in the scanned input sequence. | `FindPreMiRnaHairpins` constructs `End = Start + length - 1`. |
@@ -117,9 +124,9 @@ miRBase mature exactly.
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `string` | required | RNA or DNA sequence to scan for precursor candidates. | `null`, empty, or shorter-than-`minHairpinLength` input yields no results; `T` is normalized to `U`. |
-| `minHairpinLength` | `int` | `55` | Minimum candidate window length considered during scanning. | Not explicitly validated; values larger than the input length produce no results. |
-| `maxHairpinLength` | `int` | `120` | Maximum candidate window length considered during scanning. | Not explicitly validated; values below `minHairpinLength` make the inner scan empty. |
-| `matureLength` | `int` | `22` | Maximum length extracted for mature and star strands. | Expected to be positive; explicit validation is not performed. |
+| `minHairpinLength` | `int` | `55` | Minimum candidate window length considered during scanning (the only length floor). | Must be ≥ 1 (else `ArgumentOutOfRangeException`, thrown eagerly); values larger than the input length produce no results. |
+| `maxHairpinLength` | `int` | `120` | Maximum candidate window length considered during scanning. | Values below `minHairpinLength` make the scan empty. |
+| `matureLength` | `int` | `22` | Maximum length extracted for mature and star strands. | Must be ≥ 1 (else `ArgumentOutOfRangeException`, thrown eagerly). |
 
 ### 3.2 Output / Return Value
 
@@ -131,11 +138,11 @@ miRBase mature exactly.
 | `MatureSequence` | `string` | Extracted mature strand from the 5' arm. |
 | `StarSequence` | `string` | Extracted star strand from the mirrored 3' arm. |
 | `Structure` | `string` | Dot-bracket representation with contiguous stem parentheses and loop dots. |
-| `FreeEnergy` | `double` | Turner-table-based heuristic energy for the accepted hairpin topology. |
+| `FreeEnergy` | `double` | Turner 2004 ΔG° (kcal/mol) of `Structure`, from the canonical `RnaSecondaryStructure` stem-loop evaluator. |
 
 ### 3.3 Preconditions and Validation
 
-`FindPreMiRnaHairpins` is non-throwing for `null`, empty, or too-short input: those cases simply yield no candidates. Input is normalized to uppercase RNA by replacing `T` with `U`. Candidate windows are rejected if they are shorter than 55 nt inside `AnalyzeHairpin`, if uninterrupted complementary pairing from the ends inward yields a stem shorter than 18 bp, or if the resulting loop falls outside 3-25 nt. Coordinates are zero-based and inclusive. Length parameters are not explicitly validated beyond their effect on the scan loops.
+`FindPreMiRnaHairpins` is non-throwing for `null`, empty, or too-short input: those cases simply yield no candidates. `minHairpinLength < 1` or `matureLength < 1` throws `ArgumentOutOfRangeException` at call time (eager validation). Input is normalized to uppercase RNA by replacing `T` with `U`. Candidate windows are rejected if uninterrupted complementary pairing from the ends inward yields a stem shorter than 18 bp, or if the resulting loop exceeds 25 nt (the stem never closes a loop below 3 nt). The window length is bounded only by the caller's `minHairpinLength`/`maxHairpinLength` (the former hard-coded 55-nt floor was removed). Coordinates are zero-based and inclusive. `FindPreMiRnaHairpinsByMfe` validates `minHairpinLength ≥ 1` the same way.
 
 ## 4. Algorithm
 
@@ -143,20 +150,21 @@ miRBase mature exactly.
 
 1. Normalize the input to uppercase RNA.
 2. Slide a start position across the sequence and enumerate every candidate window whose length is between `minHairpinLength` and `maxHairpinLength`.
-3. For each candidate window, count uninterrupted complementary base pairs from the two ends inward, allowing Watson-Crick and G:U wobble pairs.
-4. Reject the candidate unless the resulting uninterrupted stem is at least 18 bp and the remaining loop is between 3 and 25 nt.
+3. For each candidate window, count uninterrupted complementary base pairs from the two ends inward (Watson-Crick and G:U wobble, `RnaSecondaryStructure.CanPair`), stopping at the first non-pair or when one more pair would leave a loop shorter than 3 nt.
+4. Reject the candidate unless the resulting uninterrupted stem is at least 18 bp and the remaining loop is at most 25 nt.
 5. Extract the mature strand from the 5' arm and the star strand from the mirrored 3' arm.
-6. Build a dot-bracket structure and compute free energy from the Turner lookup tables.
+6. Obtain the dot-bracket and the Turner 2004 energy from the canonical stem-loop (`RnaSecondaryStructure.FindStemLoops` with the loop fixed).
 7. Emit a `PreMiRna` record with genomic coordinates relative to the scanned input sequence.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-Hairpin stability uses repository-resident Turner 2004 tables for:
-
-- nearest-neighbor stacking energies,
-- hairpin loop initiation energies,
-- terminal mismatch energies,
-- a fixed `0.45 kcal/mol` AU/GU terminal penalty.
+Hairpin stability is delegated to the canonical Turner 2004 evaluator in `RnaSecondaryStructure`
+(RNA-STRUCT-001): stacking (incl. the GGUC/CUGG special stack), 0.45 kcal/mol AU/GU penalty per helix end,
+and the full hairpin-loop term (special loops, terminal mismatch, first-mismatch bonuses, special GU
+closure, all-C penalty). Reference cross-check (B13 F8): ViennaRNA 2.8 `eval_structure` agrees to
+≤ 0.24 kcal/mol on the test fixtures — the residual is ViennaRNA's 0.1-kcal-rounded parameter set
+(stacks, TerminalAU = 0.50) — and the hairpin-loop terms are identical (e.g. UUCG tetraloop closed by
+C-G: 3.70 in both).
 
 The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninterrupted stem count stops at the first non-pairing mirrored position.
 
@@ -185,7 +193,7 @@ The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninter
 
 ### 5.2 Current Behavior
 
-The implementation searches candidates exhaustively rather than folding the full transcript once. Stem detection is based on uninterrupted end-to-end pairing, so the counter stops at the first mirrored mismatch and does not resume across bulges or internal loops. `MatureSequence` is always taken from the 5' arm beginning at the candidate start, and `StarSequence` is taken from the mirrored 3' arm of equal extracted length. Hairpin energy is not the older linear approximation described by the legacy document; it is computed from Turner 2004 stacking, loop, terminal mismatch, and AU/GU penalty tables stored directly in `MiRnaAnalyzer`. Although the loop-energy table contains extrapolation logic for loops larger than 30 nt, accepted precursors currently never reach that branch because `AnalyzeHairpin` rejects loops above 25 nt.
+The implementation searches candidates exhaustively rather than folding the full transcript once. Stem detection is based on uninterrupted end-to-end pairing, so the counter stops at the first mirrored mismatch and does not resume across bulges or internal loops; it is not truncated otherwise (the former unsourced `min(n/2 − 5, 35)` cap, which forced every reported loop to ≥ 10 nt and rejected perfect stems > 35 bp, was removed in B13 F9). `MatureSequence` is always taken from the 5' arm beginning at the candidate start, and `StarSequence` is the mirrored 3' arm segment it base-pairs with (a blunt duplex label, not Dicer's 2-nt 3'-overhang product — see `PredictDroshaDicerCleavage` for processing coordinates). Structure and energy come from the canonical `RnaSecondaryStructure` stem-loop (B13 F8; previously an inline stacking + initiation + mismatch sum without special loops or first-mismatch bonuses).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -193,7 +201,7 @@ The implementation searches candidates exhaustively rather than folding the full
 
 - RNA hairpin validation using Watson-Crick and G:U wobble pairing [1][4].
 - Precursor-style constraints on hairpin length, stem length, and loop size [1][2][4].
-- Turner-style nearest-neighbor energy components from repository lookup tables [3].
+- Full Turner 2004 energy of the reported stem-loop via the canonical `RnaSecondaryStructure` evaluator [3].
 - **Opt-in:** real MFE-structure-based hairpin assessment that folds the candidate with the
   validated Zuker–Stiegler engine (RNA-STRUCT-001) [3][6] and applies the Ambros (2003) ≥16-bp
   stem [2], Bartel (2004) 3–25-nt loop [1], and Zhang (2006) MFEI ≥ 0.85 [7] criteria to the actual

@@ -1,28 +1,29 @@
 ﻿{
-  MotifCount: 5,
-  TopMotifs: [
+  MotifCount: 4,
+  Motifs: [
     {
+      position: 54,
       type: -35 box,
-      score: 1.0
+      sequence: TAGGCA,
+      score: 0.6666666666666666
     },
     {
-      position: 16,
+      position: 68,
+      type: -35 box,
+      sequence: TTTACA,
+      score: 0.8333333333333334
+    },
+    {
+      position: 77,
       type: -10 box,
-      score: 1.0
+      sequence: TATGCT,
+      score: 0.6666666666666666
     },
     {
-      type: -35 box,
-      score: 0.855
-    },
-    {
-      position: 1,
-      type: -35 box,
-      score: 0.815
-    },
-    {
-      position: 17,
+      position: 92,
       type: -10 box,
-      score: 0.813
+      sequence: TATAAT,
+      score: 1.0
     }
   ]
 }

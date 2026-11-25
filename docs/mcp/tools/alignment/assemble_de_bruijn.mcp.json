@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAssembler.AssembleDeBruijn",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L104",
-  "description": "Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)-mer node graph, trace Eulerian walks per component into contigs, then report N50 / longest / total length.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L101",
+  "description": "Assemble reads using a de Bruijn graph: shred reads into their distinct k-mers (case-insensitive; coverage adds no edges), build the (k-1)-mer node graph, output every maximal non-branching path (unitig) and isolated cycle as a contig, then report N50 / longest / total length. Optionally add reverse-complement k-mers (double-stranded reads).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -26,13 +26,18 @@
       },
       "kmerSize": {
         "type": "integer",
-        "description": "K-mer size used to build the de Bruijn graph.",
+        "description": "K-mer size used to build the de Bruijn graph (>= 2; odd recommended with includeReverseComplement).",
         "default": 31
       },
       "minContigLength": {
         "type": "integer",
         "description": "Minimum contig length to keep (bp).",
         "default": 100
+      },
+      "includeReverseComplement": {
+        "type": "boolean",
+        "description": "Treat reads as double-stranded DNA: add each k-mer's reverse complement (Velvet).",
+        "default": false
       }
     },
     "required": [
@@ -84,7 +89,28 @@
   ],
   "examples": [
     {
-      "name": "Two-read Eulerian walk",
+      "name": "Overlapping reads",
+      "input": {
+        "reads": [
+          "ATGGCGT",
+          "GGCGTGCA"
+        ],
+        "kmerSize": 4,
+        "minContigLength": 4
+      },
+      "output": {
+        "contigs": [
+          "ATGGCGTGCA"
+        ],
+        "totalReads": 2,
+        "assembledReads": 2,
+        "n50": 10,
+        "longestContig": 10,
+        "totalLength": 10
+      }
+    },
+    {
+      "name": "Branching graph yields unitigs",
       "input": {
         "reads": [
           "AAABBB",
@@ -95,13 +121,16 @@
       },
       "output": {
         "contigs": [
-          "AAABBBBBBC"
+          "AAA",
+          "AABB",
+          "BBB",
+          "BBC"
         ],
         "totalReads": 2,
         "assembledReads": 2,
-        "n50": 10,
-        "longestContig": 10,
-        "totalLength": 10
+        "n50": 3,
+        "longestContig": 4,
+        "totalLength": 13
       }
     },
     {

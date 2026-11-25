@@ -341,125 +341,108 @@ public class AnnotationMetamorphicTests
     #endregion
 
     // ───────────────────────────────────────────────────────────────────────────
-    // Unit: ANNOT-PROM-001 — promoter motif finding (Annotation).
+    // Unit: ANNOT-PROM-001 — σ70 promoter boxes (Annotation).
     // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 30.
     //
     // API under test (GenomeAnnotator.FindPromoterMotifs):
-    //   FindPromoterMotifs(dna) enumerates every FORWARD-strand exact match of the bacterial
-    //   −35 box variants {TTGACA, TTGAC, TGACA, TTGA} and −10 box variants
-    //   {TATAAT, TATAA, ATAAT, TATA}, emitting (position, type, motif, score) with a FIXED
-    //   probability-weighted score per variant (Harley & Reynolds 1987). There is no
-    //   threshold parameter — the score cutoff is applied by the caller.
+    //   FindPromoterMotifs(dna[, mm35, mm10, minSpacer, maxSpacer]) reports, once each, the −35 and −10 hexamers of
+    //   every forward-strand pair found by MotifFinder.FindSigma70Promoters: −35 within mm35 mismatches of TTGACA,
+    //   −10 within mm10 mismatches of TATAAT, spacer minSpacer … maxSpacer (Harley & Reynolds 1987: 15–21, 17 ± 1 bp
+    //   in 92 %). Score = 1 − d/6 (d = Hamming distance of the box to its consensus).
     //
-    // Relations (derived from the exact-match definition, NOT from output):
-    //   • MON   — a "promoter" is a hit with score ≥ threshold. Each hit's score is fixed by
-    //             its variant, so LOWERING the threshold keeps every passing hit and may add
-    //             more — the passing set is a SUPERSET, count non-decreasing.
-    //   • SHIFT — positions are exact-substring indices on the forward strand. Prepending a
-    //             poly-C flank (no motif starts with C, so neither an internal nor a junction
-    //             match can form) advances every hit's position by exactly |F|, preserving
-    //             type, motif and score.
-    //   • INV   — a motif hit is a LOCAL exact substring, so changing the sequence strictly
-    //             downstream of a hit (after its last base) leaves that hit unchanged: every
-    //             motif ending at or before the change point is preserved exactly.
+    // Relations (derived from the pairing definition, NOT from output):
+    //   • MON   — raising a mismatch limit or widening the spacer range only admits more pairs, so the reported
+    //             box set is a SUPERSET (identical tuples, since a box's score depends only on its own hexamer).
+    //   • SHIFT — with exact consensus (mm 0) no hexamer containing C can match, so prepending a poly-C flank
+    //             advances every box by exactly |F|, preserving type, hexamer and score.
+    //   • INV   — every pair found in a prefix is still a pair after appending any suffix (both boxes and the
+    //             spacer lie inside the prefix), so the prefix's boxes are a subset of the extended result.
     // ───────────────────────────────────────────────────────────────────────────
 
     private static (int Position, string Type, string Motif, double Score) PromoterId(
         (int position, string type, string sequence, double score) h)
         => (h.position, h.type, h.sequence, h.score);
 
-    /// <summary>Bodies embedding canonical −35 (TTGACA) and −10 (TATAAT) boxes, separated by neutral poly-C.</summary>
+    /// <summary>Bodies embedding consensus −35 (TTGACA) and −10 (TATAAT) boxes at σ70 spacers.</summary>
     private static IEnumerable<string> PromoterBodies()
     {
-        yield return "TTGACA" + "CCCCC" + "TATAAT" + "CCCCC";
-        yield return "ACGT" + "TTGACA" + "ACGTACGT" + "TATAAT" + "ACGT" + "TTGA" + "ACGT";
+        yield return "TTGACA" + new string('C', 17) + "TATAAT" + "CCCCC";
+        yield return "ACGT" + "TTGACA" + "ACGTACGTACGTACG" + "TATAAT" + "ACGT" + "TTGACA" + "ACGT";
+        yield return "TTGACA" + new string('C', 15) + "TATAAT" + "TATAAT";
     }
 
-    #region MON — lowering the score threshold yields a superset of promoter hits
+    #region MON — relaxing the mismatch limit / spacer range yields a superset of boxes
 
     [Test]
-    [Description("MON: along a DECREASING score-threshold chain the set of passing promoter hits grows monotonically — each higher cutoff's hits are a subset of every lower cutoff's.")]
-    public void FindPromoterMotifs_LoweringScoreThreshold_YieldsSuperset_CountNonDecreasing()
+    [Description("MON: along an increasing mismatch-limit chain and a widening spacer range, the reported promoter boxes form a superset chain.")]
+    public void FindPromoterMotifs_RelaxingLimits_YieldsSuperset_CountNonDecreasing()
     {
-        double[] decreasingThresholds = { 1.0, 0.85, 0.81, 0.70, 0.60, 0.0 };
-
         foreach (var body in PromoterBodies().Append("ACTTGACATATAATGGGTATACCCTTGACGTAA").Append(RandomDna(120)))
         {
-            var hits = GenomeAnnotator.FindPromoterMotifs(body).ToList();
-
             HashSet<(int, string, string, double)>? previous = null;
-            int previousCount = -1;
-
-            foreach (double t in decreasingThresholds)
+            for (int mm = 0; mm <= 3; mm++)
             {
-                var passing = hits.Where(h => h.score >= t).Select(PromoterId).ToHashSet();
-
+                var current = GenomeAnnotator.FindPromoterMotifs(body, mm, mm, 15, 21).Select(PromoterId).ToHashSet();
                 if (previous is not null)
-                {
-                    passing.IsSupersetOf(previous).Should().BeTrue(
-                        because: $"each hit's score is fixed, so lowering the cutoff to {t} keeps every passing hit and may add more — the passing set is a superset");
-                    passing.Count.Should().BeGreaterThanOrEqualTo(previousCount,
-                        because: $"a lower score threshold ({t}) admits-or-keeps each hit, never removes one — count is non-decreasing");
-                }
+                    current.IsSupersetOf(previous).Should().BeTrue(
+                        because: $"raising the mismatch limit to {mm} keeps every pair and may add more");
+                previous = current;
+            }
 
-                previous = passing;
-                previousCount = passing.Count;
+            previous = null;
+            foreach (var (lo, hi) in new[] { (17, 17), (16, 18), (15, 21), (10, 30) })
+            {
+                var current = GenomeAnnotator.FindPromoterMotifs(body, 2, 2, lo, hi).Select(PromoterId).ToHashSet();
+                if (previous is not null)
+                    current.IsSupersetOf(previous).Should().BeTrue(
+                        because: $"widening the spacer range to {lo}…{hi} keeps every pair and may add more");
+                previous = current;
             }
         }
     }
 
     #endregion
 
-    #region SHIFT — prepending a neutral poly-C flank advances every promoter hit by |F|
+    #region SHIFT — prepending a poly-C flank advances every box by |F| (exact consensus)
 
     [Test]
-    [Description("SHIFT: prepending a poly-C flank (no promoter motif starts with C) advances every promoter hit's position by exactly |F|, preserving type, motif and score.")]
+    [Description("SHIFT: with exact consensus (0 mismatches) prepending a poly-C flank advances every promoter box by exactly |F|.")]
     public void FindPromoterMotifs_PrependNeutralFlank_ShiftsAllHitsByFlankLength()
     {
         foreach (var body in PromoterBodies())
         {
-            var baseHits = GenomeAnnotator.FindPromoterMotifs(body).ToList();
-            baseHits.Should().NotBeEmpty(because: "each body embeds canonical −35 and −10 boxes");
+            var baseHits = GenomeAnnotator.FindPromoterMotifs(body, 0, 0, 15, 21).ToList();
+            baseHits.Should().NotBeEmpty(because: "each body embeds a consensus −35/−10 pair at a σ70 spacer");
 
             foreach (int flankLen in new[] { 1, 5, 17 })
             {
                 string flank = new string('C', flankLen);
-                GenomeAnnotator.FindPromoterMotifs(flank).Should().BeEmpty(
-                    because: "a poly-C flank contains none of the −35/−10 box variants");
-
-                var shifted = GenomeAnnotator.FindPromoterMotifs(flank + body).Select(PromoterId).ToHashSet();
+                var shifted = GenomeAnnotator.FindPromoterMotifs(flank + body, 0, 0, 15, 21).Select(PromoterId).ToHashSet();
                 var expected = baseHits.Select(h => (h.position + flankLen, h.type, h.sequence, h.score)).ToHashSet();
 
                 shifted.SetEquals(expected).Should().BeTrue(
-                    because: $"positions are forward-strand exact-match indices, so a neutral length-{flankLen} prefix advances every hit by exactly that amount " +
-                             "while preserving type, motif and score (no motif starts with C, so no junction match appears)");
+                    because: $"no hexamer containing C equals TTGACA or TATAAT, so a length-{flankLen} poly-C prefix only shifts every box");
             }
         }
     }
 
     #endregion
 
-    #region INV — a change downstream of a promoter hit leaves it unchanged
+    #region INV — appending a suffix keeps every box of the prefix
 
     [Test]
-    [Description("INV: changing the sequence downstream of a promoter motif leaves every hit ending at or before the change point unchanged — promoter detection is a local exact match.")]
+    [Description("INV: every promoter box found in a prefix is still reported, unchanged, after appending any suffix.")]
     public void FindPromoterMotifs_DownstreamChange_UpstreamHitsUnchanged()
     {
-        const string prefix = "TTGACA" + "CCC" + "TATAAT" + "CCC"; // −35 and −10 boxes, fully within the prefix
-        int changePoint = prefix.Length;
+        string prefix = "TTGACA" + new string('C', 17) + "TATAAT" + "CCC";
+        var baseHits = GenomeAnnotator.FindPromoterMotifs(prefix).Select(PromoterId).ToHashSet();
+        baseHits.Should().NotBeEmpty(because: "the prefix contains a consensus σ70 pair");
 
-        var baseUpstream = GenomeAnnotator.FindPromoterMotifs(prefix + "ACGTACGTACGT")
-            .Where(h => h.position + h.sequence.Length <= changePoint).Select(PromoterId).ToHashSet();
-        baseUpstream.Should().NotBeEmpty(because: "the prefix contains promoter boxes upstream of the change point");
-
-        // Several distinct downstream regions, including motif-rich and fixed-seed random ones.
         foreach (var suffix in new[] { "GGGGGGGG", "TTGACATATAAT", RandomDna(20), RandomDna(40), "" })
         {
-            var changedUpstream = GenomeAnnotator.FindPromoterMotifs(prefix + suffix)
-                .Where(h => h.position + h.sequence.Length <= changePoint).Select(PromoterId).ToHashSet();
-
-            changedUpstream.SetEquals(baseUpstream).Should().BeTrue(
-                because: "a motif ending at or before the change point reads only upstream bases, so any downstream change leaves it exactly in place");
+            var extended = GenomeAnnotator.FindPromoterMotifs(prefix + suffix).Select(PromoterId).ToHashSet();
+            extended.IsSupersetOf(baseHits).Should().BeTrue(
+                because: "a pair lying inside the prefix is unaffected by downstream bases");
         }
     }
 

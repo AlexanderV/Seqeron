@@ -86,29 +86,38 @@ public class AnnotationDifferentialTests
         }
     }
 
-    // ---- Row 30: ANNOT-PROM-001 — FindPromoterMotifs vs independent motif scan ----
-
-    private static readonly (string motif, double score)[] Minus35 =
-        { ("TTGACA", 1.000), ("TTGAC", 0.855), ("TGACA", 0.815), ("TTGA", 0.710) };
-    private static readonly (string motif, double score)[] Minus10 =
-        { ("TATAAT", 1.000), ("TATAA", 0.801), ("ATAAT", 0.813), ("TATA", 0.665) };
+    // ---- Row 30: ANNOT-PROM-001 — FindPromoterMotifs vs independent σ70 brute force ----
+    // Harley & Reynolds (1987): −35 ≈ TTGACA, −10 ≈ TATAAT, spacer 15–21 bp; ≤ 2 mismatches per box (defaults);
+    // each box of a pair once, score 1 − d/6, ordered by position then −35 before −10.
 
     [Test]
     [Category("ANNOT-PROM-001")]
     [TestCase("GGTTGACATTTTTTATAATGG")]
     [TestCase("AAAATTGACAGGGGTATAATCCCTTGACA")]
+    [TestCase("GGTTGACACCCCCCCCCCCCCCCCCTATAATGG")]
+    [TestCase("CCGATATTTTAAAAGTTTTTTTAAAGACTAACTATAAATTTGACATTATG")]
+    [TestCase("ttgacaccccccccccccccctataattataat")]
     public void FindPromoterMotifs_MatchesIndependentScan(string seq)
     {
         var actual = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
 
+        static int Ham(string a, string b) => a.Zip(b).Count(p => p.First != p.Second);
         string s = seq.ToUpperInvariant();
-        var expected = new List<(int, string, string, double)>();
-        foreach (var (motif, score) in Minus35)
-            for (int i = 0; i + motif.Length <= s.Length; i++)
-                if (s.Substring(i, motif.Length) == motif) expected.Add((i, "-35 box", motif, score));
-        foreach (var (motif, score) in Minus10)
-            for (int i = 0; i + motif.Length <= s.Length; i++)
-                if (s.Substring(i, motif.Length) == motif) expected.Add((i, "-10 box", motif, score));
+        var set = new SortedSet<(int pos, int order, string type, string hex, double score)>();
+        for (int i = 0; i + 6 <= s.Length; i++)
+        {
+            int d35 = Ham(s.Substring(i, 6), "TTGACA");
+            if (d35 > 2) continue;
+            for (int sp = 15; sp <= 21 && i + 12 + sp <= s.Length; sp++)
+            {
+                int j = i + 6 + sp;
+                int d10 = Ham(s.Substring(j, 6), "TATAAT");
+                if (d10 > 2) continue;
+                set.Add((i, 0, "-35 box", s.Substring(i, 6), (6 - d35) / 6.0));
+                set.Add((j, 1, "-10 box", s.Substring(j, 6), (6 - d10) / 6.0));
+            }
+        }
+        var expected = set.Select(b => (b.pos, b.type, b.hex, b.score)).ToList();
 
         Assert.That(actual, Is.EqualTo(expected));
     }

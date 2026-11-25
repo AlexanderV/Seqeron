@@ -41,16 +41,19 @@ public class AnnotationSnapshotTests
         return Verify(new { GeneCount = genes.Count, TopGenes = genes });
     }
 
+    // E. coli lac control region with the lacUV5 −10 (TATAAT); σ70 boxes cross-checked against an independent Python
+    // brute force of the Harley & Reynolds (1987) definition (docs/Evidence/ANNOT-PROM-001-Evidence.md).
+    private const string LacUv5 =
+        "TCAGCATTCGAGCTTACGGAGCGCAACGCAATTAATGTGAGTTAGCTCACTCATTAGGCACCCCAGGCTTTACACTTTATGCTTCCGGCTCGTATAATGTGTGGAATTGTGAGCGGATAACAATTTCACACAGGAAACAGCT";
+
     [Test]
     public Task FindPromoterMotifs_KnownSequence_MatchesSnapshot()
     {
-        var motifs = GenomeAnnotator.FindPromoterMotifs(TestSequence)
-            .Select(m => new { m.position, m.type, m.score })
-            .OrderByDescending(m => m.score)
-            .Take(5)
+        var motifs = GenomeAnnotator.FindPromoterMotifs(LacUv5)
+            .Select(m => new { m.position, m.type, m.sequence, m.score })
             .ToList();
 
-        return Verify(new { MotifCount = motifs.Count, TopMotifs = motifs });
+        return Verify(new { MotifCount = motifs.Count, Motifs = motifs });
     }
 
     // NOTE: CodingPotential snapshot removed in ANNOT-CODING-001 — CalculateCodingPotential now

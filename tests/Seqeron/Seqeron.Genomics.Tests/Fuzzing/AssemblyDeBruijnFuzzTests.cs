@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// Fuzz tests for the Assembly area — De Bruijn Graph (DBG) assembly
 /// (ASSEMBLY-DBG-001): the k-mer de Bruijn graph builder
 /// <see cref="SequenceAssembler.BuildDeBruijnGraph(IReadOnlyList{string}, int)"/> and
-/// the Eulerian-walk assembler
+/// the unitig (maximal non-branching path) assembler
 /// <see cref="SequenceAssembler.AssembleDeBruijn(IReadOnlyList{string}, SequenceAssembler.AssemblyParameters?)"/>.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
@@ -14,8 +14,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// Fuzzing feeds degenerate, boundary and out-of-domain inputs to a unit and asserts
 /// the code NEVER fails in an undisciplined way: no hang / infinite loop (the
-/// Hierholzer Eulerian traversal must ALWAYS terminate, even on the cyclic multigraph
-/// produced by repeated / all-identical reads), no negative-length substring or
+/// non-branching-path walk must ALWAYS terminate, including on isolated cycles and on
+/// repeat-rich reads), no negative-length substring or
 /// IndexOutOfRange (notably when k &gt; read length, where the chop bound
 /// i ∈ [0, |r|−k] is empty), no state corruption, and no nondeterministic contig
 /// output. Every input must resolve to EITHER a well-formed, theory-correct result OR
@@ -39,11 +39,10 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///          – SINGLE READ (length ≥ k, no repeated (k-1)-mer): the graph is a simple
 ///            path → exactly ONE contig that reconstructs the read verbatim
 ///            (INV-04, §4.1 spelling), no crash.
-///          – ALL-IDENTICAL READS: many copies of the same read collapse onto the SAME
-///            (k-1)-mer nodes (the k-mer space is shared) → a DETERMINISTIC contig set,
-///            independent of read count and order, with NO infinite loop / no quadratic
-///            hang on the multigraph (Hierholzer is O(|E|), §4.3); guarded with
-///            [CancelAfter].
+///          – ALL-IDENTICAL READS: many copies of the same read contribute the SAME
+///            distinct k-mers (coverage adds no edges — Velvet) → the contigs are
+///            exactly those of one copy, independent of read count and order, with NO
+///            infinite loop; guarded with [CancelAfter].
 /// — docs/checklists/03_FUZZING.md §Description (BE = Boundary Exploitation:
 ///   граничні значення 0, -1, MaxInt, empty).
 ///
@@ -59,14 +58,13 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   SequenceAssembler.BuildDeBruijnGraph(IReadOnlyList&lt;string&gt; reads, int k)
 ///   → Dictionary&lt;string, List&lt;string&gt;&gt;  (out-adjacency multimap)
 ///
-/// AssembleDeBruijn: builds the DBG, walks each weakly-connected component with one
-/// Eulerian walk (Hierholzer, semi-balanced source else lex-smallest node), spells
-/// p₀ + last-char(p_i) into one contig per component, then drops contigs shorter than
-/// MinContigLength. When a component's Eulerian walk is unique the contig equals the
-/// source genome (INV-04); every input k-mer is a substring of some emitted contig
-/// (INV-05). null/empty reads → empty result (§6.1). The choice of component order
-/// and start node is the lexicographically smallest node → DETERMINISTIC, order- and
-/// count-independent output (§4.2, §5.2).
+/// AssembleDeBruijn: builds the DBG of the DISTINCT (upper-cased) k-mers, spells every
+/// maximal non-branching path and isolated cycle (Compeau & Pevzner BA3M) as p₀ +
+/// last-char(p_i), then drops contigs shorter than MinContigLength. A read with no
+/// repeated (k-1)-mer is one contig equal to the read (INV-04); every distinct input k-mer
+/// lies in exactly one contig (INV-05). null/empty reads → empty result (§6.1). The graph
+/// is built from the ordinally sorted k-mer set → DETERMINISTIC, read-order- and
+/// copy-count-independent output (§4.2, §5.2).
 ///   SequenceAssembler.AssembleDeBruijn(
 ///       IReadOnlyList&lt;string&gt; reads, AssemblyParameters? parameters = null)
 ///   → AssemblyResult (Contigs, TotalReads, N50, LongestContig, TotalLength)
@@ -118,7 +116,7 @@ public class AssemblyDeBruijnFuzzTests
         foreach (string contig in result.Contigs)
         {
             contig.Length.Should().BeGreaterThanOrEqualTo(k - 1,
-                "a spelled Eulerian walk emits at least its first (k-1)-mer node (§4.1)");
+                "a spelled path emits at least its first (k-1)-mer node (§4.1)");
             contig.All(ch => alphabet.Contains(ch)).Should().BeTrue(
                 "a contig is spelled from (k-1)-mer nodes that are read substrings (§2.2)");
         }
@@ -136,9 +134,9 @@ public class AssemblyDeBruijnFuzzTests
 
     #region ASSEMBLY-DBG-001 — De Bruijn Graph Assembly (BE: k>read length, single read, all-identical reads)
 
-    #region Positive sanity — documented Eulerian reconstruction
+    #region Positive sanity — documented contig generation
 
-    // Documented worked example (§7.1): AAABBBA, k=3 → single contig "AAABBBA".
+    // Documented worked example (§7.1): AAABBBA, k=3 → unitigs AAA, AABB, BBA, BBB.
     [Test]
     public void AssembleDeBruijn_WorkedExample_ReconstructsGenome()
     {
@@ -147,18 +145,16 @@ public class AssemblyDeBruijnFuzzTests
         var result = SequenceAssembler.AssembleDeBruijn(
             reads, new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1));
 
-        result.Contigs.Should().ContainSingle("the graph is connected and Eulerian → one contig (§7.1)");
-        result.Contigs[0].Should().Be("AAABBBA", "the unique Eulerian walk spells the source genome (INV-04, §7.1)");
+        // AA and BB carry self-loops, so they are branch nodes (not 1-in-1-out): BA3M splits there.
+        result.Contigs.Should().Equal(new[] { "AAA", "AABB", "BBA", "BBB" },
+            "contigs are the maximal non-branching paths (Compeau & Pevzner BA3M; §7.1)");
         AssertWellFormed(result, reads, 3);
     }
 
     // A single read spanning a known genome whose (k-1)-mer walk is UNIQUE (no repeated (k-1)-mer
     // anywhere) reconstructs the genome verbatim as one contig, and every input k-mer is a
-    // contiguous substring of it (INV-04, INV-05). This is the canonical exact-reconstruction case:
-    // each k-mer occurs exactly once, so the Eulerian walk is unique. (Note: tiling the SAME genome
-    // with multiple OVERLAPPING reads instead makes each shared k-mer a parallel multiedge — many
-    // Eulerian walks then exist and the contig is no longer the genome, per ASSUMPTION-1 / §6.2;
-    // that documented multigraph behavior is exercised by the all-identical-reads tests below.)
+    // contiguous substring of it (INV-04, INV-05). Tiling the same genome with overlapping reads
+    // gives the same distinct k-mer set and therefore the same single contig.
     [Test]
     public void AssembleDeBruijn_UniqueWalkGenome_ReconstructsExactlyWithKmerCoverage()
     {
@@ -169,8 +165,13 @@ public class AssemblyDeBruijnFuzzTests
         var result = SequenceAssembler.AssembleDeBruijn(
             reads, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
 
-        result.Contigs.Should().ContainSingle("a unique Eulerian walk yields one connected contig");
-        result.Contigs[0].Should().Be(genome, "the unique Eulerian walk reconstructs the genome (INV-04)");
+        result.Contigs.Should().ContainSingle("a repeat-free genome is one non-branching path");
+        result.Contigs[0].Should().Be(genome, "the single non-branching path spells the genome (INV-04)");
+
+        var tiled = SequenceAssembler.AssembleDeBruijn(
+            new[] { genome[..14], genome[8..22], genome[16..] },
+            new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
+        tiled.Contigs.Should().Equal(new[] { genome }, "overlapping reads share k-mers, which are counted once (Velvet)");
 
         // INV-05: each input k-mer is a contiguous substring of the (exactly reconstructed) contig.
         for (int i = 0; i + k <= genome.Length; i++)
@@ -271,14 +272,14 @@ public class AssemblyDeBruijnFuzzTests
     [Test]
     public void AssembleDeBruijn_SingleReadUniqueWalk_ReconstructsRead()
     {
-        const string read = "ACGTACTGACATG"; // distinct 3-mers ⇒ unique Eulerian path at k=4
+        const string read = "ACGTACTGACATG"; // distinct 3-mers ⇒ one non-branching path at k=4
         const int k = 4;
 
         var result = SequenceAssembler.AssembleDeBruijn(
             new[] { read }, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
 
         result.Contigs.Should().ContainSingle("a single read is one connected component → one contig");
-        result.Contigs[0].Should().Be(read, "a unique Eulerian walk reconstructs the read verbatim (INV-04)");
+        result.Contigs[0].Should().Be(read, "a single non-branching path reconstructs the read verbatim (INV-04)");
         AssertWellFormed(result, new[] { read }, k);
     }
 
@@ -328,7 +329,7 @@ public class AssemblyDeBruijnFuzzTests
             if (nodes.Distinct().Count() == nodes.Count)
             {
                 result.Contigs.Should().ContainSingle("unique (k-1)-mer walk → one contig");
-                result.Contigs[0].Should().Be(read, "unique Eulerian walk reconstructs the read (INV-04)");
+                result.Contigs[0].Should().Be(read, "a single non-branching path reconstructs the read (INV-04)");
                 reconstructed++;
             }
         }
@@ -340,13 +341,10 @@ public class AssemblyDeBruijnFuzzTests
 
     #region BE — Boundary: all-identical reads (collapsed graph; deterministic; no hang / no infinite loop)
 
-    // Many copies of the SAME read collapse onto the SAME (k-1)-mer nodes (the node set is shared),
-    // so the graph is ONE weakly-connected component regardless of copy count. Edge multiplicity
-    // scales linearly with the copy count (INV-02 multigraph). The assembly must be DETERMINISTIC
-    // (a fixed input → byte-identical output) and must TERMINATE on the resulting cyclic-looking
-    // multigraph (Hierholzer is O(|E|), §4.3). NOTE: with ≥ 2 copies each k-mer is a PARALLEL
-    // multiedge, so several Eulerian walks exist and the spelled contig is NOT the original read
-    // (ASSUMPTION-1, §6.2) — only that it is well-formed and deterministic is guaranteed.
+    // Many copies of the SAME read: BuildDeBruijnGraph (the textbook k-mer-composition multigraph)
+    // gets copies × #k-mers edges (INV-02), but the assembler uses the DISTINCT k-mers (Velvet:
+    // redundancy does not add nodes), so every copy count reconstructs the read exactly and
+    // deterministically.
     [Test]
     [CancelAfter(20_000)]
     public void AssembleDeBruijn_AllIdenticalReads_OneComponentDeterministicTerminates()
@@ -365,12 +363,8 @@ public class AssemblyDeBruijnFuzzTests
 
             var result = SequenceAssembler.AssembleDeBruijn(reads, prm);
 
-            result.Contigs.Should().ContainSingle("identical reads share all nodes → one connected component");
+            result.Contigs.Should().Equal(new[] { read }, "coverage does not change the distinct k-mer set (INV-04)");
             AssertWellFormed(result, reads, k);
-
-            // A single copy is a SIMPLE path → the read is reconstructed exactly (INV-04).
-            if (copies == 1)
-                result.Contigs[0].Should().Be(read, "1 copy is a unique walk → exact reconstruction (INV-04)");
 
             // Determinism: re-running on the identical input is byte-identical.
             SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs
@@ -379,7 +373,7 @@ public class AssemblyDeBruijnFuzzTests
     }
 
     // Determinism across read ORDER: shuffling identical (and merely duplicated) reads must not
-    // change the emitted contig set (lex-smallest start node, §4.2, §5.2).
+    // change the emitted contig set (graph built from the sorted distinct k-mer set, §4.2, §5.2).
     [Test]
     [CancelAfter(20_000)]
     public void AssembleDeBruijn_DuplicatedReads_OrderIndependentContigs()
@@ -408,12 +402,12 @@ public class AssemblyDeBruijnFuzzTests
     }
 
     // An all-identical read whose (k-1)-mers REPEAT internally (a cyclic / repeat-rich read) is the
-    // worst case for the Eulerian traversal — it MUST terminate (no infinite loop on the cycle).
+    // worst case for the path walk — it MUST terminate (no infinite loop on the cycle).
     [Test]
     [CancelAfter(20_000)]
     public void AssembleDeBruijn_IdenticalRepeatRichReads_TerminateAndCoverKmers()
     {
-        // Tandem repeat: (k-1)-mer "AAA" etc. recur → multiple parallel edges and a cycle.
+        // Tandem repeat: the k-mers ACAC/CACA form an isolated 2-cycle ACA→CAC→ACA.
         const string read = "ACACACACACACAC"; // 2-periodic ⇒ repeated (k-1)-mers at k=4
         const int k = 4;
         var reads = Enumerable.Repeat(read, 30).ToList();
@@ -422,7 +416,7 @@ public class AssemblyDeBruijnFuzzTests
         var result = SequenceAssembler.AssembleDeBruijn(reads, prm);
 
         AssertWellFormed(result, reads, k);
-        result.Contigs.Should().NotBeEmpty("a repeat-rich read still yields at least one Eulerian contig");
+        result.Contigs.Should().Equal(new[] { "ACACA" }, "the isolated cycle ACA→CAC→ACA is spelled once from its smallest node (BA3M; Python oracle)");
         // The cyclic, multi-parallel-edge graph must not hang and must be deterministic for a fixed input.
         SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs
             .Should().Equal(result.Contigs, "a fixed repeat-rich input is deterministic (§5.2), no hang on the cycle");
@@ -501,13 +495,8 @@ public class AssemblyDeBruijnFuzzTests
         }
     }
 
-    // Determinism over arbitrary reads: repeated invocation on the SAME input is byte-identical
-    // (§5.2 — the component order and start node are the lex-smallest node, so a fixed input always
-    // produces the same contigs). NOTE: across a read-order PERMUTATION the contig set may differ
-    // when the graph has a repeated (k-1)-mer (multiple Eulerian walks; edges are consumed in
-    // insertion order, which depends on read order — §5.2, ASSUMPTION-1); so cross-permutation
-    // invariance is asserted only for inputs that share all nodes by construction (identical reads,
-    // covered by AssembleDeBruijn_DuplicatedReads_OrderIndependentContigs).
+    // Determinism over arbitrary reads: repeated invocation on the SAME input, and on any permutation
+    // of the reads, is byte-identical (§5.2 — the graph is built from the sorted distinct k-mer set).
     [Test]
     [CancelAfter(30_000)]
     public void AssembleDeBruijn_ArbitraryReads_FixedInputDeterministic()
@@ -525,6 +514,34 @@ public class AssemblyDeBruijnFuzzTests
             var a = SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs;
             var b = SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs;
             a.Should().Equal(b, "the same input produces byte-identical contigs (deterministic, §5.2)");
+            var permuted = SequenceAssembler.AssembleDeBruijn(reads.OrderBy(_ => rng.Next()).ToList(), prm).Contigs;
+            permuted.Should().Equal(a, "read order cannot change the distinct k-mer set");
+        }
+    }
+
+    // Unitigs partition the distinct k-mer set (Chikhi et al. 2016; BA3M: every edge lies on
+    // exactly one maximal non-branching path): over all contigs every distinct input k-mer is
+    // spelled exactly once and no other k-mer appears.
+    [Test]
+    [CancelAfter(30_000)]
+    public void AssembleDeBruijn_RandomReads_ContigsPartitionDistinctKmers()
+    {
+        var rng = new Random(143_006);
+        for (int trial = 0; trial < 600; trial++)
+        {
+            int k = rng.Next(2, 9);
+            var reads = Enumerable.Range(0, rng.Next(1, 7))
+                                  .Select(_ => RandomRead(rng, rng.Next(0, k + 14)))
+                                  .ToList();
+            var prm = new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1);
+
+            var expected = reads.SelectMany(r => Enumerable.Range(0, Math.Max(0, r.Length - k + 1)).Select(i => r.Substring(i, k)))
+                                .Distinct().OrderBy(s => s, StringComparer.Ordinal).ToList();
+            var spelled = SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs
+                .SelectMany(c => Enumerable.Range(0, c.Length - k + 1).Select(i => c.Substring(i, k)))
+                .OrderBy(s => s, StringComparer.Ordinal).ToList();
+
+            spelled.Should().Equal(expected, "each distinct k-mer lies on exactly one maximal non-branching path");
         }
     }
 

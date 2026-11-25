@@ -295,7 +295,7 @@ public class AnnotationProperties
 
     #endregion
 
-    #region ANNOT-PROM-001: R: position ≥ 0; P: contains -10/-35 box; M: lower score threshold → ≥ promoters
+    #region ANNOT-PROM-001: R: position ≥ 0; P: consensus pair → both boxes; score = 1 − d/6
 
     /// <summary>
     /// INV-1: Promoter motif positions are within sequence bounds.
@@ -329,58 +329,54 @@ public class AnnotationProperties
     }
 
     /// <summary>
-    /// INV-3: Promoter motif score ∈ [0, 1].
-    /// Evidence: Score = sum(matched position probabilities) / sum(all consensus probabilities).
-    /// Maximum is 1.0 for full consensus match.
-    /// Source: Harley &amp; Reynolds (1987).
+    /// INV-3: Promoter box score = 1 − d/6 with d = Hamming distance to the consensus (TTGACA / TATAAT), d ≤ 2 by
+    /// default, so score ∈ {4/6, 5/6, 1}.
+    /// Source: Harley &amp; Reynolds (1987) consensus; FindPromoterMotifs delegates to MotifFinder.FindSigma70Promoters.
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property FindPromoterMotifs_Score_InRange()
+    public Property FindPromoterMotifs_Score_IsConsensusIdentity()
     {
         return Prop.ForAll(DnaArbitrary(50), seq =>
         {
             var motifs = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
-            return motifs.All(m => m.score >= 0.0 && m.score <= 1.0 + 1e-9)
-                .Label("Promoter motif score must be in [0, 1]");
+            return motifs.All(m =>
+                {
+                    string consensus = m.type == "-35 box" ? "TTGACA" : "TATAAT";
+                    int d = m.sequence.Zip(consensus).Count(p => p.First != p.Second);
+                    return d <= 2 && m.score == (6 - d) / 6.0;
+                })
+                .Label("Promoter box score must be 1 - d/6 with d <= 2");
         });
     }
 
     /// <summary>
-    /// INV-4: A sequence containing the full -10 box consensus TATAAT must find at least one -10 box.
-    /// Evidence: Exact match of the consensus must be detected with score = 1.0.
-    /// Source: Wikipedia "Promoter (genetics)" — -10 box (Pribnow box) consensus is TATAAT.
+    /// INV-4: A consensus promoter (TTGACA, 17-bp spacer, TATAAT) yields both boxes with score 1.0.
+    /// Source: Harley &amp; Reynolds (1987) — consensus TTGACA / TATAAT, 17 ± 1 bp spacer in 92 % of promoters.
     /// </summary>
     [Test]
     [Category("Property")]
     public void FindPromoterMotifs_FullConsensus_IsDetected()
     {
-        string seq = "GCGCGCTATAAT" + "GCGCGCGCGC";
+        string seq = "GCGCGCTTGACA" + new string('C', 17) + "TATAAT" + "GCGCGCGCGC";
         var motifs = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
 
-        var minus10 = motifs.Where(m => m.type == "-10 box" && m.sequence == "TATAAT").ToList();
-        Assert.That(minus10, Is.Not.Empty,
-            "Full -10 box consensus TATAAT must be detected");
-        Assert.That(minus10.First().score, Is.EqualTo(1.0).Within(0.001),
-            "Full consensus match should have score = 1.0");
+        Assert.That(motifs, Is.EqualTo(new[]
+        {
+            (6, "-35 box", "TTGACA", 1.0),
+            (29, "-10 box", "TATAAT", 1.0),
+        }));
     }
 
     /// <summary>
-    /// INV-5: A sequence containing the full -35 box consensus TTGACA must find at least one -35 box.
-    /// Evidence: Exact match of the consensus must be detected with score = 1.0.
-    /// Source: Wikipedia "Promoter (genetics)" — -35 box consensus is TTGACA.
+    /// INV-5: A −35 consensus without a −10 partner in the 15–21 bp window is not a promoter box.
+    /// Source: Harley &amp; Reynolds (1987) — a σ70 promoter is the −35/−10 pair.
     /// </summary>
     [Test]
     [Category("Property")]
-    public void FindPromoterMotifs_Full35Consensus_IsDetected()
+    public void FindPromoterMotifs_Full35ConsensusWithoutPartner_NotReported()
     {
         string seq = "GCGCGCTTGACA" + "GCGCGCGCGC";
-        var motifs = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
-
-        var minus35 = motifs.Where(m => m.type == "-35 box" && m.sequence == "TTGACA").ToList();
-        Assert.That(minus35, Is.Not.Empty,
-            "Full -35 box consensus TTGACA must be detected");
-        Assert.That(minus35.First().score, Is.EqualTo(1.0).Within(0.001),
-            "Full consensus match should have score = 1.0");
+        Assert.That(GenomeAnnotator.FindPromoterMotifs(seq), Is.Empty);
     }
 
     /// <summary>

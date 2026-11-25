@@ -752,64 +752,62 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Finds promoter motifs (-10 and -35 boxes in bacterial promoters).
-    /// Scoring uses E. coli position-specific nucleotide occurrence probabilities.
-    /// Source: Wikipedia "Promoter (genetics)" / Harley &amp; Reynolds (1987) NAR 15(5):2343-2361.
+    /// Finds bacterial σ70 promoter boxes: the −35 and −10 hexamers of every −35/−10 pair returned by the canonical
+    /// <see cref="Seqeron.Genomics.Analysis.MotifFinder.FindSigma70Promoters"/> (Harley &amp; Reynolds 1987: consensus
+    /// TTGACA / TATAAT, spacer 15–21 bp, 17 ± 1 bp in 92 % of promoters), with that method's defaults
+    /// (≤ 2 mismatches per box, spacer 15–21, given strand).
     /// </summary>
+    /// <remarks>See <see cref="FindPromoterMotifs(string, int, int, int, int)"/>.</remarks>
+    /// <param name="dnaSequence">DNA sequence (A/C/G/T, case-insensitive).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="dnaSequence"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="dnaSequence"/> contains a non-ACGT character.</exception>
     public static IEnumerable<(int position, string type, string sequence, double score)> FindPromoterMotifs(
         string dnaSequence)
+        => FindPromoterMotifs(dnaSequence, maxMismatches35: 2, maxMismatches10: 2, minSpacer: 15, maxSpacer: 21);
+
+    /// <summary>
+    /// Finds bacterial σ70 promoter boxes: the −35 and −10 hexamers of every −35/−10 pair returned by the canonical
+    /// <see cref="Seqeron.Genomics.Analysis.MotifFinder.FindSigma70Promoters"/> (Harley &amp; Reynolds 1987, NAR
+    /// 15:2343: consensus TTGACA / TATAAT, 17 ± 1 bp spacer in 92 % of promoters).
+    /// </summary>
+    /// <remarks>
+    /// <para>A box is reported only when it is part of at least one −35/−10 pair whose hexamers lie within the
+    /// mismatch limits of their consensus and whose spacer is <paramref name="minSpacer"/> … <paramref name="maxSpacer"/>
+    /// bp; a box shared by several pairs is reported once. Forward strand only (the tuple carries no strand); for
+    /// pairs, strand and spacer use <see cref="Seqeron.Genomics.Analysis.MotifFinder.FindSigma70Promoters"/>
+    /// directly.</para>
+    /// <para><c>score</c> = fraction of the six consensus positions matched, 1 − d/6, where d is the box's Hamming
+    /// distance to its consensus as reported by <c>FindSigma70Promoters</c>. It measures consensus identity only, not
+    /// promoter strength; for a published quantitative promoter score (free energy, transcription rate) use
+    /// <see cref="Seqeron.Genomics.Analysis.MotifFinder.PredictSigma70Promoters"/> (Promoter Calculator v1.0).</para>
+    /// <para>Output: 0-based start, type <c>"-35 box"</c> / <c>"-10 box"</c>, the hexamer, score; ordered by
+    /// position, then −35 before −10.</para>
+    /// </remarks>
+    /// <param name="dnaSequence">DNA sequence (A/C/G/T, case-insensitive).</param>
+    /// <param name="maxMismatches35">Maximum mismatches of the −35 box to TTGACA (0 … 6).</param>
+    /// <param name="maxMismatches10">Maximum mismatches of the −10 box to TATAAT (0 … 6).</param>
+    /// <param name="minSpacer">Minimum spacer length (bp).</param>
+    /// <param name="maxSpacer">Maximum spacer length (bp).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="dnaSequence"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="dnaSequence"/> contains a non-ACGT character.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Invalid mismatch or spacer limits (see <c>FindSigma70Promoters</c>).</exception>
+    public static IEnumerable<(int position, string type, string sequence, double score)> FindPromoterMotifs(
+        string dnaSequence, int maxMismatches35, int maxMismatches10, int minSpacer, int maxSpacer)
     {
-        // Probability-weighted scoring from E. coli nucleotide occurrence data.
-        // Source: Wikipedia "Promoter (genetics)" — Probability of occurrence of each nucleotide
-        // Reference: Harley & Reynolds (1987) NAR 15(5):2343-2361
-        //
-        // -35 box consensus TTGACA: T(69%) T(79%) G(61%) A(56%) C(54%) A(54%) → total 3.73
-        // -10 box consensus TATAAT: T(77%) A(76%) T(60%) A(61%) A(56%) T(82%) → total 4.12
-        //
-        // Score = sum(matched position probabilities) / sum(all 6 consensus probabilities)
-        // Variants: full consensus, prefix-5bp, suffix-5bp, prefix-4bp.
+        ArgumentNullException.ThrowIfNull(dnaSequence);
+        const int box = 6;
 
-        // -35 box variants with probability-weighted scores
-        (string motif, double score)[] minus35Motifs =
+        var candidates = Seqeron.Genomics.Analysis.MotifFinder.FindSigma70Promoters(
+            new DnaSequence(dnaSequence), maxMismatches35, maxMismatches10, minSpacer, maxSpacer);
+
+        var boxes = new SortedSet<(int position, int order, string type, string sequence, double score)>();
+        foreach (var c in candidates)
         {
-            ("TTGACA", 1.000),  // Pos 1–6: 3.73 / 3.73
-            ("TTGAC",  0.855),  // Pos 1–5: (0.69+0.79+0.61+0.56+0.54) / 3.73
-            ("TGACA",  0.815),  // Pos 2–6: (0.79+0.61+0.56+0.54+0.54) / 3.73
-            ("TTGA",   0.710),  // Pos 1–4: (0.69+0.79+0.61+0.56) / 3.73
-        };
-
-        // -10 box (Pribnow box) variants with probability-weighted scores
-        (string motif, double score)[] minus10Motifs =
-        {
-            ("TATAAT", 1.000),  // Pos 1–6: 4.12 / 4.12
-            ("TATAA",  0.801),  // Pos 1–5: (0.77+0.76+0.60+0.61+0.56) / 4.12
-            ("ATAAT",  0.813),  // Pos 2–6: (0.76+0.60+0.61+0.56+0.82) / 4.12
-            ("TATA",   0.665),  // Pos 1–4: (0.77+0.76+0.60+0.61) / 4.12
-        };
-
-        string seq = dnaSequence.ToUpperInvariant();
-
-        foreach (var (motif, score) in minus35Motifs)
-        {
-            for (int i = 0; i <= seq.Length - motif.Length; i++)
-            {
-                if (seq.Substring(i, motif.Length) == motif)
-                {
-                    yield return (i, "-35 box", motif, score);
-                }
-            }
+            boxes.Add((c.Minus35Start, 0, "-35 box", c.Minus35, (box - c.Mismatches35) / (double)box));
+            boxes.Add((c.Minus10Start, 1, "-10 box", c.Minus10, (box - c.Mismatches10) / (double)box));
         }
 
-        foreach (var (motif, score) in minus10Motifs)
-        {
-            for (int i = 0; i <= seq.Length - motif.Length; i++)
-            {
-                if (seq.Substring(i, motif.Length) == motif)
-                {
-                    yield return (i, "-10 box", motif, score);
-                }
-            }
-        }
+        return boxes.Select(b => (b.position, b.type, b.sequence, b.score)).ToList();
     }
 
     /// <summary>

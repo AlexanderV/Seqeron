@@ -6,21 +6,20 @@
 | Test Unit ID | ASSEMBLY-DBG-001 |
 | Related Projects | Seqeron.Genomics.Alignment |
 | Implementation Status | Reference |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-11-25 |
 
 ## 1. Overview
 
-De Bruijn graph (DBG) assembly is a *de novo* genome-assembly paradigm that reconstructs
+De Bruijn graph (DBG) assembly is a *de novo* genome-assembly paradigm that builds
 contiguous sequences (contigs) from short reads by decomposing them into fixed-length
-k-mers. Every distinct (k-1)-mer becomes a node and every input k-mer becomes a directed
-edge from its prefix (k-1)-mer to its suffix (k-1)-mer, producing a directed multigraph
-[1][3]. Assembly is then framed as an **Eulerian walk** — a walk that traverses every
-edge exactly once — whose node sequence spells out the genome [1][2]. Unlike the
-overlap/Hamiltonian-path formulation (NP-complete), an Eulerian walk can be found in time
-linear in the number of edges, which is what makes the DBG formulation attractive [2][3].
-The reconstruction is exact when the Eulerian walk is unique (no repeated (k-1)-mer); when
-a (k-1)-mer repeats, multiple Eulerian walks exist and only one is the true genome, so the
-emitted contig is not guaranteed to be the original sequence [1].
+k-mers. Every distinct (k-1)-mer becomes a node and every k-mer becomes a directed edge
+from its prefix (k-1)-mer to its suffix (k-1)-mer [1][3][4]. Because real reads leave gaps
+in k-mer coverage, overlap each other and contain repeats, a single Eulerian walk through
+the whole graph is neither guaranteed to exist nor unique [1]; assemblers therefore output
+**contigs — the strings spelled by the maximal non-branching paths (unitigs) of the
+graph**, which "must be present in any assembly with a given k-mer composition" [4]. Velvet
+merges exactly these chains ("whenever a node A has only one outgoing arc that points to
+another node B that has only one ingoing arc, the two nodes are merged") [5].
 
 ## 2. Scientific / Formal Basis
 
@@ -40,42 +39,69 @@ is an **edge** whose endpoints are its left (k-1)-mer `r[i..i+k−1]` (prefix) a
 `G(V, E)` is a directed **multigraph**: a k-mer that occurs more than once contributes a
 repeated edge [1].
 
-A node `v` is **balanced** if `indegree(v) = outdegree(v)` and **semi-balanced** if
-`|indegree(v) − outdegree(v)| = 1` [1][2]. **Euler's theorem** (Jones & Pevzner, Theorem
-8.1): a connected graph is Eulerian (has an Eulerian cycle) iff every node is balanced [2].
-**Theorem 8.2**: a connected graph has an Eulerian path iff it has at most two
-semi-balanced nodes and all others are balanced [2]. With perfect, even-coverage
-sequencing of a linear genome the DBG construction satisfies Theorem 8.2: the genome's
-first (k-1)-mer has one extra outgoing edge, the last has one extra incoming edge, and all
-other nodes are balanced [1].
-
-The genome is recovered from an Eulerian walk `p = (p₀, p₁, …, p_m)` by spelling:
+A node is **1-in-1-out** when `indegree(v) = outdegree(v) = 1`. A path is
+**non-branching** when all its internal nodes are 1-in-1-out; a **maximal non-branching
+path** cannot be extended, i.e. its first and last nodes are not 1-in-1-out. A connected
+component consisting only of 1-in-1-out nodes is an **isolated cycle**; the book's
+`MaximalNonBranchingPaths` emits each isolated cycle as an additional path [4]:
 
 ```
-genome = p₀ · (last char of p₁) · (last char of p₂) · … · (last char of p_m)
+MaximalNonBranchingPaths(Graph)
+  Paths ← empty list
+  for each node v in Graph
+    if v is not a 1-in-1-out node and out(v) > 0
+      for each outgoing edge (v, w) from v
+        NonBranchingPath ← the path consisting of the single edge (v, w)
+        while w is a 1-in-1-out node
+          extend NonBranchingPath by the outgoing edge (w, u) from w;  w ← u
+        add NonBranchingPath to Paths
+  for each isolated cycle Cycle in Graph
+    add Cycle to Paths
+  return Paths
+```
+
+A path `p = (p₀, p₁, …, p_m)` is spelled as
+
+```
+contig = p₀ · (last char of p₁) · (last char of p₂) · … · (last char of p_m)
 ```
 
 i.e. emit the first (k-1)-mer in full, then append the final character of each subsequent
-node [1].
+node [1][4].
+
+**Multiplicity.** `BuildDeBruijnGraph` builds the textbook `DeBruijn(Patterns)`
+multigraph of a k-mer *composition*, in which a repeated k-mer is a repeated edge [1][4].
+Read data cannot distinguish a genomic repeat from coverage, so the assembler uses the set
+of **distinct** k-mers: "the fundamental data structure in the de Bruijn graph is based on
+k-mers, not reads, thus high redundancy is naturally handled by the graph without affecting
+the number of nodes" (Velvet [5]); unitigs are defined over the k-mer set (BCALM 2 /
+Chikhi et al. 2016 [6]).
+
+**Strands.** Optionally each k-mer is entered with its reverse complement ("each k-mer is
+recorded simultaneously to its reverse complement ... this ensures that overlaps between
+reads from opposite strands are taken into account" [5]); the resulting graph is
+reverse-complement symmetric, so each unitig's reverse complement is also a unitig and each
+such pair is reported once.
 
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | Every edge runs from the (k-1)-prefix to the (k-1)-suffix of some input k-mer | construction rule [1] |
-| INV-02 | Total #edges = total #k-mers chopped from all reads (multigraph) | one edge per k-mer occurrence [1] |
+| INV-02 | `BuildDeBruijnGraph`: total #edges = total #k-mers chopped from all reads (multigraph) | one edge per k-mer occurrence [1] |
 | INV-03 | A read of length < k contributes zero edges | the chop bound `i ∈ [0, |r|−k]` is empty [1] |
-| INV-04 | If a component's Eulerian walk is unique, the spelled contig is the source genome | spelling rule + Theorem 8.2 [1][2] |
-| INV-05 | Every input k-mer's string is a substring of some emitted contig | each k-mer is an edge traversed by the walk [1] |
+| INV-04 | A sequence with no repeated (k-1)-mer is a single simple path ⇒ one contig equal to the sequence (for any read coverage of it) | maximal non-branching path [4] + distinct k-mers [5] |
+| INV-05 | Every distinct input k-mer lies in exactly one contig and no contig contains a k-mer absent from the input (unitigs partition the k-mer set) | every edge lies on exactly one maximal non-branching path [4][6] |
 | INV-06 | `TotalLength` = Σ contig lengths and `LongestContig` = max contig length | statistics definition |
+| INV-07 | Contigs do not depend on read order or on how many times a k-mer is covered | distinct k-mer set, ordinal ordering |
 
 ### 2.5 Comparison with Related Methods
 
-| Aspect | De Bruijn (Eulerian) | Overlap-Layout-Consensus (Hamiltonian) |
-|--------|----------------------|-----------------------------------------|
+| Aspect | De Bruijn (unitigs) | Overlap-Layout-Consensus (Hamiltonian) |
+|--------|---------------------|-----------------------------------------|
 | Graph node | (k-1)-mer | read |
 | Graph edge | k-mer | pairwise suffix-prefix overlap |
-| Layout problem | Eulerian path — linear time in \|E\| [2][3] | Hamiltonian path — NP-complete [3] |
+| Contig definition | maximal non-branching path — linear time in \|E\| [4] | greedy layout path (Hamiltonian path NP-complete) [3] |
 | Scales with | k-mer diversity | number of reads (all-pairs overlap) |
 
 ## 3. Contract
@@ -84,56 +110,62 @@ node [1].
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `reads` | `IReadOnlyList<string>` | required | input reads | null/empty → empty result; reads of length < k skipped |
-| `parameters.KmerSize` (k) | `int` | 31 | k-mer length | must be ≥ 2 (`BuildDeBruijnGraph` throws `ArgumentOutOfRangeException` below 2) |
+| `reads` | `IReadOnlyList<string>` | required | input reads | null/empty → empty result; null reads and reads of length < k skipped |
+| `parameters` | `AssemblyParameters?` | `DefaultParameters` | null → k = 31, MinContigLength 100 | `new AssemblyParameters()` zero-initialises the struct — pass null or `DefaultParameters` |
+| `parameters.KmerSize` (k) | `int` | 31 | k-mer length | ≥ 2, else `ArgumentOutOfRangeException` (checked before the reads) |
 | `parameters.MinContigLength` | `int` | 100 | minimum emitted contig length | contigs shorter than this are discarded |
+| `includeReverseComplement` | `bool` | false (overload) | add the reverse complement of every k-mer | odd k recommended (no k-mer is its own reverse complement) |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `Contigs` | `IReadOnlyList<string>` | one spelled superstring per weakly-connected component, after length filtering |
+| `Contigs` | `IReadOnlyList<string>` | upper-case spelled maximal non-branching paths and isolated cycles, after length filtering |
 | `TotalReads` | `int` | number of input reads |
-| `N50` / `LongestContig` / `TotalLength` | numeric | assembly statistics over the emitted contigs |
+| `N50` / `LongestContig` / `TotalLength` | numeric | `CalculateStats` over the emitted contigs (ASSEMBLY-STATS-001) |
 
 `BuildDeBruijnGraph(reads, k)` returns the out-adjacency multimap
-`Dictionary<string, List<string>>` from each (k-1)-mer to its successor (k-1)-mers.
+`Dictionary<string, List<string>>` of the k-mer composition (case preserved).
+`FindMaximalNonBranchingPaths(graph)` returns the paths (node lists) of any out-adjacency
+(multi)graph, e.g. Rosalind BA3M/BA3K.
 
 ### 3.3 Preconditions and Validation
 
-Null or empty `reads` returns an empty `AssemblyResult`. `BuildDeBruijnGraph` returns an
-empty graph for null/empty reads and throws `ArgumentOutOfRangeException` when `k < 2`.
-Matching is case-sensitive (k-mers are taken verbatim); no reverse-complement strand is
-considered. Reads shorter than k are skipped (INV-03).
+Null or empty `reads` returns an empty `AssemblyResult`. k < 2 throws
+`ArgumentOutOfRangeException` in both `AssembleDeBruijn` and `BuildDeBruijnGraph`.
+`AssembleDeBruijn` counts k-mers case-insensitively through the canonical
+`SequenceExtensions.CountKmersSpan` (upper-case keys); `BuildDeBruijnGraph` takes k-mers
+verbatim. `FindMaximalNonBranchingPaths(null)` throws `ArgumentNullException`.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. **Chop:** for each read, emit every k-mer `r[i..i+k]`.
-2. **Build graph:** add a directed edge from each k-mer's (k-1)-prefix to its (k-1)-suffix
-   (multigraph; repeated k-mers → repeated edges).
-3. **Find components:** split the graph into weakly-connected components.
-4. **Eulerian walk per component:** start at the semi-balanced source (out−in = 1) if one
-   exists, else any node; traverse every edge exactly once (Hierholzer).
-5. **Spell:** emit the first node, then the last character of each subsequent node.
+1. **Distinct k-mers:** for each read of length ≥ k, collect its k-mers
+   (`CountKmersSpan`, upper-cased); optionally add each k-mer's reverse complement.
+2. **Build graph:** one edge per distinct k-mer from its (k-1)-prefix to its (k-1)-suffix;
+   k-mers are inserted in ordinal order.
+3. **Unitigs:** `FindMaximalNonBranchingPaths` (BA3M, above), including isolated cycles.
+4. **Spell:** first node, then the last character of each subsequent node.
+5. **Strand pairs (option only):** skip a path whose first k-mer is already covered by an
+   emitted path or its reverse complement; emit the ordinally smaller of the spelled path and
+   its reverse complement.
 6. **Filter:** keep contigs of length ≥ `MinContigLength`; compute statistics.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The graph is stored as an out-adjacency multimap (`Dictionary<string, List<string>>`),
-keyed by (k-1)-mer; edge multiplicity is preserved by list duplication. Hierholzer's
-algorithm uses a per-node cursor into this list so each edge is consumed exactly once.
-Component order and the start node within a balanced component are chosen as the
-lexicographically smallest node, making the output deterministic and order-independent.
+Start nodes are visited in ordinal order and their out-edges in stored (ordinal) order; an
+isolated cycle starts and ends at its ordinally smallest node. A 1-in-1-out node has a single
+out-edge, so "visited" is tracked per 1-in-1-out node. Output order is therefore
+deterministic and independent of read order.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `BuildDeBruijnGraph` | O(N·k) | O(N·k) | N = total read length; k-mer substring extraction |
-| Eulerian walk (Hierholzer) | O(\|E\|) | O(\|E\|) | \|E\| = number of k-mers [2] |
-| `AssembleDeBruijn` (overall) | O(N·k) | O(N·k) | dominated by graph construction |
+| k-mer collection | O(N·k) | O(D·k) | N = total read length, D = distinct k-mers |
+| graph build | O(D log D · k) | O(D·k) | ordinal sort for determinism |
+| `FindMaximalNonBranchingPaths` | O(\|V\| log \|V\| + \|E\|) | O(\|V\| + \|E\|) | sorted node set |
 
 ## 5. Implementation Notes
 
@@ -141,54 +173,38 @@ lexicographically smallest node, making the output deterministic and order-indep
 
 **Implementation location:** [SequenceAssembler.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs)
 
-- `SequenceAssembler.AssembleDeBruijn(reads, parameters)`: builds the DBG and reconstructs
-  one contig per connected component via an Eulerian walk.
-- `SequenceAssembler.BuildDeBruijnGraph(reads, k)`: public; returns the (k-1)-mer
-  out-adjacency multigraph.
-- `SequenceAssembler.ReconstructContigs` / `SpellEulerianWalk` (private): component
-  detection + Hierholzer Eulerian walk + spelling.
+- `SequenceAssembler.AssembleDeBruijn(reads, parameters)` and
+  `AssembleDeBruijn(reads, parameters, includeReverseComplement)`.
+- `SequenceAssembler.BuildDeBruijnGraph(reads, k)`: k-mer-composition multigraph.
+- `SequenceAssembler.FindMaximalNonBranchingPaths(graph)`: BA3M.
+- Canonical helpers used: `SequenceExtensions.CountKmersSpan` (k-mer counting),
+  `SequenceExtensions.TryGetReverseComplement` (reverse complement).
+- MCP: `assemble_de_bruijn` (Alignment server) delegates to the overload above.
 
 ### 5.2 Current Behavior
 
-This is not a substring-search / pattern-matching unit — it constructs and traverses a
-graph over k-mers rather than locating occurrences of a query in a text — so the
-repository suffix tree (`SuffixTree`) is **not applicable** and is not used.
-
-Walk selection among multiple Eulerian walks is deterministic (lexicographically smallest
-start node, edges consumed in insertion order). When the Eulerian walk is unique the
-output equals the source genome; when it is not (a repeated (k-1)-mer), the emitted contig
-is one valid Eulerian spelling, not necessarily the original sequence. A graph that is
-disconnected (coverage gaps) yields one contig per component.
+Not a substring-search unit, so the repository suffix tree is not applicable. A repeat
+longer than k-2 creates branch nodes, so repeated regions become separate contigs; a
+self-loop (homopolymer / tandem repeat of period 1) makes its node branching.
 
 ### 5.3 Conformance to Theory / Spec
 
-**Implemented (verbatim from the cited theory/spec):**
+**Implemented (verbatim from the cited theory/spec):** nodes = (k-1)-mers, edges = k-mers
+[1]; contigs = maximal non-branching paths incl. isolated cycles [4]; distinct k-mers and
+reverse-complement k-mers as in Velvet [5].
 
-- Nodes = (k-1)-mers, edges = k-mers, prefix→suffix direction, multigraph [1].
-- Eulerian-walk reconstruction by spelling `p₀ + last-char(p_i)` [1].
-- Hierholzer linear-time Eulerian traversal; semi-balanced start per Theorem 8.2 [1][2].
-
-**Intentionally simplified:**
-
-- Walk selection among multiple Eulerian walks: deterministic single choice;
-  **consequence:** for inputs with unresolvable repeats the contig may differ from the true
-  genome (any of several Eulerian walks is "correct" per the model) [1].
-- No error correction, bubble/tip removal, or coverage-based edge weighting;
-  **consequence:** real (errored, uneven-coverage) data produces non-Eulerian or fragmented
-  graphs and therefore fragmented or mis-assembled output [1].
-
-**Not implemented:**
-
-- Read error correction, repeat resolution via paired-end/long reads, reverse-complement
-  strand handling; **users should rely on:** production assemblers (SPAdes, Velvet) for
-  real sequencing data.
+**Not implemented:** read error correction (see `ErrorCorrectReads`, ASSEMBLY-CORRECT-001),
+tip / bubble removal (Velvet Tour Bus), coverage cut-offs, and repeat resolution with
+paired-end or long reads; **users should rely on:** production assemblers (SPAdes, Velvet)
+for real sequencing data.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Walk selection among multiple Eulerian walks | Assumption | repeat-containing inputs may not reconstruct the true genome | accepted | sources do not prescribe a walk; deterministic choice (ASSUMPTION-1) |
-| 2 | Empty/null reads → empty result | Assumption | no exception on empty input | accepted | trivial identity (ASSUMPTION-2) |
+| 1 | Empty/null reads → empty result | Assumption | no exception on empty input | accepted | ASSUMPTION-2 |
+| 2 | Case-insensitive k-mers, upper-case contigs | Convention | soft-masked bases join | accepted | canonical counter; Velvet stores 2-bit bases |
+| 3 | Strand handling opt-in | Option | default is single-stranded (textbook) | accepted | Velvet default is double-stranded |
 
 ## 6. Edge Cases and Limitations
 
@@ -196,49 +212,47 @@ disconnected (coverage gaps) yields one contig per component.
 
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
-| Empty / null reads | empty `AssemblyResult`; empty graph | trivial identity (ASSUMPTION-2) |
-| Read length < k | contributes no edges | chop bound is empty (INV-03) [1] |
-| `k < 2` | `BuildDeBruijnGraph` throws `ArgumentOutOfRangeException` | (k-1)-mer nodes must be non-empty [1] |
-| Repeated k-mer | multiedge in the graph | multigraph definition [1] |
-| Disconnected graph (coverage gap) | one contig per component | components are individually Eulerian [1] |
+| Empty / null reads | empty `AssemblyResult`; empty graph | ASSUMPTION-2 |
+| Read length < k | contributes no k-mers | chop bound is empty (INV-03) [1] |
+| `k < 2` | `ArgumentOutOfRangeException` | (k-1)-mer nodes must be non-empty [1] |
+| Duplicate reads / overlapping reads | shared k-mers counted once | Velvet [5] |
+| Isolated cycle | emitted as one contig starting at its smallest node | BA3M [4] |
+| Disconnected graph (coverage gap) | separate contigs | [1][4] |
 
 ### 6.2 Limitations
 
-Reconstruction is exact only for perfect-coverage, error-free reads whose Eulerian walk is
-unique. Repeats ≥ k-1 create multiple valid walks (only one is the true genome); coverage
-gaps fragment the assembly; sequencing errors and uneven coverage make the graph
-non-Eulerian [1]. This is a reference implementation for teaching the Eulerian-path
-formulation, not a production assembler.
+Contigs stop at every branch node, so repeats ≥ k-1, sequencing errors (tips, bubbles) and
+heterozygosity fragment the assembly; no error-graph cleaning is done.
 
 ## 7. Examples and Related Material
 
 ### 7.1 Worked Example
 
-**API usage example:**
-
 ```csharp
-var reads = new[] { "AAABBBA" };
 var result = SequenceAssembler.AssembleDeBruijn(
-    reads,
+    new[] { "AAABBBA" },
     new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1));
-// result.Contigs[0] == "AAABBBA"
+// result.Contigs == ["AAA", "AABB", "BBA", "BBB"]
 ```
 
-**Numerical / biological walk-through:**
-
-`AAABBBA`, k = 3. 3-mers: `AAA, AAB, ABB, BBB, BBA`. Nodes (2-mers): `AA, AB, BB, BA`.
-Edges: `AA→AA, AA→AB, AB→BB, BB→BB, BB→BA`. Degrees: AA (in 1, out 2 — source), BA (in 1,
-out 0 — sink), AB and BB balanced ⇒ exactly two semi-balanced nodes ⇒ Eulerian. Walk
-`AA → AA → AB → BB → BB → BA`; spelling `AA + A + B + B + B + A = AAABBBA` [1].
+`AAABBBA`, k = 3. Edges: `AA→AA, AA→AB, AB→BB, BB→BB, BB→BA`. AA (in 1, out 2) and BB
+(in 2, out 2) are not 1-in-1-out, AB is. Paths: `AA→AA` (AAA), `AA→AB→BB` (AABB),
+`BB→BA` (BBA), `BB→BB` (BBB). Overlapping reads `ATGGCGT`, `GGCGTGCA` (k = 4) give the single
+contig `ATGGCGTGCA`. Rosalind BA3K sample (k-mer multiset `ATG ATG TGT TGG CAT GGA GAT AGA`)
+through `FindMaximalNonBranchingPaths(BuildDeBruijnGraph(...))` gives
+`AGA ATG ATG CAT GAT TGGA TGT`.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAssembler_AssembleDeBruijn_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_AssembleDeBruijn_Tests.cs) — covers `INV-01`…`INV-06`
+- Tests: [SequenceAssembler_AssembleDeBruijn_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_AssembleDeBruijn_Tests.cs)
 - Evidence: [ASSEMBLY-DBG-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-DBG-001-Evidence.md)
 - Related algorithms: [Overlap_Layout_Consensus](../Assembly/Overlap_Layout_Consensus.md)
 
 ## 8. References
 
 1. Langmead B. De Bruijn Graph assembly (lecture notes, Johns Hopkins University). https://www.cs.jhu.edu/~langmea/resources/lecture_notes/assembly_dbg.pdf
-2. Jones NC, Pevzner PA. 2004. *An Introduction to Bioinformatics Algorithms*. MIT Press. ISBN 0-262-10106-8 (Theorems 8.1, 8.2; §8.8-8.9). https://eclass.uoa.gr/modules/document/file.php/NURS565/BioinformaticsAlgsBook.pdf
+2. Jones NC, Pevzner PA. 2004. *An Introduction to Bioinformatics Algorithms*. MIT Press. ISBN 0-262-10106-8 (Theorems 8.1, 8.2).
 3. Compeau PEC, Pevzner PA, Tesler G. 2011. How to apply de Bruijn graphs to genome assembly. *Nature Biotechnology* 29(11):987-991. https://doi.org/10.1038/nbt.2023
+4. Compeau P, Pevzner P. *Bioinformatics Algorithms: An Active Learning Approach*, ch.3; Rosalind BA3K (Generate Contigs from a Collection of Reads) https://rosalind.info/problems/ba3k/ and BA3M (Generate All Maximal Non-Branching Paths in a Graph) https://rosalind.info/problems/ba3m/
+5. Zerbino DR, Birney E. 2008. Velvet: algorithms for de novo short read assembly using de Bruijn graphs. *Genome Research* 18:821-829. https://doi.org/10.1101/gr.074492.107
+6. Chikhi R, Limasset A, Medvedev P. 2016. Compacting de Bruijn graphs from sequencing data quickly and in low memory. *Bioinformatics* 32(12):i201-i208 (unitigs = maximal non-branching paths).

@@ -1,6 +1,6 @@
 # assemble_de_bruijn
 
-Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)-mer node graph, trace Eulerian walks per component into contigs, then report N50 / longest / total length.
+Assemble reads using a de Bruijn graph: shred reads into their distinct k-mers (case-insensitive; coverage adds no edges), build the (k-1)-mer node graph, output every maximal non-branching path (unitig) and isolated cycle as a contig, then report N50 / longest / total length. Optionally add reverse-complement k-mers (double-stranded reads).
 
 ## Overview
 
@@ -14,11 +14,11 @@ Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)
 
 ## Description
 
-Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)-mer node graph, trace Eulerian walks per component into contigs, then report N50 / longest / total length.
+Assemble reads using a de Bruijn graph: shred reads into their distinct k-mers (case-insensitive; coverage adds no edges), build the (k-1)-mer node graph, output every maximal non-branching path (unitig) and isolated cycle as a contig, then report N50 / longest / total length. Optionally add reverse-complement k-mers (double-stranded reads).
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.Alignment/SequenceAssembler.cs#L104](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L104)
+- Source: [Seqeron.Genomics.Alignment/SequenceAssembler.cs#L101](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L101)
 
 ## Input Schema
 
@@ -27,8 +27,9 @@ Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)
 | `reads` | array<string> | Yes | Input sequence reads. |
 | `minOverlap` | integer | No | Minimum overlap length (shared parameter; not the operative knob here). (default: 20) |
 | `minIdentity` | number | No | Minimum identity (shared parameter). (default: 0.9) |
-| `kmerSize` | integer | No | K-mer size used to build the de Bruijn graph. (default: 31) |
+| `kmerSize` | integer | No | K-mer size used to build the de Bruijn graph (>= 2; odd recommended with includeReverseComplement). (default: 31) |
 | `minContigLength` | integer | No | Minimum contig length to keep (bp). (default: 100) |
+| `includeReverseComplement` | boolean | No | Treat reads as double-stranded DNA: add each k-mer's reverse complement (Velvet). (default: false) |
 
 ## Output Schema
 
@@ -49,7 +50,7 @@ Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)
 
 ## Examples
 
-### Example 1: Two-read Eulerian walk
+### Example 1: Overlapping reads
 
 **Tool Call:**
 ```json
@@ -57,11 +58,11 @@ Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)
   "tool": "assemble_de_bruijn",
   "arguments": {
     "reads": [
-      "AAABBB",
-      "AABBBC"
+      "ATGGCGT",
+      "GGCGTGCA"
     ],
-    "kmerSize": 3,
-    "minContigLength": 3
+    "kmerSize": 4,
+    "minContigLength": 4
   }
 }
 ```
@@ -70,7 +71,7 @@ Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)
 ```json
 {
   "contigs": [
-    "AAABBBBBBC"
+    "ATGGCGTGCA"
   ],
   "totalReads": 2,
   "assembledReads": 2,
@@ -79,6 +80,11 @@ Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)
   "totalLength": 10
 }
 ```
+
+### Example 1b: Branching graph yields unitigs
+
+`AAABBB`, `AABBBC` at k = 3: the nodes AA and BB carry self-loops (not 1-in-1-out), so the
+contigs are `AAA`, `AABB`, `BBB`, `BBC` (totalLength 13, longestContig 4, n50 3).
 
 ### Example 2: Empty read set
 
@@ -108,9 +114,12 @@ Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)
 
 ## Worked Example
 
-With k=3 the graph nodes are 2-mers; the Eulerian walk over reads `AAABBB` and `AABBBC` spells the 10-bp superstring `AAABBBBBBC`.
+With k = 4 the reads `ATGGCGT` and `GGCGTGCA` share the 4-mers `GGCG` and `GCGT`, which are
+counted once; the distinct 4-mers form one non-branching path of 3-mer nodes that spells
+`ATGGCGTGCA` (Compeau & Pevzner BA3K/BA3M; Velvet). With `includeReverseComplement`, reads
+`GATTACAGGT` and `TAAGGACCTG` (k = 5) join into `GATTACAGGTCCTTA`.
 
 ## References
 
-- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAssembler.cs#L104](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L104)
+- Algorithm source: [Seqeron.Genomics.Alignment/SequenceAssembler.cs#L101](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L101)
 - Binding: [AlignmentTools.cs](../../../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment/Tools/AlignmentTools.cs)

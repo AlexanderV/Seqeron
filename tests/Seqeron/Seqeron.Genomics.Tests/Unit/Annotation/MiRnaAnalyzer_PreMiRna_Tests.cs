@@ -18,8 +18,9 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     // (all-G stems, all-C stems) are avoided as they are biologically
     // implausible and can mask implementation bugs.
 
-    // 25 bp Watson-Crick stem + 7 nt loop = 57 nt
-    // maxStem = 57/2 - 5 = 23 → effective stem=23, effective loop=11
+    // 25 bp Watson-Crick stem + 7 nt loop = 57 nt. The first two loop bases also pair with the last
+    // two (G25·U31 wobble, A26-U30), so the uninterrupted consecutive stem is 27 bp closing a 3-nt
+    // "AAU" loop — exactly the ViennaRNA 2.8 / RNA-STRUCT-001 MFE structure of this sequence.
     private const string ValidHairpin57 =
         "GCAUAGCUAGCUAGCUAGCUAGCUA" +   // 25 nt 5' stem (mixed)
         "GAAAUUU" +                       // 7 nt loop
@@ -147,14 +148,14 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void FindPreMiRnaHairpins_Position_WithinInputBounds()
     {
         // ValidHairpin57 is exactly 57 nt. Scanning with minHairpinLength=55:
-        // - i=0, len=57 → stem=23 (full hairpin) → accepted
-        // - i=1, len=55 → stem=22 (sub-window) → accepted
+        // - i=0, len=57 → stem=27, loop 3 (full hairpin) → accepted
+        // - i=1, len=55 → stem=26, loop 3 (sub-window, same register) → accepted
         // Other windows rejected (pairing breaks at position 0/1).
         var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Has.Count.EqualTo(2),
             "57 nt input with min=55 must yield exactly 2 candidates: " +
-            "full 57-nt window (stem=23) and 55-nt sub-window at offset 1 (stem=22)");
+            "full 57-nt window (stem=27) and 55-nt sub-window at offset 1 (stem=26)");
 
         // Primary result: full hairpin window
         Assert.Multiple(() =>
@@ -186,7 +187,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_MatureSequence_ExtractedFrom5PrimeArm()
     {
-        // For 57-nt hairpin with stem=23: mature = first min(22, 23) = 22 nt
+        // For 57-nt hairpin with stem=27: mature = first min(22, 27) = 22 nt
         // Hand-derived: first 22 chars of ValidHairpin57
         const string expectedMature = "GCAUAGCUAGCUAGCUAGCUAG";
 
@@ -200,7 +201,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         {
             Assert.That(pre.MatureSequence, Is.EqualTo(expectedMature),
                 "Mature must be the first 22 nt of 5' arm — " +
-                "matureEnd = min(matureLength=22, stemLength=23) = 22 (Bartel 2009)");
+                "matureEnd = min(matureLength=22, stemLength=27) = 22 (Bartel 2009)");
             Assert.That(pre.Sequence.StartsWith(pre.MatureSequence, StringComparison.Ordinal),
                 "Mature must come from 5' arm (beginning of hairpin sequence)");
         });
@@ -242,10 +243,11 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_Structure_MatchesStemLoopPattern()
     {
-        // For 57-nt hairpin with stem=23, loop=11:
-        // Structure = 23×'(' + 11×'.' + 23×')'
+        // For the 57-nt hairpin the uninterrupted stem is 27 bp (loop "AAU", 3 nt):
+        // Structure = 27×'(' + 3×'.' + 27×')' — identical to ViennaRNA 2.8 RNA.fold(ValidHairpin57)
+        // "(((((((((((((((((((((((((((...)))))))))))))))))))))))))))" (−48.40, Vienna's 0.1-kcal tables).
         const string expectedStructure =
-            "(((((((((((((((((((((((...........)))))))))))))))))))))))";
+            "(((((((((((((((((((((((((((...)))))))))))))))))))))))))))";
 
         var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
 
@@ -256,8 +258,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         Assert.Multiple(() =>
         {
             Assert.That(pre.Structure, Is.EqualTo(expectedStructure),
-                "Structure must be exactly 23×'(' + 11×'.' + 23×')' — " +
-                "stem=23 (maxStem=57/2-5=23), loop=57-2×23=11");
+                "Structure must be exactly 27×'(' + 3×'.' + 27×')' — the full consecutive stem " +
+                "(loop ≥ 3, NNDB minimum), = ViennaRNA MFE structure");
             Assert.That(pre.Structure.Length, Is.EqualTo(57),
                 "Structure length must equal sequence length (INV-5)");
         });
@@ -299,23 +301,23 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_FreeEnergy_IsNegative()
     {
-        // Hand-calculated from Turner 2004 NNDB parameters for ValidHairpin57:
-        //   stem=23, loop=11
-        //   Stacking (22 pairs): 6×GC/CG(-3.42) + 1×CA/GU(-2.11) + 1×AU/UA(-1.10)
-        //                      + 5×UA/AU(-1.33) + 5×AG/UC(-2.08) + 4×CU/GA(-2.08) = -49.10
-        //   Loop init(11):    +6.60 (NNDB hairpin loop table)
-        //   Terminal mismatch(CUAG, closing C-G): -1.00 (NNDB tm-parameters)
-        //   AU/GU penalties:  0.00 (both outer G-C and closing C-G are WC, not AU/GU)
-        //   Total: -43.50 kcal/mol
-        const double expectedEnergy = -43.50;
+        // Hand-calculated from Turner 2004 NNDB parameters for ValidHairpin57 (stem=27, loop "AAU"):
+        //   Stacking (26 stacks): 6×GC/CG(-3.42) + 1×CA/GU(-2.11) + 1×AU/UA(-1.10) + 6×UA/AU(-1.33)
+        //                       + 5×AG/UC(-2.08) + 5×CU/GA(-2.08) + 1×AG/UU(-0.55) + 1×GA/UU(-1.27) = -54.33
+        //   AU end penalty (helix end A26-U30 closing the loop): +0.45 (NNDB "per AU end", hairpin example 5.3)
+        //   Hairpin initiation(3): +5.40, no first-mismatch term for triloops; "AAAUU" is not a special triloop
+        //   Outer G-C end: no penalty.   Total: -48.48 kcal/mol
+        // = RnaSecondaryStructure.CalculateMinimumFreeEnergy(ValidHairpin57) (this structure is its MFE).
+        // ViennaRNA 2.8 eval_structure: -48.40 (its tables are rounded to 0.1 kcal, TerminalAU 0.50).
+        const double expectedEnergy = -48.48;
 
         var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
 
         Assert.That(results[0].FreeEnergy, Is.EqualTo(expectedEnergy).Within(0.01),
-            "Free energy must match hand-calculated Turner 2004 NNDB value (-43.50 kcal/mol) — " +
-            "sum of 22 stacking pairs + loop init(11) + terminal mismatch(CUAG)");
+            "Free energy must match hand-calculated Turner 2004 NNDB value (-48.48 kcal/mol) — " +
+            "26 stacks + AU end + triloop initiation");
 
         foreach (var pre in results)
         {
@@ -331,8 +333,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_FreeEnergy_LongerStemMoreNegative()
     {
-        // Hairpin A: 57 nt, stem=23, loop=11
-        //   Hand-calculated Turner energy: -43.50 kcal/mol (see M10 for breakdown)
+        // Hairpin A: 57 nt, stem=27, loop=3
+        //   Hand-calculated Turner energy: -48.48 kcal/mol (see M10 for breakdown)
         //
         // Hairpin B: 55 nt, stem=20, loop=15
         //   Stacking (19 pairs): 5×GC/CG(-3.42) + 1×CA/GU(-2.11) + 1×AU/UA(-1.10)
@@ -340,8 +342,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         //   Loop init(15):    +6.90
         //   Terminal mismatch(UAGA, closing U-A): -1.10
         //   AU/GU penalty (closing U-A): +0.45
-        //   Total: -36.02 kcal/mol
-        const double expectedEnergyLong = -43.50;
+        //   Total: -36.02 kcal/mol (ViennaRNA 2.8 eval_structure: -35.80 with its rounded tables)
+        const double expectedEnergyLong = -48.48;
         const double expectedEnergyShort = -36.02;
 
         string stem20Hairpin55 =
@@ -352,17 +354,17 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         var resultsLong = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
         var resultsShort = FindPreMiRnaHairpins(stem20Hairpin55, minHairpinLength: 55).ToList();
 
-        Assert.That(resultsLong, Is.Not.Empty, "23 bp effective stem hairpin (57 nt) must be detected");
+        Assert.That(resultsLong, Is.Not.Empty, "27 bp stem hairpin (57 nt) must be detected");
         Assert.That(resultsShort, Is.Not.Empty, "20 bp stem hairpin (55 nt) must be detected");
 
         Assert.Multiple(() =>
         {
             Assert.That(resultsLong[0].FreeEnergy, Is.EqualTo(expectedEnergyLong).Within(0.01),
-                "Stem-23 energy must match hand-calculated Turner 2004 value");
+                "Stem-27 energy must match hand-calculated Turner 2004 value");
             Assert.That(resultsShort[0].FreeEnergy, Is.EqualTo(expectedEnergyShort).Within(0.01),
                 "Stem-20 energy must match hand-calculated Turner 2004 value");
             Assert.That(resultsLong[0].FreeEnergy, Is.LessThan(resultsShort[0].FreeEnergy),
-                "Longer effective stem (23 bp, -43.50) must be more negative than shorter stem (20 bp, -36.02) — " +
+                "Longer stem (27 bp, -48.48) must be more negative than shorter stem (20 bp, -36.02) — " +
                 "reflects greater thermodynamic stability (Turner 2004)");
         });
     }
@@ -374,14 +376,14 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_StemTooShort_ReturnsEmpty()
     {
-        // 15 bp stem + 25 nt loop = 55 nt total (passes n<55 hardcode)
+        // 15 bp stem + 25 nt loop = 55 nt total
         // Rejection must come from stemLength (15) < 18, not from length filter
         var results = FindPreMiRnaHairpins(ShortStemHairpin55, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
             "Sequence with only 15 bp stem must be rejected — " +
             "pre-miRNA requires ≥ 18 bp stem (Krol 2004). " +
-            "Note: sequence is 55 nt, so this tests stem rejection, not the n<55 early-exit");
+            "Note: sequence is 55 nt, so this tests stem rejection, not the window-length filter");
     }
 
     #endregion
@@ -391,9 +393,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_LoopTooLarge_Rejected()
     {
-        // Note: Loop-too-small (< 3) is structurally unreachable because
-        // maxStem = n/2 - 5 ensures minimum loop ≥ 10 nt for any valid input.
-        // Instead test the reachable arm: loop > 25 → rejected.
+        // Note: Loop-too-small (< 3) is structurally unreachable because the stem never
+        // extends past the 3-nt NNDB minimum loop. Test the reachable arm: loop > 25 → rejected.
         // 18 bp mixed stem + 30 nt loop = 66 nt. Stem=18, loop=30 > 25
         // Loop uses all-A to prevent self-complementary pairing within the loop
         string largeLoop =
@@ -562,8 +563,6 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_CustomMinHairpinLength_Applied()
     {
-        // AnalyzeHairpin hardcodes n < 55 rejection, so minHairpinLength < 55
-        // has no practical effect. Test above the 55 threshold instead:
         // ValidHairpin57 is exactly 57 nt.
         // With minHairpinLength=57, windows of 57 nt are scanned → detected
         // With minHairpinLength=58, 57 nt input is too short → empty
@@ -663,7 +662,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_CustomMatureLength_AffectsMatureAndStarSequence()
     {
-        // With matureLength=18 and stem=23: matureEnd = min(18, 23) = 18
+        // With matureLength=18 and stem=27: matureEnd = min(18, 27) = 18
         // Mature = first 18 chars: "GCAUAGCUAGCUAGCUAG"
         // Star = last 18 chars (pos 39-56): "CUAGCUAGCUAGCUAUGC"
         const int customMatureLength = 18;
@@ -687,6 +686,145 @@ public class MiRnaAnalyzer_PreMiRna_Tests
                 "Star must be last 18 nt when matureLength=18");
             Assert.That(pre.StarSequence.Length, Is.EqualTo(pre.MatureSequence.Length),
                 "Star and mature must have equal length (duplex symmetry)");
+        });
+    }
+
+    #endregion
+
+    #region B13 F8–F10 — canonical stem-loop energy/structure, full consecutive stem, parameter contract
+
+    // F8 — the heuristic's FreeEnergy is the Turner 2004 energy of its reported structure computed by the
+    // canonical RnaSecondaryStructure loop model (FindStemLoops → CalculateStemEnergy + CalculateHairpinLoopEnergy),
+    // which includes the NNDB special hairpin loops. Fixture: 20-bp stem closed by C-G around the UUCG loop
+    // (NNDB turner_2004_tetraloop_dg.txt "CUUCGG 3.7" — the experimental total replaces initiation + mismatch).
+    //   NNDB hand calc: 19 stacks = 4×GC/CG(-3.42) + CA/GU(-2.11) + AU/UA(-1.10) + 4×UA/AU(-1.33) + 4×AG/UC(-2.08)
+    //                   + 3×CU/GA(-2.08) + GU/CA(-2.24) + UC/AG(-2.35) = -41.36; + special tetraloop 3.70 = -37.66.
+    //   ViennaRNA 2.8 eval_structure: -37.60 (hairpin term 3.70 identical; stacks rounded to 0.1 kcal).
+    //   The former inline formula (initiation(4) 5.6 + mismatch CUGG -1.0) would give -36.76 (the old scan
+    //   never reached it: n < 55 floor and the n/2 − 5 stem cap).
+    private const string UucgTetraloopHairpin44 =
+        "GCAUAGCUAGCUAGCUAGUC" + "UUCG" + "GACUAGCUAGCUAGCUAUGC";
+
+    [Test]
+    public void FindPreMiRnaHairpins_SpecialTetraloop_UsesCanonicalHairpinLoopModel()
+    {
+        var full = FindPreMiRnaHairpins(UucgTetraloopHairpin44, minHairpinLength: 40)
+            .Single(p => p.Start == 0 && p.End == 43);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.Structure, Is.EqualTo(new string('(', 20) + "...." + new string(')', 20)));
+            Assert.That(full.FreeEnergy, Is.EqualTo(-37.66).Within(1e-9),
+                "NNDB: 19 stacks (-41.36) + special UUCG tetraloop closed by C-G (+3.70).");
+            Assert.That(full.FreeEnergy, Is.EqualTo(-37.60).Within(0.25),
+                "ViennaRNA 2.8 eval_structure = -37.60 (0.1-kcal rounded stacks).");
+            Assert.That(full.FreeEnergy, Is.EqualTo(Seqeron.Genomics.Analysis.RnaSecondaryStructure
+                .CalculateMinimumFreeEnergy(UucgTetraloopHairpin44)).Within(1e-9),
+                "This perfect hairpin is its own MFE structure ⇒ energy equals the RNA-STRUCT-001 engine.");
+        });
+    }
+
+    // F8 — GA first-mismatch bonus (NNDB hairpin rule; RnaSecondaryStructure UU_GA_MismatchBonus −0.9), missing
+    // from the former inline formula. 23-bp stem closed by C-G around an 11-nt "GAAAAAAAAAA" loop (57 nt):
+    //   NNDB: 22 stacks −49.10 + initiation(11) 6.60 + terminal mismatch CGAG −1.40 + GA bonus −0.90 = −44.80.
+    //   ViennaRNA 2.8: −44.70 (hairpin term 4.30 identical). Former code output: −43.90 (no GA bonus).
+    private const string GaFirstMismatchHairpin57 =
+        "GCAUAGCUAGCUAGCUAGCUAGC" + "GAAAAAAAAAA" + "GCUAGCUAGCUAGCUAGCUAUGC";
+
+    [Test]
+    public void FindPreMiRnaHairpins_GaFirstMismatch_BonusApplied()
+    {
+        var full = FindPreMiRnaHairpins(GaFirstMismatchHairpin57).Single(p => p.Start == 0 && p.End == 56);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.Structure, Is.EqualTo(new string('(', 23) + new string('.', 11) + new string(')', 23)));
+            Assert.That(full.FreeEnergy, Is.EqualTo(-44.80).Within(1e-9), "NNDB incl. GA first-mismatch bonus");
+            Assert.That(full.FreeEnergy, Is.EqualTo(-44.70).Within(0.25),
+                "ViennaRNA 2.8 eval_structure −44.70 (its stacks are rounded to 0.1 kcal; ≤ 0.24 on all fixtures)");
+        });
+    }
+
+    // F8/F9 — for perfect hairpins the reported consecutive stem is the MFE structure, so the reported
+    // structure and energy must coincide with the canonical folder. NNDB hand values:
+    //   ValidHairpin57: -54.33 stacks + 0.45 (A-U end) + 5.4 (triloop)                 = -48.48 (Vienna -48.40)
+    //   WobbleHairpin57: -46.10 stacks + 0.45 (outer G-U end) + 0.45 (A-U end) + 5.4    = -39.80 (Vienna -39.80)
+    //   ShortHairpin47 (min 40): -44.54 stacks + 0.45 (A-U end) + 5.4                  = -38.69 (Vienna -38.60)
+    [TestCase(ValidHairpin57, 55, -48.48, 27)]
+    [TestCase(WobbleHairpin57, 55, -39.80, 27)]
+    [TestCase(ShortHairpin47, 40, -38.69, 22)]
+    public void FindPreMiRnaHairpins_PerfectHairpin_StructureAndEnergyEqualCanonicalMfe(
+        string hairpin, int minLength, double nndbEnergy, int stem)
+    {
+        var full = FindPreMiRnaHairpins(hairpin, minHairpinLength: minLength)
+            .Single(p => p.Start == 0 && p.End == hairpin.Length - 1);
+        var mfe = Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure(hairpin);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.Structure, Is.EqualTo(
+                new string('(', stem) + new string('.', hairpin.Length - 2 * stem) + new string(')', stem)));
+            Assert.That(full.Structure, Is.EqualTo(mfe.DotBracket), "consecutive stem == MFE structure");
+            Assert.That(full.FreeEnergy, Is.EqualTo(nndbEnergy).Within(1e-9), "NNDB hand calculation");
+            Assert.That(full.FreeEnergy, Is.EqualTo(mfe.FreeEnergy).Within(1e-9), "== engine MFE");
+        });
+    }
+
+    // F9 — the stem is no longer truncated at min(n/2 − 5, 35): loops of 3–9 nt are reported (Bartel 2004:
+    // 3–25 nt), and stems longer than 35 bp are not mis-reported as a > 25-nt "loop" and rejected.
+    // LargeHairpin110 = 50-bp perfect stem + 10-nt all-A loop: previously stem capped at 35 ⇒ "loop" 40 ⇒ rejected.
+    [Test]
+    public void FindPreMiRnaHairpins_LongPerfectStem_NotTruncated()
+    {
+        var full = FindPreMiRnaHairpins(LargeHairpin110).Single(p => p.Start == 0 && p.End == 109);
+
+        Assert.That(full.Structure, Is.EqualTo(new string('(', 50) + new string('.', 10) + new string(')', 50)));
+    }
+
+    // F10 — minHairpinLength below 55 is honoured (formerly a hard-coded n < 55 rejection ignored it).
+    [Test]
+    public void FindPreMiRnaHairpins_MinHairpinLengthBelow55_Honoured()
+    {
+        var hits = FindPreMiRnaHairpins(ShortHairpin47, minHairpinLength: 40).ToList();
+
+        Assert.That(hits.Select(h => (h.Start, h.End)),
+            Is.EqualTo(new[] { (0, 46), (1, 45), (2, 44), (3, 43) }),
+            "47-nt hairpin (22-bp consecutive stem, loop 3) and its same-register sub-windows down to 41 nt " +
+            "(stem ≥ 19 ≥ 18) are accepted when minHairpinLength = 40; 39-nt window 4..42 has stem 18 but " +
+            "length 39 < 40.");
+    }
+
+    // F10 — argument validation is eager (before enumeration) and explicit.
+    [Test]
+    public void PreMiRnaScans_InvalidLengths_ThrowEagerly()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => FindPreMiRnaHairpins(ValidHairpin57, matureLength: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: -5));
+            Assert.Throws<ArgumentOutOfRangeException>(() => FindPreMiRnaHairpinsByMfe(ValidHairpin57, minHairpinLength: 0));
+            Assert.That(FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 60, maxHairpinLength: 55), Is.Empty,
+                "max < min is an empty scan (documented), not an error");
+        });
+    }
+
+    // GC% for MFEI is the canonical GC fraction (non-nucleotide symbols excluded, Biopython gc_fraction
+    // "remove"); AMFE keeps the full folded length (Zhang 2006: MFE/length·100).
+    [Test]
+    public void AssessHairpinByMfe_NonNucleotideSymbol_ExcludedFromGcPercent()
+    {
+        string withN = ValidHairpin57 + "N";
+        var a = AssessHairpinByMfe(withN);
+        double dg = Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMinimumFreeEnergy(withN);
+
+        Assert.That(a, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(a!.Value.FreeEnergy, Is.EqualTo(dg).Within(1e-12));
+            Assert.That(a.Value.Amfe, Is.EqualTo(100.0 * Math.Abs(dg) / 58).Within(1e-12));
+            Assert.That(a.Value.Mfei, Is.EqualTo(100.0 * Math.Abs(dg) / 58 / (100.0 * 25 / 57)).Within(1e-12),
+                "GC% = 25 G+C of 57 nucleotides (N excluded).");
         });
     }
 

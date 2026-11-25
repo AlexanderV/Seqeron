@@ -14,17 +14,18 @@ Find -10 (Pribnow/TATA) and -35 box bacterial promoter motifs.
 
 ## Description
 
-Scans a DNA sequence for the two canonical bacterial (E. coli σ70) promoter elements: the **-35 box**
-consensus `TTGACA` and the **-10 box** (Pribnow box) consensus `TATAAT`, along with their common
-sub-variants (5-bp prefix/suffix and 4-bp prefix). Each hit reports a 0-based `position`, the box
-`type` (`-35 box` / `-10 box`), the matched `sequence`, and a probability-weighted `score` derived
-from E. coli position-specific nucleotide occurrence frequencies (Harley & Reynolds 1987); the full
-6-bp consensus scores `1.0`. A full `TTGACA` therefore yields four `-35 box` hits (`TTGACA`, `TTGAC`,
-`TGACA`, `TTGA`).
+Reports the **-35** and **-10** (Pribnow) boxes of bacterial σ70 promoters. Delegates to
+`GenomeAnnotator.FindPromoterMotifs`, which takes every forward-strand pair from the canonical
+`MotifFinder.FindSigma70Promoters` (Harley & Reynolds 1987): a -35 hexamer within 2 mismatches of `TTGACA`
+followed, after a 15–21 bp spacer, by a -10 hexamer within 2 mismatches of `TATAAT`. Each box of a pair is
+reported once (0-based `position`, `type` `-35 box` / `-10 box`, the hexamer `sequence`), ordered by position.
+`score` = 1 − mismatches/6 (consensus identity, not promoter strength). An isolated box with no partner is not
+reported. For pairs with strand and spacer use `find_sigma70_promoters`; for a free-energy promoter score use
+`predict_sigma70_promoters` (Promoter Calculator v1.0).
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L685](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L685)
+- Source: [GenomeAnnotator.cs#L794](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L794)
 
 ## Input Schema
 
@@ -46,25 +47,29 @@ from E. coli position-specific nucleotide occurrence frequencies (Harley & Reyno
 
 ## Examples
 
-### Example 1: Full -35 box consensus
+### Example 1: consensus σ70 promoter
 
-`GGGGGTTGACAGGGGG` → `TTGACA` at position 5, `-35 box`, score 1.0 (plus three sub-variant hits).
+`GGTTGACACCCCCCCCCCCCCCCCCTATAATGG` (TTGACA, 17-bp spacer, TATAAT)
 
 **Response:**
 ```json
-{ "motifs": [ { "position": 5, "type": "-35 box", "sequence": "TTGACA", "score": 1.0 } ] }
+{ "motifs": [
+  { "position": 2, "type": "-35 box", "sequence": "TTGACA", "score": 1.0 },
+  { "position": 25, "type": "-10 box", "sequence": "TATAAT", "score": 1.0 } ] }
 ```
 
-### Example 2: Full -10 box consensus
+### Example 2: unpaired box
 
-`CCCCCTATAATCCCCC` → `TATAAT` at position 5, `-10 box`, score 1.0.
+`GGGGGTTGACAGGGGG` → `{ "motifs": [] }` (no -10 box at a 15–21 bp spacer).
 
 ## Performance
 
-- **Time Complexity:** O(n · motifs)
+- **Time Complexity:** O(n · 7) (spacer window 15–21)
 - **Space Complexity:** O(k)
 
 ## See Also
 
+- [find_sigma70_promoters](../analysis/find_sigma70_promoters.md) - σ70 −35/−10 pairs
+- [predict_sigma70_promoters](../analysis/predict_sigma70_promoters.md) - Promoter Calculator v1.0
 - [find_ribosome_binding_sites](find_ribosome_binding_sites.md) - Shine-Dalgarno RBS motifs
 - [predict_genes](predict_genes.md) - ORF-based gene prediction

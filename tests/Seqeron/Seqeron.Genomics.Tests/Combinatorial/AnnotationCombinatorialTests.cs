@@ -258,85 +258,68 @@ public class AnnotationCombinatorialTests
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Unit: ANNOT-PROM-001 — Bacterial promoter-motif detection (Annotation)
+    // Unit: ANNOT-PROM-001 — Bacterial σ70 promoter boxes (Annotation)
     // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 30.
-    // Spec: tests/TestSpecs/ANNOT-PROM-001.md (canonical FindPromoterMotifs).
-    // Dimensions: threshold(3) × windowSize(3) × motifSet(2). Grid 3×3×2 = 18.
+    // Spec: tests/TestSpecs/ANNOT-PROM-001.md (canonical FindPromoterMotifs → MotifFinder.FindSigma70Promoters).
+    // Dimensions: plantedMismatches(3) × spacer(4) × mutatedBox(2). Grid 3×4×2 = 24.
     //
-    // Model (Pribnow 1975; Harley & Reynolds 1987): FindPromoterMotifs scans for the −35
-    // box (TTGACA) and −10/Pribnow box (TATAAT) and their prefix/suffix variants, scoring
-    // each by summed E. coli position-occurrence probabilities normalised to the consensus
-    // (e.g. −35 TTGAC=0.855, TGACA=0.815, TTGA=0.710; −10 ATAAT=0.813, TATAA=0.801,
-    // TATA=0.665). The method takes only a sequence, so the checklist axes map to caller
-    // operations: motifSet = box type filter, threshold = a score cutoff over the variant
-    // table, windowSize = the length of the searched substring.
+    // Model (Harley & Reynolds 1987): a σ70 promoter is a −35 hexamer ≈ TTGACA and a −10 hexamer ≈ TATAAT separated
+    // by a 15–21 bp spacer; FindPromoterMotifs reports both boxes of each pair within the mismatch limits, score
+    // 1 − d/6. The planted pair has one box mutated by plantedMismatches; the limit is 1 mismatch per box.
     //
-    // The combinatorial point: threshold and motifSet INTERACT because the two boxes have
-    // different variant-score spectra — at cutoff 0.84 the −35 box admits two variants
-    // (1.000, 0.855) but the −10 box admits only the consensus (its next variant is 0.813).
-    // windowSize gates whether the planted box lies inside the searched region at all.
+    // The combinatorial point: the mismatch limit and the spacer window INTERACT — a pair is reported only when
+    // BOTH hold (d ≤ 1 AND 15 ≤ spacer ≤ 21); failing either removes BOTH boxes (no unpaired box is reported).
     // ═══════════════════════════════════════════════════════════════════════
 
     public enum BoxType { Minus35, Minus10 }
 
-    private const int PromBoxStart = 10; // box occupies [10,16) in 'A' filler (no spurious motifs)
-
-    /// <summary>Distinct variant count of a full-consensus box passing the score cutoff (from the documented table).</summary>
-    private static int ExpectedPassingVariants(BoxType box, double threshold) => box == BoxType.Minus35
-        ? (threshold > 0.99 ? 1 : threshold > 0.855 ? 1 : threshold > 0.815 ? 2 : threshold > 0.71 ? 3 : 4)
-        : (threshold > 0.99 ? 1 : threshold > 0.813 ? 1 : threshold > 0.801 ? 2 : threshold > 0.665 ? 3 : 4);
+    private static readonly string[] Mutated35 = { "TTGACA", "TTGACG", "TTGAGG" }; // d = 0, 1, 2
+    private static readonly string[] Mutated10 = { "TATAAT", "TATAAG", "TATAGG" }; // d = 0, 1, 2
 
     [Test, Combinatorial]
-    public void AnnotProm_ScoreThresholdAndWindow_GateBoxVariants(
-        [Values(0.99, 0.84, 0.70)] double threshold,
-        [Values(8, 16, 30)] int windowSize,
+    public void AnnotProm_MismatchLimitAndSpacer_GatePair(
+        [Values(0, 1, 2)] int plantedMismatches,
+        [Values(14, 15, 21, 22)] int spacer,
         [Values(BoxType.Minus35, BoxType.Minus10)] BoxType box)
     {
-        string consensus = box == BoxType.Minus35 ? "TTGACA" : "TATAAT";
-        string typeName = box == BoxType.Minus35 ? "-35 box" : "-10 box";
-        string template = new string('A', PromBoxStart) + consensus + new string('A', 20);
-        string searched = template[..windowSize];
+        string m35 = box == BoxType.Minus35 ? Mutated35[plantedMismatches] : "TTGACA";
+        string m10 = box == BoxType.Minus10 ? Mutated10[plantedMismatches] : "TATAAT";
+        string seq = "GGGG" + m35 + new string('G', spacer) + m10 + "GGGG";
 
-        var hits = GenomeAnnotator.FindPromoterMotifs(searched).Where(h => h.type == typeName).ToList();
-        var passing = hits.Where(h => h.score >= threshold).Select(h => h.sequence).Distinct().ToList();
+        var hits = GenomeAnnotator.FindPromoterMotifs(seq, 1, 1, 15, 21).ToList();
 
-        bool boxInWindow = windowSize >= PromBoxStart + consensus.Length;
-        if (boxInWindow)
+        bool expected = plantedMismatches <= 1 && spacer is >= 15 and <= 21;
+        if (expected)
         {
-            hits.Should().Contain(h => h.sequence == consensus && h.score == 1.0, "the full consensus scores 1.0");
-            passing.Should().HaveCount(ExpectedPassingVariants(box, threshold),
-                $"{typeName} variants passing cutoff {threshold}");
+            double s35 = box == BoxType.Minus35 ? (6 - plantedMismatches) / 6.0 : 1.0;
+            double s10 = box == BoxType.Minus10 ? (6 - plantedMismatches) / 6.0 : 1.0;
+            hits.Should().Equal((4, "-35 box", m35, s35), (10 + spacer, "-10 box", m10, s10));
         }
         else
         {
-            hits.Should().BeEmpty("the box lies outside the searched window");
+            hits.Should().BeEmpty("the pair fails the mismatch limit or the 15–21 bp spacer window");
         }
     }
 
     /// <summary>
-    /// Interaction witness: at the same score cutoff (0.84) the two boxes admit different
-    /// numbers of variants — the −35 spectrum has a 0.855 variant above the cutoff while the
-    /// −10 spectrum's next variant (0.813) falls below it.
+    /// Interaction witness: the same 2-mismatch −35 box is reported under the default limit (2) and dropped under
+    /// limit 1, while a spacer of 22 drops the consensus pair under either limit.
     /// </summary>
     [Test]
-    public void AnnotProm_ThresholdAndBoxType_Interact()
+    public void AnnotProm_LimitAndSpacer_Interact()
     {
-        string m35 = new string('A', 10) + "TTGACA" + new string('A', 10);
-        string m10 = new string('A', 10) + "TATAAT" + new string('A', 10);
+        string twoMm = "GGGG" + "TTGAGG" + new string('G', 17) + "TATAAT" + "GGGG";
+        GenomeAnnotator.FindPromoterMotifs(twoMm).Should().HaveCount(2);
+        GenomeAnnotator.FindPromoterMotifs(twoMm, 1, 1, 15, 21).Should().BeEmpty();
 
-        int n35 = GenomeAnnotator.FindPromoterMotifs(m35)
-            .Where(h => h.type == "-35 box" && h.score >= 0.84).Select(h => h.sequence).Distinct().Count();
-        int n10 = GenomeAnnotator.FindPromoterMotifs(m10)
-            .Where(h => h.type == "-10 box" && h.score >= 0.84).Select(h => h.sequence).Distinct().Count();
-
-        n35.Should().Be(2, "TTGACA(1.000) and TTGAC(0.855) clear 0.84");
-        n10.Should().Be(1, "only TATAAT(1.000) clears 0.84; ATAAT(0.813) does not");
+        string far = "GGGG" + "TTGACA" + new string('G', 22) + "TATAAT" + "GGGG";
+        GenomeAnnotator.FindPromoterMotifs(far).Should().BeEmpty();
+        GenomeAnnotator.FindPromoterMotifs(far, 1, 1, 15, 21).Should().BeEmpty();
     }
 
     /// <summary>
-    /// Worked example: a canonical E. coli promoter (−35 box, 17-bp spacer, −10 box) yields
-    /// both consensus boxes with the right type, position and score 1.0, and the documented
-    /// variant scores match the source table.
+    /// Worked example: a canonical E. coli promoter (−35 box, 17-bp spacer, −10 box) yields exactly both consensus
+    /// boxes at score 1.0.
     /// </summary>
     [Test]
     public void AnnotProm_CanonicalPromoter_WorkedExample()
@@ -344,11 +327,9 @@ public class AnnotationCombinatorialTests
         string promoter = new string('A', 5) + "TTGACA" + new string('G', 17) + "TATAAT" + new string('A', 5);
         var hits = GenomeAnnotator.FindPromoterMotifs(promoter).ToList();
 
-        hits.Should().Contain(h => h.type == "-35 box" && h.sequence == "TTGACA" && h.position == 5 && h.score == 1.0);
-        hits.Should().Contain(h => h.type == "-10 box" && h.sequence == "TATAAT" && h.position == 28 && h.score == 1.0);
-
-        hits.First(h => h.sequence == "TTGAC").score.Should().BeApproximately(0.855, 1e-9);
-        hits.First(h => h.sequence == "ATAAT").score.Should().BeApproximately(0.813, 1e-9);
+        hits.Should().Contain((5, "-35 box", "TTGACA", 1.0));
+        hits.Should().Contain((28, "-10 box", "TATAAT", 1.0));
+        hits.Should().OnlyContain(h => h.score >= 4.0 / 6);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

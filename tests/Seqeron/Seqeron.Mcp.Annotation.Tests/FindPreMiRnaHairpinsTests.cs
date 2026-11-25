@@ -27,7 +27,7 @@ public class FindPreMiRnaHairpinsTests
     public void FindPreMiRnaHairpins_Binding_InvokesSuccessfully()
     {
         // 57 nt input with minHairpinLength=55 yields exactly 2 candidates:
-        // the full 57-nt window (Start=0, End=56, stem=23) and a 55-nt sub-window at offset 1.
+        // the full 57-nt window (Start=0, End=56, stem=27, loop 3) and a 55-nt sub-window at offset 1.
         var result = AnnotationTools.FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55);
 
         Assert.That(result.Hairpins, Has.Count.EqualTo(2));
