@@ -11,13 +11,20 @@ public static class SequenceAssembler
     /// <summary>
     /// Result of sequence assembly.
     /// </summary>
+    /// <param name="Contigs">The reported contigs.</param>
+    /// <param name="TotalReads">Number of input reads.</param>
+    /// <param name="AssembledReads">Reads that contribute to at least one reported contig (Velvet
+    /// <c>usedReads</c>, "using X/Y reads"); see <see cref="CalculateStats(IReadOnlyList{string}, int, int)"/>.</param>
+    /// <param name="N50">Contig N50 (QUAST <c>N50()</c>; 0 for no contigs).</param>
+    /// <param name="LongestContig">Length of the longest contig.</param>
+    /// <param name="TotalLength">Sum of the contig lengths (64-bit).</param>
     public readonly record struct AssemblyResult(
         IReadOnlyList<string> Contigs,
         int TotalReads,
         int AssembledReads,
         double N50,
         int LongestContig,
-        int TotalLength);
+        long TotalLength);
 
     /// <summary>
     /// Represents an overlap between two reads.
@@ -87,15 +94,16 @@ public static class SequenceAssembler
             return new AssemblyResult(Array.Empty<string>(), 0, 0, 0, 0, 0);
 
         // Overlap + Layout + Consensus (greedy layout over the substring-free read set).
-        var contigs = BuildContigsFromOverlaps(reads, param);
+        // Every read is placed in exactly one layout (as a path member or a contained read).
+        var layouts = BuildContigsFromOverlaps(reads, param);
 
-        // Filter by minimum length
-        contigs = contigs.Where(c => c.Length >= param.MinContigLength).ToList();
+        // Filter by minimum length; a read is assembled when its contig is reported
+        // (Velvet usedReads: reads on nodes of at least the minimum contig length).
+        var kept = layouts.Where(c => c.Contig.Length >= param.MinContigLength).ToList();
+        var contigs = kept.Select(c => c.Contig).ToList();
+        int assembledReads = kept.Sum(c => c.ReadCount);
 
-        // Calculate statistics
-        var stats = CalculateStats(contigs, reads.Count);
-
-        return stats;
+        return CalculateStats(contigs, reads.Count, assembledReads);
     }
 
     /// <summary>
@@ -197,7 +205,9 @@ public static class SequenceAssembler
         // (4) Filter by minimum contig length.
         contigs = contigs.Where(c => c.Length >= param.MinContigLength).ToList();
 
-        return CalculateStats(contigs, reads.Count);
+        // (5) A read is assembled when at least one of its k-mers (or, double-stranded, their
+        // reverse complement) lies in a reported contig — Velvet usedReads (graphStats.c).
+        return CalculateStats(contigs, reads.Count, CountReadsInContigs(reads, contigs, k, includeReverseComplement));
     }
 
     /// <summary>
@@ -409,7 +419,7 @@ public static class SequenceAssembler
     /// overlap; out(i) = 0, in(j) = 0, no cycle), places contained reads inside their containers,
     /// and computes each contig as the majority-vote consensus of its ungapped layout columns.
     /// </summary>
-    private static List<string> BuildContigsFromOverlaps(
+    private static List<(string Contig, int ReadCount)> BuildContigsFromOverlaps(
         IReadOnlyList<string> reads,
         AssemblyParameters param)
     {
@@ -497,7 +507,7 @@ public static class SequenceAssembler
         }
 
         // --- Consensus: one contig per greedy path (every path starts at a node with no predecessor).
-        var contigs = new List<string>();
+        var contigs = new List<(string Contig, int ReadCount)>();
         foreach (int start in nodeIndex)
         {
             if (hasPredecessor[start]) continue;
@@ -522,14 +532,14 @@ public static class SequenceAssembler
             if (rows.Count == 1)
             {
                 // A one-read layout: its consensus is the read itself (returned verbatim).
-                contigs.Add(rows[0].read);
+                contigs.Add((rows[0].read, 1));
                 continue;
             }
 
             // Ungapped layout: pad each read with gap symbols to its column offset and take the
             // column-wise majority vote (Biopython dumb_consensus rule; ties -> 'N', upper-cased).
             var aligned = rows.Select(r => new string(GapDash, r.offset) + r.read).ToList();
-            contigs.Add(ComputeConsensus(aligned));
+            contigs.Add((ComputeConsensus(aligned), rows.Count));
         }
 
         return contigs;
@@ -710,6 +720,38 @@ public static class SequenceAssembler
         return contigs;
     }
 
+    /// <summary>
+    /// Number of reads with at least one k-mer in the reported contigs (either strand when
+    /// <paramref name="bothStrands"/>); Velvet <c>usedReads</c> (Zerbino &amp; Birney 2008,
+    /// <c>src/graphStats.c</c>: a read is used when it has a marker on a node of at least the
+    /// minimum contig length, the twin node included).
+    /// </summary>
+    private static int CountReadsInContigs(
+        IReadOnlyList<string> reads, IReadOnlyList<string> contigs, int k, bool bothStrands)
+    {
+        var contigKmers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string contig in contigs)
+        {
+            foreach (string kmer in contig.AsSpan().CountKmersSpan(k).Keys)
+            {
+                contigKmers.Add(kmer);
+                if (bothStrands)
+                    contigKmers.Add(ReverseComplement(kmer));
+            }
+        }
+
+        int used = 0;
+        foreach (string read in reads)
+        {
+            if (read == null || read.Length < k)
+                continue;
+            if (read.AsSpan().CountKmersSpan(k).Keys.Any(contigKmers.Contains))
+                used++;
+        }
+
+        return used;
+    }
+
     /// <summary>Reverse complement through the canonical Core helper.</summary>
     private static string ReverseComplement(string sequence) =>
         string.Create(sequence.Length, sequence,
@@ -725,38 +767,130 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Calculates N50 and other assembly statistics.
+    /// Calculates the assembly statistics of a precomputed contig set: contig N50 (through the
+    /// canonical <see cref="CalculateNx(IReadOnlyList{int}, long, int)"/>), longest contig and total
+    /// length. <paramref name="totalReads"/> is the number of reads the contigs were built from and
+    /// is reported as <see cref="AssemblyResult.TotalReads"/> and, when there is at least one contig,
+    /// as <see cref="AssemblyResult.AssembledReads"/>: this overload has no read placement, so every
+    /// supplied read is taken as used (no contig → 0 used reads). Use
+    /// <see cref="CalculateStats(IReadOnlyList{string}, int, int)"/> when the number of reads that
+    /// lie in the contigs is known (the assemblers do this).
     /// </summary>
+    /// <remarks>
+    /// N50 is QUAST's <c>N50()</c> (<c>quast_libs/N50.py</c>): the length of the shortest contig in the
+    /// fewest largest contigs whose combined length is at least 50% of the total (Miller, Koren &amp;
+    /// Sutton 2010, Genomics 95:315, §1.2). Lengths are summed in 64-bit, so totals above
+    /// <see cref="int.MaxValue"/> are exact.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="contigs"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="totalReads"/> is negative.</exception>
     public static AssemblyResult CalculateStats(
         IReadOnlyList<string> contigs, int totalReads)
+        => CalculateStats(contigs, totalReads, contigs is { Count: > 0 } ? totalReads : 0);
+
+    /// <summary>
+    /// Calculates the assembly statistics of a contig set (as
+    /// <see cref="CalculateStats(IReadOnlyList{string}, int)"/>) with an explicit count of
+    /// <paramref name="assembledReads"/> — the reads that contribute to at least one reported
+    /// contig (Velvet <c>usedReads</c>: "using X/Y reads", reads with a marker on a node of at
+    /// least the minimum contig length; Zerbino &amp; Birney 2008, <c>src/graphStats.c</c>).
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="contigs"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="totalReads"/> is negative, or <paramref name="assembledReads"/> is outside [0, totalReads].
+    /// </exception>
+    public static AssemblyResult CalculateStats(
+        IReadOnlyList<string> contigs, int totalReads, int assembledReads)
     {
+        ArgumentNullException.ThrowIfNull(contigs);
+        ArgumentOutOfRangeException.ThrowIfNegative(totalReads);
+        if (assembledReads < 0 || assembledReads > totalReads)
+            throw new ArgumentOutOfRangeException(nameof(assembledReads), assembledReads,
+                "The number of assembled reads must lie in [0, totalReads].");
+
         if (contigs.Count == 0)
-            return new AssemblyResult(contigs, totalReads, 0, 0, 0, 0);
+            return new AssemblyResult(contigs, totalReads, assembledReads, 0, 0, 0);
 
-        var sortedLengths = contigs.Select(c => c.Length).OrderDescending().ToList();
-        int totalLength = sortedLengths.Sum();
-        int halfLength = totalLength / 2;
+        var sortedLengths = contigs.Select(c => c?.Length ?? 0).OrderDescending().ToArray();
+        long totalLength = 0;
+        foreach (int length in sortedLengths)
+            totalLength += length;
 
-        // Calculate N50
-        int cumulative = 0;
-        double n50 = 0;
-        foreach (int len in sortedLengths)
-        {
-            cumulative += len;
-            if (cumulative >= halfLength)
-            {
-                n50 = len;
-                break;
-            }
-        }
+        var (n50, _, _) = CalculateNx(sortedLengths, totalLength, N50Percent);
 
         return new AssemblyResult(
             contigs,
             totalReads,
-            totalReads, // Simplified: assume all reads used
+            assembledReads,
             n50,
             sortedLengths[0],
             totalLength);
+    }
+
+    // N50 = Nx at x = 50 (Miller, Koren & Sutton 2010, §1.2).
+    private const int N50Percent = 50;
+
+    /// <summary>
+    /// Canonical Nx/Lx (and NGx/LGx) core shared by every assembly-statistics method
+    /// (<see cref="CalculateStats(IReadOnlyList{string}, int, int)"/> and
+    /// <c>GenomeAssemblyAnalyzer.CalculateNx</c>). Walking the lengths largest-first, Nx is the
+    /// length of the first sequence at which the cumulative length reaches at least
+    /// <paramref name="percentage"/>% of <paramref name="referenceLength"/>, and Lx is the number
+    /// of sequences taken. With <paramref name="referenceLength"/> = the sum of the lengths this is
+    /// Nx/Lx; with an (estimated) genome size it is NGx/LGx.
+    /// </summary>
+    /// <remarks>
+    /// Port of QUAST <c>NG50_and_LG50</c> (<c>quast_libs/N50.py</c>): <c>limit = ref·(100 − x)/100</c>,
+    /// stop at the first <c>ref − cumulative ≤ limit</c>, evaluated here exactly as
+    /// <c>cumulative·100 ≥ ref·x</c> in 64-bit integers (no floating-point cutoff, no integer
+    /// halving). Definition: Miller, Koren &amp; Sutton (2010), Genomics 95(6):315-327, §1.2
+    /// ("... whose combined length represents at least 50% of the assembly"). Where QUAST returns
+    /// <c>None</c> — an empty list, or a reference length the lengths never reach (NGx) — this
+    /// returns <c>(0, 0, cumulative)</c>. A non-empty all-zero list gives <c>(0, 1, 0)</c> as in QUAST.
+    /// Examples (QUAST): {4,3,2} → N50 3, L50 2; {2,1,1,1} → N50 1, L50 2; {80,70,50,40,30,20} →
+    /// N50 70, L50 2, N90 30, L90 5; same lengths with reference 400 → NG50 50, LG50 3.
+    /// </remarks>
+    /// <param name="lengthsDescending">Non-negative sequence lengths in non-increasing order.</param>
+    /// <param name="referenceLength">Assembly size (sum of the lengths) for Nx, or genome size for NGx; ≥ 0.</param>
+    /// <param name="percentage">x in [0, 100].</param>
+    /// <returns>(Nx, Lx, cumulative length of the first Lx sequences).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="lengthsDescending"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="percentage"/> outside [0, 100] (QUAST asserts the same range) or a negative <paramref name="referenceLength"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">A length is negative or the lengths are not in non-increasing order.</exception>
+    public static (int Nx, int Lx, long CumulativeLength) CalculateNx(
+        IReadOnlyList<int> lengthsDescending, long referenceLength, int percentage)
+    {
+        ArgumentNullException.ThrowIfNull(lengthsDescending);
+        if (percentage is < 0 or > 100)
+            throw new ArgumentOutOfRangeException(nameof(percentage), percentage,
+                "The Nx percentage must lie in [0, 100].");
+        ArgumentOutOfRangeException.ThrowIfNegative(referenceLength);
+
+        long cumulative = 0;
+        int count = 0;
+        int previous = int.MaxValue;
+        (int, int, long)? result = null;
+        foreach (int length in lengthsDescending)
+        {
+            if (length < 0)
+                throw new ArgumentException("Sequence lengths must be non-negative.", nameof(lengthsDescending));
+            if (length > previous)
+                throw new ArgumentException("Sequence lengths must be sorted in non-increasing order.", nameof(lengthsDescending));
+            previous = length;
+
+            if (result.HasValue)
+                continue; // keep validating the remaining lengths
+
+            cumulative += length;
+            count++;
+            // QUAST: ref - cumulative <= ref * (100 - x) / 100  <=>  cumulative * 100 >= ref * x.
+            if (cumulative * 100 >= referenceLength * percentage)
+                result = (length, count, cumulative);
+        }
+
+        return result ?? (0, 0, cumulative);
     }
 
     /// <summary>

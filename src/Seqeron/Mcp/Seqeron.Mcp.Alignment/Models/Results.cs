@@ -95,7 +95,7 @@ public record AssemblyResultDto(
     int AssembledReads,
     double N50,
     int LongestContig,
-    int TotalLength);
+    long TotalLength);
 
 /// <summary>Pairwise read overlap.</summary>
 public record OverlapDto(

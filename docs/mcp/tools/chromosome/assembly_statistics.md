@@ -15,8 +15,10 @@ Compute comprehensive assembly statistics.
 ## Description
 
 Reports total sequence count and length (with and without N gaps), N50/L50 and N90/L90 contiguity
-metrics (Miller, Koren & Sutton 2010), largest/smallest contig, mean and median length, GC content
-(over non-N bases), and gap counts/lengths.
+metrics (Miller, Koren & Sutton 2010; QUAST `N50.py`), largest/smallest contig, mean and sample
+median length (mean of the two central lengths for an even count), GC content as QUAST `GC_content`
+— pooled (G+C)/(A+C+G+T), with N, IUPAC ambiguity codes and gap symbols in neither count — and gap
+(maximal N-run) counts/lengths.
 
 ## Core Documentation Reference
 

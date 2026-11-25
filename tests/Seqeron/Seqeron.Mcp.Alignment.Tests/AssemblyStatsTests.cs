@@ -31,4 +31,20 @@ public class AssemblyStatsTests
             Assert.That(r.N50, Is.EqualTo(30));
         });
     }
+
+    [Test]
+    public void AssemblyStats_OddTotal_N50MatchesQuast_AndAssembledReadsIsOptional()
+    {
+        // QUAST N50([4,3,2]) = 3 (4 covers 4/9 < 50 %); the old total/2 = 4 cut-off gave 4.
+        var contigs = new[] { "AAAA", "CCC", "GG" };
+        var byDefault = AlignmentTools.AssemblyStats(contigs, 6);
+        var explicitCount = AlignmentTools.AssemblyStats(contigs, 6, 5);
+        Assert.Multiple(() =>
+        {
+            Assert.That(byDefault.N50, Is.EqualTo(3));
+            Assert.That(byDefault.AssembledReads, Is.EqualTo(6));
+            Assert.That(explicitCount.AssembledReads, Is.EqualTo(5));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.AssemblyStats(contigs, 6, 7));
+        });
+    }
 }

@@ -16,7 +16,8 @@ Bucket sequence lengths into bins.
 
 Assigns each length to the first `<bin` bucket it falls under (default upper bounds
 `100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000`), or to the `>=<maxBin>` overflow
-bucket when it exceeds the largest bin.
+bucket when it exceeds the largest bin. Buckets are half-open `[previous bound, bound)`; the bounds
+must be strictly increasing.
 
 ## Core Documentation Reference
 
@@ -40,6 +41,7 @@ bucket when it exceeds the largest bin.
 | Code | Message |
 |------|---------|
 | 1001 | Lengths cannot be null |
+| 1002 | Bin upper bounds must be strictly increasing |
 
 ## Example
 

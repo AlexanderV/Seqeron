@@ -127,7 +127,100 @@ public class SequenceAssemblerTests
 
         Assert.That(stats.TotalLength, Is.EqualTo(29));
         Assert.That(stats.LongestContig, Is.EqualTo(14));
-        Assert.That(stats.N50, Is.EqualTo(14)); // 14 > 29/2
+        // QUAST N50([14,10,5]) = 10: 14 covers 14/29 < 50 %, 14+10 = 24 >= 14.5 (was 14 via 29/2 = 14).
+        Assert.That(stats.N50, Is.EqualTo(10));
+    }
+
+    // ASSEMBLY-STATS-001 F: N50 used integer halving (total/2), so an odd total stopped one contig early.
+    // Expected values: QUAST quast_libs/N50.py N50() on the same lengths.
+    [TestCase(new[] { 4, 3, 2 }, 3.0)]
+    [TestCase(new[] { 2, 1, 1, 1 }, 1.0)]
+    [TestCase(new[] { 10, 20, 30 }, 30.0)]
+    [TestCase(new[] { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }, 7.0)]
+    public void CalculateStats_N50_MatchesQuast(int[] lengths, double expectedN50)
+    {
+        var contigs = lengths.Select(l => new string('A', l)).ToList();
+
+        var stats = SequenceAssembler.CalculateStats(contigs, 0);
+
+        Assert.That(stats.N50, Is.EqualTo(expectedN50));
+    }
+
+    [Test]
+    public void CalculateStats_N50_EqualsCanonicalGenomeAssemblyAnalyzerN50()
+    {
+        var lengths = new[] { 17, 3, 99, 42, 42, 8, 1, 65 };
+        var stats = SequenceAssembler.CalculateStats(lengths.Select(l => new string('C', l)).ToList(), 0);
+
+        Assert.That(stats.N50, Is.EqualTo(GenomeAssemblyAnalyzer.CalculateN50(lengths)),
+            "One Nx implementation: both statistics paths agree.");
+    }
+
+    [Test]
+    public void CalculateStats_AssembledReads_DefaultsToTotalAndAcceptsExplicitCount()
+    {
+        var contigs = new List<string> { "ACGTACGT" };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.CalculateStats(contigs, 7).AssembledReads, Is.EqualTo(7));
+            Assert.That(SequenceAssembler.CalculateStats(contigs, 7, 4).AssembledReads, Is.EqualTo(4));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.CalculateStats(contigs, 7, 8));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.CalculateStats(contigs, 7, -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.CalculateStats(contigs, -1));
+            Assert.Throws<ArgumentNullException>(() => SequenceAssembler.CalculateStats(null!, 1));
+        });
+    }
+
+    // Velvet usedReads (graphStats.c): a read is used when it lies on a reported contig (node of at
+    // least the minimum contig length). r1+r2 overlap by 6 -> contig of 14 (kept); r3 alone (10) is
+    // filtered by MinContigLength 12 -> 2 of 3 reads assembled.
+    [Test]
+    public void AssembleOLC_AssembledReads_CountsOnlyReadsInReportedContigs()
+    {
+        var reads = new List<string> { "ACGTTGCAAG", "TGCAAGCTTA", "GGGGGGGGGG" };
+        var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 5, MinIdentity: 1.0, KmerSize: 31, MinContigLength: 12);
+
+        var result = SequenceAssembler.AssembleOLC(reads, param);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Contigs, Is.EqualTo(new[] { "ACGTTGCAAGCTTA" }));
+            Assert.That(result.TotalReads, Is.EqualTo(3));
+            Assert.That(result.AssembledReads, Is.EqualTo(2));
+        });
+    }
+
+    // Velvet usedReads for the de Bruijn graph: reads with a k-mer in a reported contig. k=4:
+    // ACGTTGCA spells the 8-bp unitig (kept); CGTTG lies inside it; TTTTT is an isolated TTT cycle
+    // spelled TTTT (4 < MinContigLength 5, dropped); AC is shorter than k -> 2 of 4 reads used.
+    [Test]
+    public void AssembleDeBruijn_AssembledReads_CountsReadsWithAKmerInAReportedContig()
+    {
+        var reads = new List<string> { "ACGTTGCA", "CGTTG", "TTTTT", "AC" };
+        var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 20, MinIdentity: 0.9, KmerSize: 4, MinContigLength: 5);
+
+        var result = SequenceAssembler.AssembleDeBruijn(reads, param);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Contigs, Is.EqualTo(new[] { "ACGTTGCA" }));
+            Assert.That(result.TotalReads, Is.EqualTo(4));
+            Assert.That(result.AssembledReads, Is.EqualTo(2));
+        });
+    }
+
+    // Double-stranded DBG: a read given on the reverse strand is used through the twin contig.
+    [Test]
+    public void AssembleDeBruijn_ReverseComplementOption_CountsOppositeStrandReadAsAssembled()
+    {
+        // TGCAACGT is the reverse complement of ACGTTGCA.
+        var reads = new List<string> { "ACGTTGCA", "TGCAACGT" };
+        var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 20, MinIdentity: 0.9, KmerSize: 5, MinContigLength: 1);
+
+        var result = SequenceAssembler.AssembleDeBruijn(reads, param, includeReverseComplement: true);
+
+        Assert.That(result.AssembledReads, Is.EqualTo(2));
     }
 
     [Test]

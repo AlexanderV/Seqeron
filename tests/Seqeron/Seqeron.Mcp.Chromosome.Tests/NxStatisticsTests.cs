@@ -38,4 +38,21 @@ public class NxStatisticsTests
             Assert.That(nx.CumulativeLength, Is.EqualTo(340));
         });
     }
+
+    [Test]
+    public void NxStatistics_UnsortedLengths_Throw_AndGenomeSizeGivesNg50()
+    {
+        // The tool takes pre-sorted lengths; an unsorted list is rejected instead of yielding a wrong Nx.
+        Assert.Throws<ArgumentException>(() => ChromosomeTools.NxStatistics(new List<int> { 50, 100 }, 150, 50));
+
+        // QUAST NG50_and_LG50([80,70,50,40,30,20], 400) = (50, 3); NG90 unreachable (None) -> 0/0.
+        var lengths = new List<int> { 80, 70, 50, 40, 30, 20 };
+        var ng50 = ChromosomeTools.NxStatistics(lengths, 400, 50);
+        var ng90 = ChromosomeTools.NxStatistics(lengths, 400, 90);
+        Assert.Multiple(() =>
+        {
+            Assert.That((ng50.Nx, ng50.Lx), Is.EqualTo((50, 3)));
+            Assert.That((ng90.Nx, ng90.Lx), Is.EqualTo((0, 0)));
+        });
+    }
 }

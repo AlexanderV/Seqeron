@@ -499,13 +499,14 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "assembly_stats", Title = "Assembly — N50 / Length Stats", ReadOnly = true)]
-    [Description("Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs.")]
+    [Description("Computes assembly statistics for a precomputed list of contigs: N50 (QUAST N50: shortest contig of the fewest longest contigs covering at least 50% of the total length), longest contig, total length, and the read accounting (TotalReads; AssembledReads = reads that lie in the contigs, defaulting to totalReads when not supplied).")]
     public static AssemblyResultDto AssemblyStats(
         [Description("Assembled contig sequences.")] string[] contigs,
-        [Description("Total number of input reads (used to fill TotalReads).")] int totalReads)
+        [Description("Total number of input reads (used to fill TotalReads).")] int totalReads,
+        [Description("Optional number of reads that lie in the contigs, in [0, totalReads] (default: totalReads).")] int? assembledReads = null)
     {
         var r = global::Seqeron.Genomics.Alignment.SequenceAssembler.CalculateStats(
-            contigs ?? Array.Empty<string>(), totalReads);
+            contigs ?? Array.Empty<string>(), totalReads, assembledReads ?? totalReads);
         return ToAssemblyDto(r);
     }
 

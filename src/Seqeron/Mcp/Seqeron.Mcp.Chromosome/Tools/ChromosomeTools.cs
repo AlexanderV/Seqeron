@@ -251,7 +251,7 @@ public class ChromosomeTools
     #region GenomeAssemblyAnalyzer tools
 
     [McpServerTool(Name = "assembly_statistics", Title = "Assembly — Statistics (N50, L50, GC, gaps)", ReadOnly = true)]
-    [Description("Compute comprehensive assembly statistics: total length, N50/L50/N90/L90, largest/smallest, mean/median, GC, and gap metrics.")]
+    [Description("Compute comprehensive assembly statistics: total length, N50/L50/N90/L90 (QUAST N50.py), largest/smallest, mean and sample median length, GC fraction = (G+C)/(A+C+G+T) with N/IUPAC codes excluded (QUAST GC_content), and gap (N-run) metrics.")]
     public static SourceGa.AssemblyStatistics AssemblyStatistics(
         [Description("Assembled sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences)
     {
@@ -262,7 +262,7 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "nx_statistics", Title = "Assembly — Nx/Lx (single threshold)", ReadOnly = true)]
-    [Description("Compute Nx and Lx for a single threshold given pre-sorted (descending) sequence lengths and total length.")]
+    [Description("Compute Nx and Lx for a single threshold given pre-sorted (descending) sequence lengths and total length (QUAST NG50_and_LG50). Passing a genome size as totalLength gives NGx/LGx; 0/0 when it is never reached. Unsorted or negative lengths are rejected.")]
     public static SourceGa.NxStatistics NxStatistics(
         [Description("Lengths sorted descending.")] IReadOnlyList<int> sortedLengths,
         [Description("Sum of all lengths.")] long totalLength,
@@ -545,7 +545,7 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "length_distribution", Title = "Assembly — Length distribution", ReadOnly = true)]
-    [Description("Bucket sequence lengths into bins (default: 100..1,000,000 powers).")]
+    [Description("Bucket sequence lengths into half-open bins [previous bound, bound) plus an overflow bucket (default bounds 100..1,000,000); bounds must be strictly increasing.")]
     public static LengthDistributionResult LengthDistribution(
         [Description("Sequence lengths.")] IReadOnlyList<int> lengths,
         [Description("Bin upper bounds (empty → defaults).")] int[]? bins = null)

@@ -53,8 +53,8 @@ Let the contig lengths be `L₁ ≥ L₂ ≥ … ≥ Lₙ` (sorted descending) a
 | sequences | `IEnumerable<(string Id, string Sequence)>` | required | Contigs/scaffolds | `CalculateStatistics`, `FindGaps` |
 | sortedLengths | `IReadOnlyList<int>` | required | Lengths sorted **descending** | `CalculateNx` core overload |
 | lengths | `IEnumerable<int>` | required | Lengths in any order (sorted internally) | `CalculateNx(lengths,threshold)`, `CalculateN50`, `CalculateAuN` |
-| totalLength | `long` | required | Σ of lengths (assembly size) | core `CalculateNx` |
-| threshold | `int` | required | Percentage x ∈ [0,100] (50 for N50) | Nx/Lx |
+| totalLength | `long` | required | Σ of lengths (assembly size) for Nx, or a genome size for NGx | core `CalculateNx`; ≥ 0 |
+| threshold | `int` | required | Percentage x ∈ [0,100] (50 for N50) | Nx/Lx; outside [0,100] → `ArgumentOutOfRangeException` (QUAST asserts the same) |
 | minGapLength | `int` | 1 | Minimum N-run length reported | `FindGaps` |
 
 ### 3.2 Output / Return Value
@@ -69,7 +69,7 @@ Let the contig lengths be `L₁ ≥ L₂ ≥ … ≥ Lₙ` (sorted descending) a
 
 ### 3.3 Preconditions and Validation
 
-Lengths/positions are 0-based; gap coordinates are inclusive `[Start, End]`. N-runs are matched case-insensitively (`N`/`n`). GC fraction is over non-N bases. Empty input is handled without throwing: `CalculateStatistics` returns an all-zero record, `CalculateNx` returns `Nx=Lx=0`, `CalculateAuN` returns `0` (see §6.1). No exceptions are raised for valid (possibly empty) collections.
+Lengths/positions are 0-based; gap coordinates are inclusive `[Start, End]`. N-runs are matched case-insensitively (`N`/`n`). GC fraction = pooled (G+C)/(A+C+G+T) — QUAST `GC_content` (after `correct_seq` upper-cases and turns IUPAC codes into N); N, IUPAC codes and gap symbols are in neither count (canonical Core `CountGcAndValidNucleotides`). Empty input is handled without throwing: `CalculateStatistics` returns an all-zero record, `CalculateNx` returns `Nx=Lx=0`, `CalculateAuN` returns `0` (see §6.1). The core `CalculateNx` rejects a negative length or lengths that are not non-increasing (`ArgumentException`); `CalculateLengthDistribution` rejects bin bounds that are not strictly increasing.
 
 ## 4. Algorithm
 
@@ -96,10 +96,11 @@ The cumulative threshold is evaluated with **integer arithmetic** — `cumulativ
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [GenomeAssemblyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs)
+**Implementation location:** [GenomeAssemblyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs); the single Nx/Lx core is `SequenceAssembler.CalculateNx(lengthsDescending, referenceLength, percentage)` in [SequenceAssembler.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs) (the Chromosome project references Alignment, not the reverse), used by both `GenomeAssemblyAnalyzer.CalculateNx` and `SequenceAssembler.CalculateStats` (N50 of `AssembleOLC` / `AssembleDeBruijn` / MCP `assembly_stats`).
 
 - `GenomeAssemblyAnalyzer.CalculateStatistics(sequences)`: aggregate N50/L50/N90/L90/largest/smallest/totals/GC/gaps.
-- `GenomeAssemblyAnalyzer.CalculateNx(sortedLengths, totalLength, threshold)`: core Nx/Lx.
+- `GenomeAssemblyAnalyzer.CalculateNx(sortedLengths, totalLength, threshold)`: Nx/Lx (NGx/LGx with a genome size) via the canonical core.
+- `SequenceAssembler.CalculateStats(contigs, totalReads[, assembledReads])`: N50 (canonical core), longest, 64-bit total; `AssembledReads` = reads in reported contigs (Velvet `usedReads`), supplied by the assemblers.
 - `GenomeAssemblyAnalyzer.CalculateNx(lengths, threshold)`: sorts + totals, delegates to the core overload.
 - `GenomeAssemblyAnalyzer.CalculateN50(lengths)`: `CalculateNx(lengths, 50).Nx`.
 - `GenomeAssemblyAnalyzer.CalculateAuN(lengths)`: Σl²/Σl.
@@ -118,20 +119,19 @@ N50/N90/L50/L90 in `CalculateStatistics` are produced by the same `CalculateNx` 
 - auN = Σl²/Σl [4][3].
 - Integer-exact inclusive cutoff matching QUAST `NG50_and_LG50` [3].
 
-**Intentionally simplified:**
+- NGx/LGx: the core overload with a genome size as `totalLength` (QUAST `NG50_and_LG50`); unreachable → `Nx=Lx=0` (QUAST `None`) [3].
+- `MedianLength` = sample median (mean of the two central values for an even count) via `StatisticsHelper.Median` (numpy/R `median`).
+- GC% = QUAST `GC_content` [3]; gaps = maximal N runs (QUAST `qutils.split_by_ns`, threshold 1).
 
-- `AssemblyStatistics.MedianLength`: reports the upper median (`lengths[count/2]` of the descending list); the N50 literature does not define an assembly "median contig length", so this auxiliary field is not part of the cited contract. **Consequence:** for even contig counts the median may be the upper of the two central values.
-
-**Not implemented:**
-
-- NG50/LG50 (genome-size-relative variants); **users should rely on:** providing an explicit reference length and the Nx core — no current dedicated NG50 method (out of scope for this unit) [2].
+**Not implemented:** auNG (QUAST `au_metric` with a reference length) has no dedicated entry point.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Empty input returns zeros instead of `None` (QUAST) | Assumption | No valid N50 exists for an empty assembly; zeros avoid an exception | accepted | §6.1; non-correctness-affecting (ASSUMPTION 1) |
-| 2 | `MedianLength` upper-median convention | Assumption | Auxiliary field, outside the N50 contract | accepted | §5.3 "Intentionally simplified" (ASSUMPTION 2) |
+| 2 | U counted as a valid base in GC (QUAST rejects non-ACGTN input) | Deviation | none for DNA assemblies | accepted | canonical Core GC counter |
+| 3 | IUPAC codes are bases, not gaps (QUAST turns them into N before `split_by_ns`) | Deviation | only for ambiguity codes inside N-runs | accepted | NCBI convention: gaps are runs of N |
 
 ## 6. Edge Cases and Limitations
 
@@ -141,6 +141,9 @@ N50/N90/L50/L90 in `CalculateStatistics` are produced by the same `CalculateNx` 
 |------|-------------------|-----------|
 | Empty contig set | all-zero `AssemblyStatistics`; `Nx=Lx=0`; `auN=0` | No defined N50 for an empty assembly [3] |
 | Single contig | `Nx = that length`, `Lx = 1` | It is the whole assembly |
+| All-zero lengths (total 0) | `Nx = 0`, `Lx = 1`; `auN = 0` | QUAST `N50_and_L50([0,0]) = (0,1)`; `au_metric` → `None` [3] |
+| Genome size never reached (NGx) | `Nx = Lx = 0` | QUAST `None` [3] |
+| x = 0 / x = 100 | largest contig, L = 1 / smallest positive-cumulative contig, L = count to reach the total | QUAST [3] |
 | Cumulative exactly = x% of total | that contig is selected (inclusive) | INV-05 [1][3] |
 | Leading / trailing N-run | reported as a gap at `[0,k-1]` / `[…,len-1]` | INV-06 |
 | All-N contig | `TotalGapLength = length`, `GapPercentage = 100` | Whole sequence is gap |

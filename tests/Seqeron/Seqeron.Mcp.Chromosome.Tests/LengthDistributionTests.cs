@@ -42,4 +42,10 @@ public class LengthDistributionTests
         var dist = ChromosomeTools.LengthDistribution(new List<int> { 2_000_000 }).Distribution;
         Assert.That(dist[">=1000000"], Is.EqualTo(1));
     }
+
+    [Test]
+    public void LengthDistribution_NonIncreasingBins_Throw()
+    {
+        Assert.Throws<ArgumentException>(() => ChromosomeTools.LengthDistribution(new List<int> { 50 }, new[] { 500, 100 }));
+    }
 }

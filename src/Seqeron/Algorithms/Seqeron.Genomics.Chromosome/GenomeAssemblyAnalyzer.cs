@@ -114,6 +114,25 @@ public static class GenomeAssemblyAnalyzer
     /// <summary>
     /// Calculates comprehensive assembly statistics.
     /// </summary>
+    /// <remarks>
+    /// Definitions (QUAST <c>basic_stats.py</c> / <c>N50.py</c> / <c>qutils.py</c>, ablab/quast master):
+    /// <list type="bullet">
+    /// <item>TotalLength = Σ sequence lengths (every character, N included); N50/L50, N90/L90 =
+    /// <see cref="CalculateNx(IReadOnlyList{int},long,int)"/> at x = 50 / 90 (QUAST <c>N50_and_L50</c>).</item>
+    /// <item>GcContent = pooled (G + C) / (A + C + G + T) over all sequences as a fraction in [0, 1]
+    /// (QUAST <c>GC_content</c>: <c>total_GC_amount / total_contig_length</c> with the ACGT length
+    /// <c>len − count('N')</c> after <c>correct_seq</c> upper-cases and turns IUPAC codes into N);
+    /// counted by the canonical <see cref="SequenceExtensions.CountGcAndValidNucleotides"/>, so
+    /// N, IUPAC ambiguity codes and gap symbols are excluded from both counts (U, which QUAST rejects,
+    /// counts as a valid base). 0 when there is no A/C/G/T.</item>
+    /// <item>Gaps = maximal runs of N/n (QUAST <c>split_by_ns</c> with the threshold 1); TotalGapLength
+    /// = number of N/n; TotalLengthNoGaps = TotalLength − TotalGapLength; GapPercentage = 100 ·
+    /// TotalGapLength / TotalLength. IUPAC ambiguity codes are bases, not gaps.</item>
+    /// <item>MeanLength = TotalLength / count; MedianLength = sample median of the lengths (mean of the
+    /// two central values for an even count, <see cref="StatisticsHelper.Median"/>).</item>
+    /// </list>
+    /// An empty input returns all zeros (QUAST reports these fields as undefined).
+    /// </remarks>
     public static AssemblyStatistics CalculateStatistics(
         IEnumerable<(string Id, string Sequence)> sequences)
     {
@@ -132,10 +151,16 @@ public static class GenomeAssemblyAnalyzer
         var n50Stats = CalculateNx(lengths, totalLength, 50);
         var n90Stats = CalculateNx(lengths, totalLength, 90);
 
-        // GC content
-        long gcCount = seqList.Sum(s => CountGC(s.Sequence));
-        long totalBases = seqList.Sum(s => CountBases(s.Sequence));
-        double gcContent = totalBases > 0 ? gcCount / (double)totalBases : 0;
+        // GC content: pooled G+C over A+C+G+T (QUAST GC_content) via the canonical Core counter.
+        long gcCount = 0;
+        long acgtCount = 0;
+        foreach (var s in seqList)
+        {
+            var (gc, valid) = s.Sequence.AsSpan().CountGcAndValidNucleotides();
+            gcCount += gc;
+            acgtCount += valid;
+        }
+        double gcContent = acgtCount > 0 ? gcCount / (double)acgtCount : 0;
 
         // Gap statistics
         int totalGaps = seqList.Sum(s => s.GapCount);
@@ -153,7 +178,7 @@ public static class GenomeAssemblyAnalyzer
             lengths[0],
             lengths[^1],
             totalLength / (double)seqList.Count,
-            lengths[lengths.Count / 2],
+            StatisticsHelper.Median(lengths.Select(l => (double)l).ToArray()),
             gcContent,
             totalGaps,
             totalGapLength,
@@ -189,27 +214,9 @@ public static class GenomeAssemblyAnalyzer
             totalGapLength += currentGapLength;
         }
 
-        long gcCount = CountGC(sequence);
-        long bases = CountBases(sequence);
-        double gc = bases > 0 ? gcCount / (double)bases : 0;
+        double gc = sequence.AsSpan().CalculateGcFraction();
 
         return new AssembledSequence(id, sequence, sequence.Length, gc, gapCount, totalGapLength);
-    }
-
-    /// <summary>
-    /// Counts GC bases in sequence.
-    /// </summary>
-    private static long CountGC(string sequence)
-    {
-        return sequence.Count(c => c == 'G' || c == 'g' || c == 'C' || c == 'c');
-    }
-
-    /// <summary>
-    /// Counts non-N bases.
-    /// </summary>
-    private static long CountBases(string sequence)
-    {
-        return sequence.Count(c => c != 'N' && c != 'n');
     }
 
     // Nx/Lx threshold percentage for the N50/L50 statistics.
@@ -223,40 +230,24 @@ public static class GenomeAssemblyAnalyzer
     /// <remarks>
     /// Nx is the length of the shortest sequence such that sequences of that length or
     /// longer cover at least x% of the assembly; Lx is the count of those sequences.
-    /// Source: Miller, Koren &amp; Sutton (2010), Genomics 95(6):315-327, §1.2. The
-    /// inclusive "at least x%" cumulative comparison matches the QUAST reference
-    /// implementation (quast_libs/N50.py, NG50_and_LG50).
+    /// Source: Miller, Koren &amp; Sutton (2010), Genomics 95(6):315-327, §1.2. Delegates to the
+    /// single canonical core <see cref="SequenceAssembler.CalculateNx(IReadOnlyList{int},long,int)"/>
+    /// (port of QUAST <c>quast_libs/N50.py</c> <c>NG50_and_LG50</c>, inclusive "at least x%").
+    /// Passing an (estimated) genome size as <paramref name="totalLength"/> gives NGx/LGx; when the
+    /// lengths never reach x% of it (QUAST <c>None</c>), as for an empty list, Nx = Lx = 0.
     /// </remarks>
-    /// <param name="sortedLengths">Sequence lengths sorted in descending order.</param>
-    /// <param name="totalLength">Sum of all sequence lengths (the assembly size).</param>
+    /// <param name="sortedLengths">Non-negative sequence lengths sorted in non-increasing order.</param>
+    /// <param name="totalLength">Sum of all sequence lengths (the assembly size), or a genome size for NGx.</param>
     /// <param name="threshold">Percentage threshold x in [0, 100] (50 for N50/L50).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="threshold"/> outside [0, 100] or negative <paramref name="totalLength"/>.</exception>
+    /// <exception cref="ArgumentException">A negative length, or lengths not in non-increasing order.</exception>
     public static NxStatistics CalculateNx(
         IReadOnlyList<int> sortedLengths,
         long totalLength,
         int threshold)
     {
-        if (sortedLengths.Count == 0 || totalLength == 0)
-            return new NxStatistics(threshold, 0, 0, 0);
-
-        long cumulative = 0;
-        int count = 0;
-
-        foreach (int length in sortedLengths)
-        {
-            cumulative += length;
-            count++;
-
-            // Inclusive "at least threshold%" test, evaluated with integer arithmetic to
-            // avoid floating-point rounding of the cutoff. Equivalent to QUAST's
-            // "reference_length - cumulative <= reference_length * (100 - threshold) / 100".
-            // Source: QUAST quast_libs/N50.py NG50_and_LG50; Miller et al. (2010) §1.2.
-            if (cumulative * 100 >= totalLength * threshold)
-            {
-                return new NxStatistics(threshold, length, count, cumulative);
-            }
-        }
-
-        return new NxStatistics(threshold, sortedLengths[^1], count, cumulative);
+        var (nx, lx, cumulative) = SequenceAssembler.CalculateNx(sortedLengths, totalLength, threshold);
+        return new NxStatistics(threshold, nx, lx, cumulative);
     }
 
     /// <summary>
@@ -312,8 +303,13 @@ public static class GenomeAssemblyAnalyzer
     }
 
     /// <summary>
-    /// Calculates auN (area under Nx curve) - assembly contiguity metric.
+    /// Calculates auN (area under the Nx curve): auN = Σ Lᵢ² / Σ Lⱼ.
     /// </summary>
+    /// <remarks>
+    /// Li H (2020), "auN: a new metric to measure assembly contiguity"
+    /// (lh3.github.io/2020/04/08/a-new-metric-on-assembly-contiguity); QUAST <c>au_metric</c>
+    /// (<c>quast_libs/N50.py</c>). Returns 0 for an empty or all-zero list (QUAST <c>None</c>).
+    /// </remarks>
     public static double CalculateAuN(IEnumerable<int> lengths)
     {
         var sorted = lengths.OrderByDescending(l => l).ToList();
@@ -1195,14 +1191,24 @@ public static class GenomeAssemblyAnalyzer
     }
 
     /// <summary>
-    /// Calculates sequence length distribution.
+    /// Calculates the sequence length histogram: bin "&lt;b" counts lengths in [previous bound, b)
+    /// and "&gt;=last" counts lengths at or above the last bound.
     /// </summary>
+    /// <param name="lengths">Sequence lengths.</param>
+    /// <param name="bins">Strictly increasing upper bounds (empty → 100, 500, 1 000, …, 1 000 000).</param>
+    /// <exception cref="ArgumentException"><paramref name="bins"/> is not strictly increasing
+    /// (an unsorted bound list would put a length in the first larger bound, not its own bin).</exception>
     public static IReadOnlyDictionary<string, int> CalculateLengthDistribution(
         IEnumerable<int> lengths,
         params int[] bins)
     {
         if (bins.Length == 0)
             bins = new[] { 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000 };
+        for (int i = 1; i < bins.Length; i++)
+        {
+            if (bins[i] <= bins[i - 1])
+                throw new ArgumentException("Bin upper bounds must be strictly increasing.", nameof(bins));
+        }
 
         var distribution = bins.ToDictionary(b => $"<{b}", _ => 0);
         distribution[$">={bins[^1]}"] = 0;

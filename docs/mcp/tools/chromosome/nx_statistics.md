@@ -16,7 +16,10 @@ Compute Nx and Lx for a single threshold.
 
 Walks descending-sorted lengths accumulating coverage until it first reaches `threshold%` of the
 total. `Nx` is the length of the sequence that crossed the threshold; `Lx` is how many sequences
-that took (inclusive "at least x%" test, matching QUAST). Miller, Koren & Sutton (2010).
+that took (inclusive "at least x%" test, matching QUAST `N50.py`). Miller, Koren & Sutton (2010).
+Passing a genome size as `totalLength` gives NGx/LGx (QUAST `NG50_and_LG50`); when the lengths never
+reach `threshold%` of it, `nx = lx = 0` (QUAST `None`). Delegates to the canonical core
+`SequenceAssembler.CalculateNx`.
 
 ## Core Documentation Reference
 
@@ -26,8 +29,8 @@ that took (inclusive "at least x%" test, matching QUAST). Miller, Koren & Sutton
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sortedLengths` | integer[] | Yes | Lengths sorted descending. |
-| `totalLength` | integer | Yes | Sum of all lengths (≥ 0). |
+| `sortedLengths` | integer[] | Yes | Non-negative lengths sorted descending (otherwise an error). |
+| `totalLength` | integer | Yes | Sum of all lengths (≥ 0), or a genome size for NGx. |
 | `threshold` | integer | Yes | Percent in `[0, 100]` (50 for N50). |
 
 ## Output Schema
@@ -46,6 +49,7 @@ that took (inclusive "at least x%" test, matching QUAST). Miller, Koren & Sutton
 | 1001 | Sorted lengths cannot be null |
 | 1002 | Total length cannot be negative |
 | 1003 | Threshold must be in [0, 100] |
+| 1004 | Sequence lengths must be non-negative / sorted in non-increasing order |
 
 ## Example
 

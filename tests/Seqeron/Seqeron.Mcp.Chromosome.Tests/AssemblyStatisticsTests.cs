@@ -39,4 +39,18 @@ public class AssemblyStatisticsTests
             Assert.That(stats.L50, Is.EqualTo(1));
         });
     }
+
+    [Test]
+    public void AssemblyStatistics_IupacCodesExcludedFromGc_AndEvenCountMedianIsMean()
+    {
+        // QUAST GC_content: IUPAC codes become N, so "ACGTRYSW" has GC 2 / ACGT 4 = 50 %.
+        // Lengths 8 and 4: sample median (8 + 4) / 2 = 6.
+        var stats = ChromosomeTools.AssemblyStatistics(
+            new List<NamedSequence> { new("s1", "ACGTRYSW"), new("s2", "ATAT") });
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.GcContent, Is.EqualTo(2.0 / 8.0).Within(1e-12));
+            Assert.That(stats.MedianLength, Is.EqualTo(6.0));
+        });
+    }
 }
