@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RnaSecondaryStructure.DetectPseudoknots",
-  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L1934",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L2043",
   "description": "Detects pseudoknots as crossing base pairs: normalized/ordered pairs (i,j),(k,l) cross iff i < k < j < l. Nested and disjoint pairs are not pseudoknots.",
   "inputSchema": {
     "type": "object",

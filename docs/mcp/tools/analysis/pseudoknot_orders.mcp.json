@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "pseudoknot_orders",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.AssignPseudoknotOrders",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L2199",
+  "description": "Pseudoknot order of every base pair (biotite structure.pseudoknots / Smit et al. 2008: iterated maximum nested subset; Antczak et al. 2018 orders), the dot-bracket-letter string by order, and the ViennaRNA vrna_db_from_ptable rendering of the same pairs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "basePairs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position1": { "type": "integer" },
+            "position2": { "type": "integer" },
+            "base1": { "type": "string", "maxLength": 1 },
+            "base2": { "type": "string", "maxLength": 1 },
+            "type": { "type": "string", "enum": ["WatsonCrick", "Wobble", "NonCanonical"] }
+          },
+          "required": ["position1", "position2", "base1", "base2", "type"]
+        }
+      },
+      "length": { "type": "integer", "minimum": 0 }
+    },
+    "required": ["basePairs", "length"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "orders": { "type": "array", "items": { "type": "integer" } },
+      "orderDotBracket": { "type": "string" },
+      "dotBracket": { "type": "string" }
+    },
+    "required": ["orders", "orderDotBracket", "dotBracket"]
+  },
+  "errors": [
+    { "code": 1002, "message": "Unknown base pair type" },
+    { "code": 1001, "message": "Self pair, position outside [0, length), position in two pairs, or more than 30 bracket families needed" }
+  ],
+  "examples": [
+    {
+      "name": "biotite docstring example ABCbac",
+      "input": { "basePairs": [
+        { "position1": 0, "position2": 4, "base1": "G", "base2": "C", "type": "WatsonCrick" },
+        { "position1": 1, "position2": 3, "base1": "G", "base2": "C", "type": "WatsonCrick" },
+        { "position1": 2, "position2": 5, "base1": "G", "base2": "C", "type": "WatsonCrick" }
+      ], "length": 6 },
+      "output": { "orders": [0, 0, 1], "orderDotBracket": "(([))]", "dotBracket": "(([))]" }
+    }
+  ]
+}

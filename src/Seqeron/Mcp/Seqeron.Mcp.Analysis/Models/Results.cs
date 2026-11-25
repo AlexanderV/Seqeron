@@ -1072,6 +1072,10 @@ public record PredictRnaStructureResult(
 /// <summary>Result of <c>detect_pseudoknots</c>.</summary>
 public record DetectPseudoknotsResult(PseudoknotItem[] Items);
 
+/// <summary>Result of <c>pseudoknot_orders</c>: per-pair pseudoknot order (index-aligned with the input),
+/// the dot-bracket-letter string by order, and the ViennaRNA <c>vrna_db_from_ptable</c> rendering.</summary>
+public record PseudoknotOrdersResult(int[] Orders, string OrderDotBracket, string DotBracket);
+
 /// <summary>Result of <c>parse_dot_bracket</c>.</summary>
 public record ParseDotBracketResult(BasePairCoord[] Pairs);
 

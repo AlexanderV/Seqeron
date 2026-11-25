@@ -108,7 +108,7 @@ Pairs (0,2) and (3,5): ranges [0,2] and [3,5] do not overlap → **no pseudoknot
 ## Assumptions
 
 1. **ASSUMPTION: Empty / single-pair input returns no pseudoknots.** Not stated as an explicit corner case in the sources, but follows directly from the crossing definition: a pseudoknot requires two pairs that cross, so fewer than two pairs cannot produce one. Treated as a derived (not invented) consequence, not a free parameter.
-2. **ASSUMPTION: Each crossing pair-of-pairs is reported as one Pseudoknot result.** The sources define *crossing as a binary relation between two base pairs*; the method reports each crossing relation. Grouping multiple mutually-crossing pairs into a single higher-order pseudoknot (DBL order assignment, Antczak 2018) is a richer feature that is Not Implemented here and documented as such.
+2. **Each crossing pair-of-pairs is reported as one Pseudoknot result.** The sources define *crossing as a binary relation between two base pairs*; `DetectPseudoknots` reports that relation. Grouping into layers (pseudoknot orders) is `AssignPseudoknotOrders` (§B12 review below) — formerly listed as Not Implemented.
 
 ---
 
@@ -124,6 +124,30 @@ Pairs (0,2) and (3,5): ranges [0,2] and [3,5] do not overlap → **no pseudoknot
 
 ---
 
+## B12 review (2026-11-25) — orders, bracket families, oracle cross-check
+
+**Sources opened.**
+- ViennaRNA 2.7.2 PyPI sdist, `src/ViennaRNA/structures/structure_dotbracket.c` — `vrna_db_from_ptable`: families `"([{<ABCDEFGHIJKLMNOPQRSTUVWXYZ"` / `")]}>abc…z"`; `while (recheck)` passes over i = 1..n: an opening pair whose partner exceeds the top of the pass stack sets `recheck` and is skipped, otherwise it is pushed and written with the current family; a closing position equal to the stack top removes the pair from the table; `bracket_count >= 30` → warning "Not enough bracket types … Skipping remaining base pairs!". Returns NULL when the pair table is inconsistent. `structure_pairtable.c` — `vrna_pt_pk_remove` = `MEA()` over the pairs with p = 1, γ = 2.
+- biotite `src/biotite/structure/pseudoknots.py` (raw.githubusercontent.com, main): docstring quoted in the algorithm doc §2.2a; example "ABCbac" pairs (0,4),(1,3),(2,5) → `pseudoknots` = `[[0 0 1]]`, `dot_bracket` = `(([))]`; all optimal solutions returned. (The module itself could not be executed here: installing biotite / running the downloaded module was refused by the environment, so its docstring example is the locked value and the procedure was re-derived as an exhaustive brute force.)
+- Antczak et al. 2018 (WebSearch snippets): orders encoded `[]`, `{}`, `<>`, then letters; algorithms FCFS, EG, DP and hybrid (HYB "combines maximizing nested base pairs and minimizing the highest pseudoknot order").
+- Garey, Johnson, Miller & Papadimitriou (1980) SIAM J. Algebraic Discrete Methods 1(2):216–227, doi 10.1137/0601025: colouring circle graphs is NP-complete (minimum order = chromatic number of the crossing graph).
+
+**Stage A.** Crossing definition i < k < j < l confirmed (Antczak 2018; Rivas & Eddy 1999 via Wikipedia; biotite "positions interleave"). The previous "Not implemented: order assignment" was a doable simplification (biotite procedure + ViennaRNA renderer are published code) → implemented. biotite's docstring calls its iterated maximum the "minimum number of decompositions"; that is not exact: exhaustive search over 3,000 random sets of 2–9 pairs finds 139 where it needs one layer more than the chromatic number, e.g. (0,4),(1,12),(2,6),(3,10),(8,13),(9,14): 4 vs 3. Documented as an upper bound; exact minimum = NP-complete colouring, and it conflicts with the maximum-order-0 criterion (Antczak's HYB trades the two off).
+
+**Stage B / oracle (scratchpad `pkh/oracle.py`, 5,800 pair sets: 4,000 random sets of 0–10 pairs, 1,500 stem-structured sets of 1–8 helices on 20–120 nt, 300 dense sets of 50–300 pairs on 200–600 nt).**
+
+| Check | Result |
+|---|---|
+| `DetectPseudoknots` vs brute-force i<k<j<l list (either storage orientation) | 5,800/5,800 identical |
+| `ToDotBracket` vs `RNA.db_from_ptable` (ViennaRNA 2.7.2) | 5,787/5,787 identical; the other 13 need > 30 families: ViennaRNA drops pairs, ours throws (13/13 confirmed > 30 passes) |
+| `ParseDotBracket(ToDotBracket(P)) = P` | 5,787/5,787 |
+| `AssignPseudoknotOrders` vs exhaustive brute force (max-cardinality nested subset per layer, ties → lexicographically greatest by opening) | 4,000/4,000 identical |
+| order-0 size vs independent Nussinov-over-given-pairs DP | 5,800/5,800 |
+| order-0 size vs ViennaRNA `vrna_db_pk_remove` (MEA) | equal 5,177; MEA smaller 623 (e.g. `((.)(.))..` → `(...(.))..` drops a pair); never larger |
+| every layer nested; DBL string = order families | 5,800/5,800 |
+
+Fixtures (RNA.db_from_ptable): `([)]`; `([{)]}`; biotite `(([))]`; kissing hairpins `((..[[.)).((]].....)).`; 4 families `([[{).].(<}.])>`; larger 3' helix `(.[[[.).]]].` (orders `[1,0,0,0]`, DBL `[.(((.].))).`); 30 mutually crossing pairs use all 30 families, 31 → ViennaRNA leaves positions 30 and 61 unpaired.
+
 ## References
 
 1. Antczak M, Popenda M, Zok T, Zurkowski M, Adamiak RW, Szachniuk M (2018). New algorithms to represent complex pseudoknotted RNA structures in dot-bracket notation. *Bioinformatics* 34(8):1304–1312. https://academic.oup.com/bioinformatics/article/34/8/1304/4721780
@@ -136,3 +160,4 @@ Pairs (0,2) and (3,5): ranges [0,2] and [3,5] do not overlap → **no pseudoknot
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-11-25**: B12 review — pseudoknot orders (biotite/Smit) and ViennaRNA `vrna_db_from_ptable` renderer implemented; oracle cross-check above; invalid-input contracts.

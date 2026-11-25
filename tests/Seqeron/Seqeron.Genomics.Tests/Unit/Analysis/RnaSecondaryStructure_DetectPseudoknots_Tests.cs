@@ -232,4 +232,134 @@ public class RnaSecondaryStructure_DetectPseudoknots_Tests
     }
 
     #endregion
+
+    #region Pseudoknot orders / dot-bracket-letter rendering (B12 review 2026-11-25)
+
+    private static List<BasePair> Pairs(params (int, int)[] p) => p.Select(t => Pair(t.Item1, t.Item2)).ToList();
+
+    // ToDotBracket = ViennaRNA 2.7.2 vrna_db_from_ptable (RNA.db_from_ptable on the same pair table).
+    [TestCase(4, new[] { 0, 2, 1, 3 }, "([)]", TestName = "RnaPseudoknot001_ToDotBracket_HType_MatchesViennaRna")]
+    [TestCase(6, new[] { 0, 3, 1, 4, 2, 5 }, "([{)]}", TestName = "RnaPseudoknot001_ToDotBracket_ThreeMutuallyCrossing_MatchesViennaRna")]
+    [TestCase(6, new[] { 0, 4, 1, 3, 2, 5 }, "(([))]", TestName = "RnaPseudoknot001_ToDotBracket_BiotiteExample_MatchesViennaRna")]
+    [TestCase(22, new[] { 0, 8, 1, 7, 4, 13, 5, 12, 10, 20, 11, 19 }, "((..[[.)).((]].....)).", TestName = "RnaPseudoknot001_ToDotBracket_KissingHairpins_MatchesViennaRna")]
+    [TestCase(15, new[] { 0, 4, 1, 12, 2, 6, 3, 10, 8, 13, 9, 14 }, "([[{).].(<}.])>", TestName = "RnaPseudoknot001_ToDotBracket_FourFamilies_MatchesViennaRna")]
+    [TestCase(12, new[] { 6, 0, 10, 2, 9, 3, 8, 4 }, "(.[[[.).]]].", TestName = "RnaPseudoknot001_ToDotBracket_ClosingFirstStorage_MatchesViennaRna")]
+    [TestCase(5, new int[0], ".....", TestName = "RnaPseudoknot001_ToDotBracket_NoPairs_AllDots")]
+    public void RnaPseudoknot001_ToDotBracket_MatchesViennaRnaDbFromPtable(int length, int[] flat, string expected)
+    {
+        var pairs = Enumerable.Range(0, flat.Length / 2).Select(t => (flat[2 * t], flat[2 * t + 1])).ToList();
+
+        string db = ToDotBracket(length, pairs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(db, Is.EqualTo(expected), "RNA.db_from_ptable (ViennaRNA 2.7.2)");
+            Assert.That(ParseDotBracket(db).Select(p => (p.Position1, p.Position2)).OrderBy(p => p.Position1),
+                Is.EqualTo(pairs.Select(p => (Math.Min(p.Item1, p.Item2), Math.Max(p.Item1, p.Item2))).OrderBy(p => p.Item1)),
+                "ParseDotBracket(ToDotBracket(P)) = P");
+            Assert.That(ValidateDotBracket(db), Is.True);
+        });
+    }
+
+    // 30 mutually crossing pairs use all 30 ViennaRNA families "([{<A..Z"; a 31st would need a 31st family:
+    // ViennaRNA warns and drops it (RNA.db_from_ptable leaves positions 30 and 61 as '.'); we reject instead.
+    [Test]
+    public void RnaPseudoknot001_ToDotBracket_ThirtyFamiliesLimit()
+    {
+        var p30 = Enumerable.Range(0, 30).Select(i => (i, i + 30)).ToList();
+        var p31 = Enumerable.Range(0, 31).Select(i => (i, i + 31)).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ToDotBracket(60, p30),
+                Is.EqualTo("([{<ABCDEFGHIJKLMNOPQRSTUVWXYZ)]}>abcdefghijklmnopqrstuvwxyz"));
+            Assert.Throws<ArgumentException>(() => ToDotBracket(62, p31));
+        });
+    }
+
+    [Test]
+    public void RnaPseudoknot001_ToDotBracket_InvalidInput_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => ToDotBracket(5, new[] { (2, 2) }), "self pair");
+            Assert.Throws<ArgumentException>(() => ToDotBracket(5, new[] { (-1, 3) }), "negative position");
+            Assert.Throws<ArgumentException>(() => ToDotBracket(5, new[] { (0, 5) }), "position >= length");
+            Assert.Throws<ArgumentException>(() => ToDotBracket(8, new[] { (0, 5), (5, 7) }), "base in two pairs");
+            Assert.Throws<ArgumentException>(() => ToDotBracket(8, new[] { (0, 5), (0, 5) }), "duplicate pair");
+            Assert.Throws<ArgumentNullException>(() => ToDotBracket(8, null!));
+            Assert.Throws<ArgumentOutOfRangeException>(() => ToDotBracket(-1, Array.Empty<(int, int)>()));
+        });
+    }
+
+    // Orders: biotite structure.pseudoknots docstring example "ABCbac" → [0 0 1] and "(([))]";
+    // other rows = exhaustive brute force (maximum nested subset per layer, ties → 5'-most pair kept).
+    [TestCase(new[] { 0, 4, 1, 3, 2, 5 }, new[] { 0, 0, 1 }, "(([))]", TestName = "RnaPseudoknot001_Orders_BiotiteDocExample")]
+    [TestCase(new[] { 0, 2, 1, 3 }, new[] { 0, 1 }, "([)]", TestName = "RnaPseudoknot001_Orders_HTypeEqualStems_5PrimeStemOrder0")]
+    [TestCase(new[] { 0, 3, 1, 4, 2, 5 }, new[] { 0, 1, 2 }, "([{)]}", TestName = "RnaPseudoknot001_Orders_ThreeMutuallyCrossing")]
+    [TestCase(new[] { 0, 8, 1, 7, 4, 13, 5, 12, 10, 20, 11, 19 }, new[] { 0, 0, 1, 1, 0, 0 }, "((..[[.)).((]].....))", TestName = "RnaPseudoknot001_Orders_KissingHairpins")]
+    [TestCase(new[] { 0, 6, 2, 10, 3, 9, 4, 8 }, new[] { 1, 0, 0, 0 }, "[.(((.].)))", TestName = "RnaPseudoknot001_Orders_LargerStemKeptAtOrder0")]
+    [TestCase(new[] { 0, 4, 1, 12, 2, 6, 3, 10, 8, 13, 9, 14 }, new[] { 0, 1, 1, 2, 0, 3 }, "([[{).].(<}.])>", TestName = "RnaPseudoknot001_Orders_IteratedMaximumNeedsFourLayers")]
+    public void RnaPseudoknot001_AssignPseudoknotOrders_MatchesSourcedProcedure(int[] flat, int[] expectedOrders, string expectedDbl)
+    {
+        var pairs = Enumerable.Range(0, flat.Length / 2).Select(t => Pair(flat[2 * t], flat[2 * t + 1])).ToList();
+        int length = flat.Max() + 1;
+
+        var orders = AssignPseudoknotOrders(pairs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(orders, Is.EqualTo(expectedOrders));
+            Assert.That(ToDotBracketByPseudoknotOrder(length, pairs), Is.EqualTo(expectedDbl));
+        });
+    }
+
+    // Property (seeded): every order layer is nested, order 0 is a maximum nested subset (size cross-checked
+    // against an independent brute force over all subsets), and the DBL string parses back to the pairs.
+    [Test]
+    public void RnaPseudoknot001_Orders_RandomPairSets_LayersNestedAndOrder0Maximum()
+    {
+        var rng = new Random(20261125);
+        for (int iter = 0; iter < 300; iter++)
+        {
+            int p = rng.Next(0, 9);
+            int length = 2 * p + rng.Next(0, 6);
+            var pos = Enumerable.Range(0, length).OrderBy(_ => rng.Next()).ToList();
+            var pairs = Enumerable.Range(0, p).Select(t => Pair(pos[2 * t], pos[2 * t + 1])).ToList();
+
+            var orders = AssignPseudoknotOrders(pairs);
+            for (int a = 0; a < p; a++)
+                for (int b = a + 1; b < p; b++)
+                    if (orders[a] == orders[b])
+                        Assert.That(DetectPseudoknots(new[] { pairs[a], pairs[b] }), Is.Empty, "pairs of equal order never cross");
+
+            int best = 0;
+            for (int mask = 0; mask < (1 << p); mask++)
+            {
+                var subset = Enumerable.Range(0, p).Where(t => (mask & (1 << t)) != 0).Select(t => pairs[t]).ToList();
+                if (subset.Count > best && !DetectPseudoknots(subset).Any()) best = subset.Count;
+            }
+            Assert.That(orders.Count(o => o == 0), Is.EqualTo(best), "order-0 layer is a maximum nested subset");
+
+            string dbl = ToDotBracketByPseudoknotOrder(length, pairs);
+            Assert.That(ParseDotBracket(dbl).OrderBy(x => x.Position1),
+                Is.EqualTo(pairs.Select(x => (Math.Min(x.Position1, x.Position2), Math.Max(x.Position1, x.Position2))).OrderBy(x => x.Item1)));
+        }
+    }
+
+    [Test]
+    public void RnaPseudoknot001_Orders_InvalidInput_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AssignPseudoknotOrders(new List<BasePair>()), Is.Empty);
+            Assert.Throws<ArgumentNullException>(() => AssignPseudoknotOrders(null!));
+            Assert.Throws<ArgumentException>(() => AssignPseudoknotOrders(Pairs((3, 3))));
+            Assert.Throws<ArgumentException>(() => AssignPseudoknotOrders(Pairs((0, 5), (5, 9))));
+            Assert.Throws<ArgumentException>(() => AssignPseudoknotOrders(Pairs((-2, 5))));
+            Assert.Throws<ArgumentException>(() => ToDotBracketByPseudoknotOrder(5, Pairs((0, 5))));
+        });
+    }
+
+    #endregion
 }
