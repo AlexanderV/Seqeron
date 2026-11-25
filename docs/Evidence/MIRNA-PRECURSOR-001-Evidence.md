@@ -115,7 +115,8 @@
 | Loop | `GAAAUUU` (7 nt) |
 | 3' stem | `UAGCUAGCUAGCUAGCUAGCUAUGC` (25 nt, reverse complement) |
 | Total length | 57 nt |
-| Effective stem | 23 bp (capped by maxStem = n/2 - 5) |
+| Effective stem | 27 bp (G25·U31 and A26-U30 also pair), loop `AAU` (3 nt) — = ViennaRNA 2.8 MFE structure (B13 F9; formerly reported as 23 bp/11 nt by an unsourced `n/2 − 5` cap) |
+| ΔG° | −48.48 kcal/mol (NNDB: 26 stacks −54.33 + AU end 0.45 + triloop 5.40; = engine MFE; Vienna 2.8 −48.40) |
 
 ### Dataset 2: Wobble-pair hairpin (57 nt)
 
@@ -153,14 +154,14 @@
 
 ### Dataset 5: Short-stem hairpin (55 nt)
 
-**Source:** Constructed to test stem-length rejection independently of n<55 early-exit
+**Source:** Constructed to test stem-length rejection independently of the window-length filter
 
 | Parameter | Value |
 |-----------|-------|
 | 5' stem | `GCAUAGCUAGCUAGC` (15 nt) |
 | Loop | `AUGCAUGCAUGCAUGCAUGCAUGCA` (25 nt) |
 | 3' stem | `GCUAGCUAGCUAUGC` (15 nt, reverse complement) |
-| Total length | 55 nt (passes n<55 check) |
+| Total length | 55 nt |
 | Expected result | Rejected — stem 15 bp < 18 bp threshold |
 
 ---
@@ -561,3 +562,25 @@ L2 (ridge) penalty (λ=1e-3) — standard regularised logistic regression (ESL �
 | hsa-mir-21 (natural) | 0.9999949074161931 | natural ✓ |
 | hsa-let-7a-1 (natural) | 0.9998877289367469 | natural ✓ |
 | hsa-mir-21 di-shuffled (seed 999) | 0.0005220422779554753 | background ✓ |
+
+---
+
+## B13 review (2026-11-25) — sources opened and reference values (F8–F10)
+
+- **NNDB Turner 2004 hairpin page** (opened: `rna.urmc.rochester.edu/NNDB/rna_2004/rna_2004_hairpin_loops.html`):
+  ΔG°hairpin(>3) = initiation(n) + terminal mismatch + UU/GA first mismatch + GG first mismatch + special GU
+  closure + all-C penalty; triloops = initiation(3) + C3 penalty (no mismatch); special 3/4/6-nt loops use
+  experimental totals; loops < 3 nt prohibited. Worked example 5.3 adds the **AU end penalty** to the helix
+  end that closes the hairpin (−2.11 −2.24 −2.11 +0.45 −0.8 +5.4 = −1.4).
+- **NNDB parameter files** (opened: `…/parameter_tables/turner_2004_rnastructure/turner_2004_loop_dg.txt`,
+  `turner_2004_tetraloop_dg.txt` [`CUUCGG 3.7`], `turner_2004_triloop_dg.txt` [`AAAUU` not special],
+  `turner_2004_terminal_mismatch_dg.txt`, `turner_2004_watson_crick_stack_dg.txt` [0.1-kcal rounding]).
+- **ViennaRNA 2.8.0** (`import RNA`): `eval_structure` of every heuristic candidate on the test fixtures
+  (33 windows) agrees with the canonical energy to ≤ 0.24 kcal/mol; hairpin-loop terms identical (e.g.
+  `Hairpin loop CG UUCG = 370`); residual = Vienna's 0.1-kcal stacks and `TerminalAU = 50` (vs NNDB 0.45).
+- Reference values locked: UUCG-tetraloop hairpin (44 nt) −37.66 (Vienna −37.60; the former inline formula would give −36.76); GA-first-mismatch hairpin (57 nt, 23 bp/11 nt) −44.80 (Vienna −44.70; former code output −43.90, GA bonus missing);
+  ValidHairpin57 −48.48, WobbleHairpin57 −39.80 (Vienna −39.80), ShortHairpin47 −38.69 (Vienna −38.60),
+  each equal to `RnaSecondaryStructure.CalculateMinimumFreeEnergy` (perfect hairpin = its own MFE fold).
+- MFE path cross-check (ViennaRNA 2.8 RNA.fold vs engine): hsa-mir-21 −34.60 vs −35.13 (both 32 bp, MFEI
+  0.9886 vs 1.0037); hsa-let-7a-1 −34.20 vs −34.31 (33 vs 32 bp, MFEI 1.0059 vs 1.0091) — engine residual is
+  B12's (RNA-STRUCT-001 int21/int22 + 0.1-kcal rounding); both ≥ 0.85 (Zhang 2006) either way.

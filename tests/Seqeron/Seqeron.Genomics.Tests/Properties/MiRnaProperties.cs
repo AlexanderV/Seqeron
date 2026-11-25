@@ -1088,18 +1088,14 @@ public class MiRnaProperties
     //   coordinates are all derived HERE from the construction, never read back
     //   from the implementation.
     //
-    // IMPLEMENTATION-DERIVED CONSTRAINT (honest, from AnalyzeHairpin source):
-    //   The detector caps the scanned stem at maxStem = min(n/2 − 5, 35). For
-    //   the constructed full-length window to be detected with the FULL intended
-    //   stem we therefore require  stem ≤ n/2 − 5, i.e. loop ≥ 10 (and stem ≤ 35).
-    //   The generator below honours this so the construction's stem is the one
-    //   the detector reports. This is a true property of the source, not a
-    //   weakening: the dot-bracket / stem / loop oracle is still derived from
-    //   the perfect-hairpin theory.
+    // STEM EXTENT (B13 F9, 2026-11): the detector extends the uninterrupted stem as
+    //   far as the mirrored bases pair, stopping only at the 3-nt NNDB minimum hairpin
+    //   loop (no truncation at the former unsourced min(n/2 − 5, 35) cap). The all-'A'
+    //   loop boundary (A:A) terminates the stem at EXACTLY `stem` for every loop
+    //   length in [3, 25], so the generator spans the full Bartel (2004) loop range.
     // ---------------------------------------------------------------------
 
     private const int MinStem = 18;          // §2.2 stem ≥ 18 bp
-    private const int MaxStemCap = 35;        // AnalyzeHairpin hard cap on scanned stem
     private const int MinLoop = 3;            // §2.2 loop ≥ 3
     private const int MaxLoop = 25;           // §2.2 loop ≤ 25
     private const int MinWindow = 55;         // default minHairpinLength
@@ -1149,13 +1145,13 @@ public class MiRnaProperties
 
     /// <summary>
     /// Generator of perfect hairpins whose FULL-length window is accepted with the EXACT
-    /// constructed stem. Constraints: loop ∈ [10,25] (so stem ≤ n/2 − 5 holds and the all-'A'
-    /// loop boundary cleanly terminates the stem), stem ∈ [18, min(35,(120−loop)/2)], and total
-    /// length ∈ [55,120]. The seed drives reproducible arm bases.
+    /// constructed stem. Constraints: loop ∈ [3,25] (the all-'A' loop boundary cleanly terminates
+    /// the stem), stem ∈ [18, (120−loop)/2], and total length ∈ [55,120]. The seed drives
+    /// reproducible arm bases.
     /// </summary>
     private static Arbitrary<(string sequence, int stem, int loop)> PerfectHairpinArbitrary() =>
-        (from loop in Gen.Choose(10, MaxLoop)
-         let hiStem = Math.Min(MaxStemCap, (MaxWindow - loop) / 2)
+        (from loop in Gen.Choose(MinLoop, MaxLoop)
+         let hiStem = (MaxWindow - loop) / 2
          from stem in Gen.Choose(MinStem, hiStem)
          from seed in Gen.Choose(1, 1_000_000)
          where 2 * stem + loop >= MinWindow && 2 * stem + loop <= MaxWindow
@@ -1418,22 +1414,20 @@ public class MiRnaProperties
     }
 
     /// <summary>
-    /// INV-03 lower bound — honest reachability note. The detector caps the scanned stem at
-    /// maxStem = n/2 − 5, so the reported loop is ALWAYS ≥ 10 at any accepted window; a loop
-    /// below 3 is therefore unreachable from the scan. A perfect hairpin constructed with a tiny
-    /// loop (here 2) is consequently NOT rejected: it is re-decomposed into a stem capped at
-    /// maxStem with a valid loop ≥ 3. This test asserts that genuine behaviour (any emitted
-    /// candidate still honours INV-03's lower bound), proving the bound holds rather than
-    /// fabricating an unreachable loop&lt;3 acceptance.
+    /// INV-03 lower bound — the detector never closes a hairpin loop shorter than the 3-nt NNDB
+    /// minimum, so a loop below 3 is unreachable from the scan. A perfect hairpin constructed with
+    /// a tiny loop (here 2) is consequently NOT rejected: its stem stops one pair early
+    /// (maxStem = (n − 3)/2) and the loop becomes 4. Every emitted candidate honours INV-03.
     /// </summary>
     [Test]
     public void Anchor_TinyConstructedLoop_ReDecomposedWithinLoopBounds()
     {
-        // stem 27, loop 2 ⇒ length 56; maxStem = 56/2 − 5 = 23 caps the stem, loop becomes 10.
+        // stem 27, loop 2 ⇒ length 56; maxStem = (56 − 3)/2 = 26 ⇒ reported stem 26, loop 4.
         var (seq, _, _) = BuildPerfectHairpin(stem: 27, loop: 2, seed: 11);
         Assert.That(seq.Length, Is.EqualTo(56));
 
         var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).ToList();
+        Assert.That(candidates.Single(c => c.Sequence == seq).Structure, Is.EqualTo(ExpectedStructure(26, 4)));
         foreach (var hp in candidates)
         {
             int loop = hp.Structure.Count(c => c == '.');
@@ -1446,7 +1440,8 @@ public class MiRnaProperties
     /// <summary>
     /// Worked-example anchor (§7.1): the documented 57-nt sequence yields at least one candidate,
     /// the full-length window is accepted, and that candidate satisfies the full INV contract.
-    /// Independently: its uninterrupted stem is 23, loop 11, dot-bracket = (^23 .^11 )^23.
+    /// Independently: its uninterrupted stem is 27 (the loop's G·U and A-U also pair), loop 3,
+    /// dot-bracket = (^27 .^3 )^27 — the ViennaRNA 2.8 MFE structure of this sequence.
     /// </summary>
     [Test]
     public void Anchor_WorkedExample_YieldsValidHairpin()
@@ -1460,8 +1455,8 @@ public class MiRnaProperties
         Assert.That(candidates, Is.Not.Empty);
 
         var full = candidates.Single(c => c.Sequence == sequence.ToUpperInvariant().Replace('T', 'U'));
-        Assert.That(full.Structure, Is.EqualTo(ExpectedStructure(23, 11)));
-        Assert.That(full.MatureSequence, Has.Length.EqualTo(Math.Min(DefaultMatureLength, 23)));
+        Assert.That(full.Structure, Is.EqualTo(ExpectedStructure(27, 3)));
+        Assert.That(full.MatureSequence, Has.Length.EqualTo(Math.Min(DefaultMatureLength, 27)));
         Assert.That(full.MatureSequence, Is.EqualTo(full.Sequence.Substring(0, full.MatureSequence.Length)));
         Assert.That(full.Sequence.Length, Is.GreaterThan(full.MatureSequence.Length));
 

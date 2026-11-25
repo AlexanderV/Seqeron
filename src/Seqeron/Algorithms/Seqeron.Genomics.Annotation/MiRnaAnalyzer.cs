@@ -1735,66 +1735,13 @@ public static class MiRnaAnalyzer
 
     #region Pre-miRNA Energy Parameters
 
-    // Turner 2004 nearest-neighbor parameters (kcal/mol at 37°C).
-    // Shared with RnaSecondaryStructure through the authoritative single source
-    // Seqeron.Genomics.Core.Turner2004Parameters; the local names are thin aliases.
+    // Turner 2004 nearest-neighbor stacking table (kcal/mol at 37°C), used by the miRNA–target duplex
+    // energy (CalculateDuplexEnergy). Shared with RnaSecondaryStructure through the authoritative single
+    // source Seqeron.Genomics.Core.Turner2004Parameters; the local name is a thin alias. Pre-miRNA hairpin
+    // energies are NOT computed here: they are delegated to the canonical RnaSecondaryStructure loop model
+    // (see AnalyzeHairpin).
     private static readonly IReadOnlyDictionary<string, double> StackingEnergies =
         Turner2004Parameters.StackingEnergies;
-
-    private static readonly IReadOnlyDictionary<int, double> HairpinLoopInitEnergies =
-        Turner2004Parameters.HairpinLoopInitiation;
-
-    private static readonly IReadOnlyDictionary<string, double> TerminalMismatchEnergies =
-        Turner2004Parameters.TerminalMismatchEnergies;
-
-    private const double TerminalAU_GU_Penalty = Turner2004Parameters.TerminalAuGuPenalty;
-
-    /// <summary>
-    /// Calculates hairpin free energy using Turner 2004 nearest-neighbor parameters.
-    /// Components: stacking energies + loop initiation + terminal mismatch + AU/GU penalties.
-    /// </summary>
-    private static double CalculateHairpinEnergy(string seq, int stemLength)
-    {
-        int n = seq.Length;
-        int loopSize = n - 2 * stemLength;
-        double energy = 0.0;
-
-        // 1. Sum stacking energies for consecutive base pairs in the stem
-        for (int i = 0; i < stemLength - 1; i++)
-        {
-            string key = $"{seq[i]}{seq[i + 1]}/{seq[n - 1 - i]}{seq[n - 2 - i]}";
-            if (StackingEnergies.TryGetValue(key, out double stackE))
-                energy += stackE;
-        }
-
-        // 2. Hairpin loop initiation
-        if (HairpinLoopInitEnergies.TryGetValue(loopSize, out double loopE))
-        {
-            energy += loopE;
-        }
-        else if (loopSize > 30)
-        {
-            // Extrapolation: ΔG°(n) = ΔG°(9) + 1.75·R·T·ln(n/9)
-            // R = 0.001987 kcal/(mol·K), T = 310.15 K → 1.75·R·T ≈ 1.079
-            energy += 6.4 + 1.079 * Math.Log((double)loopSize / 9);
-        }
-
-        // 3. Terminal mismatch (for loops ≥ 4 nt)
-        if (loopSize >= 4)
-        {
-            string tmKey = $"{seq[stemLength - 1]}{seq[stemLength]}{seq[n - stemLength - 1]}{seq[n - stemLength]}";
-            if (TerminalMismatchEnergies.TryGetValue(tmKey, out double tmE))
-                energy += tmE;
-        }
-
-        // 4. Terminal AU/GU penalties (outer and closing pairs)
-        if (IsTerminalPenaltyPair(seq[0], seq[n - 1]))
-            energy += TerminalAU_GU_Penalty;
-        if (IsTerminalPenaltyPair(seq[stemLength - 1], seq[n - stemLength]))
-            energy += TerminalAU_GU_Penalty;
-
-        return energy;
-    }
 
     internal static bool IsTerminalPenaltyPair(char b1, char b2) =>
         Turner2004Parameters.IsTerminalPenaltyPair(b1, b2);
@@ -1803,14 +1750,51 @@ public static class MiRnaAnalyzer
 
     #region Pre-miRNA Prediction
 
+    // Consecutive-pairing screen thresholds.
+    // Stem: pre-miRNA stems carry a ~22-bp miRNA duplex; >= 18 consecutive bp required — Krol et al. (2004).
+    private const int HeuristicMinStemBasePairs = 18;
+    // Hairpin loop: NNDB Turner 2004 prohibits hairpin loops shorter than 3 nt; pre-miRNA terminal loops are
+    // ~3-15 nt, up to ~25 nt — Bartel (2004), Cell 116:281.
+    private const int HeuristicMinTerminalLoop = 3;
+    private const int HeuristicMaxTerminalLoop = 25;
+
     /// <summary>
-    /// Finds potential pre-miRNA hairpin structures in a sequence.
+    /// Finds potential pre-miRNA hairpin structures in a sequence with the consecutive-pairing screen:
+    /// every window of length [<paramref name="minHairpinLength"/>, <paramref name="maxHairpinLength"/>]
+    /// is accepted when its two ends pair UNINTERRUPTEDLY inward (Watson–Crick or G·U) for ≥ 18 bp and the
+    /// remaining apical loop is 3–25 nt. The stem is extended as far as the mirrored bases pair (leaving
+    /// at least the 3-nt minimum hairpin loop), so the reported structure is the full consecutive stem.
+    /// For bulge/internal-loop tolerant detection use <see cref="FindPreMiRnaHairpinsByMfe"/>.
     /// </summary>
+    /// <param name="sequence">RNA or DNA sequence (case-insensitive; T read as U). Null/empty ⇒ no candidates.</param>
+    /// <param name="minHairpinLength">Minimum window length (default 55 nt; must be ≥ 1).</param>
+    /// <param name="maxHairpinLength">Maximum window length (default 120 nt; a value below
+    /// <paramref name="minHairpinLength"/> yields no candidates).</param>
+    /// <param name="matureLength">Length of the 5'-arm "mature" and mirrored 3'-arm "star" labels
+    /// (default 22 nt; must be ≥ 1; capped at the stem length).</param>
+    /// <returns>
+    /// Candidates whose <c>Structure</c> and <c>FreeEnergy</c> come from the canonical
+    /// <see cref="RnaSecondaryStructure.FindStemLoops"/> stem-loop of the window: dot-bracket from the
+    /// canonical renderer and ΔG° = Turner 2004 stacking + AU/GU helix-end penalties
+    /// (<see cref="RnaSecondaryStructure.CalculateStemEnergy"/>) + full hairpin-loop model
+    /// (<see cref="RnaSecondaryStructure.CalculateHairpinLoopEnergy"/>: special tri/tetra/hexaloops,
+    /// terminal mismatch, UU/GA and GG first-mismatch bonuses, special GU closure, all-C penalty).
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minHairpinLength"/> or
+    /// <paramref name="matureLength"/> is &lt; 1.</exception>
     public static IEnumerable<PreMiRna> FindPreMiRnaHairpins(
         string sequence,
         int minHairpinLength = 55,
         int maxHairpinLength = 120,
         int matureLength = 22)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(minHairpinLength, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(matureLength, 1);
+        return FindPreMiRnaHairpinsIterator(sequence, minHairpinLength, maxHairpinLength, matureLength);
+    }
+
+    private static IEnumerable<PreMiRna> FindPreMiRnaHairpinsIterator(
+        string sequence, int minHairpinLength, int maxHairpinLength, int matureLength)
     {
         if (string.IsNullOrEmpty(sequence) || sequence.Length < minHairpinLength)
             yield break;
@@ -1844,57 +1828,33 @@ public static class MiRnaAnalyzer
     private static (string Mature, string Star, string Structure, double Energy)? AnalyzeHairpin(string sequence, int matureLength)
     {
         int n = sequence.Length;
-        if (n < 55) return null;
 
-        // Find stem region by looking for complementary ends
+        // Uninterrupted pairing of the mirrored ends, inward, as far as the bases pair — but never
+        // closing a hairpin loop shorter than the 3-nt NNDB minimum.
+        int maxStem = (n - HeuristicMinTerminalLoop) / 2;
         int stemLength = 0;
-        int maxStem = Math.Min(n / 2 - 5, 35); // Leave room for loop
+        while (stemLength < maxStem && RnaSecondaryStructure.CanPair(sequence[stemLength], sequence[n - 1 - stemLength]))
+            stemLength++;
 
-        for (int j = 0; j < maxStem; j++)
-        {
-            if (CanPair(sequence[j], sequence[n - 1 - j]))
-            {
-                stemLength++;
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        if (stemLength < 18) // Pre-miRNA needs ~18+ bp stem
+        if (stemLength < HeuristicMinStemBasePairs)
             return null;
 
-        // Check loop size (should be 3-15 nt)
-        int loopSize = n - 2 * stemLength;
-        if (loopSize < 3 || loopSize > 25)
+        int loopSize = n - 2 * stemLength; // >= 3 by construction of maxStem
+        if (loopSize < HeuristicMinTerminalLoop || loopSize > HeuristicMaxTerminalLoop)
             return null;
 
-        // Extract mature miRNA (typically from 5' arm)
-        int matureStart = 0;
-        int matureEnd = Math.Min(matureLength, stemLength);
-        string mature = sequence.Substring(matureStart, matureEnd);
+        // Canonical stem-loop for exactly this stem/loop: FindStemLoops with the loop fixed at
+        // [stemLength, n − stemLength − 1] extends the helix outward to the window ends, scores it with the
+        // full Turner 2004 model and renders the dot-bracket with the canonical renderer.
+        var stemLoop = RnaSecondaryStructure.FindStemLoops(
+            sequence, minStemLength: stemLength, minLoopSize: loopSize, maxLoopSize: loopSize).Single();
 
-        // Star sequence from 3' arm
-        int starStart = n - matureEnd;
-        string star = sequence.Substring(starStart, matureEnd);
+        // 5'-arm "mature" label and the 3'-arm segment it pairs with (the "star" label).
+        int armLength = Math.Min(matureLength, stemLength);
+        string mature = sequence.Substring(0, armLength);
+        string star = sequence.Substring(n - armLength, armLength);
 
-        // Generate dot-bracket structure
-        var structure = new char[n];
-        for (int j = 0; j < n; j++)
-        {
-            if (j < stemLength)
-                structure[j] = '(';
-            else if (j >= n - stemLength)
-                structure[j] = ')';
-            else
-                structure[j] = '.';
-        }
-
-        // Calculate free energy using Turner 2004 nearest-neighbor parameters
-        double energy = CalculateHairpinEnergy(sequence, stemLength);
-
-        return (mature, star, new string(structure), energy);
+        return (mature, star, stemLoop.DotBracketNotation, stemLoop.TotalFreeEnergy);
     }
 
     #endregion
@@ -1999,6 +1959,13 @@ public static class MiRnaAnalyzer
         int maxHairpinLength = 120,
         double minMfei = DefaultMinMfei,
         int minLoopSize = 3)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(minHairpinLength, 1);
+        return FindPreMiRnaHairpinsByMfeIterator(sequence, minHairpinLength, maxHairpinLength, minMfei, minLoopSize);
+    }
+
+    private static IEnumerable<PreMiRnaMfe> FindPreMiRnaHairpinsByMfeIterator(
+        string sequence, int minHairpinLength, int maxHairpinLength, double minMfei, int minLoopSize)
     {
         if (string.IsNullOrEmpty(sequence) || sequence.Length < minHairpinLength)
             yield break;
@@ -2136,18 +2103,13 @@ public static class MiRnaAnalyzer
         return true;
     }
 
-    /// <summary>G+C content of a sequence as a percentage in [0,100].</summary>
-    private static double GcPercent(string sequence)
-    {
-        if (string.IsNullOrEmpty(sequence)) return 0.0;
-        int gc = 0;
-        foreach (char c in sequence)
-        {
-            char u = char.ToUpperInvariant(c);
-            if (u == 'G' || u == 'C') gc++;
-        }
-        return AmfePer100Nt * gc / sequence.Length;
-    }
+    /// <summary>
+    /// G+C content as a percentage in [0,100] — the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFractionFast"/> ((G+C)/(A+C+G+T+U), non-nucleotide symbols
+    /// excluded from both counts, = Biopython <c>gc_fraction(…, "remove")</c>) scaled by 100.
+    /// </summary>
+    private static double GcPercent(string sequence) =>
+        string.IsNullOrEmpty(sequence) ? 0.0 : AmfePer100Nt * sequence.CalculateGcFractionFast();
 
     #endregion
 

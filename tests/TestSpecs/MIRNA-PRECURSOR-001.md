@@ -5,7 +5,7 @@
 **Algorithm:** Pre-miRNA Hairpin Detection
 **Status:** ☐ Pending re-validation (MFE-fold opt-in added 2026-06-24)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-11-25 (B13 review: F8–F10)
 
 ---
 
@@ -60,6 +60,7 @@
 2. **No complementarity:** Random sequence with no self-complementary regions → no hairpin found.
 3. **Loop too small/large:** Loop < 3 or > 25 nt → rejected.
 4. **Stem too short:** < 18 consecutive base pairs → rejected.
+7. **Invalid lengths (B13 F10):** `minHairpinLength < 1` or `matureLength < 1` → eager `ArgumentOutOfRangeException`; `minHairpinLength` below 55 is honoured (no hidden 55-nt floor).
 5. **DNA input:** T must be converted to U before analysis.
 6. **Empty/null input:** Must return empty, not throw.
 
@@ -206,13 +207,13 @@
 | M2 | ✅ Covered | Empty input returns empty |
 | M3 | ✅ Covered | Short sequence rejected |
 | M4 | ✅ Covered | Valid hairpin detected |
-| M5 | ✅ Covered | Exact Start=0/End=56 + sub-window Start=1/End=55; count=2 |
+| M5 | ✅ Covered | Exact Start=0/End=56 + sub-window Start=1/End=55; count=2 (stems 27/26) |
 | M6 | ✅ Covered | Exact mature = first 22 nt ("GCAUAGCUAGCUAGCUAGCUAG") |
 | M7 | ✅ Covered | Exact star = last 22 nt ("CUAGCUAGCUAGCUAGCUAUGC") |
-| M8 | ✅ Covered | Exact structure: 23×'(' + 11×'.' + 23×')' |
+| M8 | ✅ Covered | Exact structure: 27×'(' + 3×'.' + 27×')' (= ViennaRNA 2.8 MFE structure; B13 F9) |
 | M9 | ✅ Covered | Balanced parentheses + dot count ≥ 3 |
-| M10 | ✅ Covered | Exact Turner energy −4⁣⁣⁣3.50 kcal/mol (hand-calculated from NNDB) |
-| M11 | ✅ Covered | Exact energies: stem-23 = −4⁣⁣⁣3.50, stem-20 = −36.02 (hand-calculated) |
+| M10 | ✅ Covered | Exact Turner energy −48.48 kcal/mol (NNDB hand calc = engine MFE; Vienna −48.40) (B13 F8/F9) |
+| M11 | ✅ Covered | Exact energies: stem-27 = −48.48, stem-20 = −36.02 (hand-calculated; Vienna −35.80) |
 | M12 | ✅ Covered | 15 bp stem rejected (stem < 18) |
 | M13 | ✅ Covered | 30 nt loop rejected (> 25) |
 | M14 | ✅ Covered | DNA T→U conversion verified |
@@ -247,6 +248,13 @@
 | S4 | ✅ Covered | No complementarity returns empty |
 | C1 | ✅ Covered | Mixed-case input produces same results as uppercase |
 | C2 | ✅ Covered | Custom matureLength=18 yields exact 18-nt mature/star |
+| R-F8a | ✅ Covered (B13) | UUCG tetraloop hairpin: FreeEnergy −37.66 = NNDB stacks −41.36 + special tetraloop 3.70 (Vienna −37.60) |
+| R-F8c | ✅ Covered (B13) | GA first-mismatch hairpin (57 nt): −44.80 incl. GA bonus (Vienna −44.70); former code −43.90 |
+| R-F8b | ✅ Covered (B13) | ValidHairpin57 / WobbleHairpin57 / ShortHairpin47: structure == engine MFE dot-bracket, energy == NNDB hand calc == engine MFE (−48.48 / −39.80 / −38.69) |
+| R-F9 | ✅ Covered (B13) | LargeHairpin110 (50-bp stem, 10-nt loop) reported with the full stem (formerly capped at 35 ⇒ rejected) |
+| R-F10a | ✅ Covered (B13) | minHairpinLength = 40 honoured: ShortHairpin47 windows (0,46),(1,45),(2,44),(3,43) |
+| R-F10b | ✅ Covered (B13) | matureLength < 1 / minHairpinLength < 1 ⇒ eager ArgumentOutOfRangeException (both scans); max < min ⇒ empty |
+| R-GC | ✅ Covered (B13) | AssessHairpinByMfe GC% excludes non-nucleotide symbols (canonical CalculateGcFractionFast) |
 
 **Summary:** 0 missing, 0 weak, 0 duplicate. 25 heuristic + 10 MFE-fold + 10 cleavage-site = 45 cases covered.
 
@@ -282,7 +290,7 @@
 
 | # | Limitation | Impact | Tests |
 |---|-----------|--------|-------|
-| 1 | **Default heuristic** uses consecutive stem pairing from ends; no tolerance for internal mismatches or bulges. Real pre-miRNAs (e.g., hsa-mir-21) have asymmetric internal loops that offset pairing alignment. | Real miRBase pre-miRNAs are not detected by the **default** model. | M18, M19 |
+| 1 | **Default heuristic** uses consecutive stem pairing from ends (extended up to the 3-nt minimum loop; energy/structure from the canonical RnaSecondaryStructure stem-loop since B13 F8/F9); no tolerance for internal mismatches or bulges. Real pre-miRNAs (e.g., hsa-mir-21) have asymmetric internal loops that offset pairing alignment. | Real miRBase pre-miRNAs are not detected by the **default** model. | M18, M19 |
 | 2 | **Resolved (opt-in):** `AssessHairpinByMfe` / `FindPreMiRnaHairpinsByMfe` fold the candidate with the validated Zuker–Stiegler MFE engine (RNA-STRUCT-001) and read the hairpin from the real MFE structure, detecting natural miRBase precursors. | hsa-mir-21 / hsa-let-7a-1 now detected via the MFE path. | MF2, MF3, MF4 |
 | 3 | **Resolved (opt-in):** `PredictDroshaDicerCleavage` predicts the Drosha cut (~11 bp from the basal junction, Han 2006), the Dicer cut / mature length (~22 nt, 5' counting rule, Park 2011), the mature (5p) and star (3p) coordinates, the 2-nt 3' overhang, and an optional CNNC confidence flag (Auyeung 2013). Cross-checked against miRBase hsa-miR-21-5p. | Cleavage coordinates now predictable from the published rules. | DD1–DD10 |
 | 4 | **Resolved (opt-in):** `ClassifyPreMiRna` is a bundled **trained** logistic-regression natural-vs-background classifier over published structure/sequence features (MFE, AMFE, MFEI, GC, %paired), trained from public-domain miRBase positives vs Altschul-Erickson di-shuffled negatives (Bonnet 2004); held-out accuracy = AUC = 1.0 on the fixed-seed 70/30 split. NO GPL miRDeep2 code was used. | Structure/sequence-feature precursor scoring now ships out of the box. | CL1–CL12 |

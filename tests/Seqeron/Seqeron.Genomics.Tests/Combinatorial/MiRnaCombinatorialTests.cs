@@ -115,14 +115,15 @@ public class MiRnaCombinatorialTests
     // Spec: tests/TestSpecs/MIRNA-PRECURSOR-001.md (canonical FindPreMiRnaHairpins).
     // Dimensions: precLen(3) × minStem(3) × maxLoop(3). Grid 3×3×3 = 27.
     //
-    // Model (Bartel 2004): a pre-miRNA is a ≥55-nt hairpin with a long (~≥18 bp) stem and a small
+    // Model (Bartel 2004): a pre-miRNA is a hairpin with a long (~≥18 bp) stem and a small
     // (3–25 nt) terminal loop. The stem/loop thresholds are FIXED internal constants here, so the
     // minStem/maxLoop axes vary the PLANTED hairpin's stem/loop against them; precLen is the
-    // search length window (min/maxHairpinLength).
+    // search length window (min/maxHairpinLength) — the ONLY length gate (B13 F10: the former
+    // hard-coded 55-nt floor that overrode minHairpinLength was removed).
     //
     // The combinatorial point: planted stem length, loop size and the length window jointly
     // determine detection — a hairpin is found exactly when stem ≥ 18, loop ∈ [3,25], and its
-    // length is ≥ 55 and within the search window.
+    // length is within the search window.
     // ═══════════════════════════════════════════════════════════════════════
 
     private static readonly int[] StemValues = { 16, 25, 32 };
@@ -145,7 +146,7 @@ public class MiRnaCombinatorialTests
 
         var found = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, minH, maxH, matureLength: 22).ToList();
 
-        bool expected = stem >= 18 && loop is >= 3 and <= 25 && innerLen >= 55 && innerLen >= minH && innerLen <= maxH;
+        bool expected = stem >= 18 && loop is >= 3 and <= 25 && innerLen >= minH && innerLen <= maxH;
         found.Any(p => p.Sequence == hairpin)
             .Should().Be(expected, "the planted hairpin is found iff stem/loop/length all qualify");
 
@@ -159,22 +160,23 @@ public class MiRnaCombinatorialTests
 
     /// <summary>
     /// Interaction witness: each requirement independently rejects a hairpin — a short stem, an
-    /// oversized loop, or a length below 55 nt all prevent detection.
+    /// oversized loop, or a length below the caller's minHairpinLength all prevent detection.
     /// </summary>
     [Test]
     public void MiRnaPrecursor_EachRequirement_GatesDetection()
     {
-        bool Found(int stem, int loop)
+        bool Found(int stem, int loop, int minH = 40)
         {
             string hp = new string('G', stem) + new string('A', loop) + new string('C', stem);
-            return MiRnaAnalyzer.FindPreMiRnaHairpins(new string('U', 10) + hp + new string('U', 10), 40, 200, 22)
+            return MiRnaAnalyzer.FindPreMiRnaHairpins(new string('U', 10) + hp + new string('U', 10), minH, 200, 22)
                 .Any(p => p.Sequence == hp);
         }
 
         Found(25, 6).Should().BeTrue("a 25-bp stem, 6-nt loop, 56-nt hairpin qualifies");
         Found(16, 6).Should().BeFalse("stem < 18 bp is rejected");
         Found(25, 30).Should().BeFalse("loop > 25 nt is rejected");
-        Found(20, 6).Should().BeFalse("a 46-nt hairpin is below the 55-nt floor");
+        Found(20, 6, minH: 55).Should().BeFalse("a 46-nt hairpin is below minHairpinLength = 55");
+        Found(20, 6, minH: 40).Should().BeTrue("the same 46-nt hairpin qualifies when minHairpinLength = 40");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

@@ -1,6 +1,24 @@
 # Validation Report: MIRNA-PRECURSOR-001 — Pre-miRNA Hairpin Detection
 
 - **Validated:** 2026-06-24   **Area:** MiRNA
+- **Re-reviewed:** 2026-11-25 (campaign 2026-09, batch B13) — Stage A PASS-WITH-NOTES, Stage B FAIL→FIXED (F8–F10, see below and `docs/Validation/review-2026-09/B13.md`).
+
+> **2026-11-25 B13 review.** (F8) The heuristic's `FreeEnergy` was an inline Turner sum (stacks + initiation +
+> terminal mismatch + AU/GU on outer/closing pair) without the NNDB special hairpin loops, UU/GA and GG
+> first-mismatch bonuses, special GU closure, all-C penalty and GGUC special stack, duplicating
+> `RnaSecondaryStructure`. It is now the canonical stem-loop energy (`FindStemLoops` with the loop fixed →
+> `CalculateStemEnergy` + `CalculateHairpinLoopEnergy`), and the dot-bracket comes from the canonical
+> renderer. GA-first-mismatch hairpin (57 nt): −44.80 (NNDB; ViennaRNA 2.8 −44.70) vs −43.90 before; UUCG-tetraloop hairpin −37.66 (Vienna −37.60). (F9) The stem
+> was truncated at an unsourced `min(n/2 − 5, 35)`, so every reported loop was ≥ 10 nt (ValidHairpin57
+> reported 23 bp/11 nt, −43.50, although bases 23–24 pair with 32–33; the real consecutive stem is 27 bp/3 nt,
+> −48.48 = engine MFE, Vienna −48.40) and perfect stems > 35 bp were rejected as a > 25-nt "loop". The stem
+> now extends while the mirrored bases pair, down to the NNDB 3-nt minimum loop. (F10) A hard-coded
+> `n < 55` rejection silently overrode `minHairpinLength`; `matureLength ≤ 0` / negative lengths crashed
+> lazily. The caller's window is now the only length gate, with eager `ArgumentOutOfRangeException`
+> validation (also `FindPreMiRnaHairpinsByMfe`). MFEI's GC% now uses the canonical
+> `CalculateGcFractionFast` (non-nucleotide symbols excluded). Sources opened: NNDB Turner 2004 hairpin page +
+> parameter files; ViennaRNA 2.8 `eval_structure`/`fold` (33-window cross-check, max |Δ| 0.24 kcal/mol from
+> Vienna's 0.1-kcal tables).
 - **Updated:** 2026-06-24 — added opt-in MFE-structure-based detection (reuses the RNA-STRUCT-001 Zuker–Stiegler folder); Status reset to ☐ for re-validation.
 - **Updated:** 2026-06-25 — added opt-in **trained** structure/sequence-feature natural-vs-background classifier (`ClassifyPreMiRna`); miRBase positives vs di-shuffled negatives; held-out AUC = 1.0; no GPL miRDeep2 code. Status stays ☐.
 - **Canonical method(s):** `MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength=55, maxHairpinLength=120, matureLength=22)` (default heuristic); internal helper `AnalyzeHairpin`; energy via `CalculateHairpinEnergy`. **New opt-in:** `FindPreMiRnaHairpinsByMfe`, `AssessHairpinByMfe`, `CalculateMfeIndex` — fold the candidate with `RnaSecondaryStructure.CalculateMfeStructure` (RNA-STRUCT-001) and derive hairpin features (single terminal loop, paired-stem count, ΔG°, AMFE, MFEI) from the real MFE structure.
