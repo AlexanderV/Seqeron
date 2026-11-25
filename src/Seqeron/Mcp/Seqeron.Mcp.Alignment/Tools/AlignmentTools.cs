@@ -565,10 +565,16 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "compute_consensus", Title = "Assembly — Column-Majority Consensus", ReadOnly = true)]
-    [Description("Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. Columns with no informative bases yield 'N'.")]
+    [Description("Builds a consensus from pre-aligned reads of equal length with Biopython SummaryInfo.dumb_consensus semantics: per column the gaps '-' and '.' are skipped (every other character, N included, is a residue); the most frequent residue is emitted if it is unique and its fraction of the non-gap residues is >= threshold, otherwise the ambiguous symbol (ties, sub-threshold and all-gap columns). Case-insensitive by default (upper-case output).")]
     public static ConsensusResult ComputeConsensus(
-        [Description("Pre-aligned reads of identical length.")] string[] alignedReads)
+        [Description("Pre-aligned reads of identical length.")] string[] alignedReads,
+        [Description("Required fraction of the column's non-gap residues (default 0.5 = simple majority; Biopython default 0.7).")] double threshold = 0.5,
+        [Description("Single-character symbol for columns without consensus (default 'N'; Biopython default 'X').")] string ambiguous = "N",
+        [Description("Biopython require_multiple: a column with a single non-gap residue gives the ambiguous symbol (default false).")] bool requireMultiple = false,
+        [Description("Upper-case residues before counting (default true); false compares characters exactly as Biopython does.")] bool ignoreCase = true)
     {
+        if (ambiguous is null || ambiguous.Length != 1)
+            throw new ArgumentException("Ambiguous must be exactly one character", nameof(ambiguous));
         if (alignedReads != null && alignedReads.Length > 1)
         {
             int len = alignedReads[0]?.Length ?? 0;
@@ -582,7 +588,7 @@ public class AlignmentTools
         }
 
         var s = global::Seqeron.Genomics.Alignment.SequenceAssembler.ComputeConsensus(
-            alignedReads ?? Array.Empty<string>());
+            alignedReads ?? Array.Empty<string>(), threshold, ambiguous[0], requireMultiple, ignoreCase);
         return new ConsensusResult(s);
     }
 

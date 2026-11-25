@@ -29,4 +29,23 @@ public class ComputeConsensusTests
         var tie = AlignmentTools.ComputeConsensus(new[] { "A", "C" });
         Assert.That(tie.Consensus, Is.EqualTo("N"));
     }
+
+    [Test]
+    public void ComputeConsensus_BiopythonOptions_DelegateToCanonicalConsensus()
+    {
+        // Values from Biopython 1.85 dumb_consensus (docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md).
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlignmentTools.ComputeConsensus(new[] { "N", "N", "A" }, ambiguous: "X").Consensus,
+                Is.EqualTo("N"), "N is a residue, not ignored.");
+            Assert.That(AlignmentTools.ComputeConsensus(new[] { "A-", "AC" }, requireMultiple: true).Consensus,
+                Is.EqualTo("AN"));
+            Assert.That(AlignmentTools.ComputeConsensus(new[] { "ACGT", "ATGT", "ATGT" }, threshold: 0.7).Consensus,
+                Is.EqualTo("ANGT"));
+            Assert.That(AlignmentTools.ComputeConsensus(new[] { "aa", "Aa", "AA" }, ignoreCase: false).Consensus,
+                Is.EqualTo("Aa"));
+            Assert.Throws<ArgumentException>(() => AlignmentTools.ComputeConsensus(new[] { "A" }, ambiguous: "XY"));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.ComputeConsensus(new[] { "A" }, double.NaN));
+        });
+    }
 }

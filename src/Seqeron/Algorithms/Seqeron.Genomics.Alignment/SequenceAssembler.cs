@@ -62,7 +62,7 @@ public static class SequenceAssembler
     /// overlap order and an edge i → j is taken iff i has no successor yet, j has no predecessor
     /// yet and the edge does not close a cycle; every resulting path is one contig, and each
     /// contained read is placed at its offset inside its container; (3) Consensus — each layout
-    /// column is resolved by majority vote (<see cref="ComputeConsensus"/>, threshold 0.5,
+    /// column is resolved by majority vote (<see cref="ComputeConsensus(IReadOnlyList{string}, double, char)"/>, threshold 0.5,
     /// ties → 'N'). Exact OLC layout (a Hamiltonian path through the overlap graph) is
     /// NP-complete, so GREEDY is a heuristic: it reconstructs unambiguous tilings exactly but
     /// may split or mis-resolve repeats longer than the reads.
@@ -1438,9 +1438,9 @@ public static class SequenceAssembler
     // by passing threshold: 0.7. Source: EMBOSS cons (plurality cut-off); Biopython dumb_consensus.
     private const double DefaultConsensusThreshold = 0.5;
 
-    // Default IUPAC "any base" symbol emitted when a column has no committed residue. Biopython's
-    // dumb_consensus default ambiguous symbol is 'X' (protein); for DNA/RNA the IUPAC degenerate
-    // code for "any base" is 'N'. Source: Wikipedia "Consensus sequence" (IUPAC N = any base).
+    // Default "no consensus" symbol. Biopython's dumb_consensus default is 'X' (protein); EMBOSS
+    // cons writes 'N' for a nucleotide alignment (embConsCalc / ajSeqsetIsNuc), the IUPAC
+    // "any base" code (NC-IUB 1984).
     private const char DefaultAmbiguousSymbol = 'N';
 
     // Gap symbols excluded from the per-column tally per Biopython dumb_consensus
@@ -1450,63 +1450,108 @@ public static class SequenceAssembler
 
     /// <summary>
     /// Computes the consensus sequence from a set of aligned reads using the column-wise
-    /// majority/threshold rule of Biopython's <c>dumb_consensus</c>: for each alignment column,
-    /// non-gap residues ('-' and '.' are skipped) are tallied; a residue is emitted only when a
-    /// single residue holds the strict maximum count AND its frequency among the non-gap residues
-    /// is at least <paramref name="threshold"/>. Ties for the maximum count, sub-threshold majorities,
-    /// and all-gap columns emit <paramref name="ambiguous"/>. The consensus length equals the longest
-    /// input read (the full alignment length); reads shorter than a column contribute nothing there.
+    /// majority/threshold rule of Biopython's <c>dumb_consensus</c>, with residues compared
+    /// case-insensitively (upper-case output). Equivalent to
+    /// <see cref="ComputeConsensus(IReadOnlyList{string}, double, char, bool, bool)"/> with
+    /// <c>requireMultiple: false, ignoreCase: true</c>; see that overload for the rule.
     /// </summary>
-    /// <remarks>
-    /// Reference: Biopython <c>Bio.Align.AlignInfo.SummaryInfo.dumb_consensus</c> (v1.79),
-    /// https://raw.githubusercontent.com/biopython/biopython/biopython-179/Bio/Align/AlignInfo.py
-    /// (decision rule, gap skipping, tie→ambiguous, alignment-length consensus);
-    /// EMBOSS <c>cons</c> (plurality cut-off below which there is no consensus).
-    /// </remarks>
     /// <param name="alignedReads">Pre-aligned reads (equal columns; ragged lengths allowed).</param>
     /// <param name="threshold">
     /// Minimum frequency (max count / non-gap count in the column) required to commit a residue.
-    /// Default <see cref="DefaultConsensusThreshold"/> (simple majority); pass 0.7 to reproduce
-    /// Biopython's documented default.
+    /// Default 0.5 (simple majority); pass 0.7 to reproduce Biopython's documented default.
     /// </param>
     /// <param name="ambiguous">Symbol emitted when a column has no committed residue.</param>
     /// <returns>The consensus string, length equal to the longest read.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="alignedReads"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="alignedReads"/> contains a null read.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="threshold"/> is NaN.</exception>
     public static string ComputeConsensus(
         IReadOnlyList<string> alignedReads,
         double threshold = DefaultConsensusThreshold,
         char ambiguous = DefaultAmbiguousSymbol)
+        => ComputeConsensus(alignedReads, threshold, ambiguous, requireMultiple: false, ignoreCase: true);
+
+    /// <summary>
+    /// Canonical column-wise consensus of an alignment — Biopython
+    /// <c>Bio.Align.AlignInfo.SummaryInfo.dumb_consensus(threshold, ambiguous, require_multiple)</c>.
+    /// For each column the residues other than the gaps <c>-</c> and <c>.</c> are tallied
+    /// (every other character, including <c>N</c>/<c>X</c>, is a residue); a residue is emitted only
+    /// when it alone holds the maximum count AND that count divided by the number of non-gap
+    /// residues is ≥ <paramref name="threshold"/>. Ties for the maximum, sub-threshold majorities,
+    /// all-gap columns, and — when <paramref name="requireMultiple"/> is set — columns with exactly
+    /// one non-gap residue emit <paramref name="ambiguous"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>Reference: Biopython <c>dumb_consensus</c> (1.79–1.85; deprecated in 1.82, removed in
+    /// 1.86), Bio/Align/AlignInfo.py — decision rule, gap skipping, tie → ambiguous,
+    /// <c>require_multiple</c>, consensus over the full alignment length. Cross-checked against the
+    /// Biopython 1.85 function itself (docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md).</para>
+    /// <para>Ragged rows: a read shorter than the longest read contributes nothing past its end,
+    /// i.e. it is treated as padded with trailing gaps (EMBOSS <c>cons</c> <c>ajSeqsetFill</c>;
+    /// Biopython's <c>IndexError → continue</c>), which is how an assembly layout with leading
+    /// <c>-</c> padding is resolved.</para>
+    /// <para>Case: Biopython compares characters exactly (<paramref name="ignoreCase"/> = false);
+    /// with <paramref name="ignoreCase"/> = true residues are upper-cased first, as the EMBOSS
+    /// sequence reader does before <c>cons</c>, so soft-masked (lower-case) read bases vote with
+    /// their upper-case counterparts.</para>
+    /// <para>Thresholds are not range-checked (Biopython accepts any value: ≤ 0 commits every unique
+    /// maximum, &gt; 1 commits nothing); only NaN is rejected. An IUPAC-degenerate consensus
+    /// (Cavener 1987 / Biopython <c>degenerate_consensus</c>) and the EMBOSS <c>cons</c> matrix
+    /// consensus are <c>MotifFinder.GenerateCavenerConsensus</c> and
+    /// <c>MotifFinder.GenerateEmbossConsensus</c> (Analysis project).</para>
+    /// </remarks>
+    /// <param name="alignedReads">Pre-aligned reads (equal columns; ragged lengths allowed).</param>
+    /// <param name="threshold">Required fraction of the column's non-gap residues (Biopython default 0.7).</param>
+    /// <param name="ambiguous">Symbol for columns without consensus (Biopython default <c>X</c>).</param>
+    /// <param name="requireMultiple">
+    /// Biopython <c>require_multiple</c>: a column supported by a single non-gap residue gives
+    /// <paramref name="ambiguous"/>.
+    /// </param>
+    /// <param name="ignoreCase">Upper-case residues before tallying (true) or compare exactly as Biopython (false).</param>
+    /// <returns>The consensus string, length equal to the longest read; "" for no reads.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="alignedReads"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="alignedReads"/> contains a null read.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="threshold"/> is NaN.</exception>
+    public static string ComputeConsensus(
+        IReadOnlyList<string> alignedReads,
+        double threshold,
+        char ambiguous,
+        bool requireMultiple,
+        bool ignoreCase = true)
     {
         ArgumentNullException.ThrowIfNull(alignedReads);
-
-        if (alignedReads.Count == 0) return "";
+        if (double.IsNaN(threshold))
+            throw new ArgumentOutOfRangeException(nameof(threshold), "Threshold cannot be NaN.");
 
         // Consensus spans the full alignment length = the longest read (Biopython: con_len).
         int length = 0;
-        foreach (string read in alignedReads)
+        for (int i = 0; i < alignedReads.Count; i++)
         {
+            string read = alignedReads[i]
+                ?? throw new ArgumentException($"alignedReads[{i}] is null.", nameof(alignedReads));
             if (read.Length > length) length = read.Length;
         }
 
         var sb = new StringBuilder(length);
+        var counts = new Dictionary<char, int>();
 
         for (int pos = 0; pos < length; pos++)
         {
-            var counts = new Dictionary<char, int>();
+            counts.Clear();
             int numAtoms = 0; // non-gap residues contributing to this column (Biopython: num_atoms)
 
             foreach (string read in alignedReads)
             {
                 if (pos >= read.Length) continue;
 
-                char c = char.ToUpperInvariant(read[pos]);
+                char c = ignoreCase ? char.ToUpperInvariant(read[pos]) : read[pos];
                 if (c == GapDash || c == GapDot) continue;
 
                 counts[c] = counts.GetValueOrDefault(c, 0) + 1;
                 numAtoms++;
             }
 
-            // Determine the residue(s) with the maximum count (Biopython: max_atoms / max_size).
+            // Residue(s) with the maximum count (Biopython: max_atoms / max_size).
             int maxSize = 0;
             int maxCount = 0; // how many residues share the maximum (>1 means a tie)
             char maxResidue = ambiguous;
@@ -1525,12 +1570,11 @@ public static class SequenceAssembler
                 }
             }
 
-            // Emit the residue only when exactly one residue holds the max AND it meets the
-            // threshold among non-gap residues; otherwise emit the ambiguous symbol. The
-            // numAtoms > 0 guard mirrors Biopython's len(max_atoms)==1 short-circuit, which
-            // prevents division by zero on all-gap columns.
-            bool committed = maxCount == 1
-                             && numAtoms > 0
+            // Biopython: require_multiple and num_atoms == 1 → ambiguous; elif len(max_atoms) == 1
+            // and max_size / num_atoms >= threshold → residue; else ambiguous. maxCount == 1 implies
+            // numAtoms > 0, so an all-gap column never divides by zero.
+            bool committed = !(requireMultiple && numAtoms == 1)
+                             && maxCount == 1
                              && (double)maxSize / numAtoms >= threshold;
 
             sb.Append(committed ? maxResidue : ambiguous);

@@ -6,13 +6,33 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.ComputeConsensus",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L861",
-  "description": "Build a consensus from pre-aligned reads (same length; '-'/'.' ignored) by column-wise majority vote (Biopython dumb_consensus, threshold 0.5). Ties and sub-threshold columns emit 'N'.",
+  "description": "Build a consensus from pre-aligned reads ('-'/'.' skipped; 'N' is a residue and is counted) by column-wise plurality (Biopython dumb_consensus rule; default threshold 0.5, ambiguous 'N', case-insensitive). Ties and sub-threshold columns emit the ambiguous symbol.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "alignedReads": {
         "type": "array",
         "description": "Pre-aligned reads of identical length."
+      },
+      "threshold": {
+        "type": "number",
+        "description": "Fraction of non-gap residues the most common residue must exceed or equal (Biopython dumb_consensus threshold). Default 0.5; NaN rejected.",
+        "default": 0.5
+      },
+      "ambiguous": {
+        "type": "string",
+        "description": "Single character emitted for ties / sub-threshold columns. Default 'N'.",
+        "default": "N"
+      },
+      "requireMultiple": {
+        "type": "boolean",
+        "description": "Biopython require_multiple: a column with a single residue emits the ambiguous symbol. Default false.",
+        "default": false
+      },
+      "ignoreCase": {
+        "type": "boolean",
+        "description": "Fold case before voting (EMBOSS reader). false = exact comparison as Biopython. Default true.",
+        "default": true
       }
     },
     "required": [
