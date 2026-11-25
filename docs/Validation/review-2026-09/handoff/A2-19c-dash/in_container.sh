@@ -2,7 +2,13 @@
 # Runs inside the image (cwd /work, the package directory mounted).  Everything goes to ./out; nothing here uses account data.
 set -u
 cd /work
-rm -rf out; mkdir -p out/sets out/direct out/http
+# DASH_RESUME=1: keep ./out (direct runs, exchanges) of an interrupted run, redo only what is missing
+if [ "${DASH_RESUME:-}" = 1 ]; then
+  [ -d out/sets ] && [ ! -e out/sets-without-proxy/.moved ] && { mv out/sets out/sets-without-proxy; touch out/sets-without-proxy/.moved; }   # mafft runs made WITHOUT the logging proxy (no exchanges): kept apart
+  mkdir -p out/sets out/direct out/http
+else
+  rm -rf out; mkdir -p out/sets out/direct out/http
+fi
 {
   echo "uname -m: $(uname -m)"; echo "date (UTC): $(date -u +%FT%TZ)"
   echo "mafft-src sha256: $(cat /opt/mafft-src.sha256)"
@@ -16,7 +22,7 @@ cp /opt/mafft.build.log out/mafft.build.log 2>/dev/null; cp /opt/go-build.log ou
 python3 make_inputs.py inputs > /dev/null
 PORT=8765
 LOG=/work/out/http/exchanges.jsonl
-: > "$LOG"
+[ "${DASH_RESUME:-}" = 1 ] || : > "$LOG"
 python3 dashproxy.py $PORT "$LOG" &
 PROXY=$!
 sleep 2
@@ -25,6 +31,7 @@ SERVERNOSLASH="http://127.0.0.1:$PORT/dash/REST1.0"
 export TMPDIR=/tmp
 # (1) the real dash_client, on every set, exactly as the script calls it:  dash_client -url URL -i dashin -sequences dashsequences -hat3 hat3.seed
 while IFS=$'\t' read -r sid fn; do
+  [ "${DASH_RESUME:-}" = 1 ] && [ -e /work/out/direct/$sid.tar.gz ] && continue
   d=/tmp/direct-$sid; rm -rf "$d"; mkdir -p "$d"; cd "$d"
   awk '{if(/^>/)print; else {gsub( /-/,"" ); print;}}' /work/inputs/$fn > dashin
   mark=$(wc -l < "$LOG")
@@ -41,6 +48,9 @@ while IFS=$'\t' read -r oid opts; do
   while IFS=$'\t' read -r sid fn; do
     if [ "$oid" != "dash" ]; then case " $SUB " in *" $sid "*) ;; *) continue;; esac; fi
     o=${opts//@SERVER@/$SERVER}; o=${o//@SERVERNOSLASH@/$SERVERNOSLASH}; o=${o//@MERGE@/merge_table.txt}
+    [ "${DASH_RESUME:-}" = 1 ] && [ -e /work/out/sets/$oid.$sid.tar.gz ] && continue
+    # every mafft run goes through the logging proxy (--dashserver), except the line dash-default-address (the address mafft knows itself)
+    case "$o $oid" in *--dashserver*|*" dash-default-address") ;; *) o="$o --dashserver $SERVER";; esac
     d=/tmp/run-$oid-$sid; rm -rf "$d"; mkdir -p "$d"; cd "$d"
     cp /work/inputs/$fn in.fa; cp /work/out/merge_table.txt .
     mark=$(wc -l < "$LOG")

@@ -71,6 +71,7 @@ def main():
         ('dash-maxiterate0', '--dash --maxiterate 0'), ('dash-maxiterate10', '--dash --maxiterate 10'), ('dash-anysymbol', '--dash --anysymbol'), ('dash-originalseqonly', '--dash --originalseqonly'),
         ('dash-excludehomologs', '--dash --excludehomologs'), ('dash-reorder-clustal', '--dash --reorder --clustalout'), ('dash-treeout', '--dash --treeout --distout'), ('dash-op-ep', '--dash --op 2 --ep 0.2'),
         ('dash-server', '--dash --dashserver @SERVER@'), ('dash-server-noslash', '--dash --dashserver @SERVERNOSLASH@'), ('dash-merge', '--dash --merge @MERGE@'), ('dash-amino', '--dash --amino'), ('dash-nuc', '--dash --nuc'),
+        ('dash-default-address', '--dash'),  # the ONLY line that is NOT sent through the logging proxy (the address mafft uses without --dashserver)
     ]
     with open(os.path.join(out, 'sets.tsv'), 'w') as f:
         for sid, fn in rows:
