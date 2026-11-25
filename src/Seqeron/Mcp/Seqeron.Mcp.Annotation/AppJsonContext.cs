@@ -38,6 +38,7 @@ namespace Seqeron.Mcp.Annotation.Json;
 [JsonSerializable(typeof(CpatCodingProbabilityResult))]
 [JsonSerializable(typeof(FindRepetitiveElementsResult))]
 [JsonSerializable(typeof(CodonUsageResult))]
+[JsonSerializable(typeof(PooledRscuResult))]
 // VariantCaller — shared DTOs
 [JsonSerializable(typeof(VariantDto))]
 [JsonSerializable(typeof(AnnotatedVariantDto))]

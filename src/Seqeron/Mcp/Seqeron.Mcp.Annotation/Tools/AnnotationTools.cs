@@ -253,6 +253,21 @@ public class AnnotationTools
         return new CodonUsageResult(usage.ToDictionary(kv => kv.Key, kv => kv.Value));
     }
 
+    /// <summary>Relative synonymous codon usage pooled over several coding sequences.</summary>
+    [McpServerTool(Name = "pooled_rscu", Title = "Annotation — Pooled RSCU", ReadOnly = true)]
+    [Description("Relative Synonymous Codon Usage (RSCU = n·x/Σx per synonymous family; Sharp, Tuohy & Mosurski 1986, CodonW) over a set of in-frame coding sequences. Codon counts are pooled across all sequences first (CodonW -totals); DNA or RNA, case-insensitive, U read as T; triplets with other symbols are skipped without shifting the frame; stop codons are excluded; an unobserved family gives RSCU 0. geneticCode is an NCBI translation table number (default 1).")]
+    public static PooledRscuResult PooledRscu(
+        [Description("In-frame coding DNA or RNA sequences (CDS); each is read from position 0 in steps of three")] string[] sequences,
+        [Description("NCBI translation table number (default 1 = Standard)")] int geneticCode = 1)
+    {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("Sequences cannot be null or empty", nameof(sequences));
+
+        var code = global::Seqeron.Genomics.Core.GeneticCode.GetByTableNumberOrThrow(geneticCode, nameof(geneticCode));
+        var rscu = GenomeAnnotator.GetCodonUsage(sequences, code);
+        return new PooledRscuResult(rscu.ToDictionary(kv => kv.Key, kv => kv.Value));
+    }
+
     // ================================
     // Mapping helpers
     // ================================

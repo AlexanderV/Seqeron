@@ -2,7 +2,7 @@
 
 MCP server — **Gene/ORF/promoter annotation, variant calling & effect, epigenetics, miRNA, splicing, SVs, transcriptomics.**
 
-Exposes **100 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **101 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/annotation/`](../../../../docs/mcp/tools/annotation). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -101,6 +101,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `parse_vcf_variant` | Build a Variant record from VCF fields and classify its type. |
 | `pearson_correlation` | Compute the Pearson product-moment correlation coefficient between two expression vectors of equal length. |
 | `perform_pca` | Project samples onto the first two principal components computed from the most variable genes (approximate PCA). |
+| `pooled_rscu` | Relative Synonymous Codon Usage (RSCU) pooled over several in-frame coding sequences for an NCBI genetic code (CodonW `-totals`). |
 | `predict_chromatin_state` | Predict chromatin state from H3K4me3 / H3K4me1 / H3K27ac / H3K36me3 / H3K27me3 / H3K9me3 signal levels (0..1). |
 | `predict_gene_structure` | Predict exon/intron gene structure with greedy non-overlapping intron selection. |
 | `predict_genes` | Predict gene annotations from a DNA sequence using ORF-based heuristics. |

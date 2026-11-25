@@ -38,6 +38,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "coding_potential",
         "cpat_coding_probability",
         "codon_usage",
+        "pooled_rscu",
         "compare_seed_regions",
         "cpg_observed_expected",
         "create_mirna",

@@ -108,6 +108,9 @@ public record FindRepetitiveElementsResult(IReadOnlyList<RepetitiveElement> Repe
 /// <summary>Result of codon_usage.</summary>
 public record CodonUsageResult(Dictionary<string, int> Usage);
 
+/// <summary>Result of pooled_rscu: sense codon (upper-case DNA) to RSCU.</summary>
+public record PooledRscuResult(Dictionary<string, double> Rscu);
+
 // ================================
 // VariantCaller — shared DTOs
 // ================================
