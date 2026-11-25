@@ -25,7 +25,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `analyze_telomeres` | Analyze 5'/3' telomere repeat tracts on a chromosome sequence; |
 | `arm_ratio` | Compute chromosome arm ratio (p/q) from centromere position and total length. |
 | `assembly_statistics` | Compute comprehensive assembly statistics: total length, N50/L50/N90/L90, largest/smallest, mean/median, GC, and gap metrics. |
-| `assess_completeness` | Assess assembly completeness by aligning marker genes (BUSCO-like, k-mer based); |
+| `assess_completeness` | BUSCO-like completeness from nucleotide marker genes: both-strand seeded local alignment, compleasm classification, BUSCO C:S:D:F:M over n. |
 | `au_n` | Compute auN (area under Nx curve) — a length-weighted contiguity metric robust to outliers. |
 | `classify_chromosome_by_arm_ratio` | Classify a chromosome (Metacentric/Submetacentric/Acrocentric/Telocentric) from its p/q arm ratio per Levan et al. |
 | `compare_assemblies` | Compare two assemblies by shared k-mer content; |
@@ -33,7 +33,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `detect_ploidy` | Detect ploidy level from normalized read depth values; |
 | `detect_rearrangements` | Detect chromosomal rearrangements (inversions, translocations, deletions, duplications) from synteny blocks. |
 | `estimate_cell_divisions_from_telomere_length` | Estimate the number of cell divisions from current telomere length given birth length and per-division loss rate. |
-| `estimate_completeness_from_kmers` | Estimate genome completeness, error rate and genome size from a k-mer count spectrum. |
+| `estimate_completeness_from_kmers` | Read k-mer spectrum → Merqury solid threshold, GenomeScope error rate and genome size; with an assembly, Merqury k-mer completeness and QV. |
 | `estimate_telomere_length_from_ts_ratio` | Estimate telomere length in bp from a qPCR Telomere/Single-copy gene (T/S) ratio against a reference. |
 | `extract_contigs` | Extract contigs from scaffolds (QUAST split_by_ns): cut at N-runs ≥ minGapLength (default 10), keep contigs ≥ minContigLength. |
 | `find_gaps` | Find gaps (N-runs) in assembled sequences; |

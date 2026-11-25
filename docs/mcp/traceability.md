@@ -397,7 +397,7 @@
 | analyze_telomeres | Chromosome | ChromosomeAnalyzer.AnalyzeTelomeres | ChromosomeAnalyzer.cs#L240 | 0/0 | – | – | Build-Ready |
 | arm_ratio | Chromosome | ChromosomeAnalyzer.CalculateArmRatio | ChromosomeAnalyzer.cs#L920 | 0/0 | – | – | Build-Ready |
 | assembly_statistics | Chromosome | GenomeAssemblyAnalyzer.CalculateStatistics | GenomeAssemblyAnalyzer.cs#L117 | 0/0 | – | – | Build-Ready |
-| assess_completeness | Chromosome | GenomeAssemblyAnalyzer.AssessCompleteness | GenomeAssemblyAnalyzer.cs#L442 | 0/0 | – | – | Build-Ready |
+| assess_completeness | Chromosome | GenomeAssemblyAnalyzer.AssessCompleteness | GenomeAssemblyAnalyzer.cs#L727 | 0/0 | – | – | Build-Ready |
 | au_n | Chromosome | GenomeAssemblyAnalyzer.CalculateAuN | GenomeAssemblyAnalyzer.cs#L254 | 0/0 | – | – | Build-Ready |
 | classify_chromosome_by_arm_ratio | Chromosome | ChromosomeAnalyzer.ClassifyChromosomeByArmRatio | ChromosomeAnalyzer.cs#L933 | 0/0 | – | – | Build-Ready |
 | compare_assemblies | Chromosome | GenomeAssemblyAnalyzer.CompareAssemblies | GenomeAssemblyAnalyzer.cs#L740 | 0/0 | – | – | Build-Ready |
@@ -405,7 +405,7 @@
 | detect_ploidy | Chromosome | ChromosomeAnalyzer.DetectPloidy | ChromosomeAnalyzer.cs#L211 | 0/0 | – | – | Build-Ready |
 | detect_rearrangements | Chromosome | ChromosomeAnalyzer.DetectRearrangements | ChromosomeAnalyzer.cs#L695 | 0/0 | – | – | Build-Ready |
 | estimate_cell_divisions_from_telomere_length | Chromosome | ChromosomeAnalyzer.EstimateCellDivisionsFromTelomereLength | ChromosomeAnalyzer.cs#L951 | 0/0 | – | – | Build-Ready |
-| estimate_completeness_from_kmers | Chromosome | GenomeAssemblyAnalyzer.EstimateCompletenessFromKmers | GenomeAssemblyAnalyzer.cs#L543 | 0/0 | – | – | Build-Ready |
+| estimate_completeness_from_kmers | Chromosome | GenomeAssemblyAnalyzer.EstimateCompletenessFromKmers | GenomeAssemblyAnalyzer.cs#L1033 | 0/0 | – | – | Build-Ready |
 | estimate_telomere_length_from_ts_ratio | Chromosome | ChromosomeAnalyzer.EstimateTelomereLengthFromTSRatio | ChromosomeAnalyzer.cs#L327 | 0/0 | – | – | Build-Ready |
 | extract_contigs | Chromosome | GenomeAssemblyAnalyzer.ExtractContigs | GenomeAssemblyAnalyzer.cs#L401 | 0/0 | – | – | Build-Ready |
 | find_gaps | Chromosome | GenomeAssemblyAnalyzer.FindGaps | GenomeAssemblyAnalyzer.cs#L273 | 0/0 | – | – | Build-Ready |

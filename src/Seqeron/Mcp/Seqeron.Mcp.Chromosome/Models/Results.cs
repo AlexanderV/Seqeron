@@ -95,10 +95,26 @@ public record ScaffoldStructuresResult(IReadOnlyList<ScaffoldStructureItem> Item
 
 public record NamedSequencesResult(IReadOnlyList<NamedSequence> Items);
 
+/// <summary>
+/// Result of <c>estimate_completeness_from_kmers</c> (GenomeAssemblyAnalyzer.KmerCompletenessEstimate).
+/// Assembly fields are null without an assembly; <see cref="QualityValue"/> is null when unbounded
+/// (no assembly-only k-mers) or undefined (no assembly k-mers).
+/// </summary>
 public record KmerCompletenessResult(
-    double Completeness,
+    double? Completeness,
     double ErrorRate,
-    long EstimatedGenomeSize);
+    long EstimatedGenomeSize,
+    int K,
+    int SolidThreshold,
+    int PeakCoverage,
+    long TotalKmers,
+    long ErrorKmers,
+    long SolidKmers,
+    long? AssemblySolidKmers,
+    long? AssemblyKmers,
+    long? AssemblyOnlyKmers,
+    double? AssemblyErrorRate,
+    double? QualityValue);
 
 public record RepetitiveRegion(string SequenceId, int Start, int End, int Copies);
 

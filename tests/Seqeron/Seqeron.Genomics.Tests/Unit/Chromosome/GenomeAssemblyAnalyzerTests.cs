@@ -136,20 +136,20 @@ public class GenomeAssemblyAnalyzerTests
     [Test]
     public void EstimateCompletenessFromKmers_ValidSpectrum_ReturnsEstimates()
     {
-        var spectrum = new List<(string, int)>();
-
-        // Simulate k-mer spectrum with peak at coverage 30
-        for (int i = 0; i < 100; i++)
-            spectrum.Add(($"KMER{i}", 1)); // Singletons (errors)
-
-        for (int i = 0; i < 1000; i++)
-            spectrum.Add(($"SOLID{i}", 30)); // Peak coverage
+        // 100 singleton 6-mers (errors) + 1000 6-mers at coverage 30. Histogram 1:100, 30:1000 rises
+        // after its first line ⇒ Merqury filt = 30 − 1 = 29; E = 100, T = 30100;
+        // GenomeScope error = 1 − (1 − 100/30100)^(1/6) = 5.544779023926e-4; size = 30000/30 = 1000 (oracle).
+        var kmers = Enumerable.Range(0, 1100)
+            .Select(i => new string(Enumerable.Range(0, 6).Select(j => "ACGT"[(i >> (2 * (5 - j))) & 3]).ToArray()))
+            .ToList();
+        var spectrum = kmers.Select((k, i) => (k, i < 100 ? 1 : 30)).ToList();
 
         var (completeness, errorRate, genomeSize) =
             GenomeAssemblyAnalyzer.EstimateCompletenessFromKmers(spectrum);
 
-        Assert.That(errorRate, Is.LessThan(0.5));
-        Assert.That(genomeSize, Is.GreaterThan(0));
+        Assert.That(errorRate, Is.EqualTo(0.0005544779023926213).Within(1e-15));
+        Assert.That(genomeSize, Is.EqualTo(1000L));
+        Assert.That(completeness, Is.NaN);
     }
 
     #endregion

@@ -60,16 +60,17 @@ public class GenomeAssemblyAnalyzer_MutationKillers4_Tests
     [Test]
     public void EstimateCompletenessFromKmers_AllSingletons_AndExpectedCoverage()
     {
-        // No non-singleton k-mers ⇒ (0, 1.0, 0).
+        // A one-line histogram has no valley (Merqury filt = 0): nothing is an error k-mer, the peak is
+        // count 1 ⇒ error 0, size 2/1 = 2; no assembly ⇒ completeness NaN (oracle; B10 F44–F46).
         var allSingleton = EstimateCompletenessFromKmers(new[] { ("A", 1), ("B", 1) });
-        Assert.That(allSingleton.Completeness, Is.EqualTo(0.0).Within(Tol));
-        Assert.That(allSingleton.ErrorRate, Is.EqualTo(1.0).Within(Tol));
-        Assert.That(allSingleton.EstimatedGenomeSize, Is.EqualTo(0L));
+        Assert.That(allSingleton.Completeness, Is.NaN);
+        Assert.That(allSingleton.ErrorRate, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(allSingleton.EstimatedGenomeSize, Is.EqualTo(2L));
 
-        // expectedCoverage overrides the computed peak: size = total 11 / 2 = 5.
+        // expectedCoverage overrides the computed peak: size = round(11 / 2) = round(5.5) = 6 (R round, half-even).
         var forced = EstimateCompletenessFromKmers(
             new[] { ("AAA", 4), ("CCC", 4), ("GGG", 2), ("TTT", 1) }, expectedCoverage: 2);
-        Assert.That(forced.EstimatedGenomeSize, Is.EqualTo(5L));
+        Assert.That(forced.EstimatedGenomeSize, Is.EqualTo(6L));
     }
 
     [Test]

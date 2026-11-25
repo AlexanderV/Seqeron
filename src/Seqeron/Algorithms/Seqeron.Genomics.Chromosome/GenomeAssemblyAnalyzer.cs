@@ -71,8 +71,23 @@ public static class GenomeAssemblyAnalyzer
         char Strand);
 
     /// <summary>
-    /// BUSCO-like completeness result.
+    /// BUSCO-like completeness result: the BUSCO classes Complete (= Single-copy + Duplicated),
+    /// Fragmented and Missing over n = <see cref="TotalGenes"/> markers.
     /// </summary>
+    /// <remarks>
+    /// Every percentage is relative to n, as BUSCO <c>hmmer.py</c> <c>_get_busco_percentages</c>
+    /// (<c>d_percent = multi_copy / total_buscos · 100</c>) and compleasm summary; percentages are not
+    /// rounded (BUSCO rounds to one decimal only in <see cref="BuscoNotation"/>).
+    /// </remarks>
+    /// <param name="TotalGenes">n, the number of markers.</param>
+    /// <param name="Complete">C = S + D.</param>
+    /// <param name="CompleteSingleCopy">S.</param>
+    /// <param name="CompleteDuplicated">D.</param>
+    /// <param name="Fragmented">F.</param>
+    /// <param name="Missing">M = n − C − F.</param>
+    /// <param name="CompletenessPercent">C% = C / n · 100.</param>
+    /// <param name="DuplicationPercent">BUSCO D% = D / n · 100 (before B10 F43 it was D / C · 100).
+    /// <see cref="BuscoNotation"/> recomputes C% and D% from the counts.</param>
     public readonly record struct CompletenessResult(
         int TotalGenes,
         int Complete,
@@ -81,7 +96,103 @@ public static class GenomeAssemblyAnalyzer
         int Fragmented,
         int Missing,
         double CompletenessPercent,
-        double DuplicationPercent);
+        double DuplicationPercent)
+    {
+        /// <summary>BUSCO S% = S / n · 100 (0 when n = 0).</summary>
+        public double SingleCopyPercent => Percent(CompleteSingleCopy);
+
+        /// <summary>BUSCO F% = F / n · 100 (0 when n = 0).</summary>
+        public double FragmentedPercent => Percent(Fragmented);
+
+        /// <summary>BUSCO M% = M / n · 100 (0 when n = 0).</summary>
+        public double MissingPercent => Percent(Missing);
+
+        /// <summary>
+        /// BUSCO one-line summary <c>C:x%[S:x%,D:x%],F:x%,M:x%,n:N</c> (BUSCO <c>hmmer.py</c>
+        /// <c>record_results</c>; each percentage <c>round(·, 1)</c>, i.e. half-to-even at one decimal,
+        /// printed in Python's shortest form, e.g. <c>100.0</c>, <c>33.3</c>).
+        /// </summary>
+        public string BuscoNotation => string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"C:{Round1(Percent(Complete))}%[S:{Round1(SingleCopyPercent)}%,D:{Round1(Percent(CompleteDuplicated))}%],F:{Round1(FragmentedPercent)}%,M:{Round1(MissingPercent)}%,n:{TotalGenes}");
+
+        // BUSCO evaluates (count / total_buscos) * 100 in this order; (count * 100) / n can differ in the
+        // last bit (199/2000: 9.950000000000001 vs 9.95 → rounds to 10.0 vs 9.9).
+        private double Percent(int count) => TotalGenes > 0 ? count / (double)TotalGenes * 100 : 0;
+
+        // Python round(x, 1) rounds the exact binary value half-to-even (e.g. round(0.05, 1) = 0.1
+        // because the double 0.05 is slightly above 0.05). The exact decimal expansion (.NET Core 3+
+        // formats doubles exactly) is rounded in decimal arithmetic to reproduce that.
+        private static string Round1(double percent)
+        {
+            var invariant = System.Globalization.CultureInfo.InvariantCulture;
+            decimal exact = decimal.Parse(percent.ToString("F25", invariant), invariant);
+            return Math.Round(exact, 1, MidpointRounding.ToEven).ToString("0.0", invariant);
+        }
+    }
+
+    /// <summary>
+    /// One local alignment of a marker gene to an assembly sequence (see
+    /// <see cref="FindMarkerHits(string, IEnumerable{ValueTuple{string, string}})"/>).
+    /// </summary>
+    /// <param name="SequenceId">Assembly sequence (contig/scaffold) id.</param>
+    /// <param name="Strand">'+' when the marker aligns as given, '-' when its reverse complement aligns.</param>
+    /// <param name="Start">0-based inclusive start of the aligned region on the assembly sequence (forward strand).</param>
+    /// <param name="End">0-based inclusive end of the aligned region on the assembly sequence.</param>
+    /// <param name="MarkerStart">0-based inclusive start of the aligned part, in the marker's own (forward) coordinates.</param>
+    /// <param name="MarkerEnd">0-based inclusive end of the aligned part, in marker coordinates.</param>
+    /// <param name="Identity">Identical columns / alignment columns (gap columns included; BLAST / EMBOSS identity), in [0, 1].</param>
+    /// <param name="Coverage">Aligned marker span / marker length = (MarkerEnd − MarkerStart + 1) / length
+    /// (compleasm <c>Protein_mapped_rate = (Protein_End − Protein_Start) / Protein_length</c>), in (0, 1].</param>
+    public readonly record struct MarkerHit(
+        string SequenceId,
+        char Strand,
+        int Start,
+        int End,
+        int MarkerStart,
+        int MarkerEnd,
+        double Identity,
+        double Coverage);
+
+    /// <summary>
+    /// k-mer spectrum evaluation of a read set (error rate, genome size) and, when an assembly is
+    /// given, Merqury k-mer completeness and consensus quality (QV).
+    /// See <see cref="EstimateCompletenessFromKmers(IEnumerable{ValueTuple{string, int}}, IEnumerable{ValueTuple{string, string}}?, int, bool)"/>.
+    /// </summary>
+    /// <param name="K">k-mer length (length of every spectrum k-mer).</param>
+    /// <param name="SolidThreshold">Merqury <c>filt</c>: the first local minimum of the histogram
+    /// (<c>kmerHistToPloidyDepth</c> <c>effectiveMinDepth</c>); solid k-mers have count &gt; filt, 0 when the
+    /// histogram has no local minimum.</param>
+    /// <param name="PeakCoverage">Coverage used for the genome size: the histogram mode above
+    /// <see cref="SolidThreshold"/> (smallest such count on ties), or the caller's expected coverage.</param>
+    /// <param name="TotalKmers">Σ count over the spectrum (k-mer instances).</param>
+    /// <param name="ErrorKmers">Σ count of the k-mers with count ≤ <see cref="SolidThreshold"/>.</param>
+    /// <param name="ErrorRate">Per-base read error rate 1 − (1 − ErrorKmers/TotalKmers)^(1/k) (GenomeScope
+    /// <c>uniroot</c> of Σ_{i=1..k} C(k,i)·x^i·(1−x)^(k−i)·total = error, whose closed form this is).</param>
+    /// <param name="EstimatedGenomeSize">(TotalKmers − ErrorKmers) / PeakCoverage, rounded half-to-even
+    /// (GenomeScope <c>total_len</c> with the observed peak; R <c>round</c>).</param>
+    /// <param name="SolidKmers">Distinct spectrum k-mers with count &gt; filt (Merqury <c>read.gt$filt.meryl</c>).</param>
+    /// <param name="AssemblySolidKmers">Distinct assembly k-mers that are solid read k-mers (Merqury <c>meryl intersect</c>).</param>
+    /// <param name="Completeness">Merqury k-mer completeness AssemblySolidKmers / SolidKmers as a fraction
+    /// (Merqury prints ×100); NaN when no assembly was given.</param>
+    /// <param name="AssemblyKmers">Σ count of assembly k-mers (Merqury TOTAL, <c>meryl statistics</c> "present").</param>
+    /// <param name="AssemblyOnlyKmers">Σ count of assembly k-mers absent from the read spectrum (Merqury ASM_ONLY).</param>
+    /// <param name="AssemblyErrorRate">Merqury E = 1 − (1 − ASM_ONLY/TOTAL)^(1/k); NaN without assembly k-mers.</param>
+    /// <param name="QualityValue">Merqury QV = −10·log10(E); +∞ when E = 0, NaN without assembly k-mers.</param>
+    public readonly record struct KmerCompletenessEstimate(
+        int K,
+        int SolidThreshold,
+        int PeakCoverage,
+        long TotalKmers,
+        long ErrorKmers,
+        double ErrorRate,
+        long EstimatedGenomeSize,
+        long SolidKmers,
+        long AssemblySolidKmers,
+        double Completeness,
+        long AssemblyKmers,
+        long AssemblyOnlyKmers,
+        double AssemblyErrorRate,
+        double QualityValue);
 
     /// <summary>
     /// Scaffold gap structure.
@@ -572,105 +683,210 @@ public static class GenomeAssemblyAnalyzer
     #region Completeness Assessment
 
     /// <summary>
-    /// Assesses assembly completeness using marker genes (BUSCO-like).
+    /// Seed word length of the marker search: BLAST+ <c>megablast</c> (the default <c>blastn</c> task)
+    /// <c>word_size</c> 28. A marker shorter than this is seeded by its whole length (exact occurrence).
     /// </summary>
+    public const int MarkerSeedWordSize = 28;
+
+    /// <summary>
+    /// compleasm <c>--min_length_percent</c> default (0.6): a hit is valid when its aligned fraction of the
+    /// marker reaches this value OR its identity reaches the identity threshold.
+    /// </summary>
+    public const double DefaultMarkerMinLengthFraction = 0.6;
+
+    /// <summary>
+    /// Assesses assembly completeness with marker genes (BUSCO-like): every marker is classified as
+    /// Complete single-copy, Complete duplicated, Fragmented or Missing.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Hit search</b> (<see cref="FindMarkerHits(string, IEnumerable{ValueTuple{string, string}})"/>):
+    /// each marker and its reverse complement are seeded with exact ACGT words of
+    /// <see cref="MarkerSeedWordSize"/> and every seed cluster is extended by Smith-Waterman-Gotoh local
+    /// alignment with the BLAST+ blastn scoring (<see cref="SequenceAligner.BlastDna"/>). A hit reports
+    /// identity (identical / alignment columns) and coverage (aligned marker span / marker length).</para>
+    /// <para><b>Classification</b> = compleasm <c>record_1st_gene_label</c> (Huang &amp; Li 2023, length-rate
+    /// mode, v0.2.6): valid hits are those with coverage ≥ <paramref name="minLengthFraction"/> OR identity
+    /// ≥ <paramref name="identityThreshold"/> (compleasm <c>pass_tids</c> filter); no valid hit → Missing;
+    /// complete hits have coverage ≥ <paramref name="coverageThreshold"/> (<c>min_complete</c>, default 0.9);
+    /// none → Fragmented; one → Single; several → Duplicated when they lie on different sequences or form
+    /// more than one cluster of overlapping regions on one sequence (<c>get_region_clusters</c>), else Single.</para>
+    /// <para><b>Percentages</b> are BUSCO's: every class over n (<see cref="CompletenessResult"/>).</para>
+    /// <para><b>Not BUSCO itself:</b> BUSCO/compleasm search lineage protein HMM profiles (HMMER, with
+    /// lineage score and length cut-offs) through gene predictors or miniprot; this method aligns the caller's
+    /// nucleotide marker sequences directly, so frameshifts/introns are not modelled and no profile score
+    /// cut-off exists (the 28-bp exact seed is the significance filter).</para>
+    /// </remarks>
+    /// <param name="assembly">Assembly sequences (id, sequence); case-insensitive.</param>
+    /// <param name="markerGenes">Marker genes (id, nucleotide sequence); each entry is one marker.</param>
+    /// <param name="identityThreshold">compleasm <c>min_identity</c> analogue in [0, 1] (default 0.9; compleasm's protein default is 0.4).</param>
+    /// <param name="coverageThreshold">compleasm <c>min_complete</c> in [0, 1] (default 0.9).</param>
+    /// <param name="minLengthFraction">compleasm <c>min_length_percent</c> in [0, 1] (default 0.6).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="assembly"/> or <paramref name="markerGenes"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold is outside [0, 1] or NaN.</exception>
+    /// <exception cref="ArgumentException">A sequence is null or a marker is empty.</exception>
     public static CompletenessResult AssessCompleteness(
         IEnumerable<(string Id, string Sequence)> assembly,
         IEnumerable<(string GeneId, string Sequence)> markerGenes,
         double identityThreshold = 0.9,
-        double coverageThreshold = 0.9)
+        double coverageThreshold = 0.9,
+        double minLengthFraction = DefaultMarkerMinLengthFraction)
     {
-        var assemblySeqs = assembly.ToList();
-        var markers = markerGenes.ToList();
+        ArgumentNullException.ThrowIfNull(assembly);
+        ArgumentNullException.ThrowIfNull(markerGenes);
+        ValidateFraction(identityThreshold, nameof(identityThreshold));
+        ValidateFraction(coverageThreshold, nameof(coverageThreshold));
+        ValidateFraction(minLengthFraction, nameof(minLengthFraction));
+
+        var assemblySeqs = MaterializeAssembly(assembly, nameof(assembly));
+        var markers = markerGenes
+            .Select(g => RequireMarker(g.GeneId, g.Sequence, nameof(markerGenes)))
+            .ToList();
 
         if (markers.Count == 0)
             return new CompletenessResult(0, 0, 0, 0, 0, 0, 0, 0);
 
-        int complete = 0;
-        int singleCopy = 0;
-        int duplicated = 0;
-        int fragmented = 0;
-        int missing = 0;
-
-        foreach (var (_, geneSeq) in markers)
+        int singleCopy = 0, duplicated = 0, fragmented = 0, missing = 0;
+        foreach (string marker in markers)
         {
-            var hits = FindMarkerHits(geneSeq, assemblySeqs, identityThreshold, coverageThreshold);
-
-            if (hits.Count == 0)
+            var hits = FindMarkerHitsCore(marker, assemblySeqs);
+            switch (ClassifyMarker(hits, identityThreshold, coverageThreshold, minLengthFraction))
             {
-                missing++;
-            }
-            else if (hits.Any(h => h.Coverage >= coverageThreshold))
-            {
-                complete++;
-                var completeHits = hits.Count(h => h.Coverage >= coverageThreshold);
-                if (completeHits == 1)
-                    singleCopy++;
-                else
-                    duplicated++;
-            }
-            else
-            {
-                fragmented++;
+                case MarkerClass.Single: singleCopy++; break;
+                case MarkerClass.Duplicated: duplicated++; break;
+                case MarkerClass.Fragmented: fragmented++; break;
+                default: missing++; break;
             }
         }
 
-        double completeness = markers.Count > 0 ? complete * 100.0 / markers.Count : 0;
-        double duplication = complete > 0 ? duplicated * 100.0 / complete : 0;
-
+        int n = markers.Count;
+        int complete = singleCopy + duplicated;
         return new CompletenessResult(
-            markers.Count,
+            n,
             complete,
             singleCopy,
             duplicated,
             fragmented,
             missing,
-            completeness,
-            duplication);
+            complete / (double)n * 100,
+            duplicated / (double)n * 100);
     }
 
     /// <summary>
-    /// Finds marker gene hits in assembly.
+    /// Finds the local alignments of one marker gene to the assembly, on both strands.
     /// </summary>
-    private static List<(string SeqId, double Identity, double Coverage)> FindMarkerHits(
-        string markerSeq,
-        List<(string Id, string Sequence)> assembly,
-        double identityThreshold,
-        double coverageThreshold)
+    /// <remarks>
+    /// Seeds: every ACGT-only word of length w = min(<see cref="MarkerSeedWordSize"/>, marker length) shared
+    /// by the marker (or its reverse complement) and a sequence gives a diagonal d = sequence position −
+    /// marker position. Sorted diagonals are split where consecutive values differ by more than half the
+    /// marker length (two non-overlapping copies differ by at least the marker length), and each cluster
+    /// [d_min, d_max] is aligned against the window [d_min − w, d_max + length + w) of the sequence with
+    /// <see cref="SequenceAligner.LocalAlignAffine(string, string, ScoringMatrix?)"/> and
+    /// <see cref="SequenceAligner.BlastDna"/> (+2/−3, gap 5 + 2·k). Identical hits from overlapping windows
+    /// are reported once. Coordinates are 0-based inclusive; reverse-strand hits keep forward-strand
+    /// sequence coordinates and forward marker coordinates.
+    /// </remarks>
+    /// <param name="markerSequence">Marker nucleotide sequence (non-empty; case-insensitive).</param>
+    /// <param name="assembly">Assembly sequences (id, sequence).</param>
+    /// <returns>Hits ordered by strand ('+' first), input sequence order, then start.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="markerSequence"/> or <paramref name="assembly"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="markerSequence"/> is empty or a sequence is null.</exception>
+    public static IReadOnlyList<MarkerHit> FindMarkerHits(
+        string markerSequence,
+        IEnumerable<(string Id, string Sequence)> assembly)
     {
-        var hits = new List<(string, double, double)>();
+        ArgumentNullException.ThrowIfNull(markerSequence);
+        ArgumentNullException.ThrowIfNull(assembly);
+        string marker = RequireMarker("marker", markerSequence, nameof(markerSequence));
+        return FindMarkerHitsCore(marker, MaterializeAssembly(assembly, nameof(assembly)));
+    }
 
-        // Simplified k-mer based search
-        int kmerSize = Math.Min(31, markerSeq.Length / 3);
-        if (kmerSize < 11) kmerSize = 11;
+    private enum MarkerClass { Missing, Fragmented, Single, Duplicated }
 
-        var markerKmers = new HashSet<string>();
-        for (int i = 0; i <= markerSeq.Length - kmerSize; i++)
+    /// <summary>compleasm v0.2.6 <c>pass_tids</c> filter + <c>record_1st_gene_label(by_length=False)</c>.</summary>
+    private static MarkerClass ClassifyMarker(
+        List<MarkerHit> hits, double minIdentity, double minComplete, double minLengthFraction)
+    {
+        var valid = hits.Where(h => h.Coverage >= minLengthFraction || h.Identity >= minIdentity).ToList();
+        if (valid.Count == 0)
+            return MarkerClass.Missing;
+
+        var complete = valid.Where(h => h.Coverage >= minComplete).ToList();
+        if (complete.Count == 0)
+            return MarkerClass.Fragmented;
+        if (complete.Count == 1)
+            return MarkerClass.Single;
+        if (complete.Select(h => h.SequenceId).Distinct(StringComparer.Ordinal).Count() > 1)
+            return MarkerClass.Duplicated;
+
+        // get_region_clusters on PAF half-open (start, stop): overlap when last.start <= start <= last.stop.
+        int clusters = 0;
+        long clusterStop = long.MinValue;
+        foreach (var hit in complete.OrderBy(h => h.Start))
         {
-            markerKmers.Add(markerSeq.Substring(i, kmerSize).ToUpperInvariant());
-        }
-
-        foreach (var (seqId, sequence) in assembly)
-        {
-            int matchingKmers = 0;
-            var seqUpper = sequence.ToUpperInvariant();
-
-            for (int i = 0; i <= seqUpper.Length - kmerSize; i++)
+            long stop = hit.End + 1L;
+            if (clusters > 0 && hit.Start <= clusterStop)
             {
-                if (markerKmers.Contains(seqUpper.Substring(i, kmerSize)))
-                    matchingKmers++;
+                clusterStop = Math.Max(clusterStop, stop);
             }
-
-            double coverage = markerKmers.Count > 0 ?
-                matchingKmers / (double)markerKmers.Count : 0;
-
-            if (coverage >= coverageThreshold * 0.5) // Relaxed for fragmented
+            else
             {
-                // Estimate identity from k-mer matches
-                double identity = Math.Min(1.0, coverage * 1.1);
-                if (identity >= identityThreshold * 0.8)
+                clusters++;
+                clusterStop = stop;
+            }
+        }
+        return clusters == 1 ? MarkerClass.Single : MarkerClass.Duplicated;
+    }
+
+    private static List<MarkerHit> FindMarkerHitsCore(string marker, List<(string Id, string Sequence)> assembly)
+    {
+        int length = marker.Length;
+        int word = Math.Min(MarkerSeedWordSize, length);
+        var hits = new List<MarkerHit>();
+
+        foreach (char strand in "+-")
+        {
+            string query = strand == '+' ? marker : DnaSequence.GetReverseComplementString(marker);
+            var seedIndex = BuildSeedIndex(query, word);
+            if (seedIndex.Count == 0)
+                continue;
+
+            foreach (var (id, sequence) in assembly)
+            {
+                var diagonals = CollectSeedDiagonals(sequence, word, seedIndex);
+                if (diagonals.Count == 0)
+                    continue;
+                diagonals.Sort();
+
+                var seen = new HashSet<(int, int, int, int)>();
+                int clusterStart = 0;
+                for (int i = 1; i <= diagonals.Count; i++)
                 {
-                    hits.Add((seqId, identity, coverage));
+                    if (i < diagonals.Count && diagonals[i] - diagonals[i - 1] <= length / 2)
+                        continue;
+
+                    int windowStart = Math.Max(0, diagonals[clusterStart] - word);
+                    int windowEnd = (int)Math.Min(sequence.Length, (long)diagonals[i - 1] + length + word);
+                    clusterStart = i;
+                    if (windowEnd <= windowStart)
+                        continue;
+
+                    var alignment = SequenceAligner.LocalAlignAffine(
+                        query, sequence.Substring(windowStart, windowEnd - windowStart), SequenceAligner.BlastDna);
+                    if (alignment.Score <= 0)
+                        continue;
+
+                    int queryStart = alignment.StartPosition1;
+                    int queryEnd = alignment.EndPosition1;
+                    int start = windowStart + alignment.StartPosition2;
+                    int end = windowStart + alignment.EndPosition2;
+                    if (!seen.Add((queryStart, queryEnd, start, end)))
+                        continue;
+
+                    double identity = SequenceAligner.CalculateStatistics(alignment, SequenceAligner.BlastDna).Identity / 100.0;
+                    int markerStart = strand == '+' ? queryStart : length - 1 - queryEnd;
+                    int markerEnd = strand == '+' ? queryEnd : length - 1 - queryStart;
+                    hits.Add(new MarkerHit(id, strand, start, end, markerStart, markerEnd, identity,
+                        (queryEnd - queryStart + 1) / (double)length));
                 }
             }
         }
@@ -678,47 +894,283 @@ public static class GenomeAssemblyAnalyzer
         return hits;
     }
 
+    /// <summary>2-bit code of an upper-case base (A=0, C=1, G=2, T=3), −1 for anything else.</summary>
+    private static int BaseCode(char c) => c switch
+    {
+        'A' => 0,
+        'C' => 1,
+        'G' => 2,
+        'T' => 3,
+        _ => -1,
+    };
+
     /// <summary>
-    /// Estimates genome completeness by k-mer spectrum analysis.
+    /// Enumerates (position, 2-bit word) for every ACGT-only window of length <paramref name="word"/>
+    /// (≤ 31) of an upper-case sequence; a non-ACGT base restarts the window (Jellyfish/BLAST seeding rule).
+    /// This is a positional seed scan, not k-mer counting, so it does not route through KmerAnalyzer.
     /// </summary>
+    private static IEnumerable<(int Position, ulong Word)> EnumerateSeedWords(string sequence, int word)
+    {
+        ulong mask = word == 32 ? ulong.MaxValue : (1UL << (2 * word)) - 1;
+        ulong code = 0;
+        int filled = 0;
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            int b = BaseCode(sequence[i]);
+            if (b < 0)
+            {
+                filled = 0;
+                code = 0;
+                continue;
+            }
+            code = ((code << 2) | (uint)b) & mask;
+            if (++filled >= word)
+                yield return (i - word + 1, code);
+        }
+    }
+
+    private static Dictionary<ulong, List<int>> BuildSeedIndex(string query, int word)
+    {
+        var index = new Dictionary<ulong, List<int>>();
+        foreach (var (position, code) in EnumerateSeedWords(query, word))
+        {
+            if (!index.TryGetValue(code, out var positions))
+                index[code] = positions = new List<int>();
+            positions.Add(position);
+        }
+        return index;
+    }
+
+    private static List<int> CollectSeedDiagonals(string sequence, int word, Dictionary<ulong, List<int>> seedIndex)
+    {
+        var diagonals = new List<int>();
+        foreach (var (position, code) in EnumerateSeedWords(sequence, word))
+        {
+            if (seedIndex.TryGetValue(code, out var queryPositions))
+            {
+                foreach (int q in queryPositions)
+                    diagonals.Add(position - q);
+            }
+        }
+        return diagonals;
+    }
+
+    private static List<(string Id, string Sequence)> MaterializeAssembly(
+        IEnumerable<(string Id, string Sequence)> assembly, string paramName)
+        => assembly.Select(s => (s.Id, RequireSequence(s, paramName).ToUpperInvariant())).ToList();
+
+    private static string RequireMarker(string id, string? sequence, string paramName)
+    {
+        if (sequence is null)
+            throw new ArgumentException($"Marker '{id}' sequence is null.", paramName);
+        if (sequence.Length == 0)
+            throw new ArgumentException($"Marker '{id}' sequence is empty.", paramName);
+        return sequence.ToUpperInvariant();
+    }
+
+    private static void ValidateFraction(double value, string paramName)
+    {
+        if (!(value >= 0 && value <= 1))
+            throw new ArgumentOutOfRangeException(paramName, value, "The threshold must lie in [0, 1].");
+    }
+
+    /// <summary>
+    /// Estimates read error rate, genome size and (spectrum only) k-mer statistics from a read k-mer count
+    /// spectrum. Without an assembly there is no k-mer completeness: <c>Completeness</c> is NaN.
+    /// </summary>
+    /// <remarks>
+    /// Equivalent to <see cref="EstimateCompletenessFromKmers(IEnumerable{ValueTuple{string, int}}, IEnumerable{ValueTuple{string, string}}?, int, bool)"/>
+    /// with no assembly; see there for the definitions (Merqury solid threshold, GenomeScope error rate,
+    /// k-mer genome size).
+    /// </remarks>
+    /// <param name="kmerSpectrum">Read k-mer counts (each k-mer once, all of the same length k, count ≥ 1).</param>
+    /// <param name="expectedCoverage">Peak coverage to use; 0 detects the histogram peak.</param>
     public static (double Completeness, double ErrorRate, long EstimatedGenomeSize)
         EstimateCompletenessFromKmers(
             IEnumerable<(string Kmer, int Count)> kmerSpectrum,
             int expectedCoverage = 0)
     {
-        var spectrum = kmerSpectrum.ToList();
+        var estimate = EstimateCompletenessFromKmers(kmerSpectrum, null, expectedCoverage, canonical: true);
+        return (estimate.Completeness, estimate.ErrorRate, estimate.EstimatedGenomeSize);
+    }
 
+    /// <summary>
+    /// k-mer evaluation of a read spectrum and (optionally) an assembly: read error rate, genome size,
+    /// Merqury k-mer completeness and Merqury QV.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Histogram</b>: h(c) = number of distinct spectrum k-mers with count c, listed for the counts
+    /// present in ascending order (<c>meryl histogram</c>).</para>
+    /// <para><b>Solid threshold</b> (Merqury <c>build/filt.sh</c> → <c>kmerHistToPloidyDepth.jar</c>
+    /// <c>effectiveMinDepth</c>): walking the histogram lines with slope d = h_i − h_{i−1} (the first line's
+    /// slope is h_0 − Double.MAX_VALUE), the first line where the slope turns from negative to positive gives
+    /// filt = c_i − 1; filt = 0 when no such line exists. Solid k-mers have count &gt; filt.</para>
+    /// <para><b>Read error rate</b>: E = Σ_{c ≤ filt} c·h(c), T = Σ c·h(c); error = 1 − (1 − E/T)^(1/k)
+    /// (GenomeScope 1.0 <c>error_rate</c> root of Σ_{i=1..k} C(k,i)x^i(1−x)^(k−i)·T = E; Vurture et al. 2017).</para>
+    /// <para><b>Genome size</b>: round((T − E) / peak) (GenomeScope <c>total_len = (total_kmers −
+    /// total_error_kmers)/(2·kcov)</c>; the homozygous peak 2·kcov is taken as the observed histogram mode
+    /// above filt, or <paramref name="expectedCoverage"/>). The GenomeScope negative-binomial mixture fit
+    /// (heterozygosity, duplication) is not performed: for a heterozygous genome whose highest peak is the
+    /// heterozygous one, pass the homozygous coverage as <paramref name="expectedCoverage"/>.</para>
+    /// <para><b>Assembly</b> (Merqury <c>eval/spectra-cn.sh</c>, Rhie et al. 2020): the assembly k-mers are
+    /// counted per sequence by <see cref="KmerAnalyzer.CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress{double}?)"/>
+    /// (ACGT-only windows; canonical when <paramref name="canonical"/>, as meryl). Completeness =
+    /// |distinct assembly k-mers ∩ solid read k-mers| / |solid read k-mers|; QV = −10·log10(1 − (1 −
+    /// ASM_ONLY/TOTAL)^(1/k)), where TOTAL counts all assembly k-mer instances and ASM_ONLY those absent
+    /// from the read spectrum (all read k-mers, not only solid ones, as <c>meryl difference asm reads</c>).</para>
+    /// </remarks>
+    /// <param name="readKmerSpectrum">Read k-mer counts: each k-mer once, all of length k, count ≥ 1. With
+    /// <paramref name="canonical"/> and an assembly the k-mers must be ACGT and canonical (min of k-mer and
+    /// reverse complement, as <c>meryl</c> / <c>jellyfish -C</c> output).</param>
+    /// <param name="assembly">Assembly sequences, or null for a spectrum-only estimate.</param>
+    /// <param name="expectedCoverage">Peak coverage to use; 0 detects the histogram peak.</param>
+    /// <param name="canonical">Count assembly k-mers canonically (meryl default).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="readKmerSpectrum"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="expectedCoverage"/> is negative.</exception>
+    /// <exception cref="ArgumentException">The spectrum is empty, has a null/empty or duplicate k-mer, mixed
+    /// k-mer lengths or a count &lt; 1; with an assembly and <paramref name="canonical"/>, a k-mer is not ACGT or
+    /// not canonical; an assembly sequence is null.</exception>
+    public static KmerCompletenessEstimate EstimateCompletenessFromKmers(
+        IEnumerable<(string Kmer, int Count)> readKmerSpectrum,
+        IEnumerable<(string Id, string Sequence)>? assembly,
+        int expectedCoverage = 0,
+        bool canonical = true)
+    {
+        ArgumentNullException.ThrowIfNull(readKmerSpectrum);
+        if (expectedCoverage < 0)
+            throw new ArgumentOutOfRangeException(nameof(expectedCoverage), expectedCoverage,
+                "Expected coverage cannot be negative (0 = detect the peak).");
+
+        var spectrum = new Dictionary<string, int>(StringComparer.Ordinal);
+        int k = -1;
+        foreach (var (kmer, count) in readKmerSpectrum)
+        {
+            if (string.IsNullOrEmpty(kmer))
+                throw new ArgumentException("A spectrum k-mer is null or empty.", nameof(readKmerSpectrum));
+            if (k < 0)
+                k = kmer.Length;
+            else if (kmer.Length != k)
+                throw new ArgumentException(
+                    $"All spectrum k-mers must have the same length (found {k} and {kmer.Length}).", nameof(readKmerSpectrum));
+            if (count < 1)
+                throw new ArgumentException($"K-mer '{kmer}' has count {count}; counts must be ≥ 1.", nameof(readKmerSpectrum));
+            if (!spectrum.TryAdd(kmer.ToUpperInvariant(), count))
+                throw new ArgumentException($"K-mer '{kmer}' is listed more than once.", nameof(readKmerSpectrum));
+        }
         if (spectrum.Count == 0)
-            return (0, 0, 0);
+            throw new ArgumentException("The k-mer spectrum is empty.", nameof(readKmerSpectrum));
 
-        // Find coverage peak (mode)
-        var countDistribution = spectrum
-            .Where(k => k.Count > 1) // Exclude singletons (likely errors)
-            .GroupBy(k => k.Count)
-            .Select(g => (Count: g.Key, Frequency: g.Count()))
-            .OrderByDescending(g => g.Frequency)
-            .ToList();
+        var histogram = new SortedDictionary<int, long>();
+        foreach (int count in spectrum.Values)
+            histogram[count] = histogram.TryGetValue(count, out long h) ? h + 1 : 1;
 
-        if (countDistribution.Count == 0)
-            return (0, 1.0, 0);
+        int filt = MerqurySolidThreshold(histogram);
+        long total = 0, errorKmers = 0, solidKmers = 0;
+        int peak = 0;
+        long peakHeight = 0;
+        foreach (var (count, distinct) in histogram)
+        {
+            total += count * distinct;
+            if (count <= filt)
+            {
+                errorKmers += count * distinct;
+                continue;
+            }
+            solidKmers += distinct;
+            if (distinct > peakHeight)
+            {
+                peakHeight = distinct;
+                peak = count;
+            }
+        }
+        if (expectedCoverage > 0)
+            peak = expectedCoverage;
 
-        int peakCoverage = expectedCoverage > 0 ?
-            expectedCoverage :
-            countDistribution[0].Count;
+        double errorRate = KmerErrorRate(errorKmers, total, k);
+        long genomeSize = (long)Math.Round((total - errorKmers) / (double)peak, MidpointRounding.ToEven);
 
-        // Calculate error rate from singleton ratio
-        int singletons = spectrum.Count(k => k.Count == 1);
-        double errorRate = singletons / (double)spectrum.Count;
+        if (assembly is null)
+            return new KmerCompletenessEstimate(k, filt, peak, total, errorKmers, errorRate, genomeSize,
+                solidKmers, 0, double.NaN, 0, 0, double.NaN, double.NaN);
 
-        // Estimate genome size
-        long totalKmers = spectrum.Sum(k => (long)k.Count);
-        long estimatedSize = peakCoverage > 0 ? totalKmers / peakCoverage : 0;
+        if (canonical)
+        {
+            foreach (string kmer in spectrum.Keys)
+            {
+                if (kmer.Any(c => BaseCode(c) < 0))
+                    throw new ArgumentException(
+                        $"K-mer '{kmer}' is not ACGT; canonical evaluation needs meryl-style ACGT k-mers.", nameof(readKmerSpectrum));
+                if (string.CompareOrdinal(DnaSequence.GetReverseComplementString(kmer), kmer) < 0)
+                    throw new ArgumentException(
+                        $"K-mer '{kmer}' is not canonical; pass a canonical spectrum (meryl / jellyfish -C) or canonical = false.",
+                        nameof(readKmerSpectrum));
+            }
+        }
 
-        // Estimate completeness
-        int solidKmers = spectrum.Count(k => k.Count >= peakCoverage / 2);
-        double completeness = solidKmers / (double)Math.Max(1, spectrum.Count - singletons);
+        var options = new KmerCountingOptions(Canonical: canonical, AcgtOnly: true);
+        var assemblyKmers = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var entry in assembly)
+        {
+            string sequence = RequireSequence(entry, nameof(assembly));
+            if (sequence.Length < k)
+                continue;
+            foreach (var (kmer, count) in KmerAnalyzer.CountKmers(sequence, k, options))
+                assemblyKmers[kmer] = assemblyKmers.TryGetValue(kmer, out long c) ? c + count : count;
+        }
 
-        return (completeness, errorRate, estimatedSize);
+        long assemblyTotal = 0, assemblyOnly = 0, assemblySolid = 0;
+        foreach (var (kmer, count) in assemblyKmers)
+        {
+            assemblyTotal += count;
+            if (!spectrum.TryGetValue(kmer, out int readCount))
+                assemblyOnly += count;
+            else if (readCount > filt)
+                assemblySolid++;
+        }
+
+        double completeness = assemblySolid / (double)solidKmers;
+        double assemblyErrorRate = assemblyTotal == 0 ? double.NaN : KmerErrorRate(assemblyOnly, assemblyTotal, k);
+        double qv = double.IsNaN(assemblyErrorRate) ? double.NaN : -10.0 * Math.Log10(assemblyErrorRate);
+
+        return new KmerCompletenessEstimate(k, filt, peak, total, errorKmers, errorRate, genomeSize,
+            solidKmers, assemblySolid, completeness, assemblyTotal, assemblyOnly, assemblyErrorRate, qv);
+    }
+
+    /// <summary>
+    /// Per-base error rate from the fraction of erroneous k-mers: 1 − (1 − errorKmers/totalKmers)^(1/k)
+    /// (Merqury <c>qv.sh</c> ERROR; closed form of GenomeScope's <c>uniroot</c>).
+    /// </summary>
+    private static double KmerErrorRate(long errorKmers, long totalKmers, int k)
+        => 1.0 - Math.Pow(1.0 - errorKmers / (double)totalKmers, 1.0 / k);
+
+    /// <summary>
+    /// Merqury solid-k-mer threshold: <c>kmerHistToPloidyDepth</c> <c>effectiveMinDepth</c> (the value
+    /// <c>filt.sh</c> reads from line 2 of the ploidy table), transcribed from HistToPloidyDepth.java
+    /// <c>getPloidyDepthTable</c>: first histogram line whose slope d turns positive after a negative
+    /// previous slope (d·prevD &lt; 0 and d &gt; prevD) gives depth − 1.
+    /// </summary>
+    private static int MerqurySolidThreshold(SortedDictionary<int, long> histogram)
+    {
+        bool first = true;
+        double prevCount = double.MaxValue;
+        double prevD = 0;
+        foreach (var (depth, distinct) in histogram)
+        {
+            double count = distinct;
+            if (first)
+            {
+                prevD = count - prevCount;
+                prevCount = count;
+                first = false;
+                continue;
+            }
+            double d = count - prevCount;
+            if (d * prevD < 0 && d > prevD)
+                return depth - 1;
+            prevCount = count;
+            prevD = d;
+        }
+        return 0;
     }
 
     #endregion

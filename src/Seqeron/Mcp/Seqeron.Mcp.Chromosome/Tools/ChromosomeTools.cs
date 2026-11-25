@@ -369,43 +369,67 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "assess_completeness", Title = "Assembly — BUSCO-like completeness", ReadOnly = true)]
-    [Description("Assess assembly completeness by aligning marker genes (BUSCO-like, k-mer based); reports complete/single/duplicated/fragmented/missing.")]
+    [Description("Assess assembly completeness with nucleotide marker genes (BUSCO-like): both-strand seeded local alignment (28-bp megablast seed, BLAST blastn scoring), compleasm classification into complete single-copy / duplicated / fragmented / missing; BUSCO percentages over n and C:S:D:F:M notation.")]
     public static SourceGa.CompletenessResult AssessCompleteness(
         [Description("Assembled sequences (id, sequence).")] IReadOnlyList<NamedSequence> assembly,
-        [Description("Marker genes (geneId, sequence).")] IReadOnlyList<NamedSequence> markerGenes,
-        [Description("Identity threshold (default 0.9).")] double identityThreshold = 0.9,
-        [Description("Coverage threshold (default 0.9).")] double coverageThreshold = 0.9)
+        [Description("Marker genes (geneId, nucleotide sequence).")] IReadOnlyList<NamedSequence> markerGenes,
+        [Description("Identity threshold in [0, 1] (compleasm min_identity; default 0.9).")] double identityThreshold = 0.9,
+        [Description("Aligned-fraction threshold for a complete hit in [0, 1] (compleasm min_complete; default 0.9).")] double coverageThreshold = 0.9,
+        [Description("Aligned fraction that makes a hit valid regardless of identity, in [0, 1] (compleasm min_length_percent; default 0.6).")] double minLengthFraction = SourceGa.DefaultMarkerMinLengthFraction)
     {
         if (assembly is null)
             throw new ArgumentException("Assembly cannot be null", nameof(assembly));
         if (markerGenes is null)
             throw new ArgumentException("Marker genes cannot be null", nameof(markerGenes));
-        if (identityThreshold is < 0 or > 1)
+        if (identityThreshold is < 0 or > 1 || double.IsNaN(identityThreshold))
             throw new ArgumentException("Identity threshold must be in [0, 1]", nameof(identityThreshold));
-        if (coverageThreshold is < 0 or > 1)
+        if (coverageThreshold is < 0 or > 1 || double.IsNaN(coverageThreshold))
             throw new ArgumentException("Coverage threshold must be in [0, 1]", nameof(coverageThreshold));
+        if (minLengthFraction is < 0 or > 1 || double.IsNaN(minLengthFraction))
+            throw new ArgumentException("Minimum length fraction must be in [0, 1]", nameof(minLengthFraction));
 
         return SourceGa.AssessCompleteness(
             assembly.Select(s => (s.Id, s.Sequence)),
             markerGenes.Select(s => (s.Id, s.Sequence)),
             identityThreshold,
-            coverageThreshold);
+            coverageThreshold,
+            minLengthFraction);
     }
 
-    [McpServerTool(Name = "estimate_completeness_from_kmers", Title = "Assembly — Completeness from k-mer spectrum", ReadOnly = true)]
-    [Description("Estimate genome completeness, error rate and genome size from a k-mer count spectrum.")]
+    [McpServerTool(Name = "estimate_completeness_from_kmers", Title = "Assembly — k-mer completeness, QV, error rate, genome size", ReadOnly = true)]
+    [Description("From a read k-mer count spectrum: Merqury solid threshold, GenomeScope read error rate 1-(1-E/T)^(1/k) and genome size (T-E)/peak; with an assembly also Merqury k-mer completeness and QV.")]
     public static KmerCompletenessResult EstimateCompletenessFromKmers(
-        [Description("K-mer spectrum (kmer, count).")] IReadOnlyList<KmerCount> kmerSpectrum,
-        [Description("Expected coverage (0 = auto-detect peak).")] int expectedCoverage = 0)
+        [Description("Read k-mer spectrum (kmer, count): each k-mer once, one length k, count >= 1; canonical when an assembly is given and canonical = true.")] IReadOnlyList<KmerCount> kmerSpectrum,
+        [Description("Expected (homozygous peak) coverage; 0 = detect the histogram peak above the solid threshold.")] int expectedCoverage = 0,
+        [Description("Optional assembly sequences (id, sequence) for Merqury completeness and QV.")] IReadOnlyList<NamedSequence>? assembly = null,
+        [Description("Count assembly k-mers canonically, as meryl (default true).")] bool canonical = true)
     {
         if (kmerSpectrum is null)
             throw new ArgumentException("K-mer spectrum cannot be null", nameof(kmerSpectrum));
         if (expectedCoverage < 0)
             throw new ArgumentException("Expected coverage cannot be negative", nameof(expectedCoverage));
 
-        var (completeness, errorRate, size) =
-            SourceGa.EstimateCompletenessFromKmers(kmerSpectrum.Select(k => (k.Kmer, k.Count)), expectedCoverage);
-        return new KmerCompletenessResult(completeness, errorRate, size);
+        var e = SourceGa.EstimateCompletenessFromKmers(
+            kmerSpectrum.Select(k => (k.Kmer, k.Count)),
+            assembly?.Select(s => (s.Id, s.Sequence)),
+            expectedCoverage,
+            canonical);
+        static double? Finite(double x) => double.IsFinite(x) ? x : null;
+        return new KmerCompletenessResult(
+            Finite(e.Completeness),
+            e.ErrorRate,
+            e.EstimatedGenomeSize,
+            e.K,
+            e.SolidThreshold,
+            e.PeakCoverage,
+            e.TotalKmers,
+            e.ErrorKmers,
+            e.SolidKmers,
+            assembly is null ? null : e.AssemblySolidKmers,
+            assembly is null ? null : e.AssemblyKmers,
+            assembly is null ? null : e.AssemblyOnlyKmers,
+            Finite(e.AssemblyErrorRate),
+            Finite(e.QualityValue));
     }
 
     [McpServerTool(Name = "find_repetitive_regions", Title = "Assembly — Find repetitive regions", ReadOnly = true)]

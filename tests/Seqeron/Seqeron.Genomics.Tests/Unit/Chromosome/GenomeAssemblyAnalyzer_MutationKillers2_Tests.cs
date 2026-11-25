@@ -39,17 +39,18 @@ public class GenomeAssemblyAnalyzer_MutationKillers2_Tests
     [Test]
     public void EstimateCompletenessFromKmers_PeakErrorAndSize()
     {
-        // Spectrum: AAA×4, CCC×4, GGG×2, TTT×1.
-        // Non-singleton mode → peak coverage 4; singleton ratio 1/4 = error 0.25;
-        // total k-mers 11 / peak 4 = size 2; solid (≥peak/2=2) = 3 of (4−1) distinct ⇒ completeness 1.
+        // Spectrum: AAA×4, CCC×4, GGG×2, TTT×1 ⇒ histogram 1:1, 2:1, 4:2. Slopes 0 then +1: the zero slope
+        // never gives d·prevD < 0, so Merqury's kmerHistToPloidyDepth finds no valley (filt = 0): no error
+        // k-mers ⇒ GenomeScope error 0; peak = mode 4; size = round(11/4) = 3 (oracle; B10 F44–F46).
+        // Without an assembly there is no Merqury completeness (NaN).
         var (completeness, errorRate, size) = EstimateCompletenessFromKmers(new[]
         {
             ("AAA", 4), ("CCC", 4), ("GGG", 2), ("TTT", 1),
         });
 
-        Assert.That(completeness, Is.EqualTo(1.0).Within(Tol));
-        Assert.That(errorRate, Is.EqualTo(0.25).Within(Tol));
-        Assert.That(size, Is.EqualTo(2L));
+        Assert.That(completeness, Is.NaN);
+        Assert.That(errorRate, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(size, Is.EqualTo(3L));
     }
 
     #endregion
@@ -97,7 +98,9 @@ public class GenomeAssemblyAnalyzer_MutationKillers2_Tests
         // One marker is present (its sequence is a substring of the assembly) and one is absent.
         string present = new string('A', 40) + new string('C', 40); // 80-bp marker, 80-bp kmers
         string assembly = present;                                    // identical ⇒ full coverage
-        string absent = new string('G', 80);                          // shares no k-mers
+        // Absent on both strands: (GT)40 and its reverse complement (AC)40 share no 28-mer with A40C40.
+        // (G80 would not do: its reverse complement C80 shares C40 ⇒ Fragmented on the '-' strand.)
+        string absent = string.Concat(Enumerable.Repeat("GT", 40));
 
         var r = AssessCompleteness(
             new[] { ("scaf", assembly) },
