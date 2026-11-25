@@ -1,0 +1,42 @@
+rows_ab	ab	dna_100m	file	1	locate	15	0.9474	0.9350	0.9638	0.9193	1.0271	BELOW 0.97
+rows_ab	ab	dna_100m	file	4	locate	5	1.0110	0.9794	1.0219	0.9594	1.0401	ok
+rows_ab	ab	dna_100m	fileT	4	locate	5	0.9988	0.9731	1.0591	0.9545	1.0653	ok
+rows_ab	ab	dna_100m	idx	4	locate	5	0.9972	0.9736	1.0093	0.9564	1.0515	ok
+rows_ab	ab	dna_10m	file	1	locate	5	1.0452	1.0415	1.0913	0.9948	1.0982	ok
+rows_ab	ab	dna_10m	file	4	locate	5	1.0218	0.9935	1.0291	0.9920	1.0572	ok
+rows_ab	ab	dna_10m	fileT	1	locate	5	1.0062	0.9641	1.0909	0.9309	1.1408	ok
+rows_ab	ab	dna_10m	fileT	4	locate	5	0.9843	0.9661	0.9938	0.9154	1.0378	ok
+rows_ab	ab	dna_10m	idx	1	locate	5	1.0191	0.9813	1.0420	0.9686	1.0626	ok
+rows_ab	ab	dna_10m	idx	4	locate	5	1.0318	1.0282	1.0419	0.9921	1.0822	ok
+rows_ab	ab	dna_10m	mem	1	locate	5	1.0016	0.9996	1.0082	0.9924	1.1519	ok
+rows_ab	ab	dna_10m	mem	4	locate	15	1.0079	0.9750	1.0607	0.9500	1.0986	ok
+rows_ab	ab	prot_1m	file	1	locate	5	1.0305	1.0154	1.0484	0.9187	1.0645	ok
+rows_ab	ab	prot_1m	file	4	locate	15	0.9641	0.9529	0.9959	0.9278	1.0455	BELOW 0.97
+rows_ab	ab	prot_1m	fileT	1	locate	5	1.1026	1.0649	1.1631	1.0352	1.2332	ok
+rows_ab	ab	prot_1m	fileT	4	locate	5	0.9879	0.9662	1.0264	0.9219	1.0381	ok
+rows_ab	ab	prot_1m	idx	1	locate	5	1.0665	1.0486	1.1385	1.0154	1.1885	ok
+rows_ab	ab	prot_1m	idx	4	locate	15	0.9591	0.9420	0.9700	0.8960	1.0512	BELOW 0.97
+rows_ab	ab	prot_1m	mem	1	locate	15	1.0251	0.9460	1.0923	0.9242	1.1651	ok
+rows_ab	ab	prot_1m	mem	4	locate	5	0.9977	0.9808	1.0025	0.9475	1.0382	ok
+rows_ab	ab	rep_10m	file	1	locate	5	1.0434	0.9793	1.1032	0.9334	1.1347	ok
+rows_ab	ab	rep_10m	file	4	locate	5	1.0360	1.0024	1.0456	0.9287	1.0701	ok
+rows_ab	ab	rep_10m	fileT	1	locate	5	1.0534	1.0207	1.1314	1.0061	1.1631	ok
+rows_ab	ab	rep_10m	fileT	4	locate	5	1.0300	1.0259	1.0774	0.9910	1.0920	ok
+rows_ab	ab	rep_10m	idx	1	locate	5	0.9967	0.9840	1.0158	0.9572	1.1065	ok
+rows_ab	ab	rep_10m	idx	4	locate	5	1.0295	0.9921	1.0301	0.9884	1.0753	ok
+rows_ab	ab	rep_10m	mem	1	locate	5	1.0439	1.0145	1.0641	1.0018	1.1012	ok
+rows_ab	ab	rep_10m	mem	4	locate	5	1.0090	1.0077	1.0129	1.0061	1.0497	ok
+rows_fix1	ab	dna_100m	file	1	locate	10	0.9631	0.9454	0.9978	0.9309	1.0383	BELOW 0.97
+rows_fix1	ab	prot_1m	file	4	locate	10	0.9755	0.9527	0.9929	0.9318	0.9986	ok
+rows_fix1	ab	prot_1m	idx	4	locate	10	0.9813	0.9466	1.0116	0.9429	1.0702	ok
+rows_fix2	ab	dna_100m	file	1	locate	10	1.1056	1.0919	1.1143	1.0632	1.2453	ok
+rows_fix2	ab	prot_1m	file	4	locate	10	0.9776	0.9590	0.9886	0.9558	0.9959	ok
+rows_fix2	ab	prot_1m	idx	4	locate	10	0.9596	0.9538	0.9771	0.9428	0.9826	BELOW 0.97
+rows_fix3	ab	dna_100m	file	1	locate	10	1.0794	1.0701	1.1656	1.0673	1.2459	ok
+rows_fix3	ab	prot_1m	file	4	locate	10	0.9783	0.9713	1.0027	0.9499	1.0224	ok
+rows_fix3	ab	prot_1m	idx	4	locate	10	0.9426	0.9362	0.9598	0.9354	0.9955	BELOW 0.97
+rows_fix4	ab	dna_100m	file	1	locate	6	0.9554	0.9469	0.9662	0.9406	0.9663	BELOW 0.97
+rows_fix4	ab	prot_1m	idx	4	locate	10	0.9706	0.9477	0.9868	0.9314	0.9949	ok
+rows_fix5	ab	dna_100m	file	1	locate	10	1.0836	1.0671	1.1200	1.0580	1.2419	ok
+rows_fix5	ab	prot_1m	file	4	locate	10	0.9794	0.9619	0.9926	0.9395	1.0489	ok
+rows_fix5	ab	prot_1m	idx	4	locate	20	0.9729	0.9629	0.9870	0.9072	1.0290	ok

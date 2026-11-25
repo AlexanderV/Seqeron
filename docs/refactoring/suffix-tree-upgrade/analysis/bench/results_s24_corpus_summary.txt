@@ -1,0 +1,9 @@
+# The corruption rows of work package S2.4: the 1,500 damaged containers of the corpus (CorruptionCorpusS24Tests.WriteTheCorpus, master seed 20261124: the first 1,500 usable cases of the differential harness) opened and used through the public API by analysis/bench/corpus_s24 against the S1 head 56456a72 (base) and the S2.4 head 0763cbd0 (new), one process per file and mode, watchdog 25 s. results_s24_corpus_rows.tsv has one row per file and mode.
+Checked  base  {'answered': 374, 'invalid': 473, 'other': 8, 'refused': 645}
+Checked  new   {'answered': 374, 'invalid': 473, 'other': 8, 'refused': 645}
+Checked  files on which the two builds differ: 0 of 1500
+Trusted  base  {'answered': 374, 'crash rc=-6': 1, 'hang': 1, 'invalid': 471, 'other': 8, 'refused': 645}
+Trusted  new   {'answered': 374, 'crash rc=-6': 1, 'hang': 1, 'invalid': 471, 'other': 8, 'refused': 645}
+Trusted  files on which the two builds differ: 0 of 1500
+# the 8 "other" rows (both modes, both builds): ArgumentOutOfRangeException of SuffixAt(n) of the runner (the rank n is not a rank of the suffix array); not a crash, identical in both builds.
+# the Trusted crash (0692_SealedByteFlip) and the Trusted hang (1797_SealedWords) are the same files in both builds: the documented behaviour of Trusted mode (47 crashes and 4 hangs in the 1b.8 harness over its larger set), not grown.

@@ -1,0 +1,5 @@
+# Byte identity of the containers that the S1 head (56456a72) and the S2.4 head (0763cbd0) write (sesa build, 4 threads, the production builder; work package S2.4). cmp of the two files, then the size and the first 16 hex digits of the sha256.
+dna_10m   identical  132515457 bytes  21718e29fe670d49
+rep_10m   identical  142515458 bytes  924545d61c412898
+prot_1m   identical   13640257 bytes  e48fc4ce430b7e09
+dna_100m  identical 1325019393 bytes  d6717e642c1b1a1e

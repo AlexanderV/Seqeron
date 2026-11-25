@@ -5,7 +5,7 @@ using SuffixTree.Esa.Tests.TestSupport;
 namespace SuffixTree.Esa.Tests.Fuzz;
 
 /// <summary>
-/// The corpus of the corruption rows of work package S2.4 (explicit): the first 1,500 corruption cases of the differential harness for a master seed (<c>S24_CORPUS_SEED</c>, default 20261124): the text, the kind of damage and the damage seed
+/// The corpus of the corruption rows of work package S2.4 (explicit): the first 1,500 usable corruption cases (a text that is empty or has a letter above 255 is skipped, as the harness skips it) of the differential harness for a master seed (<c>S24_CORPUS_SEED</c>, default 20261124): the text, the kind of damage and the damage seed
 /// are those that <see cref="CorruptionFuzz.Draw"/> gives, the damaged container is the one that <see cref="CorruptionFuzz.Run"/> would write; each is written to <c>$S24_CORPUS_DIR/NNNN_Kind.sesa</c>. The runner of
 /// <c>analysis/bench/corpus_s24</c> opens every file through the public API of a build, in Checked and in Trusted mode, one process each (a crash in Trusted mode is the documented behaviour of that mode).
 /// </summary>
@@ -21,7 +21,7 @@ public class CorruptionCorpusS24Tests
         Directory.CreateDirectory(dir);
         ulong master = ulong.TryParse(Environment.GetEnvironmentVariable("S24_CORPUS_SEED"), out ulong s) ? s : 20261124UL;
         int written = 0;
-        for (long i = 0; i < 1_500; i++)
+        for (long i = 0; written < 1_500 && i < 20_000; i++)
         {
             (FuzzCase c, DamageKind kind, ulong damageSeed) = CorruptionFuzz.Draw(master, i);
             string text = c.Text();
@@ -35,6 +35,6 @@ public class CorruptionCorpusS24Tests
             written++;
         }
         TestContext.Out.WriteLine($"CORPUS written={written} master={master}");
-        Assert.That(written, Is.GreaterThan(1_000));
+        Assert.That(written, Is.EqualTo(1_500));
     }
 }

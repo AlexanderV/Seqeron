@@ -1,0 +1,8 @@
+# The container builder (sesa build, 4 threads) on dna_100m, the S1 head (s1) and this package (new), 3 interleaved builds each (work package S2.4): build seconds inside the call and the RssAnon peak (PLAN gate row: <= 286.3 MB).
+arm	round	total_s	wall_s	rssanon_peak_mb	verdict
+s1	1	17.87	17.87	256.5	Within
+new	1	16.68	16.68	253.9	Within
+s1	2	16.76	16.76	252.7	Within
+new	2	17.63	17.63	247.7	Within
+s1	3	17.31	17.31	255.3	Within
+new	3	17.60	17.61	252.8	Within

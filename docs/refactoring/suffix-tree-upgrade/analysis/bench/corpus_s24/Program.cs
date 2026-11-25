@@ -73,8 +73,13 @@ static class Program
                     call = "Count"; sb.Append(index.Count(locus)).Append(' ');
                     var positions = new long[16];
                     call = "Locate"; sb.Append(index.Locate(locus, 1, positions)).Append(' '); foreach (long x in positions) sb.Append(x).Append(',');
-                    var children = new IndexLocus[8];
-                    call = "GetChildren"; if (index.IsExplicitNode(locus)) sb.Append(index.GetChildren(locus, children)).Append(' ');
+                    if (tree is ISuffixTreeNavigation nav)
+                    {
+                        var children = new IndexLocus[8];
+                        call = "IsExplicitNode"; bool explicitNode = nav.IsExplicitNode(locus); sb.Append(explicitNode).Append(' ');
+                        call = "GetChildren"; if (explicitNode) sb.Append(nav.GetChildren(locus, children)).Append(' ');
+                        call = "TryParent"; sb.Append(nav.TryParent(locus, out _)).Append(' ');
+                    }
                 }
             }
             if (tree is ISuffixArrayAccess sa)
@@ -85,15 +90,11 @@ static class Program
                     call = "SuffixAt"; sb.Append(sa.SuffixAt(r)).Append(' ');
                     call = "LcpAt"; sb.Append(sa.LcpAt(r)).Append(' ');
                 }
-            }
-            if (tree is ISuffixTreeNavigation nav)
-            {
-                long n = ((ISuffixIndex)tree).TextLength;
                 foreach (long r in new[] { 1L, n / 4, n / 2 })
                 {
-                    call = "RankOf"; sb.Append(nav.RankOf(r)).Append(' ');
-                    call = "Lcp"; sb.Append(nav.Lcp(r, n - r)).Append(' ');
-                    call = "Lca"; sb.Append(nav.Lca(r, n - r)).Append(' ');
+                    call = "RankOf"; sb.Append(sa.RankOf(r)).Append(' ');
+                    call = "Lcp"; sb.Append(sa.Lcp(r, n - r)).Append(' ');
+                    call = "Lca"; sb.Append(sa.Lca(r, n - r).Lo).Append(',').Append(sa.Lca(r, n - r).Length).Append(' ');
                 }
             }
         }

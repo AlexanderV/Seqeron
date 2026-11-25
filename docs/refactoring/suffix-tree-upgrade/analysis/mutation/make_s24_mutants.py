@@ -122,7 +122,7 @@ m('S04', 'LongCount: the empty pattern counts nothing', SR, 'if (pattern.IsEmpty
 m('S05', 'LongCount: the count of an interval is hi - lo', SR, 'return TryMatch(pattern, out long lo, out long hi) ? hi - lo + 1 : 0;', 'return TryMatch(pattern, out long lo, out long hi) ? hi - lo : 0;', F_INDEX)
 m('S06', 'LongCount: an absent pattern occurs once', SR, 'return TryMatch(pattern, out long lo, out long hi) ? hi - lo + 1 : 0;', 'return TryMatch(pattern, out long lo, out long hi) ? hi - lo + 1 : 1;', F_INDEX)
 m('S07', 'LongCount: the count is narrowed to 32 bits', SR, 'return TryMatch(pattern, out long lo, out long hi) ? hi - lo + 1 : 0;', 'return TryMatch(pattern, out long lo, out long hi) ? (int)(hi - lo + 1) : 0;', F_INDEX, stage3='(' + T + 'Large.WideEngineSparseLargeTests)')
-m('S08', 'FindAllOccurrences: the list is one position short', SR, 'return Sa.ToArray(lo, hi - lo + 1);', 'return Sa.ToArray(lo, hi - lo);', F_INDEX)
+m('S08', 'FindAllOccurrences: the list is one position short', SR, 'int count = hi - lo + 1;\n        return count <', 'int count = hi - lo;\n        return count <', F_INDEX)
 m('S09', 'PageOf: a negative skip is accepted', SR, 'ArgumentOutOfRangeException.ThrowIfNegative(skip);\n        if ((ulong)lo > (ulong)hi || hi > length)', 'if ((ulong)lo > (ulong)hi || hi > length)', F_INDEX)
 m('S10', 'PageOf: an interval of one rank is refused', SR, 'if ((ulong)lo > (ulong)hi || hi > length) throw', 'if ((ulong)lo >= (ulong)hi || hi > length) throw', F_INDEX)
 m('S11', 'PageOf: the last rank is refused', SR, 'if ((ulong)lo > (ulong)hi || hi > length) throw', 'if ((ulong)lo > (ulong)hi || hi >= length) throw', F_INDEX)
@@ -305,6 +305,14 @@ m('N01', 'EsaNode64: a leaf test on the right bound only', NO, 'internal bool Is
 m('N02', 'EsaNode64.ToNode: the depth and the parent depth are swapped', NO, 'new(IntBridge.Length(Lb, member), IntBridge.Length(Rb, member), IntBridge.Length(Depth, member), IntBridge.Length(ParentDepth, member), IntBridge.Length(Pos, member), LastChild);', 'new(IntBridge.Length(Lb, member), IntBridge.Length(Rb, member), IntBridge.Length(ParentDepth, member), IntBridge.Length(Depth, member), IntBridge.Length(Pos, member), LastChild);', F_NODE)
 m('N03', 'EsaNode64.Of: the last-child flag is lost', NO, 'new(node.Lb, node.Rb, node.Depth, node.ParentDepth, node.Pos, node.LastChild);', 'new(node.Lb, node.Rb, node.Depth, node.ParentDepth, node.Pos, false);', F_NODE)
 m('N04', 'EsaNode64.ToNode: the position is narrowed without a check', NO, 'IntBridge.Length(Pos, member), LastChild);', 'unchecked((int)Pos), LastChild);', F_NODE, stage3='(' + T + 'Large.WideEngineSparseLargeTests)')
+
+SV = 'SaView.cs'
+F_SAVIEW = '(' + T + 'Views.SaViewTests)'
+m('U01', 'the long copy starts one entry late', SV, 'int[] result = GC.AllocateUninitializedArray<int>(count);\n        CopyTo(start, result);', 'int[] result = GC.AllocateUninitializedArray<int>(count);\n        CopyTo(start + 1, result);', F_SAVIEW)
+m('U02', 'the long copy forgets the bound of the section (a count of zero)', SV, 'int[] result = GC.AllocateUninitializedArray<int>(count);\n        CopyTo(start, result);', 'int[] result = GC.AllocateUninitializedArray<int>(count);\n        if (count > 0) CopyTo(start, result);', F_SAVIEW)
+m('U03', 'the long copy does not refuse a negative count', SV, 'ArgumentOutOfRangeException.ThrowIfNegative(count);\n        int[] result = GC.AllocateUninitializedArray<int>(count);', 'int[] result = GC.AllocateUninitializedArray<int>(Math.Max(count, 0));', F_SAVIEW)
+m('U04', 'the switch to the long copy is above the list (the entry at 512 is lost)', 'EsaIndex.Search.cs', 'return count < SaView.UninitializedFrom ? Sa.ToArray(lo, count) : Sa.ToArrayUninitialized(lo, count);', 'return count < SaView.UninitializedFrom ? Sa.ToArray(lo, count) : Sa.ToArrayUninitialized(lo, count - 1);', F_SAVIEW)
+m('U05', 'the switch to the long copy takes the wrong start', 'EsaIndex.Search.cs', 'return count < SaView.UninitializedFrom ? Sa.ToArray(lo, count) : Sa.ToArrayUninitialized(lo, count);', 'return count < SaView.UninitializedFrom ? Sa.ToArray(lo, count) : Sa.ToArrayUninitialized(lo + 1, count);', F_SAVIEW)
 
 # the check: every old text occurs exactly once
 bad = []
