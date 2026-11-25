@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes inputs/sets.tsv for the run of `mafft --lastpair` / `--lastmultipair` (B09 WP77, package A2-19c-last): 186 sets, deterministic (python random.Random, fixed seed).
+"""Writes inputs/sets.tsv for the run of `mafft --lastpair` / `--lastmultipair` (B09 WP77, package A2-19c-last): 206 sets, deterministic (python random.Random, fixed seed).
 Columns (tab separated): id, mode, options, old sequences ('|' separated; the file in.fa; for the modes with `add` an alignment of them is made by the installed mafft inside the container), new sequences ('|' separated, the file new.fa; empty without --add*), names flag.
 Modes: plain (in.fa = the unaligned sequences), add (in.fa = `mafft --quiet` alignment of the old sequences, new.fa = the sequences to add; the options hold the --addfragments / --addfull / --addlong / --addtotop option and `new.fa`).
 The mafft script reads the nucleotide sequences only for --lastpair / --lastmultipair (pairlocalalign stops with "Not yet supported" for amino acids): some protein sets record that message, too."""
@@ -94,6 +94,10 @@ for i in range(4):
 for i in range(4):
     base, fam, r, ind = family(N, 3, 1500, 0.08, 0.03)
     add('plain', ['--lastpair'], fam)
+# 5. two related sequences (20): `pairlocalalign -R` puts the pair (0, 1) into row 0 of its table, which has room for it, so the program does not overflow its heap (valgrind, README) and the run reaches the end: the success path
+for i in range(20):
+    base, fam, r, ind = family(N, 2, rng.choice([60, 150, 300, 600, 1200]))
+    add('plain', ['--lastpair'] + rng.choice(PLAIN_EXTRAS), fam)
 with open('inputs/sets.tsv', 'w') as f:
     for r in rows:
         f.write('\t'.join(r) + '\n')

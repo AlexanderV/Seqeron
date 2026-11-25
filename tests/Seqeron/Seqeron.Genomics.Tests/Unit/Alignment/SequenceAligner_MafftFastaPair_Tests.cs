@@ -144,7 +144,8 @@ public class SequenceAligner_MafftFastaPair_Tests
             Assert.That(sets.Count(s => s.DirectRc == -11), Is.EqualTo(199), "dndfast7 stops with a segmentation fault (a null pointer from cutal, then putlocalhom2)");
             Assert.That(sets.Count(s => s.DirectRc == 1 && s.DirectStderr.Contains("count (fasta34 -z 3) =", StringComparison.Ordinal)), Is.EqualTo(6));
             Assert.That(sets.Count(s => s.DirectRc == 0), Is.EqualTo(48));
-            Assert.That(calls.Count(c => c.Args.Contains("-n", StringComparison.Ordinal)), Is.GreaterThan(0), "nucleotide calls of fasta34");
+            Assert.That(calls.Count(c => c.Args.Split(' ').Contains("-n")), Is.EqualTo(205), "nucleotide calls of fasta34");
+            Assert.That(calls.Count(c => c.Args.Split(' ').Contains("-A")), Is.EqualTo(152), "calls with -A (--fastswpair)");
         });
     }
 

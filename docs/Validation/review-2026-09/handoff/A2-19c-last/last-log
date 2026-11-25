@@ -16,8 +16,10 @@ for f in _q* _db* _scoringmatrixforlast; do
     *) cp "$f" "$d/$n-$prog.in.$f" ;;
   esac
 done
+t0=$(date +%s%N)
 "$real" "$@" > "$d/$n-$prog.stdout" 2> "$d/$n-$prog.stderr"
 rc=$?
+t1=$(date +%s%N); echo $(( (t1 - t0) / 1000000 )) > "$d/$n-$prog.ms"
 echo "$rc" > "$d/$n-$prog.rc"
 cat "$d/$n-$prog.stdout"
 cat "$d/$n-$prog.stderr" >&2

@@ -10,11 +10,11 @@ step "versions"
 {
   echo "date: $(date -u)"; echo "uname: $(uname -m)"
   echo "debian mafft: $(mafft --version 2>&1 | head -1)"; echo "extended mafft: $(/opt/mafft-ext/bin/mafft --version 2>&1 | head -1)"
-  echo "RNAalifold: $(RNAalifold --version 2>&1 | head -1)"
+  echo "RNAalifold: $(command -v RNAalifold) $(RNAalifold --version 2>&1 | head -1)"; echo "mafft on PATH: $(command -v mafft)"; echo "curl: $(command -v curl)"
   echo "--- programs of the extended build"; ls -l /opt/mafft-ext/libexec/mafft 2>&1
   echo "--- sha256 of the programs"; sha256sum /opt/mafft-ext/libexec/mafft/* 2>&1 | head -60
 } > out/versions.txt 2>&1
-cp /opt/build_ext.log out/ 2>/dev/null
+cp /opt/build_ext.log /opt/build_vienna.log out/ 2>/dev/null
 step "the sets"
 python3 -I - <<'PY'
 import json, os, subprocess, tempfile, time, hashlib

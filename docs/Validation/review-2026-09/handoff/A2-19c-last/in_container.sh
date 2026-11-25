@@ -23,10 +23,12 @@ for t in lastdb lastal; do cp "$WORK/last-log" "$PREFIX/$t" && chmod +x "$PREFIX
 export LAST_REAL_DIR="${LAST_REAL_DIR:-/opt/last/bin}"
 step "the sets"
 python3 -I - <<'PY'
-import gzip, json, os, shutil, subprocess, sys, tempfile, time
+import gzip, json, os, re, shutil, subprocess, sys, tempfile, time
 
 QUICK = os.environ.get('LAST_QUICK') == '1'
-TIMEOUT = int(os.environ.get('RUN_TIMEOUT', '300'))
+TIMEOUT = int(os.environ.get('RUN_TIMEOUT', '3600'))          # seconds per mafft run (run 1: 300, but lastal of LAST >= 1447 needs ~26 s per call natively)
+TWICE_MAX = int(os.environ.get('TWICE_MAX', '900'))            # a set whose first run took longer is run once only (determinism 'unchecked')
+ONLY = os.environ.get('LAST_ONLY', '').split()               # self-test: only these ids
 WORK = os.environ.get('WORK', '/work')
 
 
@@ -67,8 +69,22 @@ def run_once(td, argv, lastlog):
     return {'rc': rc, 'stdout': out, 'stderr': err, 'files': files, 'calls': calls, 'seconds': round(time.time() - t0, 1)}
 
 
+def norm(r):
+    # run 1 declared every set NONDET because the random names of the temporary directories (mafft.XXXXXXXXXX, /tmp/tmpxxxxxxxx) and the process numbers of the crash message differ from run to run: they are not part of the comparison
+    r2 = {k: v for k, v in r.items() if k != 'seconds'}
+    r2['calls'] = [{'prog': c['prog'], 'items': {x: y for x, y in c['items'].items() if x != 'ms'}} for c in r['calls']]      # 'ms' = the time of the call: not part of the comparison
+    t = json.dumps(r2, sort_keys=True)
+    t = re.sub(r'mafft\.[A-Za-z0-9]{6,12}', 'mafft.X', t)
+    t = re.sub(r'/tmp/tmp[a-z0-9_]{6,10}', '/tmp/tmpX', t)
+    t = re.sub(r'(mafft: line \d+:)\s+\d+ (Segmentation fault)', r'\1 P \2', t)
+    t = re.sub(r'\d{10,19}-\d+-\d+', 'T-P-R', t)
+    return t
+
+
 sets = [l.rstrip('\n').split('\t') for l in open(os.path.join(WORK, 'inputs/sets.tsv')) if l.strip()]
-if QUICK:
+if ONLY:
+    sets = [x for x in sets if x[0] in ONLY]
+elif QUICK:
     sets = sets[:4] + [s for s in sets if s[1] == 'add'][:2]
 index = []
 nondet = []
@@ -86,19 +102,43 @@ for k, mode, opts, old, new in sets:
         argv = ['mafft'] + opts.split() + ['in.fa']
         lastlog = os.path.join(tempfile.gettempdir(), 'lastlog-%s' % k)
         a = run_once(td, argv, lastlog)
-        b = run_once(td, argv, lastlog)
-        strip = lambda r: {x: r[x] for x in r if x != 'seconds'}
         # the run-to-run difference of the time stamps in the names is not part of the comparison; the calls are compared by their content
-        same = strip(a) == strip(b)
-        rec = {'id': k, 'mode': mode, 'options': opts, 'in.fa': infa, 'new.fa': open(os.path.join(td, 'new.fa')).read(), 'argv': argv, 'deterministic': same, 'run': a, 'run2': None if same else b}
+        if a['seconds'] > TWICE_MAX:
+            b, same = None, None          # too long to repeat: determinism not checked
+        else:
+            b = run_once(td, argv, lastlog)
+            same = norm(a) == norm(b)
+        rec = {'id': k, 'mode': mode, 'options': opts, 'in.fa': infa, 'new.fa': open(os.path.join(td, 'new.fa')).read(), 'argv': argv, 'deterministic': same, 'run': a, 'run2': None if same is not False else b}
     with gzip.open(os.path.join(WORK, 'out/sets/%s.json.gz' % k), 'wt', encoding='utf-8') as f:
         json.dump(rec, f)
-    index.append('\t'.join([k, mode, opts, str(a['rc']), 'det' if same else 'NONDET', str(len(a['calls'])), str(a['seconds'])]))
-    if not same:
+    label = 'unchecked' if same is None else ('det' if same else 'NONDET')
+    index.append('\t'.join([k, mode, opts, str(a['rc']), label, str(len(a['calls'])), str(a['seconds'])]))
+    if same is False:
         nondet.append(k)
-    print(k, mode, opts, '->', a['rc'], 'calls=%d' % len(a['calls']), 'det' if same else 'NONDET', flush=True)
-open(os.path.join(WORK, 'out/index.tsv'), 'w').write('\n'.join(index) + '\n')
+    print(k, mode, opts, '->', a['rc'], 'calls=%d' % len(a['calls']), label, a['seconds'], 's', flush=True)
+    open(os.path.join(WORK, 'out/index.tsv'), 'w').write('\n'.join(index) + '\n')          # after every set: an interrupted run keeps what it has
 print('sets', len(index), 'non-deterministic', len(nondet), nondet[:10])
+PY
+step "valgrind proof for the crashes of pairlocalalign (heap overflow: core/pairlocalalign.c putlocalhom_last is called with localhomtable[i]+j for alg 'R', but row i of the table has njob-i entries)"
+mkdir -p out/valgrind
+python3 -I - <<'PY'
+import gzip, json, os, subprocess, tempfile
+WORK = os.environ.get('WORK', '/work')
+done = 0
+for k in sorted(os.listdir(os.path.join(WORK, 'out/sets'))):
+    if done >= 3 or not os.path.exists('/usr/bin/valgrind'):
+        break
+    rec = json.load(gzip.open(os.path.join(WORK, 'out/sets', k), 'rt', encoding='utf-8'))
+    if 'Segmentation fault' not in rec['run']['stderr'] or rec['mode'] != 'plain':
+        continue
+    with tempfile.TemporaryDirectory() as td:
+        open(os.path.join(td, 'in.fa'), 'w').write(rec['in.fa'])
+        try:
+            p = subprocess.run(['valgrind', '-q', '--trace-children=yes', '--trace-children-skip=*/lastal*,*/lastdb*,*/last-log', '--error-limit=no'] + rec['argv'], capture_output=True, cwd=td, timeout=7200)
+            open(os.path.join(WORK, 'out/valgrind', rec['id'] + '.log'), 'wb').write(p.stderr)
+        except Exception as e:
+            open(os.path.join(WORK, 'out/valgrind', rec['id'] + '.log'), 'w').write('valgrind run failed: %r' % e)
+    done += 1
 PY
 step "done"
 [ -n "${HOST_UID:-}" ] && chown -R "$HOST_UID:${HOST_GID:-$HOST_UID}" out || true
