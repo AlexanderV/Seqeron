@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "compute_mipred_features",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.ComputeMiPredFeatures",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.MiPred.cs#L146",
+  "description": "The 34 MiPred features V1..V34 from a sequence, its dot-bracket structure, the MFE and a p-value.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Nucleotide sequence (A/C/G/T/U only)"
+      },
+      "dotBracket": {
+        "type": "string",
+        "description": "Structure in \".()\" notation, same length as the sequence"
+      },
+      "freeEnergy": {
+        "type": "number",
+        "description": "MFE (kcal/mol) -> V33"
+      },
+      "pValue": {
+        "type": "number",
+        "description": "Shuffle p-value in [0, 1] -> V34"
+      }
+    },
+    "required": [
+      "sequence",
+      "dotBracket",
+      "freeEnergy",
+      "pValue"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "features": {
+        "type": "array",
+        "description": "V1..V32 triplet-element frequencies (count / sequence length), V33 = freeEnergy, V34 = pValue"
+      }
+    },
+    "required": [
+      "features"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "dotBracket cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "pValue must be in [0, 1]"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Hand-computed triplets",
+      "input": {
+        "sequence": "GAUCC",
+        "dotBracket": "((.((",
+        "freeEnergy": -12.5,
+        "pValue": 0.25
+      },
+      "output": {
+        "features": "V2 = V11 = V29 = 0.2, V33 = -12.5, V34 = 0.25, others 0"
+      }
+    }
+  ]
+}

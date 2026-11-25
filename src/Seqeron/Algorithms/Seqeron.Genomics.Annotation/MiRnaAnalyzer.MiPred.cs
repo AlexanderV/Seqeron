@@ -99,7 +99,7 @@ public static partial class MiRnaAnalyzer
         ArgumentOutOfRangeException.ThrowIfLessThan(shuffleCount, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(minLoopSize);
 
-        string seq = NormaliseMiPredQuery(sequence);
+        string seq = ToAcguRna(sequence, dropOthers: true)!;
         if (seq.Length == 0)
             return null;
 
@@ -126,7 +126,7 @@ public static partial class MiRnaAnalyzer
     public static MiPredHairpinCheck AssessMiPredHairpin(string dotBracket, double freeEnergy)
     {
         ArgumentNullException.ThrowIfNull(dotBracket);
-        int pairs = MiPredSecondHairpin.IsMatch(dotBracket) ? 0 : CountChar(dotBracket, '(');
+        int pairs = MiPredSecondHairpin.IsMatch(dotBracket) ? 0 : dotBracket.AsSpan().Count('(');
         int firstClose = dotBracket.IndexOf(')');
         bool multiloop = firstClose >= 0 && dotBracket.IndexOf('(', firstClose) >= 0;
         bool like = freeEnergy <= MiPredMaxFreeEnergy && pairs >= MiPredMinBasePairs && !multiloop
@@ -159,7 +159,7 @@ public static partial class MiRnaAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(dotBracket);
-        string seq = NormaliseMiPredQuery(sequence);
+        string seq = ToAcguRna(sequence, dropOthers: true)!;
         if (seq.Length != sequence.Length)
             throw new ArgumentException("sequence may contain only A, C, G, T/U.", nameof(sequence));
         if (dotBracket.Length != seq.Length)
@@ -194,20 +194,6 @@ public static partial class MiRnaAnalyzer
         var x = new double[MiPredFeatureCount];
         for (int i = 0; i < x.Length; i++) x[i] = features[i];
         return (MiPredForestData.Value.CountRealVotes(x), MiPredForestData.Value.TreeCount);
-    }
-
-    /// <summary>Port of the package's FASTA clean-up: characters other than A/C/G/T/U (either case) are removed, upper case, T→U.</summary>
-    private static string NormaliseMiPredQuery(string sequence)
-    {
-        var sb = new StringBuilder(sequence.Length);
-        foreach (char c in sequence)
-        {
-            char u = char.ToUpperInvariant(c);
-            if (u == 'T') u = 'U';
-            if (u is 'A' or 'C' or 'G' or 'U')
-                sb.Append(u);
-        }
-        return sb.ToString();
     }
 
     /// <summary>The bundled MiPred forest (decoded and structurally validated on first use).</summary>

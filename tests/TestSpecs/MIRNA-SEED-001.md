@@ -6,7 +6,7 @@
 | **ID** | MIRNA-SEED-001 |
 | **Area** | MiRNA |
 | **Class** | MiRnaAnalyzer |
-| **Methods** | GetSeedSequence, CreateMiRna, CompareSeedRegions, GroupBySeedFamily, FindSimilarMiRnas, GenerateSeedVariants, CalculateGcContent |
+| **Methods** | GetSeedSequence, CreateMiRna, CompareSeedRegions, GroupBySeedFamily, FindSimilarMiRnas, GenerateSeedVariants, CalculateGcFraction |
 | **Canonical Test File** | MiRnaAnalyzer_SeedAnalysis_Tests.cs |
 | **Status** | ☑ Complete |
 
@@ -113,7 +113,7 @@
 | R-007 | `GenerateSeedVariants_SevenNtSeed_Yields22_AndHasOnlyTheSingleArgumentOverload` | R2-A3: the dead `(string, bool includeWobble)` overload (`[Obsolete]`, ignored flag) and the MCP `generate_seed_variants.includeWobble` parameter were removed ("kept for backward compatibility" is not a valid end state; no source defines wobble semantics for seed variants); 22 variants of a 7-nt seed, exactly one public overload |
 | R-007b | `GenerateSeedVariants_HasNoIncludeWobbleParameter` (Mcp.Annotation.Tests) | MCP tool signature is `(seedSequence)` only |
 | R-008 | `NullInputs_ThrowArgumentNullException` | CreateMiRna / GenerateSeedVariants / GroupBySeedFamily / FindSimilarMiRnas |
-| R-009 | `CalculateGcContent_DelegatesToCanonicalGcFraction` | Biopython gc_fraction(let-7a) = 8/22 = 0.363636…; "GCNN" = 1.0 |
+| R-009 | `CalculateGcFraction_DelegatesToCanonicalGcFraction` | Biopython gc_fraction(let-7a) = 8/22 = 0.363636…; "GCNN" = 1.0 |
 
 ## Could Tests
 

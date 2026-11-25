@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "classify_pre_mirna_mipred",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.ClassifyPreMiRnaMiPred",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.MiPred.cs#L92",
+  "description": "Published MiPred random-forest pre-miRNA classifier (Jiang et al. 2007): 34 features, authors' 1000-tree forest.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Candidate nucleotide sequence (RNA or DNA; characters other than A/C/G/T/U are dropped; T read as U)"
+      },
+      "seed": {
+        "type": "integer",
+        "description": "Seed of the System.Random driving the p-value shuffles (default 1); fixed seed = reproducible",
+        "default": 1
+      },
+      "shuffleCount": {
+        "type": "integer",
+        "description": "Dinucleotide shuffles of the p-value feature, 1..10000 (default 999 = package/training value)",
+        "default": 999
+      },
+      "minLoopSize": {
+        "type": "integer",
+        "description": "Minimum hairpin loop size of the folder (NNDB minimum 3)",
+        "default": 3
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "found": {
+        "type": "boolean",
+        "description": "False when nothing remains of the sequence after the clean-up"
+      },
+      "sequence": {
+        "type": "string",
+        "description": "Cleaned sequence (upper case RNA)"
+      },
+      "dotBracket": {
+        "type": "string",
+        "description": "Canonical MFE structure"
+      },
+      "freeEnergy": {
+        "type": "number",
+        "description": "MFE (kcal/mol)"
+      },
+      "isHairpinLike": {
+        "type": "boolean",
+        "description": "Package pre-judgement: MFE <= -15, >= 18 pairs, no multiloop, 51-137 nt"
+      },
+      "basePairs": {
+        "type": "integer",
+        "description": "Pairs of the structure (0 when it contains a second hairpin)"
+      },
+      "hasMultiloop": {
+        "type": "boolean",
+        "description": "A \"(\" follows the first \")\""
+      },
+      "length": {
+        "type": "integer",
+        "description": "Cleaned length"
+      },
+      "pValue": {
+        "type": "number",
+        "description": "(1 + #{shuffle dG <= dG})/(shuffleCount + 1); null when not hairpin-like"
+      },
+      "features": {
+        "type": "array",
+        "description": "The 34 features V1..V34; null when not hairpin-like"
+      },
+      "realVotes": {
+        "type": "integer",
+        "description": "Trees voting real pre-miRNA"
+      },
+      "treeCount": {
+        "type": "integer",
+        "description": "1000"
+      },
+      "realProbability": {
+        "type": "number",
+        "description": "realVotes/treeCount; null when not hairpin-like"
+      },
+      "isPreMiRna": {
+        "type": "boolean",
+        "description": "Hairpin-like and realProbability > 0.5"
+      },
+      "seed": {
+        "type": "integer",
+        "description": "Seed used"
+      },
+      "shuffleCount": {
+        "type": "integer",
+        "description": "Shuffles used"
+      }
+    },
+    "required": [
+      "found"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "shuffleCount must be in [1, 10000]"
+    },
+    {
+      "code": 1001,
+      "message": "minLoopSize must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "hsa-mir-21 hairpin is a real pre-miRNA",
+      "input": {
+        "sequence": "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA"
+      },
+      "output": {
+        "found": true,
+        "isHairpinLike": true,
+        "realVotes": 781,
+        "treeCount": 1000,
+        "realProbability": 0.781,
+        "isPreMiRna": true
+      }
+    }
+  ]
+}

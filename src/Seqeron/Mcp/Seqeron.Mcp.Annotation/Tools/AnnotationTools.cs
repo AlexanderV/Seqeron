@@ -1349,6 +1349,52 @@ public class AnnotationTools
         return new ClassifyPreMiRnaTripletSvmResult(results.Count > 0, results);
     }
 
+    private const int MaxMiPredShuffles = 10000;
+
+    /// <summary>Published MiPred random-forest pre-miRNA classifier (Jiang et al. 2007).</summary>
+    [McpServerTool(Name = "classify_pre_mirna_mipred", Title = "miRNA — Classify Pre-miRNA (MiPred)", ReadOnly = true)]
+    [Description("Published MiPred pre-miRNA classifier (Jiang, Wu, Wang, Ma, Sun & Lu 2007, Nucleic Acids Res 35:W339-W344) with the authors' own trained 1000-tree random forest over 34 features (32 triplet-element frequencies, MFE, shuffle p-value). Steps: canonical MFE fold (Turner 2004; the package used RNAfold 1.x) -> package pre-judgement (MFE <= -15 kcal/mol, >= 18 base pairs, no multiloop, length 51-137 nt; when it fails the sequence is not classified: features = null, isPreMiRna = false) -> p-value feature = (1 + #{shuffle dG <= dG})/(shuffleCount + 1) from dinucleotide shuffles drawn from System.Random(seed) (statistical: fixed seed = reproducible, other seeds vary within sampling error; the forest was trained with shuffleCount = 999) -> forest votes; realProbability = realVotes/1000, real pre-miRNA when > 0.5. COST: one MFE fold plus shuffleCount shuffle-folds of a sequence of <= 137 nt, i.e. ~1000 folds for the default 999 (measured ~9 s in a Debug build for the 71 nt hsa-mir-21 hairpin; sequences failing the pre-judgement cost one fold). shuffleCount is capped at 10000. found=false when nothing remains of the sequence after the package clean-up (characters other than A/C/G/T/U are dropped).")]
+    public static ClassifyPreMiRnaMiPredResult ClassifyPreMiRnaMiPred(
+        [Description("Candidate nucleotide sequence (RNA or DNA, case-insensitive; characters other than A/C/G/T/U are dropped, T read as U)")] string sequence,
+        [Description("Seed of the System.Random that drives the shuffles for the p-value feature (default 1 = library default); fixed seed = reproducible result")] int seed = MiRnaAnalyzer.MiPredDefaultSeed,
+        [Description("Number of dinucleotide shuffles for the p-value feature (default 999 = package and training value, 1..10000; other values change the distribution the forest was trained on)")] int shuffleCount = MiRnaAnalyzer.MiPredDefaultShuffleCount,
+        [Description("Minimum hairpin loop size of the folder (NNDB minimum 3)")] int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (shuffleCount < 1 || shuffleCount > MaxMiPredShuffles)
+            throw new ArgumentOutOfRangeException(nameof(shuffleCount), $"shuffleCount must be in [1, {MaxMiPredShuffles}]");
+        if (minLoopSize < 0)
+            throw new ArgumentOutOfRangeException(nameof(minLoopSize), "minLoopSize must be >= 0");
+
+        if (MiRnaAnalyzer.ClassifyPreMiRnaMiPred(sequence, new Random(seed), shuffleCount, minLoopSize) is not { } r)
+            return new ClassifyPreMiRnaMiPredResult(false, "", "", 0, false, 0, false, 0, null, null, 0, 0, null, false, seed, shuffleCount);
+        return new ClassifyPreMiRnaMiPredResult(true, r.Sequence, r.DotBracket, r.FreeEnergy,
+            r.Check.IsHairpinLike, r.Check.BasePairs, r.Check.HasMultiloop, r.Sequence.Length,
+            r.PValue, r.Features, r.RealVotes, r.TreeCount, r.RealProbability, r.IsPreMiRna, seed, shuffleCount);
+    }
+
+    /// <summary>The 34 MiPred features of a sequence + structure + MFE + p-value.</summary>
+    [McpServerTool(Name = "compute_mipred_features", Title = "miRNA — MiPred Features", ReadOnly = true)]
+    [Description("The 34 MiPred features V1..V34 (Jiang et al. 2007; package microRNAcheck_parallel.pl): V1..V32 = frequencies of the 32 triplet elements (centre nucleotide A,U,G,C x local structure '(((', '((.', '(.(', '(..', '.((', '.(.', '..(', '...'; closing brackets not counted, positions 2..n-1) divided by the sequence length, V33 = freeEnergy, V34 = pValue (both supplied by the caller). Pure counting, no folding or shuffling: instant. The structure must be '.()' notation of the same length as the sequence (A/C/G/T/U only).")]
+    public static ComputeMiPredFeaturesResult ComputeMiPredFeatures(
+        [Description("Nucleotide sequence (RNA or DNA, A/C/G/T/U only)")] string sequence,
+        [Description("Secondary structure in '.()' notation, same length as the sequence")] string dotBracket,
+        [Description("MFE (kcal/mol) -> V33")] double freeEnergy,
+        [Description("Shuffle p-value in [0, 1] -> V34")] double pValue)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (string.IsNullOrEmpty(dotBracket))
+            throw new ArgumentException("dotBracket cannot be null or empty", nameof(dotBracket));
+        if (!double.IsFinite(freeEnergy))
+            throw new ArgumentOutOfRangeException(nameof(freeEnergy), "freeEnergy must be finite");
+        if (!double.IsFinite(pValue) || pValue < 0 || pValue > 1)
+            throw new ArgumentOutOfRangeException(nameof(pValue), "pValue must be in [0, 1]");
+
+        return new ComputeMiPredFeaturesResult(MiRnaAnalyzer.ComputeMiPredFeatures(sequence, dotBracket, freeEnergy, pValue));
+    }
+
     /// <summary>Minimum-free-energy miRNA·target duplex (RNAduplex model, Turner 2004).</summary>
     [McpServerTool(Name = "fold_mirna_duplex", Title = "miRNA — Fold miRNA·Target Duplex", ReadOnly = true)]
     [Description("Minimum-free-energy miRNA·target duplex (RNAduplex / duplexfold model): one contiguous duplex with internal loops and bulges up to maxLoopSize per side, scored with Turner 2004 nearest-neighbor parameters (kcal/mol, 37 °C). Returns the dot-bracket in RNAduplex notation (miRNA '(' then '&', then target ')'), the 0-based miRNA/target spans, the base pairs (miRNA index, target index; 0-based, 5'→3') and the free energy. found=false when no base pair is possible. DNA T is read as U.")]
@@ -1534,7 +1580,7 @@ public class AnnotationTools
 
         var miRna = MiRnaAnalyzer.CreateMiRna(miRnaName ?? "miRNA", miRnaSequence);
         var site = new MiRnaAnalyzer.TargetSite(siteStart, siteEnd,
-            mRnaSequence.Substring(siteStart, length).ToUpperInvariant().Replace('T', 'U'),
+            Seqeron.Genomics.Infrastructure.SequenceCase.ToUpperRna(mRnaSequence.Substring(siteStart, length)),
             miRna.Name, type, length, 0.0, 0.0, "");
         var inputs = new MiRnaAnalyzer.ContextPlusPlusInputs(
             Sps: sps, Ta: ta, OrfLength: orfLength, Orf8mCount: orf8mCount, Conservation: pct,

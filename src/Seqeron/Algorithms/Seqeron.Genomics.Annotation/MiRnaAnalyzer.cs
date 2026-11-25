@@ -1,5 +1,7 @@
+using System.Buffers;
 using System.Text;
 using Seqeron.Genomics.Analysis;
+using Seqeron.Genomics.Infrastructure;
 using Seqeron.Genomics.Phylogenetics;
 
 namespace Seqeron.Genomics.Annotation;
@@ -146,7 +148,7 @@ public static partial class MiRnaAnalyzer
     public static MiRna CreateMiRna(string name, string sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+        string upper = SequenceCase.ToUpperRna(sequence);
         string seed = GetSeedSequence(upper);
 
         return new MiRna(
@@ -195,7 +197,27 @@ public static partial class MiRnaAnalyzer
     /// upper-case, DNA T → RNA U. Null → empty.
     /// </summary>
     private static string NormalizeSeed(string? seed) =>
-        string.IsNullOrEmpty(seed) ? "" : seed.ToUpperInvariant().Replace('T', 'U');
+        string.IsNullOrEmpty(seed) ? "" : SequenceCase.ToUpperRna(seed);
+
+    private static readonly SearchValues<char> AcguChars = SearchValues.Create("ACGU");
+
+    /// <summary>
+    /// ACGU-only RNA form of a query: ASCII upper-case, T → U (<see cref="SequenceCase.ToUpperRna"/>). A character other
+    /// than A/C/G/U/T is dropped when <paramref name="dropOthers"/>, otherwise it makes the result <c>null</c>.
+    /// </summary>
+    private static string? ToAcguRna(string sequence, bool dropOthers)
+    {
+        string rna = SequenceCase.ToUpperRna(sequence);
+        if (!rna.AsSpan().ContainsAnyExcept(AcguChars))
+            return rna;
+        if (!dropOthers)
+            return null;
+        var sb = new StringBuilder(rna.Length);
+        foreach (char c in rna)
+            if (AcguChars.Contains(c))
+                sb.Append(c);
+        return sb.ToString();
+    }
 
     /// <summary>
     /// Finds all potential target sites for a miRNA in an mRNA sequence.
@@ -223,7 +245,7 @@ public static partial class MiRnaAnalyzer
         if (string.IsNullOrEmpty(mRnaSequence) || string.IsNullOrEmpty(miRna.Sequence))
             yield break;
 
-        string mrna = mRnaSequence.ToUpperInvariant().Replace('T', 'U');
+        string mrna = SequenceCase.ToUpperRna(mRnaSequence);
         string mirna = miRna.Sequence;
 
         string seedRC = GetReverseComplement(miRna.SeedSequence);
@@ -430,8 +452,8 @@ public static partial class MiRnaAnalyzer
             return new MiRnaDuplex("", "", "", 0, 0, 0, 0, 0);
         }
 
-        string mirna = miRnaSequence.ToUpperInvariant().Replace('T', 'U');
-        string target = targetSequence.ToUpperInvariant().Replace('T', 'U');
+        string mirna = SequenceCase.ToUpperRna(miRnaSequence);
+        string target = SequenceCase.ToUpperRna(targetSequence);
 
         // miRNA pairs antiparallel to the target: miRNA 5'→3' index i pairs with the target
         // base read 3'→5', i.e. target[target.Length-1-i].
@@ -686,8 +708,8 @@ public static partial class MiRnaAnalyzer
         if (string.IsNullOrEmpty(miRnaSequence) || string.IsNullOrEmpty(targetSequence))
             return null;
 
-        string m = miRnaSequence.ToUpperInvariant().Replace('T', 'U');
-        string t = targetSequence.ToUpperInvariant().Replace('T', 'U');
+        string m = SequenceCase.ToUpperRna(miRnaSequence);
+        string t = SequenceCase.ToUpperRna(targetSequence);
         int n1 = m.Length, n2 = t.Length;
         string s = m + t;
 
@@ -1143,10 +1165,10 @@ public static partial class MiRnaAnalyzer
 
         string mrna = string.IsNullOrEmpty(mRnaSequence)
             ? ""
-            : mRnaSequence.ToUpperInvariant().Replace('T', 'U');
+            : SequenceCase.ToUpperRna(mRnaSequence);
         string mirna = string.IsNullOrEmpty(miRna.Sequence)
             ? ""
-            : miRna.Sequence.ToUpperInvariant().Replace('T', 'U');
+            : SequenceCase.ToUpperRna(miRna.Sequence);
 
         TargetSiteType type = site.Type;
 
@@ -1389,7 +1411,7 @@ public static partial class MiRnaAnalyzer
             if (string.IsNullOrEmpty(utr))
                 continue;
             total += CountSeedSitesInUtr(
-                utr.ToUpperInvariant().Replace('T', 'U'), sixmerCore, pos8Rc);
+                SequenceCase.ToUpperRna(utr), sixmerCore, pos8Rc);
         }
         return total;
     }
@@ -1798,9 +1820,7 @@ public static partial class MiRnaAnalyzer
             spacer2.Length -= 1;
 
         string finalUtr = spacer1 + subseq;
-        char[] rev = matureMiRna.ToCharArray();
-        Array.Reverse(rev);
-        string mirnaForAlign = spacer2.ToString() + new string(rev);
+        string mirnaForAlign = spacer2.ToString() + SequenceExtensions.ReverseSequence(matureMiRna);
         return (finalUtr, mirnaForAlign);
     }
 
@@ -1812,8 +1832,8 @@ public static partial class MiRnaAnalyzer
         string mirna = NormaliseForPairing(mirnaIn);
 
         // Reverse both (perl: $utr = reverse $utr; $mirna = reverse $mirna).
-        utr = Reverse(utr);
-        mirna = Reverse(mirna);
+        utr = SequenceExtensions.ReverseSequence(utr);
+        mirna = SequenceExtensions.ReverseSequence(mirna);
 
         int utrStart = ThreePrimeUtrStart[perlType];
         int mirnaStart = ThreePrimeMiRnaStart[perlType];
@@ -1881,24 +1901,8 @@ public static partial class MiRnaAnalyzer
         return score;
     }
 
-    private static string NormaliseForPairing(string s)
-    {
-        var sb = new StringBuilder(s.Length);
-        foreach (char ch in s)
-        {
-            if (ch == ' ' || ch == '\n' || ch == '\r') continue;
-            char u = char.ToUpperInvariant(ch);
-            sb.Append(u == 'T' ? 'U' : u);
-        }
-        return sb.ToString();
-    }
-
-    private static string Reverse(string s)
-    {
-        char[] c = s.ToCharArray();
-        Array.Reverse(c);
-        return new string(c);
-    }
+    private static string NormaliseForPairing(string s) =>
+        SequenceCase.ToUpperRna(s.Replace(" ", "").Replace("\n", "").Replace("\r", ""));
 
     // tr/AUCGN/12345/ — any other character maps to 0 (cannot pair).
     private static int[] ToBaseCodes(string s)
@@ -2049,7 +2053,7 @@ public static partial class MiRnaAnalyzer
         if (seedRegion.Length != 7)
             throw new ArgumentException("The seed region (miRNA nt 2-8) must be 7 nt long.", nameof(seedRegion));
 
-        string site = GetReverseComplement(seedRegion.ToUpperInvariant().Replace('T', 'U')) + "A";
+        string site = GetReverseComplement(SequenceCase.ToUpperRna(seedRegion)) + "A";
         var orf = new System.Text.StringBuilder(orfSequence.Length);
         foreach (char c in orfSequence)
         {
@@ -2319,7 +2323,7 @@ public static partial class MiRnaAnalyzer
 
     // readMiRNAs: $mirSeedRegion =~ s/T/U/gi (upper-casing added, see TryGetTargetScanPctParameters).
     private static string TargetScanPctKey(string seedRegion) =>
-        seedRegion.ToUpperInvariant().Replace('T', 'U');
+        SequenceCase.ToUpperRna(seedRegion);
 
     /// <summary>
     /// Looks up the bundled TargetScan 7.0 TA_3UTR and SPS values for a seed region and site type, as
@@ -2593,7 +2597,7 @@ public static partial class MiRnaAnalyzer
         if (string.IsNullOrEmpty(sequence) || sequence.Length < minHairpinLength)
             yield break;
 
-        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+        string upper = SequenceCase.ToUpperRna(sequence);
 
         // Scan for potential hairpins
         for (int i = 0; i <= upper.Length - minHairpinLength; i++)
@@ -2765,7 +2769,7 @@ public static partial class MiRnaAnalyzer
         if (string.IsNullOrEmpty(sequence) || sequence.Length < minHairpinLength)
             yield break;
 
-        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+        string upper = SequenceCase.ToUpperRna(sequence);
 
         // Window starts are independent folds: scan them in parallel, emit in the sequential (start, length) order.
         var perStart = Enumerable.Range(0, upper.Length - minHairpinLength + 1)
@@ -2836,7 +2840,7 @@ public static partial class MiRnaAnalyzer
         if (loopSize < MfeMinTerminalLoop || loopSize > MfeMaxTerminalLoop)
             return null;
 
-        double gcPercent = GcPercent(mfe.Sequence);
+        double gcPercent = mfe.Sequence.CalculateGcContentFast(); // canonical percent (Biopython gc_fraction 'remove' x 100)
         double amfe = AmfePer100Nt * Math.Abs(mfe.FreeEnergy) / n;
         double mfei = CalculateMfeIndex(mfe.FreeEnergy, n, gcPercent);
         if (mfei < minMfei)
@@ -2909,13 +2913,6 @@ public static partial class MiRnaAnalyzer
         return true;
     }
 
-    /// <summary>
-    /// G+C content as a percentage in [0,100] — the canonical
-    /// <see cref="SequenceExtensions.CalculateGcFractionFast"/> ((G+C)/(A+C+G+T+U), non-nucleotide symbols
-    /// excluded from both counts, = Biopython <c>gc_fraction(…, "remove")</c>) scaled by 100.
-    /// </summary>
-    private static double GcPercent(string sequence) =>
-        string.IsNullOrEmpty(sequence) ? 0.0 : AmfePer100Nt * sequence.CalculateGcFractionFast();
 
     #endregion
 
@@ -3115,7 +3112,7 @@ public static partial class MiRnaAnalyzer
         if (basalJunction < 0 || basalJunction >= sequence.Length)
             return null;
 
-        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+        string upper = SequenceCase.ToUpperRna(sequence);
         string structure = dotBracket ?? RnaSecondaryStructure.CalculateMfeStructure(upper).DotBracket;
         int n = upper.Length;
         int[] partner = BuildPairTable(structure);
@@ -3510,7 +3507,7 @@ public static partial class MiRnaAnalyzer
             {
                 double eta = theta[0];
                 for (int j = 0; j < d; j++) eta += theta[j + 1] * x[i][j];
-                double p = Sigmoid(eta), w = p * (1 - p), r = y[i] - p;
+                double p = StatisticsHelper.Sigmoid(eta), w = p * (1 - p), r = y[i] - p;
                 for (int a = 0; a < m; a++)
                 {
                     double xa = a == 0 ? 1.0 : x[i][a - 1];
@@ -3525,7 +3522,7 @@ public static partial class MiRnaAnalyzer
                 info[j, j] += lambda;
             }
 
-            double[] step = SolveSymmetricPositiveDefinite(info, grad);
+            double[] step = StatisticsHelper.SolveSymmetricPositiveDefinite(info, grad);
             double scale = 1.0;
             double[] trial = new double[m];
             double next = double.NegativeInfinity;
@@ -3550,37 +3547,6 @@ public static partial class MiRnaAnalyzer
 
     /// <summary>log(1 + e^x) without overflow.</summary>
     private static double Softplus(double x) => x > 0 ? x + Math.Log(1 + Math.Exp(-x)) : Math.Log(1 + Math.Exp(x));
-
-    /// <summary>Solves A·x = b for a symmetric positive-definite A by Cholesky decomposition.</summary>
-    private static double[] SolveSymmetricPositiveDefinite(double[,] a, double[] b)
-    {
-        int m = b.Length;
-        var l = new double[m, m];
-        for (int i = 0; i < m; i++)
-        {
-            for (int j = 0; j <= i; j++)
-            {
-                double sum = a[i, j];
-                for (int k = 0; k < j; k++) sum -= l[i, k] * l[j, k];
-                l[i, j] = i == j ? Math.Sqrt(sum) : sum / l[j, j];
-            }
-        }
-        var yv = new double[m];
-        for (int i = 0; i < m; i++)
-        {
-            double sum = b[i];
-            for (int k = 0; k < i; k++) sum -= l[i, k] * yv[k];
-            yv[i] = sum / l[i, i];
-        }
-        var xv = new double[m];
-        for (int i = m - 1; i >= 0; i--)
-        {
-            double sum = yv[i];
-            for (int k = i + 1; k < m; k++) sum -= l[k, i] * xv[k];
-            xv[i] = sum / l[i, i];
-        }
-        return xv;
-    }
 
     // Decision threshold: 0.5 is the Bayes (minimum-error) cutoff of the fitted posterior under 0-1
     // loss (Hastie, Tibshirani & Friedman §2.4/§4.4). The posterior is calibrated to the training
@@ -3609,9 +3575,9 @@ public static partial class MiRnaAnalyzer
 
         int bp = mfe.BasePairs.Count;
         double pairedFraction = n > 0 ? (2.0 * bp) / n : 0.0; // each pair occupies two bases
-        double gcFraction = GcPercent(seq) / AmfePer100Nt;    // GcPercent returns a percentage
+        double gcFraction = seq.CalculateGcFractionFast();
         double amfe = AmfePer100Nt * Math.Abs(mfe.FreeEnergy) / n;
-        double mfei = CalculateMfeIndex(mfe.FreeEnergy, n, GcPercent(seq));
+        double mfei = CalculateMfeIndex(mfe.FreeEnergy, n, seq.CalculateGcContentFast());
         int loopSize = LargestEnclosedLoop(mfe.DotBracket);
 
         return new PreMiRnaFeatures(
@@ -3673,7 +3639,7 @@ public static partial class MiRnaAnalyzer
             z += PreMiRnaLogRegWeights[j] * standardised;
         }
 
-        return Sigmoid(z);
+        return StatisticsHelper.Sigmoid(z);
     }
 
     /// <summary>
@@ -3722,9 +3688,6 @@ public static partial class MiRnaAnalyzer
         return new RandfoldResult(mfe, (1.0 + lowerOrEqual) / (iterations + 1), iterations, lowerOrEqual);
     }
 
-    /// <summary>Logistic (sigmoid) link 1/(1+e^-z) — Hastie, Tibshirani &amp; Friedman §4.4.1.</summary>
-    private static double Sigmoid(double z) => 1.0 / (1.0 + Math.Exp(-z));
-
     /// <summary>
     /// Largest single run of unpaired bases ('.') that is enclosed within the structure (i.e. lies
     /// after the first '(' and before the last ')') — the apical loop of a hairpin. Returns 0 when
@@ -3771,7 +3734,7 @@ public static partial class MiRnaAnalyzer
         ArgumentNullException.ThrowIfNull(random);
         if (string.IsNullOrEmpty(sequence)) return sequence ?? "";
 
-        string s = sequence.ToUpperInvariant().Replace('T', 'U');
+        string s = SequenceCase.ToUpperRna(sequence);
         int n = s.Length;
         if (n < 3) return s; // uShuffle: k >= l is an exact copy; length 2 has a single doublet
 
@@ -3945,7 +3908,7 @@ public static partial class MiRnaAnalyzer
         if (string.IsNullOrEmpty(mRnaSequence) || siteStart < 0 || siteEnd >= mRnaSequence.Length || siteStart > siteEnd)
             return 0;
 
-        string mrna = mRnaSequence.ToUpperInvariant().Replace('T', 'U');
+        string mrna = SequenceCase.ToUpperRna(mRnaSequence);
         return LocalRegionUnpairedProbability(mrna, siteStart, siteEnd);
     }
 
@@ -4012,11 +3975,13 @@ public static partial class MiRnaAnalyzer
     #region Utility Methods
 
     /// <summary>
-    /// Calculates the GC content of a sequence as a fraction in [0, 1].
+    /// Calculates the GC content of a sequence as a FRACTION in [0, 1] (not a percentage).
     /// Delegates to the canonical <see cref="SequenceExtensions.CalculateGcFractionFast"/>
     /// ((G+C)/(A+C+G+T+U); other characters excluded from both counts).
+    /// Replaces the former <c>CalculateGcContent</c>, whose name suggested the percentage returned by
+    /// <see cref="SequenceExtensions.CalculateGcContentFast"/> (DUP_MAP §5).
     /// </summary>
-    public static double CalculateGcContent(string sequence) =>
+    public static double CalculateGcFraction(string sequence) =>
         string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcFractionFast();
 
     /// <summary>

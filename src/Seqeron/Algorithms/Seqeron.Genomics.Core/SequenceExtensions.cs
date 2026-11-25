@@ -322,6 +322,21 @@ public static class SequenceExtensions
     }
 
     /// <summary>
+    /// Reverses the characters of a sequence (3'→5' reading of the same strand, no complementing). Not an extension on
+    /// <see cref="string"/> named <c>Reverse</c>, which would shadow LINQ's <c>Reverse()</c> at every call site.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static string ReverseSequence(string sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return string.Create(sequence.Length, sequence, static (dest, src) =>
+        {
+            src.AsSpan().CopyTo(dest);
+            dest.Reverse();
+        });
+    }
+
+    /// <summary>
     /// Gets the DNA reverse complement into a destination span.
     /// </summary>
     public static bool TryGetReverseComplement(this ReadOnlySpan<char> sequence, Span<char> destination)

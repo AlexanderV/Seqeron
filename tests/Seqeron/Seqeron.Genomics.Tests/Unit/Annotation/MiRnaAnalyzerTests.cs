@@ -170,27 +170,27 @@ public class MiRnaAnalyzerTests
     #region Utility Tests
 
     [Test]
-    public void CalculateGcContent_HighGC_CorrectValue()
+    public void CalculateGcFraction_HighGC_CorrectValue()
     {
         string seq = "GGGGCCCC";
-        double gc = CalculateGcContent(seq);
+        double gc = CalculateGcFraction(seq);
 
         Assert.That(gc, Is.EqualTo(1.0));
     }
 
     [Test]
-    public void CalculateGcContent_NoGC_Zero()
+    public void CalculateGcFraction_NoGC_Zero()
     {
         string seq = "AAAAUUUU";
-        double gc = CalculateGcContent(seq);
+        double gc = CalculateGcFraction(seq);
 
         Assert.That(gc, Is.EqualTo(0));
     }
 
     [Test]
-    public void CalculateGcContent_EmptySequence_Zero()
+    public void CalculateGcFraction_EmptySequence_Zero()
     {
-        Assert.That(CalculateGcContent(""), Is.EqualTo(0));
+        Assert.That(CalculateGcFraction(""), Is.EqualTo(0));
     }
 
     [Test]

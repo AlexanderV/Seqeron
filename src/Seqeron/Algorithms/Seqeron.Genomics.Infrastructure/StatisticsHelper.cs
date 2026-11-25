@@ -93,6 +93,58 @@ namespace Seqeron.Genomics.Infrastructure
         }
 
         /// <summary>
+        /// Logistic (sigmoid) link <c>1 / (1 + e^−z)</c> (Hastie, Tibshirani &amp; Friedman, <i>The Elements of
+        /// Statistical Learning</i> §4.4.1). Equals <c>scipy.special.expit</c> for moderate |z|; saturates to 0 / 1 for
+        /// very negative / positive z.
+        /// </summary>
+        public static double Sigmoid(double z) => 1.0 / (1.0 + Math.Exp(-z));
+
+        /// <summary>
+        /// Solves <c>A·x = b</c> for a symmetric positive-definite <paramref name="a"/> by Cholesky decomposition
+        /// <c>A = L·Lᵀ</c> (forward then backward substitution). Only the lower triangle of <paramref name="a"/> is read;
+        /// the inputs are not mutated. For a matrix that is not positive definite a pivot is not positive and the result
+        /// contains NaN (no exception).
+        /// </summary>
+        /// <param name="a">Symmetric positive-definite matrix (m × m).</param>
+        /// <param name="b">Right-hand side (length m).</param>
+        /// <exception cref="ArgumentNullException">An argument is null.</exception>
+        /// <exception cref="ArgumentException"><paramref name="a"/> is not m × m for m = <c>b.Length</c>.</exception>
+        public static double[] SolveSymmetricPositiveDefinite(double[,] a, double[] b)
+        {
+            ArgumentNullException.ThrowIfNull(a);
+            ArgumentNullException.ThrowIfNull(b);
+            int m = b.Length;
+            if (a.GetLength(0) != m || a.GetLength(1) != m)
+                throw new ArgumentException("The matrix must be square with the dimension of the right-hand side.", nameof(a));
+
+            var l = new double[m, m];
+            for (int i = 0; i < m; i++)
+            {
+                for (int j = 0; j <= i; j++)
+                {
+                    double sum = a[i, j];
+                    for (int k = 0; k < j; k++) sum -= l[i, k] * l[j, k];
+                    l[i, j] = i == j ? Math.Sqrt(sum) : sum / l[j, j];
+                }
+            }
+            var y = new double[m];
+            for (int i = 0; i < m; i++)
+            {
+                double sum = b[i];
+                for (int k = 0; k < i; k++) sum -= l[i, k] * y[k];
+                y[i] = sum / l[i, i];
+            }
+            var x = new double[m];
+            for (int i = m - 1; i >= 0; i--)
+            {
+                double sum = y[i];
+                for (int k = i + 1; k < m; k++) sum -= l[k, i] * x[k];
+                x[i] = sum / l[i, i];
+            }
+            return x;
+        }
+
+        /// <summary>
         /// Shannon diversity index H′ = −Σ pᵢ·ln pᵢ (natural logarithm) over class counts, pᵢ = cᵢ / Σc; zero counts
         /// contribute nothing (0·ln 0 = 0). Shannon (1948); identical to scikit-bio
         /// <c>skbio.diversity.alpha.shannon(counts, base=math.e)</c> and <c>scipy.stats.entropy(counts)</c>;

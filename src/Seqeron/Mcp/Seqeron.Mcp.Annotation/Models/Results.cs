@@ -515,6 +515,19 @@ public record TripletSvmCandidateDto(
 /// <summary>Result of classify_pre_mirna_triplet_svm. <c>Found</c> is false when no stem-loop was retrieved.</summary>
 public record ClassifyPreMiRnaTripletSvmResult(bool Found, IReadOnlyList<TripletSvmCandidateDto> Candidates);
 
+/// <summary>
+/// Result of classify_pre_mirna_mipred. <c>Found</c> is false when nothing remains of the sequence. When the package
+/// pre-judgement fails (<c>IsHairpinLike</c> false) <c>PValue</c>, <c>Features</c> and <c>RealProbability</c> are null.
+/// </summary>
+public record ClassifyPreMiRnaMiPredResult(
+    bool Found, string Sequence, string DotBracket, double FreeEnergy,
+    bool IsHairpinLike, int BasePairs, bool HasMultiloop, int Length,
+    double? PValue, IReadOnlyList<double>? Features, int RealVotes, int TreeCount,
+    double? RealProbability, bool IsPreMiRna, int Seed, int ShuffleCount);
+
+/// <summary>Result of compute_mipred_features: the 34 features V1..V34.</summary>
+public record ComputeMiPredFeaturesResult(IReadOnlyList<double> Features);
+
 /// <summary>Base pair of a miRNA·target duplex (0-based indices, miRNA 5'→3' and target 5'→3').</summary>
 public record DuplexBasePairDto(int MiRnaIndex, int TargetIndex);
 
