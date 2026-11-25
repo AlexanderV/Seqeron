@@ -183,3 +183,16 @@ None — all behaviors confirmed by evidence. No residual assumptions.
 - DetectAlternativeSplicing: SE / A5SS / A3SS / MXE relative to the reference introns (SUPPA/rMATS).
 - IsWithinCodingRegion: upstream in-frame AUG with no stop before the codon (stop included); frame in 0..2.
 - Tests: SpliceSitePredictor_PredictionReview_Tests (HBB Ensembl fixture, U12 typing, branch point, coding region).
+
+## 7. A3 splice + open-reading-frame dynamic program (B11 F45, 2026-11)
+
+`PredictGeneStructureDp` (opt-in; the greedy `PredictGeneStructure` default is unchanged). Spec (tests in `SpliceSitePredictor_GeneStructureDp_Tests`, MCP `PredictGeneStructureTests`):
+
+| ID | Requirement | Evidence |
+|----|-------------|----------|
+| DP-1 | Optimum equals exhaustive search over all intron sets (score, and structure when the optimum is unique), with/without exon coding scorer, random candidates / min lengths | Bellman optimality; 1,200 random sequences (40-120 nt), 0 mismatches |
+| DP-2 | Spliced CDS is open from the start codon to the first in-frame stop; codons / the stop may span a junction; no intron before the start or after the stop | GENSCAN phase states (Burge & Karlin 1997); Gilbert 1978 |
+| DP-3 | HBB (ENST00000335295): exactly the 2 annotated introns, CDS = 147 aa + stop, protein starts MVHLTPEEK and ends AHKYH | Ensembl GRCh38 / UniProt P68871 |
+| DP-4 | Ensembl coding introns, exact coordinates: ORF only >= 8/14, with hexamer exon score >= 10/14 (HBB 2, TP53 8) | measured, see Evidence |
+| DP-5 | No start codon / no reachable ORF -> null; invalid lengths / start -> ArgumentOutOfRange; exons + introns tile the input; exon phase = preceding coding nt mod 3 | contract |
+| DP-6 | MCP `predict_gene_structure` `model = splice_dp` delegates (CDS fields), unknown model / no ORF -> error, greedy unchanged | wrapper |

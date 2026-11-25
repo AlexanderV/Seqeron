@@ -734,7 +734,10 @@ public record PredictGeneStructureResult(
     IReadOnlyList<ExonDto> Exons,
     IReadOnlyList<IntronDto> Introns,
     string SplicedSequence,
-    double OverallScore);
+    double OverallScore,
+    int? CdsStart = null,
+    string? CodingSequence = null,
+    double? IntronScore = null);
 
 /// <summary>Result of detect_alternative_splicing.</summary>
 public record DetectAlternativeSplicingResult(IReadOnlyList<AlternativeSplicingEventDto> Events);

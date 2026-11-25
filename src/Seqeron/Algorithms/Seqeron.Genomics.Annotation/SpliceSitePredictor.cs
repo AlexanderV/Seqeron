@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Annotation;
 /// <summary>
 /// Provides algorithms for RNA splice site prediction and intron/exon analysis.
 /// </summary>
-public static class SpliceSitePredictor
+public static partial class SpliceSitePredictor
 {
     #region Records and Types
 

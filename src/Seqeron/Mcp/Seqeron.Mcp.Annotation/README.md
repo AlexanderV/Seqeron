@@ -103,7 +103,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `perform_pca` | Project samples onto the first two principal components computed from the most variable genes (approximate PCA). |
 | `pooled_rscu` | Relative Synonymous Codon Usage (RSCU) pooled over several in-frame coding sequences for an NCBI genetic code (CodonW `-totals`). |
 | `predict_chromatin_state` | Predict chromatin state from H3K4me3 / H3K4me1 / H3K27ac / H3K36me3 / H3K27me3 / H3K9me3 signal levels (0..1). |
-| `predict_gene_structure` | Predict exon/intron gene structure with greedy non-overlapping intron selection. |
+| `predict_gene_structure` | Predict exon/intron gene structure: greedy non-overlapping intron selection (default) or `model=splice_dp`, the exact MaxEntScan splice + open-reading-frame dynamic program. |
 | `predict_genes` | Predict gene annotations from a DNA sequence using ORF-based heuristics. |
 | `predict_imprinted_genes` | Predict imprinted genes from allele-specific (maternal vs paternal) methylation differences. |
 | `predict_introns` | Predict introns by pairing donor and acceptor splice sites and locating branch points. |
