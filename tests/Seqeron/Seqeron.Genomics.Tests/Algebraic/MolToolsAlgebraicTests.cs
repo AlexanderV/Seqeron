@@ -274,14 +274,6 @@ public class MolToolsAlgebraicTests
         d.Value.DeltaG37.Should().BeApproximately(-11.059835484680235, 1e-9);
     }
 
-    [Test]
-    public void Dimer_Idempotent_Deterministic()
-    {
-        double a = PrimerDesigner.CalculateSelfDimerMeltingTemperature("GCGCGCGC", DimerNa, DimerCt);
-        double b = PrimerDesigner.CalculateSelfDimerMeltingTemperature("GCGCGCGC", DimerNa, DimerCt);
-        b.Should().Be(a);
-    }
-
     // ═══════════════════════════════════════════════════════════════════════
     // Unit: PROBE-LNATM-001 — LNA-adjusted NN Tm (MolTools), row 243.
     //

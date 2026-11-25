@@ -19,8 +19,6 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(Dictionary<string, string>))]
 
 // PrimerDesigner DTOs (from Seqeron.Genomics.MolTools)
-[JsonSerializable(typeof(PrimerParameters))]
-[JsonSerializable(typeof(PrimerParameters?))]
 [JsonSerializable(typeof(PrimerCandidate))]
 [JsonSerializable(typeof(PrimerCandidate[]))]
 [JsonSerializable(typeof(List<PrimerCandidate>))]
@@ -33,10 +31,7 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(HomopolymerLengthResult))]
 [JsonSerializable(typeof(DinucleotideRepeatResult))]
 [JsonSerializable(typeof(HairpinPotentialResult))]
-[JsonSerializable(typeof(PrimerDimerResult))]
 [JsonSerializable(typeof(ThreePrimeStabilityResult))]
-[JsonSerializable(typeof(PrimerCandidateListResult))]
-[JsonSerializable(typeof(DesignPrimersResult))]
 
 // RestrictionAnalyzer DTOs (from Seqeron.Genomics.MolTools) — fully qualified to avoid
 // any potential collision with future server-side types of the same simple name.
@@ -137,8 +132,6 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(OnTargetScoreResult))]
 
 // ProbeDesigner DTOs (records nested in ProbeDesigner static class)
-[JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.ProbeParameters))]
-[JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.ProbeParameters?))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.ProbeType))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.Probe))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.Probe?))]
@@ -151,10 +144,6 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.CrossHybridizationAssessment>))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.Primer3Probe))]
 [JsonSerializable(typeof(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.Primer3Probe>))]
-[JsonSerializable(typeof(Primer3ProbesResult))]
-[JsonSerializable(typeof(ProbesResult))]
-[JsonSerializable(typeof(MolecularBeaconResult))]
-[JsonSerializable(typeof(OligoAnalysisResult))]
 [JsonSerializable(typeof(ExtinctionCoefficientResult))]
 [JsonSerializable(typeof(ConcentrationResult))]
 public partial class AppJsonContext : JsonSerializerContext

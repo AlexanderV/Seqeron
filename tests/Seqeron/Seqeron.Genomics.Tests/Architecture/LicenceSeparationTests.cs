@@ -69,6 +69,67 @@ public class LicenceSeparationTests
             "assemblies are named by what they hold; the licence is stated in LICENSE and in the file headers");
     }
 
+    /// <summary>The copyleft assemblies of the ports (one per subject area, B09 WP79 / WP80): the set the owner decision "variant 1" asked for must exist, each with a test project.</summary>
+    private static readonly string[] ExpectedCopyleftAssemblies =
+    [
+        "Seqeron.Genomics.AlignmentConsensus", "Seqeron.Genomics.ClustalW", "Seqeron.Genomics.Kalign", "Seqeron.Genomics.PartialOrderAlignment", "Seqeron.Genomics.TCoffee",
+        "Seqeron.Genomics.Emboss.SequenceFormats", "Seqeron.Genomics.Emboss.FeatureTools", "Seqeron.Genomics.Emboss.Repeats", "Seqeron.Genomics.Emboss.PairwiseAlignment",
+        "Seqeron.Genomics.Emboss.Motifs", "Seqeron.Genomics.Emboss.OpenReadingFrames",
+        "Seqeron.Genomics.OptimalClustering", "Seqeron.Genomics.AlleleSpecificCopyNumber", "Seqeron.Genomics.PurityPeakQc",
+        "Seqeron.Genomics.OverrepresentedWords", "Seqeron.Genomics.OligoThermodynamics",
+        "Seqeron.Mcp.AlignmentConsensus", "Seqeron.Mcp.MultipleAlignment", "Seqeron.Mcp.EmbossSequenceFormats", "Seqeron.Mcp.EmbossFeatureTools", "Seqeron.Mcp.EmbossRepeats",
+        "Seqeron.Mcp.EmbossPairwiseAlignment", "Seqeron.Mcp.EmbossMotifs", "Seqeron.Mcp.EmbossOpenReadingFrames", "Seqeron.Mcp.OverrepresentedWords", "Seqeron.Mcp.OligoThermodynamics",
+    ];
+
+    [Test]
+    public void EveryExpectedCopyleftAssembly_ExistsWithItsOwnTestProject()
+    {
+        var copyleft = CopyleftProjects.Select(p => p.Name).ToHashSet();
+        var all = Projects.Select(p => p.Name).ToHashSet();
+        var violations = new List<string>();
+        foreach (var name in ExpectedCopyleftAssemblies)
+        {
+            if (!copyleft.Contains(name))
+                violations.Add(name + ": no copyleft project of this name (PackageLicenseExpression missing or MIT)");
+            if (!all.Contains(name + ".Tests"))
+                violations.Add(name + ": no test project " + name + ".Tests");
+        }
+
+        Assert.That(violations, Is.Empty);
+    }
+
+    [Test]
+    public void NoMitMcpServer_ExposesAToolOfACopyleftMcpServer()
+    {
+        // tool names stay identical across the separation, but each tool lives on exactly one server: the copyleft servers' tools (their docs/mcp/tools/<server> documents) are not declared by an MIT server.
+        var copyleftTools = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var p in CopyleftProjects.Where(p => p.Name.StartsWith("Seqeron.Mcp.", StringComparison.Ordinal)))
+        {
+            string docs = Path.Combine(Root, "docs", "mcp", "tools", p.Name["Seqeron.Mcp.".Length..].ToLowerInvariant());
+            if (!Directory.Exists(docs))
+                continue;
+            foreach (var f in Directory.EnumerateFiles(docs, "*.md"))
+                copyleftTools[Path.GetFileNameWithoutExtension(f)] = p.Name;
+        }
+
+        Assert.That(copyleftTools, Is.Not.Empty, "the copyleft MCP servers have tool documents");
+        var violations = new List<string>();
+        foreach (var p in Projects.Where(p => !IsCopyleft(p) && p.Name.StartsWith("Seqeron.Mcp.", StringComparison.Ordinal) && !p.Name.EndsWith(".Tests", StringComparison.Ordinal)))
+        {
+            foreach (var f in SourceFiles(p))
+            {
+                string text = File.ReadAllText(f);
+                foreach (Match m in Regex.Matches(text, "McpServerTool\\(Name = \"(\\w+)\""))
+                {
+                    if (copyleftTools.TryGetValue(m.Groups[1].Value, out var owner))
+                        violations.Add($"{p.Name}: tool '{m.Groups[1].Value}' is a tool of {owner}");
+                }
+            }
+        }
+
+        Assert.That(violations, Is.Empty);
+    }
+
     [Test]
     public void NoMitProject_ReferencesACopyleftProject()
     {
@@ -152,6 +213,7 @@ public class LicenceSeparationTests
     private static string[] LicensesOf(Project p) => p.LicenseExpression switch
     {
         "GPL-3.0-or-later" => ["GPL-3.0-or-later", "GPL-2.0-or-later", "LGPL-2.1-or-later", "LGPL-3.0-or-later"],
+        "AGPL-3.0-only" => ["AGPL-3.0-only"],
         "GPL-2.0-or-later" => ["GPL-2.0-or-later", "LGPL-2.1-or-later"],
         var e => [e ?? ""],
     };

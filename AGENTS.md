@@ -15,7 +15,7 @@ Full conventions live in `wiki/SCHEMA.md`. Treat it as authoritative when it dis
 ## Licences and assemblies
 
 The repository's main assemblies are MIT (`LICENSE`). Ports of GPL / LGPL programs (made by reading their source) live in **separate assemblies named by subject**
-(`Seqeron.Genomics.Kalign`, `...PartialOrderAlignment`, `...ClustalW`, `...TCoffee`, ... and the MCP servers `Seqeron.Mcp.MultipleAlignment`, ...), each with its own `LICENSE`,
+(`Seqeron.Genomics.Kalign`, `...PartialOrderAlignment`, `...ClustalW`, `...TCoffee`, `...Emboss.*` (six, by area), `...OptimalClustering`, `...AlleleSpecificCopyNumber`, `...PurityPeakQc`, `...OverrepresentedWords`, `...OligoThermodynamics`, ... and the MCP servers `Seqeron.Mcp.MultipleAlignment`, `Seqeron.Mcp.Emboss*`, `Seqeron.Mcp.OverrepresentedWords`, `Seqeron.Mcp.OligoThermodynamics`, ...), each with its own `LICENSE`,
 an SPDX header (`// SPDX-License-Identifier: <id>` + origin note) in EVERY `.cs` file (also of its test project), `<PackageLicenseExpression>` in its csproj, its own test
 project(s) and tool docs under `docs/mcp/tools/<server>/`. Rules for agents:
 

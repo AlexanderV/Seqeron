@@ -120,7 +120,7 @@ provenance header; the stem / terminal-mismatch / dangle / interior / bulge tabl
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [NtthalHairpin.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/NtthalHairpin.cs),
+**Implementation location:** [NtthalHairpin.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/NtthalHairpin.cs),
 [PrimerDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs)
 
 - `PrimerDesigner.CalculateHairpinThermodynamicsNtthal(...)` / `CalculateHairpinStructureNtthal(...)`:

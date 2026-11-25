@@ -81,6 +81,7 @@ SERVER_PROJECT: Dict[str, str] = {
     "EmbossPairwiseAlignment": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossPairwiseAlignment",
     "EmbossMotifs": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossMotifs",
     "OverrepresentedWords": "src/Seqeron/Mcp/Seqeron.Mcp.OverrepresentedWords",
+    "OligoThermodynamics": "src/Seqeron/Mcp/Seqeron.Mcp.OligoThermodynamics",
     "EmbossOpenReadingFrames": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossOpenReadingFrames",
 }
 

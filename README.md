@@ -796,5 +796,12 @@ licensing decision are in [docs/Validation/review-2026-09/LICENSES.md](docs/Vali
 | `Seqeron.Mcp.MultipleAlignment` | GPL-3.0-or-later | the MCP tools of the four assemblies above |
 | `Seqeron.Genomics.AlignmentConsensus` | GPL-3.0-only | DECIPHER 3.9.4 `ConsensusSequence` |
 | `Seqeron.Mcp.AlignmentConsensus` | GPL-3.0-only | its MCP tool |
+| `Seqeron.Genomics.Emboss.SequenceFormats`, `.FeatureTools`, `.Repeats`, `.PairwiseAlignment`, `.Motifs`, `.OpenReadingFrames` | GPL-2.0-or-later (library files LGPL-2.1-or-later) | EMBOSS 6.6.0 by subject area |
+| `Seqeron.Mcp.EmbossSequenceFormats`, `.EmbossFeatureTools`, `.EmbossRepeats`, `.EmbossPairwiseAlignment`, `.EmbossMotifs`, `.EmbossOpenReadingFrames` | GPL-2.0-or-later | the 86 EMBOSS MCP tools |
+| `Seqeron.Genomics.OptimalClustering` | LGPL-3.0-or-later | Ckmeans.1d.dp 4.3.6 |
+| `Seqeron.Genomics.AlleleSpecificCopyNumber` | GPL-3.0-only | ASCAT 3.2.0, Battenberg 3.0.0 |
+| `Seqeron.Genomics.PurityPeakQc` | GPL-3.0-or-later | CNAqc 1.1.5, BMix 1.0.0, R kmeans |
+| `Seqeron.Genomics.OverrepresentedWords`, `Seqeron.Mcp.OverrepresentedWords` | AGPL-3.0-only | RSAT oligo-analysis / dyad-analysis (3 MCP tools) |
+| `Seqeron.Genomics.OligoThermodynamics`, `Seqeron.Mcp.OligoThermodynamics` | GPL-2.0-or-later | Primer3 ntthal / dpal / masker / libprimer3 (11 MCP tools) |
 
 (See LICENSES.md for the complete, generated list — further assemblies are added there as ports are separated.)

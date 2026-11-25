@@ -458,100 +458,6 @@ public class MolToolsCombinatorialTests
     private static readonly (double Lo, double Hi)[] GcWindows = { (30, 45), (45, 55), (55, 70) };
     private static readonly (double Lo, double Hi)[] TmWindows = { (45, 55), (55, 65), (57, 67) };
 
-    /// <summary>Permissive structural filters so only the length/GC/Tm windows can gate acceptance.</summary>
-    private static PrimerParameters WithWindows(int minLen, int maxLen, double gcLo, double gcHi, double tmLo, double tmHi) =>
-        PrimerDesigner.DefaultParameters with
-        {
-            MinLength = minLen,
-            MaxLength = maxLen,
-            MinGcContent = gcLo,
-            MaxGcContent = gcHi,
-            MinTm = tmLo,
-            MaxTm = tmHi,
-            MaxHomopolymer = 1000,
-            MaxDinucleotideRepeats = 1000,
-            Check3PrimeStability = false,
-            Avoid3PrimeGC = false,
-        };
-
-    [Test, Combinatorial]
-    public void PrimerDesign_AcceptanceIsConjunctionOfLengthGcTmWindows(
-        [Values(15, 20, 22)] int minLen,
-        [Values(18, 20, 25)] int maxLen,
-        [Values(0, 1, 2)] int gcWin,
-        [Values(0, 1, 2)] int tmWin)
-    {
-        var (gcLo, gcHi) = GcWindows[gcWin];
-        var (tmLo, tmHi) = TmWindows[tmWin];
-
-        var cand = PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true,
-            WithWindows(minLen, maxLen, gcLo, gcHi, tmLo, tmHi));
-
-        double gc = PrimerDesigner.CalculateGcContent(CleanPrimer20);
-        double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(CleanPrimer20);
-        int len = CleanPrimer20.Length;
-
-        bool lenOk = len >= minLen && len <= maxLen;
-        bool gcOk = gc >= gcLo && gc <= gcHi;
-        bool tmOk = tm >= tmLo && tm <= tmHi;
-
-        cand.IsValid.Should().Be(lenOk && gcOk && tmOk,
-            $"accept ⟺ len∈[{minLen},{maxLen}] ∧ GC∈[{gcLo},{gcHi}] ∧ Tm∈[{tmLo},{tmHi}]");
-
-        // Every violated window contributes exactly its own diagnostic; satisfied windows stay silent.
-        cand.Issues.Any(i => i.StartsWith("Length")).Should().Be(!lenOk);
-        cand.Issues.Any(i => i.StartsWith("GC content")).Should().Be(!gcOk);
-        cand.Issues.Any(i => i.StartsWith("Tm")).Should().Be(!tmOk);
-    }
-
-    /// <summary>
-    /// Interaction witness: from a config that accepts the primer, narrowing ANY
-    /// single window past the primer's measured value flips acceptance to reject —
-    /// confirming each axis is an independent necessary condition.
-    /// </summary>
-    [Test]
-    public void PrimerDesign_EachWindow_IndependentlyGatesAcceptance()
-    {
-        var wide = WithWindows(1, 100, 0, 100, 0, 200);
-        PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide).IsValid
-            .Should().BeTrue("a clean primer is accepted under an all-permissive config");
-
-        double gc = PrimerDesigner.CalculateGcContent(CleanPrimer20);
-        double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(CleanPrimer20);
-
-        PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide with { MinGcContent = gc + 5 })
-            .IsValid.Should().BeFalse("a GC floor above the primer's GC excludes it");
-        PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide with { MaxTm = tm - 1 })
-            .IsValid.Should().BeFalse("a Tm ceiling below the primer's Tm excludes it");
-        PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide with { MaxLength = CleanPrimer20.Length - 1 })
-            .IsValid.Should().BeFalse("a length ceiling below the primer's length excludes it");
-    }
-
-    /// <summary>
-    /// Worked example through the end-to-end design pipeline: any pair
-    /// <see cref="PrimerDesigner.DesignPrimers"/> returns must honour every
-    /// configured window on BOTH primers (acceptance is enforced during selection).
-    /// </summary>
-    [Test]
-    public void PrimerDesign_DesignedPair_HonoursEveryWindow()
-    {
-        var template = new DnaSequence(DiverseDna(600));
-        // Wide Tm window on the Primer3-default (SantaLucia NN) scale for 18–25-mers.
-        var param = PrimerDesigner.DefaultParameters with
-        {
-            MinLength = 18, MaxLength = 25, MinGcContent = 35, MaxGcContent = 65, MinTm = 45, MaxTm = 65,
-        };
-
-        var result = PrimerDesigner.DesignPrimers(template, 280, 320, param);
-
-        foreach (var p in new[] { result.Forward, result.Reverse }.Where(p => p is not null))
-        {
-            p!.Length.Should().BeInRange(param.MinLength, param.MaxLength);
-            p.GcContent.Should().BeInRange(param.MinGcContent, param.MaxGcContent);
-            p.MeltingTemperature.Should().BeInRange(param.MinTm, param.MaxTm);
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════════════════
     // Unit: PRIMER-STRUCT-001 — Primer secondary-structure analysis (MolTools)
     // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 23.
@@ -657,7 +563,7 @@ public class MolToolsCombinatorialTests
     // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 24.
     // Dimensions: minLen(3) × maxLen(3) × tmRange(3) × gcRange(3). Grid 3⁴ = 81.
     //
-    // Model (microarray/qPCR probe selection): ProbeDesigner.DesignProbes scans every
+    // Model (microarray/qPCR probe selection): ThermodynamicProbeDesigner.DesignProbes scans every
     // window in [MinLength, MaxLength], keeps those whose GC fraction lies within the
     // configured band (with a ±0.1 early-rejection slack), scores each (penalising GC,
     // Tm, homopolymer, self-complementarity, structure deviations) and returns the top
@@ -677,85 +583,6 @@ public class MolToolsCombinatorialTests
     private static readonly string ProbeTarget = DiverseDna(400);
     private static readonly (double Lo, double Hi)[] ProbeGcWindows = { (0.30, 0.50), (0.40, 0.60), (0.50, 0.70) };
     private static readonly (double Lo, double Hi)[] ProbeTmWindows = { (50, 65), (55, 70), (60, 80) };
-
-    private static ProbeDesigner.ProbeParameters MkProbeParam(
-        int minLen, int maxLen, double gcLo, double gcHi, double tmLo, double tmHi) =>
-        new(MinLength: minLen, MaxLength: maxLen, MinTm: tmLo, MaxTm: tmHi,
-            MinGc: gcLo, MaxGc: gcHi, MaxHomopolymer: 100,
-            AvoidSecondaryStructure: false, MaxSelfComplementarity: 1.0);
-
-    [Test, Combinatorial]
-    public void ProbeDesign_ReturnedProbes_HonourLengthAndGcWindows(
-        [Values(18, 20, 22)] int minLen,
-        [Values(24, 28, 32)] int maxLen,
-        [Values(0, 1, 2)] int gcWin,
-        [Values(0, 1, 2)] int tmWin)
-    {
-        var (gcLo, gcHi) = ProbeGcWindows[gcWin];
-        var (tmLo, tmHi) = ProbeTmWindows[tmWin];
-
-        var probes = ProbeDesigner.DesignProbes(
-            ProbeTarget, MkProbeParam(minLen, maxLen, gcLo, gcHi, tmLo, tmHi), maxProbes: 20).ToList();
-
-        foreach (var p in probes)
-        {
-            p.Sequence.Length.Should().BeInRange(minLen, maxLen, "probe length is hard-bounded by the window");
-            p.GcContent.Should().BeInRange(gcLo - 0.1 - 1e-9, gcHi + 0.1 + 1e-9,
-                "GC honours the window within the ±0.1 early-rejection slack");
-        }
-    }
-
-    /// <summary>
-    /// Interaction witness: the Tm window is the soft scoring axis. With every other
-    /// term held neutral, moving the Tm band from "includes all probe Tms" to "excludes
-    /// them" lowers each common probe's score by exactly the 0.3 Tm penalty.
-    /// </summary>
-    [Test]
-    public void ProbeDesign_TmWindow_ContributesExactScoringPenalty()
-    {
-        var tmIn = MkProbeParam(20, 20, 0.0, 1.0, 0, 200);    // GC + Tm both always in range
-        var tmOut = tmIn with { MinTm = 200, MaxTm = 300 };    // only the Tm term now fires
-
-        var inByStart = ProbeDesigner.DesignProbes(ProbeTarget, tmIn, maxProbes: 50).ToDictionary(p => p.Start);
-        var outByStart = ProbeDesigner.DesignProbes(ProbeTarget, tmOut, maxProbes: 50).ToDictionary(p => p.Start);
-
-        var common = inByStart.Keys.Intersect(outByStart.Keys).ToList();
-        common.Should().NotBeEmpty("a uniform Tm penalty preserves ranking, so the same probes are returned");
-        foreach (int start in common)
-            (inByStart[start].Score - outByStart[start].Score).Should().BeApproximately(0.3, 1e-6,
-                "an out-of-Tm probe loses exactly the 0.3 Tm penalty");
-    }
-
-    /// <summary>
-    /// Interaction witness: the GC band carries a ±0.1 early-rejection slack. A 65%-GC
-    /// 20-mer is accepted when 0.65 ≤ MaxGc+0.1 (band 0.40–0.60) but rejected once it
-    /// exceeds the slack (band 0.40–0.50 ⇒ ceiling 0.60).
-    /// </summary>
-    [Test]
-    public void ProbeDesign_GcWindow_AppliesTenPercentSlack()
-    {
-        const string gc65 = "GCGCGCGCGCGCGAATATAT"; // 20 nt, 13 GC = 0.65
-
-        ProbeDesigner.DesignProbes(gc65, MkProbeParam(20, 20, 0.40, 0.60, 0, 200), maxProbes: 5)
-            .Should().ContainSingle("0.65 is within MaxGc(0.60)+0.1 slack");
-        ProbeDesigner.DesignProbes(gc65, MkProbeParam(20, 20, 0.40, 0.50, 0, 200), maxProbes: 5)
-            .Should().BeEmpty("0.65 exceeds MaxGc(0.50)+0.1 slack");
-    }
-
-    /// <summary>
-    /// Worked example through the qPCR-defaults pipeline: every returned probe respects
-    /// the strict length window and the result set is capped at maxProbes.
-    /// </summary>
-    [Test]
-    public void ProbeDesign_QpcrDefaults_RespectLengthWindowAndCap()
-    {
-        var param = ProbeDesigner.Defaults.qPCR; // 20–30 nt
-        var probes = ProbeDesigner.DesignProbes(ProbeTarget, param, maxProbes: 10).ToList();
-
-        probes.Count.Should().BeLessThanOrEqualTo(10);
-        foreach (var p in probes)
-            p.Sequence.Length.Should().BeInRange(param.MinLength, param.MaxLength);
-    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // Unit: PROBE-VALID-001 — Probe validation (MolTools)
@@ -798,85 +625,6 @@ public class MolToolsCombinatorialTests
     {
         string core = k == 0 ? "" : string.Join(new string('G', 30), Enumerable.Repeat(probe, k));
         return new string('C', 40) + core + new string('C', 40);
-    }
-
-    [Test, Combinatorial]
-    public void ProbeValid_SpecificityAndIssues_FollowValidationRules(
-        [Values(0, 1, 3)] int offTargetCount,
-        [Values(0, 1, 2)] int probeIdx,
-        [Values(0.25, 0.40, 0.60)] double selfCompThreshold)
-    {
-        var (probe, expSelfComp, expSelfAny, expHairpin) = ValidationProbes[probeIdx];
-        string reference = BuildOffTargetReference(probe, offTargetCount);
-
-        // Fallback self-structure screen: the self-complementarity criterion is Primer3 alignment-mode self_any /
-        // self_end > PRIMER_INTERNAL_MAX_SELF_ANY/_END 12.00 (audit round 2, A6); the fold-back fraction and the legacy
-        // selfComplementarityThreshold no longer gate the issue.
-        var v = ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 0,
-            selfComplementarityThreshold: selfCompThreshold,
-            conditions: ProbeDesigner.Defaults.Microarray with { StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic });
-
-        // Specificity invariants (#4/#5/#6) — depend solely on off-target multiplicity.
-        double expSpec = offTargetCount == 0 ? 0.0 : offTargetCount == 1 ? 1.0 : 1.0 / offTargetCount;
-        v.OffTargetHits.Should().Be(offTargetCount);
-        v.SpecificityScore.Should().BeApproximately(expSpec, 1e-9);
-
-        // Self-complementarity measured exactly and bounded to [0,1] (#2).
-        v.SelfComplementarity.Should().BeApproximately(expSelfComp, 1e-9);
-        v.SelfAny.Should().Be(expSelfAny);
-        v.SelfComplementarity.Should().BeInRange(0.0, 1.0);
-        v.HasSecondaryStructure.Should().Be(expHairpin, "fallback hairpin = PrimerDesigner.HasHairpinPotential");
-
-        // IsValid = no recorded issue (off-target multiplicity, self-complementarity). The fallback stem-loop flag
-        // (library convention) is a warning, not an issue (audit round 5, A5-5).
-        bool offIssue = offTargetCount > 1;
-        bool selfIssue = expSelfAny > PrimerDesigner.Primer3InternalMaxSelfComplementarity;
-        int issueCount = (offIssue ? 1 : 0) + (selfIssue ? 1 : 0);
-        bool expectedValid = issueCount == 0;
-
-        v.IsValid.Should().Be(expectedValid);
-        v.Issues.Should().HaveCount(issueCount);
-        v.Issues.Any(i => i.Contains("off-target")).Should().Be(offIssue);
-        v.Issues.Any(i => i.StartsWith("Self-complementarity")).Should().Be(selfIssue);
-        v.Issues.Should().NotContain("Potential secondary structure formation");
-        v.Warnings.Contains("Potential secondary structure formation").Should().Be(expHairpin);
-    }
-
-    /// <summary>
-    /// Interaction witness: at exact matching the suffix-tree CheckSpecificity score
-    /// agrees with ValidateProbe's specificity for every probe × hit-count — the two
-    /// specificity routes are consistent.
-    /// </summary>
-    [Test]
-    public void ProbeValid_CheckSpecificity_AgreesWithValidateProbe()
-    {
-        foreach (var (probe, _, _, _) in ValidationProbes)
-            foreach (int k in new[] { 0, 1, 3 })
-            {
-                string reference = BuildOffTargetReference(probe, k);
-                double viaTree = ProbeDesigner.CheckSpecificity(probe, global::SuffixTree.SuffixTree.Build(reference));
-                double viaValidate = ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 0).SpecificityScore;
-                viaTree.Should().BeApproximately(viaValidate, 1e-9, $"both score {k} exact hits identically");
-            }
-    }
-
-    /// <summary>
-    /// Interaction witness: the mismatch budget governs off-target sensitivity — a site
-    /// carrying one substitution is missed under strict matching but found once one
-    /// mismatch is permitted. — spec S4.
-    /// </summary>
-    [Test]
-    public void ProbeValid_MaxMismatches_GovernsOffTargetSensitivity()
-    {
-        string probe = ValidationProbes[1].Seq;
-        char[] mutated = probe.ToCharArray();
-        mutated[10] = mutated[10] == 'A' ? 'C' : 'A';                 // exactly one substitution
-        string reference = new string('C', 30) + new string(mutated) + new string('C', 30);
-
-        ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 0).OffTargetHits
-            .Should().Be(0, "strict matching misses a 1-mismatch site");
-        ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 1).OffTargetHits
-            .Should().Be(1, "allowing one mismatch finds it");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1124,53 +872,6 @@ public class MolToolsCombinatorialTests
     public enum HairpinEngine { NnFolder, Ntthal }
 
     private static string Hairpin(int stem, int loop) => new string('G', stem) + new string('T', loop) + new string('C', stem);
-
-    [Test, Combinatorial]
-    public void Hairpin_FoldsPlantedStem_AcrossStemLoopAndEngine(
-        [Values(3, 4, 5)] int stem,
-        [Values(4, 5, 6)] int loop,
-        [Values(HairpinEngine.NnFolder, HairpinEngine.Ntthal)] HairpinEngine engine)
-    {
-        string seq = Hairpin(stem, loop);
-
-        if (engine == HairpinEngine.NnFolder)
-        {
-            var hp = PrimerDesigner.FindMostStableHairpin(seq);
-            hp.Should().NotBeNull("the planted G·C stem must fold a hairpin");
-            hp!.Value.StemLength.Should().Be(stem, "the recovered stem is the planted G·C stem length");
-            hp.Value.LoopSize.Should().Be(loop, "the recovered loop is the planted poly-T loop length");
-            // Stem monotonicity (the robust NN law: more stem stacks ⇒ lower ΔG37). The ΔG37 SIGN is
-            // not asserted — a short stem under a large loop can be net-unstable (ΔG37 > 0).
-            if (stem > 3)
-                PrimerDesigner.FindMostStableHairpin(Hairpin(3, loop))!.Value.DeltaG37
-                    .Should().BeGreaterThan(hp.Value.DeltaG37, "a longer stem lowers ΔG37 (more stacks)");
-        }
-        else
-        {
-            var th = PrimerDesigner.CalculateHairpinThermodynamicsNtthal(seq);
-            th.Should().NotBeNull("the ntthal model folds the planted hairpin");
-            th!.Value.BasePairs.Should().Be(stem - 1, "ntthal counts the stem's NN stacks (= base pairs − 1)");
-            double.IsNaN(th.Value.DeltaG37).Should().BeFalse("ntthal yields a finite ΔG37");
-            if (stem > 3)
-                PrimerDesigner.CalculateHairpinThermodynamicsNtthal(Hairpin(3, loop))!.Value.DeltaG37
-                    .Should().BeGreaterThan(th.Value.DeltaG37, "a longer stem lowers ΔG37 under ntthal too");
-        }
-    }
-
-    /// <summary>
-    /// Interaction witness (specialLoop axis): the ntthal model's bundled special-loop bonus makes a
-    /// stabilised GNRA tetraloop hairpin at least as stable as the same stem with a generic loop.
-    /// </summary>
-    [Test]
-    public void Hairpin_NtthalSpecialLoop_NoLessStableThanGenericLoop()
-    {
-        var special = PrimerDesigner.CalculateHairpinThermodynamicsNtthal("GGGCGAAAGCCC"); // GNRA (GAAA) tetraloop
-        var generic = PrimerDesigner.CalculateHairpinThermodynamicsNtthal("GGGCTTTTGCCC"); // generic poly-T loop
-        special.Should().NotBeNull();
-        generic.Should().NotBeNull();
-        special!.Value.DeltaG37.Should().BeLessThanOrEqualTo(generic!.Value.DeltaG37 + 1e-9,
-            "a recognised special tetraloop is no less stable than a generic loop of the same length");
-    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // Unit: PRIMER-DIMER-001 — ntthal self / hetero-dimer Tm (MolTools)

@@ -195,9 +195,9 @@ Caveat: alpha software; not for clinical/diagnostic use — independently valida
 **Expected skill(s).** `bio-moldesign` under `bio-rigor`.
 
 **Expected pipeline** (MCP → C#):
-1. `design_primers`(template, target_start=100, target_end=150) → fwd/rev, isValid, productSize — `PrimerDesigner.DesignPrimers` · [doc](../../../docs/mcp/tools/moltools/design_primers.md)
+1. `design_primers`(template, target_start=100, target_end=150) → fwd/rev, isValid, productSize — `PrimerDesigner.DesignPrimers` · [doc](../../../docs/mcp/tools/oligothermodynamics/design_primers.md)
 2. `primer_melting_temperature_salt`(fwd) and (rev) → salt-corrected Tm — `PrimerDesigner.CalculateMeltingTemperatureWithSalt` · [doc](../../../docs/mcp/tools/moltools/primer_melting_temperature_salt.md)
-3. `primer_dimer`(fwd, rev) → cross-dimer bool — `PrimerDesigner.HasPrimerDimer` · [doc](../../../docs/mcp/tools/moltools/primer_dimer.md)
+3. `primer_dimer`(fwd, rev) → cross-dimer bool — `PrimerDesigner.HasPrimerDimer` · [doc](../../../docs/mcp/tools/oligothermodynamics/primer_dimer.md)
 4. `hairpin_potential`(fwd) and (rev) → hairpin bool — `PrimerDesigner.HasHairpinPotential` · [doc](../../../docs/mcp/tools/moltools/hairpin_potential.md)
 
 **Rigor checkpoints.** `target_start`/`target_end` are **0-based inclusive**; Tm in **°C** (1 dp), GC in
@@ -411,8 +411,8 @@ Caveat: alpha; not for clinical use.
 **Expected skill(s).** `bio-moldesign` under `bio-rigor`. This deliberately requests the modelled-limit.
 
 **Expected pipeline** (MCP → C#):
-1. `design_probes`(target_sequence, parameters=qPCR preset, max_probes) → candidate probes — `ProbeDesigner.DesignProbes` · [doc](../../../docs/mcp/tools/moltools/design_probes.md)
-2. `validate_probe`(probe) / `analyze_oligo`(probe) → QC — `ProbeDesigner.ValidateProbe` / `ProbeDesigner.AnalyzeOligo` · [validate doc](../../../docs/mcp/tools/moltools/validate_probe.md)
+1. `design_probes`(target_sequence, parameters=qPCR preset, max_probes) → candidate probes — `ProbeDesigner.DesignProbes` · [doc](../../../docs/mcp/tools/oligothermodynamics/design_probes.md)
+2. `validate_probe`(probe) / `analyze_oligo`(probe) → QC — `ProbeDesigner.ValidateProbe` / `ProbeDesigner.AnalyzeOligo` · [validate doc](../../../docs/mcp/tools/oligothermodynamics/validate_probe.md)
 3. `primer_melting_temperature_salt`(probe, [Na+]) → salt-corrected Tm (the defensible Tm this library CAN give) — `PrimerDesigner.CalculateMeltingTemperatureWithSalt` · [doc](../../../docs/mcp/tools/moltools/primer_melting_temperature_salt.md)
 
 **Rigor checkpoints (⚠ envelope STOP).** The **quantitative MGB ΔTm** and **dual-quencher** modelling are
@@ -453,8 +453,8 @@ This is the flagship multi-skill chain.
 2. `assembly_stats`(contigs, totalReads) → N50 (independent recompute) — `SequenceAssembler.CalculateStats` · [doc](../../../docs/mcp/tools/alignment/assembly_stats.md)
 3. `find_orfs`(longestContig, minLength=100, searchBothStrands=true) → ORFs (0-based, end incl. stop) + protein — `GenomeAnnotator.FindOrfs` · [doc](../../../docs/mcp/tools/annotation/find_orfs.md)
 4. **Cross-check:** `coding_potential`(topOrf.sequence) confirms coding — `GenomeAnnotator.CalculateCodingPotential` · [doc](../../../docs/mcp/tools/annotation/coding_potential.md)
-5. `design_primers`(longestContig, target_start=orf.start, target_end=orf.end) → fwd/rev, productSize — `PrimerDesigner.DesignPrimers` · [doc](../../../docs/mcp/tools/moltools/design_primers.md)
-6. `primer_melting_temperature_salt`(fwd/rev) → Tm — `PrimerDesigner.CalculateMeltingTemperatureWithSalt` · [doc](../../../docs/mcp/tools/moltools/primer_melting_temperature_salt.md); `primer_dimer`(fwd,rev) — `PrimerDesigner.HasPrimerDimer` · [doc](../../../docs/mcp/tools/moltools/primer_dimer.md); `hairpin_potential`(fwd/rev) — `PrimerDesigner.HasHairpinPotential` · [doc](../../../docs/mcp/tools/moltools/hairpin_potential.md)
+5. `design_primers`(longestContig, target_start=orf.start, target_end=orf.end) → fwd/rev, productSize — `PrimerDesigner.DesignPrimers` · [doc](../../../docs/mcp/tools/oligothermodynamics/design_primers.md)
+6. `primer_melting_temperature_salt`(fwd/rev) → Tm — `PrimerDesigner.CalculateMeltingTemperatureWithSalt` · [doc](../../../docs/mcp/tools/moltools/primer_melting_temperature_salt.md); `primer_dimer`(fwd,rev) — `PrimerDesigner.HasPrimerDimer` · [doc](../../../docs/mcp/tools/oligothermodynamics/primer_dimer.md); `hairpin_potential`(fwd/rev) — `PrimerDesigner.HasHairpinPotential` · [doc](../../../docs/mcp/tools/moltools/hairpin_potential.md)
 
 **Rigor checkpoints.** The critical hand-offs are **format + coordinate**: contigs (assembly) → contig
 string (ORF finder) → ORF interval (0-based, `end` incl. stop) → primer `target_start`/`target_end`

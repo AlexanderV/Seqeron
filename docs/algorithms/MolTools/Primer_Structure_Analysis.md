@@ -169,8 +169,8 @@ methods score any non-ACGT character as N (Primer3 `p3_reverse_complement` turns
 ## 5. Implementation Notes
 
 **Implementation location:** [PrimerDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs),
-[NtthalDimer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/NtthalDimer.cs) (END1/END2, divalent salt),
-[NtthalHairpin.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/NtthalHairpin.cs) (divalent salt).
+[NtthalDimer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/NtthalDimer.cs) (END1/END2, divalent salt),
+[NtthalHairpin.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/NtthalHairpin.cs) (divalent salt).
 
 ### 5.3 Conformance to Theory / Spec
 

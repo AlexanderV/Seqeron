@@ -136,7 +136,7 @@ from SantaLucia & Hicks (2004) Table 1 [1], cross-checked against Primer3 `thal.
 - `PrimerDesigner.CalculateDimerThermodynamicsNtthal(...)`: the full ntthal DP — monovalent-only overload, `(mode, mv, dv, dntp, C_T)` overload and `(…, temperatureCelsius, maxLoop)` overload (= primer3-py `calc_heterodimer` / `calc_homodimer` / `calc_end_stability` with every argument).
 - `PrimerDesigner.CalculateDimerStructureNtthal(...)`: as above plus the ASCII duplex (`output_structure=True`).
 - `PrimerDesigner.FindMostStableDimer(strand1, strand2, StructureModel, …)`: `SingleHelix` (the contiguous scorer) or `Ntthal` (delegates to the same `NtthalDimer` engine and maps the structure onto `DimerResult`).
-- `NtthalDimer.Run` (internal engine, [NtthalDimer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/NtthalDimer.cs)), also used by Primer3's thermodynamic structure screen (`CalculatePrimer3OligoStructure`, `CalculatePrimer3PairComplementarity`, `DesignPrimers`).
+- `NtthalDimer.Run` (internal engine, [NtthalDimer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/NtthalDimer.cs)), also used by Primer3's thermodynamic structure screen (`CalculatePrimer3OligoStructure`, `CalculatePrimer3PairComplementarity`, `DesignPrimers`).
 
 ### 5.2 Current Behavior
 

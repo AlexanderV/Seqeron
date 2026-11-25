@@ -317,7 +317,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// The primer-design contract under test (Primer_Design.md)
 /// ───────────────────────────────────────────────────────────────────────────
-/// PrimerDesigner.DesignPrimers(DnaSequence template, int targetStart, int targetEnd,
+/// ThermodynamicPrimerDesigner.DesignPrimers(DnaSequence template, int targetStart, int targetEnd,
 ///   PrimerParameters? parameters) (PrimerDesigner.cs lines 40–115) enumerates candidate
 /// primers in the flanking regions (up to 200 bp upstream of targetStart for the forward
 /// primer, up to 200 bp downstream of targetEnd for the reverse), scores each, and selects
@@ -450,7 +450,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// The probe-design contract under test (Hybridization_Probe_Design.md)
 /// ───────────────────────────────────────────────────────────────────────────
-/// ProbeDesigner.DesignProbes(string targetSequence, ProbeParameters? parameters = null,
+/// ThermodynamicProbeDesigner.DesignProbes(string targetSequence, ProbeParameters? parameters = null,
 ///   int maxProbes = 10) (ProbeDesigner.cs lines 127–146) is a YIELD iterator that scans the
 /// target for every length-`[MinLength..MaxLength]` window, scores each candidate by a fixed
 /// additive penalty model (GC, Tm, homopolymer, self-complementarity, secondary structure,
@@ -458,7 +458,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// candidates (`score <= 0 → null`, line 315; INV-01), ranks them by score, and yields the top
 /// `maxProbes`. Each Probe carries its Tm, GcContent, Score, and a Warnings list.
 ///
-/// CRITICAL DESIGN FACT the checklist row probes — UNLIKE PrimerDesigner.DesignPrimers,
+/// CRITICAL DESIGN FACT the checklist row probes — UNLIKE ThermodynamicPrimerDesigner.DesignPrimers,
 /// ProbeDesigner does NOT hard-reject a candidate when a screen fails. A failed screen only
 /// DEDUCTS a penalty and APPENDS a warning; the candidate survives as long as its residual
 /// score stays positive. So a contradictory Tm range does NOT empty the result — it makes the
@@ -512,7 +512,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// The probe-validation contract under test (Probe_Validation.md)
 /// ───────────────────────────────────────────────────────────────────────────
-/// ProbeDesigner.ValidateProbe(string probeSequence, IEnumerable&lt;string&gt;
+/// ThermodynamicProbeDesigner.ValidateProbe(string probeSequence, IEnumerable&lt;string&gt;
 /// referenceSequences, int maxMismatches = 3, double selfComplementarityThreshold = 0.3)
 /// (ProbeDesigner.cs lines 491–564) assesses a candidate hybridization probe against a
 /// set of reference sequences and returns a ProbeValidation record (IsValid,
@@ -659,7 +659,6 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 [Category("Fuzzing")]
 public class MolToolsFuzzTests
 {
-    #region Helpers
 
     /// <summary>Deterministic RNG — seed fixed locally so generated fuzz inputs are reproducible.</summary>
     private static string RandomDna(int length, int seed)
@@ -672,15 +671,12 @@ public class MolToolsFuzzTests
         return new string(chars);
     }
 
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  CRISPR-PAM-001 — PAM site finding : fuzz targets
     // ═══════════════════════════════════════════════════════════════════
 
-    #region CRISPR-PAM-001 — PAM site finding
 
-    #region MC — Invalid PAM specification (undefined CRISPR system)
 
     /// <summary>
     /// MC: an "invalid PAM" for this API is an undefined CRISPR system selector —
@@ -722,9 +718,7 @@ public class MolToolsFuzzTests
             "'Z' is not one of the 15 IUPAC codes; the matcher rejects an invalid PAM code rather than matching arbitrarily");
     }
 
-    #endregion
 
-    #region MC — Non-DNA characters in the sequence
 
     /// <summary>
     /// MC: non-DNA junk in the sequence fed to the TYPED overload is rejected up
@@ -775,9 +769,7 @@ public class MolToolsFuzzTests
         act.Should().ThrowExactly<ArgumentException>().Which.Message.Should().Contain("'#'").And.Contain("index 22");
     }
 
-    #endregion
 
-    #region BE — Empty sequence
 
     /// <summary>
     /// BE: the empty sequence is the lower size boundary. The raw-string overload
@@ -819,9 +811,7 @@ public class MolToolsFuzzTests
             "the typed overload null-guards its sequence; null is rejected, never dereferenced into a NullReferenceException");
     }
 
-    #endregion
 
-    #region BE — PAM (and guide span) longer than the sequence
 
     /// <summary>
     /// BE: a sequence SHORTER than the PAM pattern itself is the degenerate "PAM
@@ -870,9 +860,7 @@ public class MolToolsFuzzTests
         CrisprDesigner.FindPamSites("AGG", CrisprSystemType.SpCas9).Should().BeEmpty();
     }
 
-    #endregion
 
-    #region Positive sanity — known PAM sites are found at the correct positions
 
     /// <summary>
     /// Positive sanity: alongside the degenerate probes, a textbook SpCas9 forward
@@ -977,17 +965,13 @@ public class MolToolsFuzzTests
             "every site on random input is well-formed: an NGG PAM read on its own strand with a 20-nt in-bounds target");
     }
 
-    #endregion
 
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  CRISPR-GUIDE-001 — guide RNA design : fuzz targets
     // ═══════════════════════════════════════════════════════════════════
 
-    #region CRISPR-GUIDE-001 — guide RNA design
 
-    #region BE — No PAM sites in the sequence
 
     /// <summary>
     /// BE (no PAM sites in seq): an all-A region contains no NGG, so the PAM scan
@@ -1012,9 +996,7 @@ public class MolToolsFuzzTests
             .Should().BeEmpty("no PAM site means no PAM-adjacent guide can be extracted");
     }
 
-    #endregion
 
-    #region BE — Guide span longer than the sequence
 
     /// <summary>
     /// BE (guide length > seq): the system's protospacer (20 nt for SpCas9) cannot
@@ -1077,9 +1059,7 @@ public class MolToolsFuzzTests
             "the design surface null-guards its sequence; null is rejected, never dereferenced");
     }
 
-    #endregion
 
-    #region BE — Guide length 0 (degenerate empty guide) — KEY div-by-zero hazard
 
     /// <summary>
     /// BE (guide length 0 — KEY): a zero-length (empty) guide is meaningless and is the
@@ -1103,9 +1083,7 @@ public class MolToolsFuzzTests
             "a null guide is rejected by the same guard, never dereferenced");
     }
 
-    #endregion
 
-    #region MC — Non-DNA characters in the guide / sequence
 
     /// <summary>
     /// MC (non-DNA, typed design surface): non-DNA junk fed to DesignGuideRnas is
@@ -1141,9 +1119,7 @@ public class MolToolsFuzzTests
             .Which.ParamName.Should().Be("guideSequence");
     }
 
-    #endregion
 
-    #region Positive sanity — a clear NGG yields a correct-length guide adjacent to the PAM
 
     /// <summary>
     /// Positive sanity: alongside the degenerate probes, a textbook SpCas9 construct must
@@ -1197,17 +1173,13 @@ public class MolToolsFuzzTests
         candidate.System.GuideLength.Should().Be(20, "SpCas9's documented guide length is 20 nt");
     }
 
-    #endregion
 
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  CRISPR-OFF-001 — off-target analysis : fuzz targets
     // ═══════════════════════════════════════════════════════════════════
 
-    #region CRISPR-OFF-001 — off-target analysis
 
-    #region BE — Zero mismatch tolerance (maxMismatches = 0)
 
     /// <summary>
     /// BE (zero mismatch tolerance — KEY): <c>maxMismatches = 0</c> is the lower end of
@@ -1263,9 +1235,7 @@ public class MolToolsFuzzTests
             "a tolerance above 5 is above the documented range and is rejected");
     }
 
-    #endregion
 
-    #region BE — Empty guide (degenerate zero-length guide)
 
     /// <summary>
     /// BE (empty guide): a zero-length (or null) guide is degenerate and is rejected up
@@ -1289,9 +1259,7 @@ public class MolToolsFuzzTests
             "a null guide is rejected by the same guard, never dereferenced");
     }
 
-    #endregion
 
-    #region MC — Guide of all N's (wildcard vs literal)
 
     /// <summary>
     /// MC (all-N guide): 'N' is the IUPAC "any base" code, but this API never treats it as a wildcard
@@ -1336,9 +1304,7 @@ public class MolToolsFuzzTests
             "a guide whose length does not match the system's guide length is rejected, even when its content is all-N");
     }
 
-    #endregion
 
-    #region MC — Null genome
 
     /// <summary>
     /// MC/INJ: a null genome is the boundary of "no search space". FindOffTargets
@@ -1357,9 +1323,7 @@ public class MolToolsFuzzTests
             "the genome is null-guarded; null is rejected, never dereferenced into a NullReferenceException");
     }
 
-    #endregion
 
-    #region Positive sanity — a known 1-mismatch off-target is found at tolerance >= 1 but NOT at 0
 
     /// <summary>
     /// Positive sanity (the contract pivot): a genome carrying a guide-length target that
@@ -1420,17 +1384,13 @@ public class MolToolsFuzzTests
         withOff.Should().BeLessThan(100.0, "a real off-target reduces specificity below the no-off-target maximum");
     }
 
-    #endregion
 
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  PRIMER-TM-001 — primer melting temperature : fuzz targets
     // ═══════════════════════════════════════════════════════════════════
 
-    #region PRIMER-TM-001 — primer melting temperature
 
-    #region BE — Empty sequence
 
     /// <summary>
     /// BE (empty seq): the empty string is the lower size boundary. The source
@@ -1453,9 +1413,7 @@ public class MolToolsFuzzTests
             .Should().Be(0, "the salt-corrected sibling shares the same empty-input short-circuit");
     }
 
-    #endregion
 
-    #region BE — Single base (1-bp)
 
     /// <summary>
     /// BE (1-bp): a single base is the lower NON-empty size boundary. validLength is 1,
@@ -1478,9 +1436,7 @@ public class MolToolsFuzzTests
         double.IsInfinity(tm).Should().BeFalse();
     }
 
-    #endregion
 
-    #region BE — Long primer (100+ bp) — overflow / non-finite hazard
 
     /// <summary>
     /// BE (100+ bp): a long primer is the UPPER size boundary and the overflow / non-finite
@@ -1536,9 +1492,7 @@ public class MolToolsFuzzTests
         double.IsInfinity(marmur14).Should().BeFalse();
     }
 
-    #endregion
 
-    #region INJ — All-N primer (KEY div-by-zero hazard)
 
     /// <summary>
     /// INJ (all-N — KEY div-by-zero hazard): 'N' is neither A/T nor G/C, so for an all-N
@@ -1564,9 +1518,7 @@ public class MolToolsFuzzTests
         double.IsInfinity(tmN).Should().BeFalse();
     }
 
-    #endregion
 
-    #region INJ — Non-DNA / special / unicode characters
 
     /// <summary>
     /// INJ (non-DNA chars): special characters, digits, spaces, and unicode are NOT
@@ -1608,9 +1560,7 @@ public class MolToolsFuzzTests
         double.IsNaN(lower).Should().BeFalse();
     }
 
-    #endregion
 
-    #region INJ — Null reference
 
     /// <summary>
     /// INJ (null): a null reference is caught by `string.IsNullOrEmpty(primer)` and
@@ -1633,9 +1583,7 @@ public class MolToolsFuzzTests
             .Should().Be(0, "the salt-corrected sibling shares the same null short-circuit");
     }
 
-    #endregion
 
-    #region Positive sanity — a known primer Tm matches the documented formula
 
     /// <summary>
     /// Positive sanity: alongside the degenerate probes, a textbook 20-nt primer must
@@ -1662,242 +1610,13 @@ public class MolToolsFuzzTests
         double.IsInfinity(tm20).Should().BeFalse();
     }
 
-    #endregion
 
-    #endregion
-
-    // ═══════════════════════════════════════════════════════════════════
-    //  PRIMER-DESIGN-001 — primer design : fuzz targets
-    // ═══════════════════════════════════════════════════════════════════
-
-    #region PRIMER-DESIGN-001 — primer design
-
-    #region BE — Template shorter than the minimum primer
-
-    /// <summary>
-    /// BE (seq shorter than min primer): the template is far too short to hold even one
-    /// MinLength-bp primer in either flank. With a valid target region on a 4-nt template,
-    /// the forward candidate loop bound <c>start + len &lt;= targetStart</c> (len >= MinLength,
-    /// default 18) and the reverse bound <c>end - len >= targetEnd</c> are never satisfiable,
-    /// so NO candidate is generated — no Substring is ever sliced past the template end. Both
-    /// best candidates are null, so DesignPrimers returns the INVALID PrimerPairResult (INV-01,
-    /// PrimerDesigner.cs 93–100): Forward/Reverse null, IsValid false, ProductSize 0 — an empty
-    /// feasible set, never an IndexOutOfRangeException (Primer_Design.md §6.1).
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void DesignPrimers_TemplateShorterThanMinPrimer_ReturnsInvalidNoCrash()
-    {
-        // 4-nt template; target region [1,2) is VALID (1<2, 2<4) so this isolates the
-        // "no primer fits" boundary from the target-region guard.
-        var template = new DnaSequence("ACGT");
-
-        var act = () => PrimerDesigner.DesignPrimers(template, targetStart: 1, targetEnd: 2);
-
-        act.Should().NotThrow(
-            "no MinLength-bp primer can fit in a 4-nt template; the candidate loops never run instead of slicing past the end");
-
-        var result = PrimerDesigner.DesignPrimers(template, 1, 2);
-        result.IsValid.Should().BeFalse("INV-01: no valid candidate on either side yields an invalid pair");
-        result.Forward.Should().BeNull("no forward primer fits, so the forward candidate is null");
-        result.Reverse.Should().BeNull("no reverse primer fits, so the reverse candidate is null");
-        result.ProductSize.Should().Be(0, "an empty pair reports zero product size");
-    }
-
-    /// <summary>
-    /// BE: the target-region guard is the documented throw boundary. Unlike a degenerate
-    /// PARAMETER range (which is silently empty), an INVALID target region is rejected eagerly
-    /// with ArgumentException (PrimerDesigner.cs 48–49; Primer_Design.md §6.1). Pinned for the
-    /// three guard conditions: targetStart &lt; 0, targetEnd &gt;= length, and targetStart &gt;= targetEnd.
-    /// </summary>
-    [Test]
-    public void DesignPrimers_InvalidTargetRegion_ThrowsArgumentException()
-    {
-        var template = new DnaSequence(RandomDna(100, seed: 22_001));
-
-        var negativeStart = () => PrimerDesigner.DesignPrimers(template, targetStart: -1, targetEnd: 50);
-        var endPastEnd = () => PrimerDesigner.DesignPrimers(template, targetStart: 10, targetEnd: 100);
-        var startGeEnd = () => PrimerDesigner.DesignPrimers(template, targetStart: 50, targetEnd: 50);
-
-        negativeStart.Should().Throw<ArgumentException>("a negative target start is rejected by the region guard");
-        endPastEnd.Should().Throw<ArgumentException>("a target end at/past the template length is rejected");
-        startGeEnd.Should().Throw<ArgumentException>("a target start not strictly before the end is rejected");
-    }
-
-    #endregion
-
-    #region BE — GC range 0-0 (only all-A·T primers can qualify)
-
-    /// <summary>
-    /// BE (GC range 0–0 — KEY): MinGcContent = MaxGcContent = 0 means the GC screen
-    /// <c>gc &lt; 0 || gc &gt; 0</c> passes ONLY for a 0% GC (all-A·T) primer. The check is a pair of
-    /// comparisons, NOT a normalisation by the (zero-width) range, and CalculateGcContent
-    /// null/empty-guards to 0, so there is NO division by zero. An all-A·T template therefore
-    /// can still produce a valid all-A·T forward primer whose GC is EXACTLY 0 (inside [0,0]).
-    /// We pin: the call does not throw, and any chosen primer's GC is exactly 0. The template is
-    /// pure A's flanking the target so an all-A primer is available; Tm/structure screens are
-    /// widened so the GC screen is the only discriminator under test.
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void DesignPrimers_GcRangeZeroZero_OnlyAllAtPrimersQualifyNoDivByZero()
-    {
-        // 250 A's: every candidate window is all-A (GC = 0%). Wide Tm/length/structure screens
-        // so the GC range 0-0 is the discriminating constraint.
-        var template = new DnaSequence(new string('A', 250));
-        var param = PrimerDesigner.DefaultParameters with
-        {
-            MinGcContent = 0,
-            MaxGcContent = 0,
-            MinTm = 0,
-            MaxTm = 200,
-            MaxHomopolymer = 1000,   // an all-A primer is one long homopolymer; do not reject on it
-            MaxDinucleotideRepeats = 1000,
-            Check3PrimeStability = false
-        };
-
-        var act = () => PrimerDesigner.DesignPrimers(template, targetStart: 120, targetEnd: 130, param);
-
-        act.Should().NotThrow(
-            "a zero-width GC range is a pair of comparisons, not a division; an all-A·T primer satisfies gc<0||gc>0 being false");
-
-        var result = PrimerDesigner.DesignPrimers(template, 120, 130, param);
-        result.IsValid.Should().BeTrue("an all-A·T template offers all-A primers whose 0% GC sits inside the [0,0] range");
-        result.Forward!.GcContent.Should().Be(0, "the only qualifying GC under a [0,0] range is exactly 0%");
-        result.Reverse!.GcContent.Should().Be(0, "the reverse primer's GC is likewise exactly 0% (its reverse complement of all-A is all-T)");
-        result.Forward.MeltingTemperature.Should().NotBe(double.NaN, "the Tm of a qualifying primer is finite, never NaN");
-    }
-
-    /// <summary>
-    /// BE (GC range 0–0, dual): a GC-BEARING flank can satisfy NO primer under a [0,0] GC range —
-    /// every window contains at least one G/C, so its GC% exceeds 0 and fails <c>gc &gt; 0</c>. The
-    /// theory-correct result is therefore the empty feasible set: an invalid PrimerPairResult,
-    /// no crash and no div-by-zero. A random (GC-rich-enough) template makes every candidate fail.
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void DesignPrimers_GcRangeZeroZero_GcBearingTemplateYieldsNoPair()
-    {
-        var template = new DnaSequence(RandomDna(250, seed: 22_002));
-        var param = PrimerDesigner.DefaultParameters with
-        {
-            MinGcContent = 0,
-            MaxGcContent = 0,
-            MinTm = 0,
-            MaxTm = 200,
-            Check3PrimeStability = false
-        };
-
-        var act = () => PrimerDesigner.DesignPrimers(template, targetStart: 120, targetEnd: 130, param);
-
-        act.Should().NotThrow("a [0,0] GC range over a GC-bearing template empties the feasible set rather than crashing");
-
-        PrimerDesigner.DesignPrimers(template, 120, 130, param)
-            .IsValid.Should().BeFalse("every candidate carries a G/C, so its GC% > 0 fails the [0,0] range — no valid pair");
-    }
-
-    #endregion
-
-    #region MC — Tm range inverted (contradictory constraint)
-
-    /// <summary>
-    /// MC (Tm range inverted — KEY): MinTm > MaxTm is a CONTRADICTORY constraint whose feasible
-    /// set is empty. The source does NOT validate the parameter range, so it does NOT throw —
-    /// instead the Tm screen <c>tm &lt; MinTm || tm &gt; MaxTm</c> is satisfied by EVERY finite Tm
-    /// (any value is either below the high MinTm or above the low MaxTm), so EVERY candidate is
-    /// rejected and both best candidates are null. DesignPrimers returns the INVALID
-    /// PrimerPairResult (INV-01) — promptly, with no infinite loop and no primer that violates the
-    /// impossible range (Primer_Design.md §2.4, §6.1). The template is rich enough that the ONLY
-    /// reason no primer qualifies is the inverted Tm range (all other screens are widened).
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void DesignPrimers_TmRangeInverted_ReturnsInvalidNeverHangs()
-    {
-        var template = new DnaSequence(RandomDna(250, seed: 22_003));
-        var inverted = PrimerDesigner.DefaultParameters with
-        {
-            MinTm = 90,   // MinTm > MaxTm: a contradiction
-            MaxTm = 10,
-            MinGcContent = 0,
-            MaxGcContent = 100,
-            MaxHomopolymer = 1000,
-            MaxDinucleotideRepeats = 1000,
-            Check3PrimeStability = false
-        };
-
-        var act = () => PrimerDesigner.DesignPrimers(template, targetStart: 120, targetEnd: 130, inverted);
-
-        act.Should().NotThrow(
-            "an inverted Tm range is not validated as an error; it simply makes every candidate fail the Tm screen");
-
-        var result = PrimerDesigner.DesignPrimers(template, 120, 130, inverted);
-        result.IsValid.Should().BeFalse("no finite Tm can satisfy tm >= 90 AND tm <= 10, so no candidate is valid (INV-01)");
-        result.Forward.Should().BeNull("the contradictory Tm range leaves no valid forward primer");
-        result.Reverse.Should().BeNull("the contradictory Tm range leaves no valid reverse primer");
-    }
-
-    #endregion
-
-    #region Positive sanity — a reasonable template yields a valid pair inside the requested ranges
-
-    /// <summary>
-    /// Positive sanity: alongside the degenerate probes, a reasonable template with DEFAULT
-    /// parameters must yield a VALID primer pair whose chosen forward and reverse primers fall
-    /// INSIDE the requested length, GC and Tm ranges — so the boundary hardening never silently
-    /// breaks the core design. A long fixed-seed random template gives both flanks ample,
-    /// balanced candidate windows; the default screens (18–25 bp, 40–60% GC, 57–63 °C Tm) are the
-    /// contract under test. We pin INV-01 (a valid result has non-null candidates), that each
-    /// chosen primer satisfies its own EvaluatePrimer (IsValid, no issues), and INV-03
-    /// (ProductSize = reverse.Position + reverse.Length − forward.Position).
-    /// </summary>
-    [Test]
-    [CancelAfter(15000)]
-    public void DesignPrimers_ReasonableTemplate_YieldsValidPairInsideRequestedRanges()
-    {
-        var param = PrimerDesigner.DefaultParameters;
-        // A 600-nt balanced random template with a central target region leaves ~200 bp on each
-        // flank for candidate enumeration — deterministic via a fixed seed.
-        var template = new DnaSequence(RandomDna(600, seed: 22_000));
-
-        var result = PrimerDesigner.DesignPrimers(template, targetStart: 300, targetEnd: 320, param);
-
-        result.Forward.Should().NotBeNull("a balanced 600-nt template should offer a valid forward candidate");
-        result.Reverse.Should().NotBeNull("a balanced 600-nt template should offer a valid reverse candidate");
-
-        var fwd = result.Forward!;
-        var rev = result.Reverse!;
-
-        // Each chosen primer is itself valid and inside the requested ranges.
-        foreach (var primer in new[] { fwd, rev })
-        {
-            primer.IsValid.Should().BeTrue("DesignPrimers only selects from valid (issue-free) candidates");
-            primer.Issues.Should().BeEmpty("a valid candidate carries no constraint violations");
-            primer.Length.Should().BeInRange(param.MinLength, param.MaxLength,
-                "the chosen primer's length is inside the requested [MinLength, MaxLength] range");
-            primer.GcContent.Should().BeInRange(param.MinGcContent, param.MaxGcContent,
-                "the chosen primer's GC% is inside the requested [MinGcContent, MaxGcContent] range");
-            primer.MeltingTemperature.Should().BeInRange(param.MinTm, param.MaxTm,
-                "the chosen primer's Tm is inside the requested [MinTm, MaxTm] range");
-            double.IsNaN(primer.MeltingTemperature).Should().BeFalse("a chosen primer's Tm is finite");
-        }
-
-        // INV-03: product size is computed directly from the chosen candidates.
-        result.ProductSize.Should().Be(rev.Position + rev.Sequence.Length - fwd.Position,
-            "INV-03: ProductSize = reverse.Position + reverse.Length − forward.Position");
-    }
-
-    #endregion
-
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  PRIMER-STRUCT-001 — primer secondary structure : fuzz targets
     // ═══════════════════════════════════════════════════════════════════
 
-    #region PRIMER-STRUCT-001 — primer secondary structure
 
-    #region BE — Extremely short primer (below the stem+loop+stem minimum)
 
     /// <summary>
     /// BE (extremely short — KEY no-crash boundary): a 1–3 bp primer is far below the
@@ -1943,9 +1662,7 @@ public class MolToolsFuzzTests
             "a 3-base 3' overlap is still below the 4-base complementarity threshold");
     }
 
-    #endregion
 
-    #region BE — Palindromic primer (maximal self-structure — KEY positive signal)
 
     /// <summary>
     /// BE (palindromic — KEY positive signal): a self-reverse-complementary primer has
@@ -1970,9 +1687,7 @@ public class MolToolsFuzzTests
             "a self-reverse-complementary palindrome has maximal self-complementarity, so a hairpin is detected");
     }
 
-    #endregion
 
-    #region BE — All-G homopolymer (no Watson–Crick self-complement)
 
     /// <summary>
     /// BE (all-G homopolymer): G does NOT Watson–Crick pair with G, so a poly-G primer has
@@ -2018,9 +1733,7 @@ public class MolToolsFuzzTests
         PrimerDesigner.CalculatePrimerDimerEndComplementarity(g30, c30).Should().Be(30);
     }
 
-    #endregion
 
-    #region BE — Extremely long primer (suffix-tree path; finite, no hang)
 
     /// <summary>
     /// BE (extremely long): a long primer drives the &gt;= 100-bp SUFFIX-TREE hairpin path,
@@ -2046,9 +1759,7 @@ public class MolToolsFuzzTests
             "a long explicit inverted-repeat stem-loop (60×G…60×C) is a hairpin and the >=100-bp suffix-tree path detects it");
     }
 
-    #endregion
 
-    #region Positive sanity — an ordinary primer flows through both structure screens
 
     /// <summary>
     /// Positive sanity: an ordinary, well-behaved primer must flow through BOTH structure
@@ -2082,438 +1793,13 @@ public class MolToolsFuzzTests
             "the designed inverted repeat IS detected — the screen discriminates structure from non-structure");
     }
 
-    #endregion
 
-    #endregion
-
-    // ═══════════════════════════════════════════════════════════════════
-    //  PROBE-DESIGN-001 — hybridization probe design : fuzz targets
-    // ═══════════════════════════════════════════════════════════════════
-
-    #region PROBE-DESIGN-001 — probe design
-
-    #region BE — Target shorter than the minimum probe length
-
-    /// <summary>
-    /// BE (seq shorter than min probe): a target SHORTER than the configured MinLength
-    /// (Microarray default MinLength = 50) cannot hold even one probe window. The
-    /// length short-circuit `targetSequence.Length &lt; param.MinLength` (ProbeDesigner.cs
-    /// line 134) fires `yield break` BEFORE the GC prefix sums or the candidate-window
-    /// loop, so no Substring is ever taken past the end — an empty result, never an
-    /// IndexOutOfRangeException (Hybridization_Probe_Design.md §6.1 "Sequence shorter
-    /// than MinLength → no probes"). DesignProbes is a yield iterator, so enumeration is
-    /// forced. Pinned with the default params and with an explicit short window.
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void DesignProbes_TargetShorterThanMinLength_IsEmptyAndDoesNotThrow()
-    {
-        // 30-nt target, but Microarray MinLength is 50 — no window fits.
-        string shortTarget = RandomDna(30, seed: 24_001);
-
-        var act = () => ProbeDesigner.DesignProbes(shortTarget).ToList();
-
-        act.Should().NotThrow(
-            "a target shorter than MinLength trips the length short-circuit before any windowing; no Substring is taken past the end");
-
-        ProbeDesigner.DesignProbes(shortTarget).Should().BeEmpty(
-            "no probe window of MinLength can fit in a sub-MinLength target, so no probe is produced");
-    }
-
-    /// <summary>
-    /// BE: the boundary is exact — a target ONE base shorter than MinLength yields no
-    /// probe, while a target of EXACTLY MinLength can yield one. Using a custom param
-    /// set (MinLength = MaxLength = 20, qPCR-style) isolates the length boundary from
-    /// the other screens: a 19-nt target is empty; a 20-nt target with in-range
-    /// composition produces at least one 20-nt probe.
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void DesignProbes_TargetAtMinLengthBoundary_EmptyBelowNonEmptyAt()
-    {
-        var param = new ProbeDesigner.ProbeParameters(
-            MinLength: 20, MaxLength: 20,
-            MinTm: 0, MaxTm: 200,           // permissive Tm so the length boundary is isolated
-            MinGc: 0.0, MaxGc: 1.0,         // permissive GC
-            MaxHomopolymer: 20,
-            AvoidSecondaryStructure: false,
-            MaxSelfComplementarity: 1.0);
-
-        // A balanced 20-mer (10 GC) so it is a clean candidate; the 19-mer is one short.
-        const string at20 = "ACGTACGTACGTACGTACGT"; // length 20
-        string below19 = at20.Substring(0, 19);     // length 19
-
-        ProbeDesigner.DesignProbes(below19, param).Should().BeEmpty(
-            "a target one base shorter than MinLength has no candidate window");
-        ProbeDesigner.DesignProbes(at20, param).Should().NotBeEmpty(
-            "a target of exactly MinLength holds one window, which under permissive screens is a valid probe");
-    }
-
-    #endregion
-
-    #region MC — Inverted (contradictory) Tm range
-
-    /// <summary>
-    /// MC (Tm range inverted, KEY): MinTm &gt; MaxTm is a CONTRADICTION whose feasible Tm
-    /// set is empty. UNLIKE PrimerDesigner, ProbeDesigner does NOT hard-reject a
-    /// candidate when a screen fails — the Tm screen `tm &lt; MinTm || tm &gt; MaxTm`
-    /// (ProbeDesigner.cs line 267) is satisfied by EVERY finite Tm under an inverted
-    /// range, so EVERY candidate incurs the fixed −0.3 Tm penalty and records a
-    /// "Tm … outside range" warning, yet survives if its residual score stays positive.
-    /// So the theory-correct contract is NOT an empty result: it is "no throw, no hang,
-    /// and every returned probe carries the Tm-out-of-range warning". The range is never
-    /// validated and never throws. Pinned on a real 60-nt target with the Microarray
-    /// length/GC defaults but an inverted Tm window (MinTm 95 &gt; MaxTm 5).
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void DesignProbes_InvertedTmRange_NoThrowEveryProbeWarnsTmOutOfRange()
-    {
-        var param = ProbeDesigner.Defaults.Microarray with { MinTm = 95.0, MaxTm = 5.0 };
-        string target = RandomDna(120, seed: 24_002);
-
-        var act = () => ProbeDesigner.DesignProbes(target, param).ToList();
-
-        act.Should().NotThrow(
-            "an inverted Tm range is a contradictory constraint; the source does not validate it, so it neither throws nor hangs");
-
-        var probes = ProbeDesigner.DesignProbes(target, param).ToList();
-        probes.Should().OnlyContain(
-            p => p.Warnings.Any(w => w.Contains("Tm") && w.Contains("outside range")),
-            "an inverted Tm range fails the Tm screen for EVERY candidate, so every returned probe records the Tm-out-of-range warning rather than being silently accepted");
-        probes.Should().OnlyContain(p => p.Score > 0,
-            "INV-01: only raw-score-positive candidates are retained, even when the Tm screen always fails");
-    }
-
-    #endregion
-
-    #region BE — Empty / null target sequence
-
-    /// <summary>
-    /// BE (empty seq): the empty target is the lower size boundary.
-    /// `string.IsNullOrEmpty(targetSequence)` short-circuits to `yield break`
-    /// (ProbeDesigner.cs line 134) BEFORE any GC prefix sum or windowing — a defined
-    /// degenerate boundary, never a crash, division, or out-of-range index
-    /// (Hybridization_Probe_Design.md §6.1 "Null or empty target → no probes"). Pinned
-    /// for both the empty string and the null reference (the same IsNullOrEmpty guard
-    /// catches both, so null yields the empty result rather than a NullReferenceException).
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void DesignProbes_EmptyOrNullTarget_IsEmptyAndDoesNotThrow()
-    {
-        var empty = () => ProbeDesigner.DesignProbes(string.Empty).ToList();
-        var nullTarget = () => ProbeDesigner.DesignProbes((string)null!).ToList();
-
-        empty.Should().NotThrow("an empty target short-circuits to an empty result before any windowing");
-        nullTarget.Should().NotThrow(
-            "IsNullOrEmpty catches the null target, so it yields the empty result rather than dereferencing into a NullReferenceException");
-
-        ProbeDesigner.DesignProbes(string.Empty).Should().BeEmpty();
-        ProbeDesigner.DesignProbes((string)null!).Should().BeEmpty();
-    }
-
-    #endregion
-
-    #region Positive sanity — a reasonable target yields an in-range valid probe
-
-    /// <summary>
-    /// Positive sanity: alongside the degenerate probes, a reasonable target must yield at
-    /// least one VALID probe whose GC and Tm fall INSIDE the requested ranges — so the
-    /// boundary hardening never silently breaks the core function. The parameter ranges are
-    /// chosen MUTUALLY SATISFIABLE for the salt-adjusted Tm model: for a 50–60-nt probe the
-    /// source computes Tm = 81.5 + 16.6·log10(0.05) + 41·GC − 600/length, so a 0.40–0.60-GC
-    /// window maps to roughly 64–74 °C — hence the GC window [0.40, 0.60] is paired with a Tm
-    /// window [60, 80] (the former Microarray Tm default of 75–85 was unreachable at ≤ 0.60 GC
-    /// for this formula; since audit round 3 A3-10 the Microarray preset uses OligoArray's
-    /// 1 M / 1 µM nearest-neighbour scale with a reachable 82–90 window — this test keeps the
-    /// Primer3 50 mM conditions of a plain ProbeParameters). The target is a 300-nt fixed-seed sequence;
-    /// AT LEAST ONE returned probe must satisfy INV-01 (Score &gt; 0), INV-02
-    /// (0 ≤ GcContent ≤ 1), have GC within [MinGc, MaxGc] AND Tm within [MinTm, MaxTm], and —
-    /// being fully in-range — carry NO GC or Tm out-of-range warning.
-    /// </summary>
-    [Test]
-    [CancelAfter(10000)]
-    public void DesignProbes_ReasonableTarget_YieldsInRangeValidProbe()
-    {
-        // GC and Tm windows are mutually satisfiable for the 50–60-nt salt-adjusted Tm model.
-        var param = new ProbeDesigner.ProbeParameters(
-            MinLength: 50, MaxLength: 60,
-            MinTm: 60, MaxTm: 80,
-            MinGc: 0.40, MaxGc: 0.60,
-            MaxHomopolymer: 5,
-            AvoidSecondaryStructure: true,
-            MaxSelfComplementarity: 0.3);
-        string target = RandomDna(300, seed: 24_003);
-
-        var probes = ProbeDesigner.DesignProbes(target, param, maxProbes: 20).ToList();
-
-        probes.Should().NotBeEmpty(
-            "a 300-nt random target overwhelmingly contains a 50–60-nt window meeting the (mutually satisfiable) screens");
-
-        // INV-01 / INV-02 hold for EVERY returned probe, and each is a well-formed in-bounds window.
-        probes.Should().OnlyContain(p =>
-                p.Score > 0 &&                                  // INV-01
-                p.GcContent >= 0.0 && p.GcContent <= 1.0 &&     // INV-02
-                p.Sequence.Length >= param.MinLength && p.Sequence.Length <= param.MaxLength &&
-                p.Start >= 0 && p.End == p.Start + p.Sequence.Length - 1 && p.End < target.Length,
-            "every returned probe is raw-score-positive (INV-01), has GC as a fraction (INV-02), and is an in-bounds window of the configured length");
-
-        // At least one returned probe is FULLY in-range and therefore warning-free on GC and Tm.
-        var inRange = probes.Where(p =>
-                p.GcContent >= param.MinGc && p.GcContent <= param.MaxGc &&
-                p.Tm >= param.MinTm && p.Tm <= param.MaxTm)
-            .ToList();
-
-        inRange.Should().NotBeEmpty(
-            "with mutually satisfiable GC and Tm windows, a 300-nt random target yields at least one probe whose GC and Tm both fall inside the requested ranges");
-
-        var best = inRange.First();
-        best.Warnings.Should().NotContain(w => w.Contains("GC content") && w.Contains("outside range"),
-            "a fully in-range probe records no GC-out-of-range warning");
-        best.Warnings.Should().NotContain(w => w.Contains("Tm") && w.Contains("outside range"),
-            "a fully in-range probe records no Tm-out-of-range warning");
-    }
-
-    #endregion
-
-    #endregion
-
-    // ═══════════════════════════════════════════════════════════════════
-    //  PROBE-VALID-001 — probe validation : fuzz targets
-    // ═══════════════════════════════════════════════════════════════════
-
-    #region PROBE-VALID-001 — probe validation
-
-    #region MC/INJ — Non-DNA probe (junk / special chars / unicode)
-
-    /// <summary>
-    /// MC/INJ: a probe of pure non-DNA junk (symbols, digits, spaces, unicode, null
-    /// bytes) must NOT crash and must NOT produce NaN. ValidateProbe does not validate
-    /// the alphabet — the junk probe is upper-cased and scanned literally against the
-    /// (clean A/C/G/T) reference. FindApproximateMatches compares with a plain `!=`, so
-    /// junk simply mismatches every reference base; the reverse complement used by
-    /// self-complementarity passes non-IUPAC chars through unchanged (GetComplementBase
-    /// fall-through). Because the probe length is &gt; 0, the self-complementarity division
-    /// is never by zero — the result is a well-formed ProbeValidation with finite,
-    /// in-range SpecificityScore and SelfComplementarity (INV-01, INV-02, INV-03).
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void ValidateProbe_NonDnaJunkProbe_HandledWithFiniteInRangeResult()
-    {
-        string junk = "$#@!12 3￿\0xyzé❤";
-        var references = new[] { RandomDna(500, seed: 25_001) };
-
-        var act = () => ProbeDesigner.ValidateProbe(junk, references);
-        act.Should().NotThrow(
-            "a non-DNA probe is scanned literally, not validated; junk mismatches references and never indexes out of range");
-
-        var result = ProbeDesigner.ValidateProbe(junk, references);
-
-        result.SpecificityScore.Should().BeInRange(0.0, 1.0,
-            "INV-01: the specificity score is mapped to [0,1] regardless of the probe alphabet");
-        result.SelfComplementarity.Should().BeInRange(0.0, 1.0,
-            "INV-02: self-complementarity is a fraction of positions in [0,1] — finite, never NaN");
-        double.IsNaN(result.SpecificityScore).Should().BeFalse("a non-empty junk probe never divides by zero");
-        double.IsNaN(result.SelfComplementarity).Should().BeFalse("self-complementarity divides by the non-zero probe length");
-        result.OffTargetHits.Should().BeGreaterThanOrEqualTo(0, "INV-03: hit counts are accumulated, never negative");
-    }
-
-    /// <summary>
-    /// INJ: special / unicode / null-byte characters INTERLEAVED into an otherwise valid
-    /// probe must not crash and must not inflate the hit count — an injected junk base
-    /// fails the literal `!=` comparison against any reference base, so it can only ever
-    /// REDUCE matches, never fabricate an off-target. The result stays finite and in range.
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void ValidateProbe_JunkInterleavedIntoProbe_NoCrashNoInflatedHits()
-    {
-        string probe = "ACGTACGT\0❤#ACGTACGT";
-        var references = new[] { "ACGTACGTACGTACGTACGT", RandomDna(300, seed: 25_002) };
-
-        var act = () => ProbeDesigner.ValidateProbe(probe, references);
-        act.Should().NotThrow(
-            "injected null bytes / unicode are compared literally and never index out of range");
-
-        var result = ProbeDesigner.ValidateProbe(probe, references);
-        result.SpecificityScore.Should().BeInRange(0.0, 1.0);
-        result.SelfComplementarity.Should().BeInRange(0.0, 1.0);
-        result.OffTargetHits.Should().BeGreaterThanOrEqualTo(0,
-            "INV-03: injected junk can only suppress a match, never invent an off-target");
-    }
-
-    #endregion
-
-    #region BE/INJ — Extremely short probe
-
-    /// <summary>
-    /// BE: an extremely short (1–3 bp) probe is NOT rejected — ValidateProbe enforces no
-    /// minimum length (only the EMPTY probe is special-cased). A tiny probe is scanned:
-    /// FindApproximateMatches' bound `i &lt;= text.Length − pattern.Length` runs over each
-    /// reference (a 1-nt probe matches many positions), the hairpin screen's negative loop
-    /// bound short-circuits to false, and self-complementarity divides by the non-zero
-    /// length. The result is therefore finite and in-range — handled and scored, never a
-    /// crash and never a NaN (only the empty probe yields the structured invalid result).
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void ValidateProbe_ExtremelyShortProbe_ScoredNotRejected()
-    {
-        var references = new[] { RandomDna(400, seed: 25_003) };
-
-        foreach (var probe in new[] { "A", "AC", "ACG" })
-        {
-            var act = () => ProbeDesigner.ValidateProbe(probe, references);
-            act.Should().NotThrow($"a {probe.Length}-nt probe has no minimum-length screen and is scanned, not rejected");
-
-            var result = ProbeDesigner.ValidateProbe(probe, references);
-            result.SpecificityScore.Should().BeInRange(0.0, 1.0, "INV-01 holds for any non-empty probe length");
-            result.SelfComplementarity.Should().BeInRange(0.0, 1.0, "INV-02: a 1–3 nt probe never divides by zero");
-            double.IsNaN(result.SelfComplementarity).Should().BeFalse("non-zero length ⇒ no NaN");
-            result.HasSecondaryStructure.Should().BeFalse(
-                "a probe shorter than 2·stem+loop (11 nt) cannot form a hairpin; the screen short-circuits");
-        }
-    }
-
-    #endregion
-
-    #region INJ — Null probe and null references
-
-    /// <summary>
-    /// INJ (KEY): a null probe is the documented ArgumentNullException (ThrowIfNull,
-    /// line 497) — raised eagerly, NEVER a NullReferenceException from dereferencing
-    /// `probeSequence.ToUpperInvariant()`. The sibling null-reference-collection guard
-    /// (line 498) is pinned alongside it.
-    /// </summary>
-    [Test]
-    public void ValidateProbe_NullProbeOrNullReferences_ThrowsArgumentNullException()
-    {
-        var references = new[] { "ACGTACGTACGT" };
-
-        var nullProbe = () => ProbeDesigner.ValidateProbe(null!, references);
-        var nullRefs = () => ProbeDesigner.ValidateProbe("ACGTACGT", null!);
-
-        nullProbe.Should().Throw<ArgumentNullException>(
-            "a null probe is null-guarded eagerly, never dereferenced into a NullReferenceException");
-        nullRefs.Should().Throw<ArgumentNullException>(
-            "a null reference collection is null-guarded the same way");
-    }
-
-    /// <summary>
-    /// BE: the empty probe is the lower length boundary — it is a DEFINED degenerate input
-    /// returning a structured invalid result ("Empty probe sequence" issue, SpecificityScore
-    /// 0.0, OffTargetHits 0), NOT a throw and NOT a crash (Probe_Validation.md §6.1).
-    /// </summary>
-    [Test]
-    public void ValidateProbe_EmptyProbe_ReturnsStructuredInvalidResult()
-    {
-        var references = new[] { "ACGTACGTACGT" };
-
-        var act = () => ProbeDesigner.ValidateProbe(string.Empty, references);
-        act.Should().NotThrow("the empty probe is a defined degenerate case, not an exception");
-
-        var result = ProbeDesigner.ValidateProbe(string.Empty, references);
-        result.IsValid.Should().BeFalse("an empty probe cannot hybridize specifically");
-        result.SpecificityScore.Should().Be(0.0, "the empty-probe structured result fixes specificity at 0.0");
-        result.OffTargetHits.Should().Be(0);
-        result.Issues.Should().Contain("Empty probe sequence");
-    }
-
-    #endregion
-
-    #region MC — Probe with N's (degenerate IUPAC bases)
-
-    /// <summary>
-    /// MC (KEY): a probe of all-N (the IUPAC "any base" code) must be HANDLED, not crash,
-    /// and must produce NO NaN. ValidateProbe does NOT treat 'N' as a matching wildcard —
-    /// FindApproximateMatches is a literal `!=`, so an 'N' mismatches an A/C/G/T reference
-    /// base and 'N' is never counted as G/C. In self-complementarity 'N' complements to 'N'
-    /// (GetComplementBase, line 155), so an all-N probe is maximally self-complementary
-    /// (every position N==N → 1.0) — a DEFINED value, never a NaN. The result is finite and
-    /// in-range on every numeric field.
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void ValidateProbe_AllNProbe_HandledNoNaN()
-    {
-        string probe = new string('N', 20);
-        var references = new[] { RandomDna(500, seed: 25_004) };
-
-        var act = () => ProbeDesigner.ValidateProbe(probe, references);
-        act.Should().NotThrow("'N' is not a wildcard here; it is compared literally and complemented to 'N' — no crash");
-
-        var result = ProbeDesigner.ValidateProbe(probe, references);
-
-        double.IsNaN(result.SpecificityScore).Should().BeFalse("a non-empty all-N probe never divides by zero");
-        double.IsNaN(result.SelfComplementarity).Should().BeFalse("N complements to N; self-complementarity is a finite fraction");
-        result.SpecificityScore.Should().BeInRange(0.0, 1.0, "INV-01");
-        result.SelfComplementarity.Should().BeInRange(0.0, 1.0, "INV-02");
-        result.SelfComplementarity.Should().Be(1.0,
-            "every position of an all-N probe equals its own complement (N↔N), so it is maximally self-complementary");
-        result.OffTargetHits.Should().BeGreaterThanOrEqualTo(0, "INV-03");
-    }
-
-    /// <summary>
-    /// MC: a probe with a FEW interspersed N's against a reference that contains that exact
-    /// probe verbatim must still match within the mismatch tolerance — the N's are ordinary
-    /// (non-wildcard) characters that match themselves. No crash, finite result, hits &gt;= 1.
-    /// </summary>
-    [Test]
-    [CancelAfter(5000)]
-    public void ValidateProbe_FewNsMatchingReference_HandledFinite()
-    {
-        string probe = "ACGTNCGTACGTNCGTACGT"; // 20 nt with two N's
-        var references = new[] { "TTTT" + probe + "TTTT" }; // probe present verbatim
-
-        var result = ProbeDesigner.ValidateProbe(probe, references);
-
-        double.IsNaN(result.SpecificityScore).Should().BeFalse();
-        double.IsNaN(result.SelfComplementarity).Should().BeFalse();
-        result.OffTargetHits.Should().BeGreaterThanOrEqualTo(1,
-            "the probe occurs verbatim (its N's match themselves), so at least one approximate hit is counted");
-        result.SpecificityScore.Should().BeInRange(0.0, 1.0, "INV-01");
-    }
-
-    #endregion
-
-    #region Positive sanity — a clean unique probe validates
-
-    /// <summary>
-    /// Positive sanity: a clean A/C/G/T probe that occurs EXACTLY ONCE in the references and
-    /// carries no self-complementarity or hairpin issues must validate as IsValid == true with
-    /// SpecificityScore 1.0, OffTargetHits 1, and NO issues — so the fuzz hardening never
-    /// silently breaks the core success path. INV-04 (OffTargetHits == 1 ⇒ SpecificityScore
-    /// == 1.0) is pinned directly.
-    /// </summary>
-    [Test]
-    public void ValidateProbe_CleanUniqueProbe_IsValidWithUniqueSpecificity()
-    {
-        // A non-self-complementary probe (self-complementarity 0.0) present exactly once.
-        string probe = "GTACGGATCCATGCTAACGT"; // 20 nt, reverse complement differs at every position
-        string reference = "TTTTTTTTTT" + probe + "TTTTTTTTTT";
-        var references = new[] { reference };
-
-        var result = ProbeDesigner.ValidateProbe(probe, references, maxMismatches: 0);
-
-        result.OffTargetHits.Should().Be(1, "the probe occurs exactly once at mismatch tolerance 0");
-        result.SpecificityScore.Should().Be(1.0, "INV-04: a single hit maps to specificity 1.0");
-        result.IsValid.Should().BeTrue("a unique, low-self-complementarity probe is a valid probe");
-        result.Issues.Should().BeEmpty("a clean unique probe records no validation issues");
-    }
-
-    #endregion
-
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  RESTR-FIND-001 — restriction site finding : fuzz targets
     // ═══════════════════════════════════════════════════════════════════
 
-    #region RESTR-FIND-001 — restriction site finding
 
-    #region BE — Empty enzyme list
 
     /// <summary>
     /// BE: the multi-enzyme overload called with an EMPTY enzyme list is the lower
@@ -2537,9 +1823,7 @@ public class MolToolsFuzzTests
         nullArray.Should().Throw<ArgumentNullException>("a null name array is a missing argument");
     }
 
-    #endregion
 
-    #region MC — Unknown enzyme names
 
     /// <summary>
     /// MC (KEY): an enzyme NAME absent from the built-in catalog is the central
@@ -2604,9 +1888,7 @@ public class MolToolsFuzzTests
             "an empty enzyme name is the same degenerate 'no enzyme' input and is rejected up front");
     }
 
-    #endregion
 
-    #region MC — Non-DNA characters in the sequence
 
     /// <summary>
     /// MC: non-DNA junk fed to the TYPED overload is rejected up front — the DnaSequence
@@ -2667,9 +1949,7 @@ public class MolToolsFuzzTests
             "any site that IS reported still has a clean A/C/G/T recognition string — junk never leaks into a reported site");
     }
 
-    #endregion
 
-    #region BE — Empty sequence
 
     /// <summary>
     /// BE: the empty sequence is the lower size boundary. The raw-string overload
@@ -2712,9 +1992,7 @@ public class MolToolsFuzzTests
             "the typed overload null-guards its sequence; null is rejected, never dereferenced into a NullReferenceException");
     }
 
-    #endregion
 
-    #region BE — Recognition site longer than the sequence
 
     /// <summary>
     /// BE: a sequence SHORTER than the recognition site is the degenerate "site longer
@@ -2739,9 +2017,7 @@ public class MolToolsFuzzTests
         RestrictionAnalyzer.FindSites("ACG", "NotI").Should().BeEmpty();
     }
 
-    #endregion
 
-    #region Positive sanity — known EcoRI sites are found at the correct positions
 
     /// <summary>
     /// Positive sanity: alongside the degenerate probes, a textbook EcoRI forward site
@@ -2809,9 +2085,7 @@ public class MolToolsFuzzTests
         site.Enzyme.RecognitionSequence.Should().Be("GTYRAC");
     }
 
-    #endregion
 
-    #region RESTR-DIGEST-001 — restriction digest
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unit: RESTR-DIGEST-001 — restriction digest
@@ -3083,7 +2357,5 @@ public class MolToolsFuzzTests
         circular.Sum(f => f.Length).Should().Be(seq.Length, "INV-02: Σ circular fragment lengths == sequence length");
     }
 
-    #endregion
 
-    #endregion
 }

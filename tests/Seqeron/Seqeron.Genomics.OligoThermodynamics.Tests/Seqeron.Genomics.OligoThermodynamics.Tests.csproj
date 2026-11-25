@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests of the copyleft assembly Seqeron.Genomics.OligoThermodynamics. The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.OligoThermodynamics.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="FsCheck" />
+    <PackageReference Include="FsCheck.NUnit" />
+    <PackageReference Include="Verify.NUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.MolTools" />
+    <Using Include="Seqeron.Genomics.OligoThermodynamics" />
+    <Using Include="Seqeron.Genomics.MolTools.PrimerDesigner" Static="true" />
+    <Using Include="Seqeron.Genomics.MolTools.ProbeDesigner" Static="true" />
+    <Using Include="Seqeron.Genomics.OligoThermodynamics.ThermodynamicPrimerDesigner" Static="true" />
+    <Using Include="Seqeron.Genomics.OligoThermodynamics.ThermodynamicProbeDesigner" Static="true" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.MolTools\Seqeron.Genomics.MolTools.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.OligoThermodynamics\Seqeron.Genomics.OligoThermodynamics.csproj" />
+  </ItemGroup>
+
+</Project>

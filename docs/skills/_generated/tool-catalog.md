@@ -538,11 +538,10 @@
 | `select_phylogenetic_markers` | `PanGenomeAnalyzer.SelectPhylogeneticMarkers` | [doc](../../mcp/tools/metagenomics/select_phylogenetic_markers.md) |
 | `taxonomic_profile` | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` | [doc](../../mcp/tools/metagenomics/taxonomic_profile.md) |
 
-## MolTools (59 tools)
+## MolTools (48 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
-| `analyze_oligo` | `ProbeDesigner.AnalyzeOligo` | [doc](../../mcp/tools/moltools/analyze_oligo.md) |
 | `blunt_cutters` | `RestrictionAnalyzer.GetBluntCutters` | [doc](../../mcp/tools/moltools/blunt_cutters.md) |
 | `build_codon_table` | `CodonOptimizer.CreateCodonTableFromSequence` | [doc](../../mcp/tools/moltools/build_codon_table.md) |
 | `cai_from_organism_table` | `CodonOptimizer.CalculateCAI` | [doc](../../mcp/tools/moltools/cai_from_organism_table.md) |
@@ -558,19 +557,12 @@
 | `crispr_mit_specificity_score` | `CrisprDesigner.CalculateMitSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_mit_specificity_score.md) |
 | `crispr_specificity_score` | `CrisprDesigner.CalculateHeuristicSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_specificity_score.md) |
 | `crispr_system_info` | `CrisprDesigner.GetSystem` | [doc](../../mcp/tools/moltools/crispr_system_info.md) |
-| `design_antisense_probes` | `ProbeDesigner.DesignAntisenseProbes` | [doc](../../mcp/tools/moltools/design_antisense_probes.md) |
 | `design_guide_rnas` | `CrisprDesigner.DesignGuideRnas` | [doc](../../mcp/tools/moltools/design_guide_rnas.md) |
-| `design_molecular_beacon` | `ProbeDesigner.DesignMolecularBeacon` | [doc](../../mcp/tools/moltools/design_molecular_beacon.md) |
-| `design_primers` | `PrimerDesigner.DesignPrimers` | [doc](../../mcp/tools/moltools/design_primers.md) |
-| `design_probes` | `ProbeDesigner.DesignProbes` | [doc](../../mcp/tools/moltools/design_probes.md) |
-| `design_probes_primer3` | `ProbeDesigner.DesignProbesPrimer3` | [doc](../../mcp/tools/moltools/design_probes_primer3.md) |
-| `design_tiling_probes` | `ProbeDesigner.DesignTilingProbes` | [doc](../../mcp/tools/moltools/design_tiling_probes.md) |
 | `digest_summary` | `RestrictionAnalyzer.GetDigestSummary` | [doc](../../mcp/tools/moltools/digest_summary.md) |
 | `effective_number_of_codons` | `CodonUsageAnalyzer.CalculateEnc` | [doc](../../mcp/tools/moltools/effective_number_of_codons.md) |
 | `enzymes_by_cut_length` | `RestrictionAnalyzer.GetEnzymesByCutLength` | [doc](../../mcp/tools/moltools/enzymes_by_cut_length.md) |
 | `enzymes_compatible` | `RestrictionAnalyzer.AreCompatible` | [doc](../../mcp/tools/moltools/enzymes_compatible.md) |
 | `evaluate_guide_rna` | `CrisprDesigner.EvaluateGuideRna` | [doc](../../mcp/tools/moltools/evaluate_guide_rna.md) |
-| `evaluate_primer` | `PrimerDesigner.EvaluatePrimer` | [doc](../../mcp/tools/moltools/evaluate_primer.md) |
 | `find_all_restriction_sites` | `RestrictionAnalyzer.FindAllSites` | [doc](../../mcp/tools/moltools/find_all_restriction_sites.md) |
 | `find_conserved_rare_codon_clusters` | `CodonOptimizer.FindConservedRareCodonClusters` | [doc](../../mcp/tools/moltools/find_conserved_rare_codon_clusters.md) |
 | `find_off_targets` | `CrisprDesigner.FindOffTargets` | [doc](../../mcp/tools/moltools/find_off_targets.md) |
@@ -580,7 +572,6 @@
 | `find_rare_codons` | `CodonOptimizer.FindRareCodons` | [doc](../../mcp/tools/moltools/find_rare_codons.md) |
 | `find_restriction_sites` | `RestrictionAnalyzer.FindSites` | [doc](../../mcp/tools/moltools/find_restriction_sites.md) |
 | `find_sites_custom_enzyme` | `RestrictionAnalyzer.FindSites` | [doc](../../mcp/tools/moltools/find_sites_custom_enzyme.md) |
-| `generate_primer_candidates` | `PrimerDesigner.GeneratePrimerCandidates` | [doc](../../mcp/tools/moltools/generate_primer_candidates.md) |
 | `get_enzyme` | `RestrictionAnalyzer.GetEnzyme` | [doc](../../mcp/tools/moltools/get_enzyme.md) |
 | `hairpin_potential` | `PrimerDesigner.HasHairpinPotential` | [doc](../../mcp/tools/moltools/hairpin_potential.md) |
 | `longest_dinucleotide_repeat` | `PrimerDesigner.FindLongestDinucleotideRepeat` | [doc](../../mcp/tools/moltools/longest_dinucleotide_repeat.md) |
@@ -589,7 +580,6 @@
 | `oligo_extinction_coefficient` | `ProbeDesigner.CalculateExtinctionCoefficient` | [doc](../../mcp/tools/moltools/oligo_extinction_coefficient.md) |
 | `optimize_codons` | `CodonOptimizer.OptimizeSequence` | [doc](../../mcp/tools/moltools/optimize_codons.md) |
 | `partial_digest` | `RestrictionAnalyzer.PartialDigest` | [doc](../../mcp/tools/moltools/partial_digest.md) |
-| `primer_dimer` | `PrimerDesigner.HasPrimerDimer` | [doc](../../mcp/tools/moltools/primer_dimer.md) |
 | `primer_melting_temperature` | `PrimerDesigner.CalculateMeltingTemperature` | [doc](../../mcp/tools/moltools/primer_melting_temperature.md) |
 | `primer_melting_temperature_salt` | `PrimerDesigner.CalculateMeltingTemperatureWithSalt` | [doc](../../mcp/tools/moltools/primer_melting_temperature_salt.md) |
 | `reduce_secondary_structure` | `CodonOptimizer.ReduceSecondaryStructure` | [doc](../../mcp/tools/moltools/reduce_secondary_structure.md) |
@@ -600,7 +590,6 @@
 | `rscu` | `CodonUsageAnalyzer.CalculateRscu` | [doc](../../mcp/tools/moltools/rscu.md) |
 | `sticky_cutters` | `RestrictionAnalyzer.GetStickyCutters` | [doc](../../mcp/tools/moltools/sticky_cutters.md) |
 | `three_prime_stability` | `PrimerDesigner.Calculate3PrimeStability` | [doc](../../mcp/tools/moltools/three_prime_stability.md) |
-| `validate_probe` | `ProbeDesigner.ValidateProbe` | [doc](../../mcp/tools/moltools/validate_probe.md) |
 
 ## MultipleAlignment (25 tools)
 
@@ -631,6 +620,22 @@
 | `tcoffee_primary_library` | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeePrimaryLibraryEntries` | [doc](../../mcp/tools/multiplealignment/tcoffee_primary_library.md) |
 | `tcoffee_slow_pair_align` | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/multiplealignment/tcoffee_slow_pair_align.md) |
 | `tcoffee_tblastx_library` | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeTblastxLibraryEntries` | [doc](../../mcp/tools/multiplealignment/tcoffee_tblastx_library.md) |
+
+## MolTools (11 tools)
+
+| tool | Method ID | doc |
+|------|-----------|-----|
+| `analyze_oligo` | `ThermodynamicProbeDesigner.AnalyzeOligo` | [doc](../../mcp/tools/oligothermodynamics/analyze_oligo.md) |
+| `design_antisense_probes` | `ThermodynamicProbeDesigner.DesignAntisenseProbes` | [doc](../../mcp/tools/oligothermodynamics/design_antisense_probes.md) |
+| `design_molecular_beacon` | `ThermodynamicProbeDesigner.DesignMolecularBeacon` | [doc](../../mcp/tools/oligothermodynamics/design_molecular_beacon.md) |
+| `design_primers` | `ThermodynamicPrimerDesigner.DesignPrimers` | [doc](../../mcp/tools/oligothermodynamics/design_primers.md) |
+| `design_probes` | `ThermodynamicProbeDesigner.DesignProbes` | [doc](../../mcp/tools/oligothermodynamics/design_probes.md) |
+| `design_probes_primer3` | `ThermodynamicProbeDesigner.DesignProbesPrimer3` | [doc](../../mcp/tools/oligothermodynamics/design_probes_primer3.md) |
+| `design_tiling_probes` | `ThermodynamicProbeDesigner.DesignTilingProbes` | [doc](../../mcp/tools/oligothermodynamics/design_tiling_probes.md) |
+| `evaluate_primer` | `ThermodynamicPrimerDesigner.EvaluatePrimer` | [doc](../../mcp/tools/oligothermodynamics/evaluate_primer.md) |
+| `generate_primer_candidates` | `ThermodynamicPrimerDesigner.GeneratePrimerCandidates` | [doc](../../mcp/tools/oligothermodynamics/generate_primer_candidates.md) |
+| `primer_dimer` | `PrimerDesigner.HasPrimerDimer` | [doc](../../mcp/tools/oligothermodynamics/primer_dimer.md) |
+| `validate_probe` | `ThermodynamicProbeDesigner.ValidateProbe` | [doc](../../mcp/tools/oligothermodynamics/validate_probe.md) |
 
 ## Analysis (3 tools)
 

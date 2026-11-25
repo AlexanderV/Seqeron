@@ -81,11 +81,12 @@ EXPECTED_COUNTS = {
     "embossrepeats": 3,
     "embosssequenceformats": 42,
     "overrepresentedwords": 3,
+    "oligothermodynamics": 11,
     "analysis": 157,
     "annotation": 97,
     "chromosome": 32,
     "metagenomics": 19,
-    "moltools": 59,
+    "moltools": 48,
     "phylogenetics": 13,
     "population": 18,
 }

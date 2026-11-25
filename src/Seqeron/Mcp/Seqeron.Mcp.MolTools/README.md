@@ -2,7 +2,7 @@
 
 MCP server — **Primer/probe/CRISPR design, codon optimization, restriction analysis, thermodynamics.**
 
-Exposes **59 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **48 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test. Per-tool docs
 live under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools) (all 59). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,11 +15,10 @@ dotnet run --project Seqeron.Mcp.MolTools
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.MolTools"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (56)
+## Tools (48)
 
 | Tool | Description |
 |------|-------------|
-| `analyze_oligo` | Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide. |
 | `blunt_cutters` | Lists all built-in restriction enzymes that produce blunt ends (both strands cut at the same position). |
 | `build_codon_table` | Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alpha… |
 | `calculate_on_target_doench2014` | Doench et al. 2014 "Rule Set 1" on-target efficacy score for an SpCas9 guide on a 0..100 scale, from the model's 30-nt context. |
@@ -35,19 +34,12 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `crispr_mit_specificity_score` | PUBLISHED MIT / Hsu 2013 aggregate guide specificity (crispr.mit.edu "Guide score", CRISPOR calcMitGuideScore): 100/(100 + Σ per-hit Hsu scores) × 100. Guides … |
 | `crispr_specificity_score` | THIS LIBRARY'S OWN HEURISTIC, NOT A PUBLISHED MODEL: aggregates off-target hits (≤4 mismatches) as max(0, 100 − Σ(5 per seed mismatch + 2 per distal mismatch))… |
 | `crispr_system_info` | Returns the metadata record (name, PAM sequence, guide length, PAM placement relative to target, description) for a known CRISPR nuclease… |
-| `design_antisense_probes` | Reverse-complements the supplied mRNA-sense sequence and runs the probe designer on it; |
 | `design_guide_rnas` | Generates and scores guide-RNA candidates whose Cas9/Cas12a cut site falls inside the requested region. |
-| `design_molecular_beacon` | Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse com… |
-| `design_primers` | Designs forward and reverse PCR primers flanking a target region in a DNA template; |
-| `design_probes` | Designs hybridization probes by scanning the target for length-window candidates and ranking by GC%, Tm, homopolymers, self-complementari… |
-| `design_probes_primer3` | Picks hybridization probes exactly as Primer3 does for PRIMER_TASK=pick_hyb_probe_only (internal-oligo picker; verified against primer3-py design_primers). |
-| `design_tiling_probes` | Generates fixed-length probes covering the entire target with a configurable overlap (step = probe_length − overlap), plus a final probe anchored at the target end when the step grid stops short of it. |
 | `digest_summary` | Aggregate statistics over a simulated restriction digest: total fragment count, fragment sizes (descending), largest/smallest fragment, average fragment size, enzymes used and the topology digested (`topology=Circular` for a plasmid). |
 | `effective_number_of_codons` | Effective Number of Codons (Wright's Nc), measuring how far a gene departs from uniform synonymous-codon usage. |
 | `enzymes_by_cut_length` | Lists all built-in restriction enzymes whose recognition sequence has exactly the specified length in base pairs (e.g. |
 | `enzymes_compatible` | Returns whether two named built-in restriction enzymes produce ligatable (compatible) ends — both blunt, or the same overhang type and se… |
 | `evaluate_guide_rna` | Scores a single guide RNA against on-target quality heuristics: overall GC%, seed-region GC%, polyT (Pol III terminator) presence, self-c… |
-| `evaluate_primer` | Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm, longest homopolymer, hairpin… |
 | `find_all_restriction_sites` | Finds sites for EVERY built-in restriction enzyme on both strands of a DNA sequence. |
 | `find_off_targets` | Naïve genome scan: enumerates all PAM sites in the genome and reports those whose target differs from the guide by 1..max_mismatches (the… |
 | `find_conserved_rare_codon_clusters` | Sherlocc 1.0 conserved rare-codon clusters of a protein-family codon alignment (Chartier et al. 2012): per-column window averages of per-thousand usa… |
@@ -55,7 +47,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_rare_codon_clusters` | Rare-codon clusters by the Sherlocc rule (Chartier et al. 2012, Bioinformatics 28:1438): a window of window_size codons (default 7) is a cl… |
 | `find_rare_codons` | Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15)… |
 | `find_restriction_sites` | Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. |
-| `generate_primer_candidates` | Enumerates all primer candidates of admissible lengths (parameters.MinLength..MaxLength) at every start position within a region of the t… |
 | `get_enzyme` | Looks up a built-in restriction enzyme by name (case-insensitive) and returns its recognition sequence, cut positions and organism. |
 | `hairpin_potential` | Sequence-only library hairpin screen (heuristic, not Primer3's): true when an exact Watson-Crick self-complementary stem of at least… |
 | `longest_dinucleotide_repeat` | Returns the number of repeat units in the longest dinucleotide tandem repeat (e.g. |
@@ -64,7 +55,6 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `oligo_extinction_coefficient` | Sums per-base 260 nm molar extinction contributions (A=15400, C=7400, G=11500, T=8700, U=9900 M⁻¹·cm⁻¹; |
 | `optimize_codons` | Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default)… |
 | `partial_digest` | Partial restriction digest: every fragment that can arise when any subset of the cut sites is left uncut, each with its number of missed cuts, the same ends/overhangs as `restriction_digest`; optional `max_missed_cuts`, `topology=Circular` for a plasmid. |
-| `primer_dimer` | Heuristic 3'-end primer-dimer check between two primers: reverse-complements primer2 and counts complementary positions in an up-to-8-bp… |
 | `primer_melting_temperature` | Computes a primer's melting temperature (Tm, °C): Wallace rule Tm = 2·(A+T) + 4·(G+C) for < 14 valid bases, or Marmur–Doty Tm = 64.9 + 41… |
 | `primer_melting_temperature_salt` | Salt-adjusted primer Tm (OligoCalc): N<14: 2(A+T)+4(G+C)+16.6·log10([Na+]/0.050 M); N≥14: 100.5+41·(G+C)/N−820/N+16.6·log10([Na+] M); rounded to one decimal. |
 | `reduce_secondary_structure` | Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score within a sliding window, reducing mRNA secondary st… |
@@ -74,4 +64,3 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `rscu` | Relative Synonymous Codon Usage (RSCU) per codon: observed count / count-expected-if-uniform among its synonymous codons. |
 | `sticky_cutters` | Lists all built-in restriction enzymes that produce sticky (cohesive) ends — a staggered cut leaving a 5' or 3' single-stranded overhang. |
 | `three_prime_stability` | SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol) of a primer's last 5 bases, including initiation terms (1 M NaCl), matching Primer3 P… |
-| `validate_probe` | Validates a hybridization probe: ungapped k-mismatch hits, Primer3 ntthal self-dimer/hairpin screen, optional Kane et al. (2000) cross-hybridization criteria against non-targets. |

@@ -64,7 +64,6 @@ namespace Seqeron.Genomics.Tests.Metamorphic;
 public class MolToolsMetamorphicTests
 {
     private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("AT");
-    #region Helpers
 
     /// <summary>Deterministic RNG — seed fixed so random inputs are reproducible.</summary>
     private static readonly Random Rng = new(20260619);
@@ -150,9 +149,7 @@ public class MolToolsMetamorphicTests
         yield return Pad + RandomDna(80) + Pad;
     }
 
-    #endregion
 
-    #region MON — appending bases cannot remove PAM sites (count non-decreasing)
 
     [Test]
     [Description("MON: appending ANY region (even one rich in new PAMs) never lowers the PAM-site count.")]
@@ -188,9 +185,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region INV — appending a non-PAM region preserves the count and the sites exactly
 
     [Test]
     [Description("INV: appending an A/T-only region (no GG, no CC, no junction motif) leaves the PAM-site count unchanged.")]
@@ -225,9 +220,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region SHIFT — prepending a non-PAM flank shifts every Position by |F|, preserving the set
 
     [Test]
     [Description("SHIFT: prepending an A/T-only flank F shifts every PAM-site Position by exactly |F| and preserves the count.")]
@@ -282,9 +275,7 @@ public class MolToolsMetamorphicTests
             because: $"prepending {flankLen} A/T bases shifts the forward AGG PAM to position {20 + flankLen}");
     }
 
-    #endregion
 
-    #region CRISPR-GUIDE-001 — guide RNA design
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unit: CRISPR-GUIDE-001 — CRISPR guide-RNA design (MolTools).
@@ -368,7 +359,6 @@ public class MolToolsMetamorphicTests
     private static HashSet<(int, string, bool)> GuideIdSet(IEnumerable<GuideRnaCandidate> guides)
         => guides.Select(GuideId).ToHashSet();
 
-    #region SUB — every guide comes from a real PAM site; guides ⊆ candidate windows
 
     [Test]
     [Description("SUB: each designed guide's protospacer is the TargetSequence of an actual PAM site found by FindPamSites.")]
@@ -424,9 +414,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region MON — stricter scoring (higher MinScore) → subset of guides, non-increasing count
 
     [Test]
     [Description("MON: along an increasing MinScore chain the guide set shrinks monotonically (each stricter set ⊆ the looser).")]
@@ -476,9 +464,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region INV — a distant downstream change preserves each guide's local identity & score
 
     [Test]
     [Description("INV: editing a far-downstream non-PAM tail, with the design region pinned upstream, leaves the in-region guide set identical.")]
@@ -562,11 +548,8 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #endregion
 
-    #region CRISPR-OFF-001 — off-target scoring
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unit: CRISPR-OFF-001 — CRISPR off-target scoring (MolTools).
@@ -691,7 +674,6 @@ public class MolToolsMetamorphicTests
         return new string(c);
     }
 
-    #region COMP — 0 mismatches → maximum off-target score (specificity = 100)
 
     [Test]
     [Description("COMP: a candidate identical to the guide is the on-target (0 mismatches), not an off-target, so the off-target score is the documented MAXIMUM (100).")]
@@ -712,9 +694,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region MON — more mismatches → lower off-target score (penalty non-decreasing, specificity non-increasing)
 
     [Test]
     [Description("MON: along a chain that adds mismatches at fixed positions, the off-target score is non-increasing — and strictly decreasing, since every added position carries a positive penalty.")]
@@ -792,9 +772,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region MON — a seed-region mismatch is penalized more than a PAM-distal one
 
     [Test]
     [Description("MON: a single mismatch in the PAM-proximal SEED region yields a LOWER off-target score (higher penalty) than the same single mismatch at a PAM-distal position.")]
@@ -857,11 +835,8 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #endregion
 
-    #region PRIMER-TM-001 — melting temperature
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unit: PRIMER-TM-001 — primer melting temperature (MolTools).
@@ -977,7 +952,6 @@ public class MolToolsMetamorphicTests
         return new string(c);
     }
 
-    #region INV — same sequence → same Tm (deterministic, case-insensitive)
 
     [Test]
     [Description("INV: CalculateMeltingTemperature is deterministic — identical input yields identical Tm across repeated calls.")]
@@ -1025,9 +999,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region MON — appending a G/C base raises Tm strictly more than appending an A/T base
 
     [Test]
     [Description("MON (Wallace): in the short-oligo regime, appending a G/C base adds exactly +4 °C and an A/T base exactly +2 °C, so Tm(s+strong) > Tm(s+weak) by exactly 2.")]
@@ -1092,9 +1064,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region MON — raising GC CONTENT at fixed length raises Tm (substitution); lowering it (→AT) decreases Tm
 
     [Test]
     [Description("MON (Wallace): substituting an A/T position with a G/C base at fixed length raises Tm by exactly +2 °C; the reverse G/C→A/T lowers it by 2 — the precise sense of 'add AT → Tm decreases'.")]
@@ -1179,11 +1149,8 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #endregion
 
-    #region PRIMER-DESIGN-001 — primer design
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unit: PRIMER-DESIGN-001 — PCR primer design (MolTools).
@@ -1261,214 +1228,8 @@ public class MolToolsMetamorphicTests
     private static (int Position, string Sequence, bool Fwd) PrimerId(PrimerCandidate c)
         => (c.Position, c.Sequence, c.IsForward);
 
-    /// <summary>
-    /// The set of VALID primer candidates a parameter set admits over [regionStart, regionEnd],
-    /// keyed by identity (Position, Sequence, IsForward) so the comparison ignores run order.
-    /// </summary>
-    private static HashSet<(int, string, bool)> ValidPrimerIds(
-        string template, int regionStart, int regionEnd, bool forward, PrimerParameters param)
-        => PrimerDesigner
-            .GeneratePrimerCandidates(new DnaSequence(template), regionStart, regionEnd, forward, param)
-            .Where(c => c.IsValid)
-            .Select(PrimerId)
-            .ToHashSet();
 
-    /// <summary>Count of VALID primer candidates over the whole template, both orientations.</summary>
-    private static int ValidPrimerCount(string template, PrimerParameters param)
-        => ValidPrimerIds(template, 0, template.Length, forward: true, param).Count
-         + ValidPrimerIds(template, 0, template.Length, forward: false, param).Count;
 
-    #region MON — widening the Tm range yields a superset of primers (count non-decreasing)
-
-    [Test]
-    [Description("MON: along a chain that widens [MinTm, MaxTm] (all other params fixed) the valid-primer set grows monotonically — each narrower set is a subset of the wider one.")]
-    public void GeneratePrimerCandidates_WideningTmRange_YieldsSuperset_CountNonDecreasing()
-    {
-        // Increasingly wide Tm windows centred on the default optimum (60 °C). Each ⊇ the prior.
-        (double Min, double Max)[] tmChain =
-        {
-            (59.5, 60.5),
-            (58, 62),
-            (55, 65),
-            (50, 70),
-            (0, 200),   // accept any Tm — the Tm filter is effectively disabled
-        };
-
-        foreach (var template in DesignTemplates())
-        {
-            foreach (var forward in new[] { true, false })
-            {
-                HashSet<(int, string, bool)>? previousSet = null;
-                int previousCount = -1;
-
-                foreach (var (min, max) in tmChain)
-                {
-                    var param = PrimerDesigner.DefaultParameters with { MinTm = min, MaxTm = max };
-                    var currentSet = ValidPrimerIds(template, 0, template.Length, forward, param);
-
-                    if (previousSet is not null)
-                    {
-                        currentSet.IsSupersetOf(previousSet).Should().BeTrue(
-                            because: $"widening the Tm window to [{min},{max}] keeps every Tm that already passed " +
-                                     "passing (all other filters fixed), so the valid set is a superset of the narrower one");
-                        currentSet.Count.Should().BeGreaterThanOrEqualTo(previousCount,
-                            because: $"a wider Tm window [{min},{max}] admits-or-keeps each candidate, never drops one — count is non-decreasing");
-                    }
-
-                    previousSet = currentSet;
-                    previousCount = currentSet.Count;
-                }
-            }
-        }
-    }
-
-    [Test]
-    [Description("MON: disabling the Tm filter (accept any Tm) yields at least as many valid primers as the default narrow window, holding all else fixed.")]
-    public void GeneratePrimerCandidates_DisablingTmFilter_NeverFewerThanNarrowDefault()
-    {
-        foreach (var template in DesignTemplates())
-        {
-            var narrow = PrimerDesigner.DefaultParameters; // 57–63 °C
-            var wide = PrimerDesigner.DefaultParameters with { MinTm = 0, MaxTm = 200 };
-
-            int narrowCount = ValidPrimerCount(template, narrow);
-            int wideCount = ValidPrimerCount(template, wide);
-
-            wideCount.Should().BeGreaterThanOrEqualTo(narrowCount,
-                because: "the only changed parameter is the Tm window, widened to accept everything; " +
-                         "every primer valid under the narrow window stays valid, so the count cannot drop");
-        }
-    }
-
-    #endregion
-
-    #region SUB — tightening the GC% bounds yields a subset of primers (count non-increasing)
-
-    [Test]
-    [Description("SUB: along a chain that TIGHTENS [MinGcContent, MaxGcContent] (all other params fixed) the valid-primer set shrinks monotonically — each stricter set is a subset of the looser one.")]
-    public void GeneratePrimerCandidates_TighteningGcBounds_YieldsSubset_CountNonIncreasing()
-    {
-        // Increasingly STRICT GC windows, each ⊆ the previous one (chain from loose to strict).
-        (double Min, double Max)[] gcChain =
-        {
-            (0, 100),     // accept any GC% — filter disabled
-            (30, 70),
-            (40, 60),     // the default band
-            (45, 55),
-            (48, 52),
-        };
-
-        foreach (var template in DesignTemplates())
-        {
-            foreach (var forward in new[] { true, false })
-            {
-                HashSet<(int, string, bool)>? previousSet = null;
-                int previousCount = int.MaxValue;
-
-                foreach (var (min, max) in gcChain)
-                {
-                    var param = PrimerDesigner.DefaultParameters with { MinGcContent = min, MaxGcContent = max };
-                    var currentSet = ValidPrimerIds(template, 0, template.Length, forward, param);
-
-                    if (previousSet is not null)
-                    {
-                        previousSet.IsSupersetOf(currentSet).Should().BeTrue(
-                            because: $"tightening the GC window to [{min},{max}] can only DROP candidates whose fixed GC% " +
-                                     "falls outside the narrower band, so the stricter set is a subset of the looser one");
-                        currentSet.Count.Should().BeLessThanOrEqualTo(previousCount,
-                            because: $"a stricter GC window [{min},{max}] removes-or-keeps each candidate, never adds one — count is non-increasing");
-                    }
-
-                    previousSet = currentSet;
-                    previousCount = currentSet.Count;
-                }
-            }
-        }
-    }
-
-    [Test]
-    [Description("SUB: every primer valid under a stricter GC band is also valid under a looser band that contains it (membership is preserved when loosening).")]
-    public void GeneratePrimerCandidates_StrictGcBand_SubsetOfLooseBand()
-    {
-        foreach (var template in DesignTemplates())
-        {
-            foreach (var forward in new[] { true, false })
-            {
-                var strict = ValidPrimerIds(template, 0, template.Length, forward,
-                    PrimerDesigner.DefaultParameters with { MinGcContent = 45, MaxGcContent = 55 });
-                var loose = ValidPrimerIds(template, 0, template.Length, forward,
-                    PrimerDesigner.DefaultParameters with { MinGcContent = 40, MaxGcContent = 60 });
-
-                loose.IsSupersetOf(strict).Should().BeTrue(
-                    because: "[45,55] ⊆ [40,60]; a GC% inside the tighter band is inside the wider band too, " +
-                             "and no other filter changed, so the strict valid set is a subset of the loose one");
-            }
-        }
-    }
-
-    #endregion
-
-    #region MON — extending the template (and design region) never removes candidates anchored in the original region
-
-    [Test]
-    [Description("MON: extending template T → T+X and the design region to cover it preserves every valid primer anchored in the original region EXACTLY (subset), so the count is non-decreasing.")]
-    public void GeneratePrimerCandidates_LongerTemplate_OriginalCandidatesPreserved_CountNonDecreasing()
-    {
-        var param = PrimerDesigner.DefaultParameters;
-
-        foreach (var body in DesignTemplates())
-        {
-            foreach (var forward in new[] { true, false })
-            {
-                var baseIds = ValidPrimerIds(body, 0, body.Length, forward, param);
-
-                // Append several distinct extensions, including GC-rich and fixed-seed random ones.
-                foreach (var ext in new[] { "ACGTACGTACGT", "GGGGCCCCAAAA", RandomDna(30), RandomDna(60) })
-                {
-                    string extended = body + ext;
-                    var extendedIds = ValidPrimerIds(extended, 0, extended.Length, forward, param);
-
-                    extendedIds.IsSupersetOf(baseIds).Should().BeTrue(
-                        because: $"the first {body.Length} bases are unchanged, so every window anchored in the original " +
-                                 "region yields the IDENTICAL candidate; the extended region only ADDS windows, never removes one");
-                    extendedIds.Count.Should().BeGreaterThanOrEqualTo(baseIds.Count,
-                        because: "extending the template/region can only add candidate windows downstream — the original valid set survives, so the count is non-decreasing");
-                }
-            }
-        }
-    }
-
-    [Test]
-    [Description("MON: appending bases after the design region's end leaves the in-region valid set IDENTICAL — the appended tail lies outside [regionStart, regionEnd].")]
-    public void GeneratePrimerCandidates_AppendOutsideFixedRegion_InRegionSetUnchanged()
-    {
-        var param = PrimerDesigner.DefaultParameters;
-
-        foreach (var body in DesignTemplates())
-        {
-            foreach (var forward in new[] { true, false })
-            {
-                int regionEnd = body.Length; // pin the design region to the original body
-                var baseIds = ValidPrimerIds(body, 0, regionEnd, forward, param);
-
-                foreach (var ext in new[] { "ACGTACGTACGT", RandomDna(40) })
-                {
-                    // Hold the region FIXED at [0, regionEnd]; the appended tail is outside it.
-                    var sameRegionIds = ValidPrimerIds(body + ext, 0, regionEnd, forward, param);
-
-                    sameRegionIds.SetEquals(baseIds).Should().BeTrue(
-                        because: "GeneratePrimerCandidates only enumerates windows inside [regionStart, regionEnd]; " +
-                                 "bases appended beyond regionEnd are never read, so the in-region valid set is exactly preserved");
-                }
-            }
-        }
-    }
-
-    #endregion
-
-    #endregion
-
-    #region PRIMER-STRUCT-001 — primer secondary structure (self-dimer / hairpin)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unit: PRIMER-STRUCT-001 — primer secondary structure (MolTools).
@@ -1575,7 +1336,6 @@ public class MolToolsMetamorphicTests
         return null;
     }
 
-    #region MON — more self-complementary 3' end → higher self-dimer score
 
     [Test]
     [Description("MON: extending the 3'-terminal reverse-complement palindrome by one more Watson–Crick mirror pair STRICTLY raises the self-dimer score (2 → 4 → 6 → 8).")]
@@ -1646,9 +1406,7 @@ public class MolToolsMetamorphicTests
             because: "a reverse-EQUAL (not reverse-complement) window is not fully self-complementary (primer3-py 2.3.1: 4.0)");
     }
 
-    #endregion
 
-    #region INV — a 3' append preserves a detected hairpin (monotone); a complement-absent homopolymer preserves the result exactly
 
     // NOTE on theory: an exact "append → same hairpin" relation is FALSE for an arbitrary
     // append, because a 3' extension can fabricate a NEW stem — including a junction window
@@ -1723,7 +1481,6 @@ public class MolToolsMetamorphicTests
         sawFalse.Should().BeTrue(because: "the non-stem body forms none, exercising exact false→false invariance");
     }
 
-    #endregion
 
     /// <summary>
     /// Primers for the secondary-structure relations: deliberate palindromic / non-
@@ -1743,80 +1500,6 @@ public class MolToolsMetamorphicTests
         yield return RandomDna(30);
     }
 
-    #endregion
-
-    #region PROBE-DESIGN-001 — hybridization probe design
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Unit: PROBE-DESIGN-001 — hybridization probe design (MolTools).
-    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 24.
-    //
-    // API under test (ProbeDesigner.cs):
-    //   DesignProbes(target, ProbeParameters?, maxProbes)
-    //     1. reject if target shorter than MinLength; uppercase target.
-    //     2. enumerate EVERY (start, len) window with MinLength ≤ len ≤ MaxLength.
-    //     3. EvaluateProbeWithGc: raw score starts at 1.0 and SOFT penalties subtract
-    //        (doc §2.2): GC out of [MinGc,MaxGc] −0.3, Tm out of [MinTm,MaxTm] −0.3,
-    //        homopolymer>Max −0.2, selfComp>Max −0.2, structure −0.15, repeats −0.1,
-    //        5'/3' G·C −0.02 each. A window is a CANDIDATE iff raw score > 0
-    //        (EvaluateProbeWithGc returns null at score ≤ 0) — except GC beyond the
-    //        early-reject band [MinGc−0.1, MaxGc+0.1] is dropped BEFORE scoring.
-    //     4. return the top-`maxProbes` candidates by descending score.
-    //   DesignProbes(target, ISuffixTree genomeIndex, params, maxProbes, requireUnique)
-    //     walks the SAME ranked candidate stream (every candidate, lazily — B07 F59) and
-    //     (requireUnique) SKIPS any probe with CheckSpecificity < 1.0, i.e. any probe
-    //     occurring more than once in the genome index (INV-03: spec = 0 / 1 / 1·hits⁻¹);
-    //     with requireUnique = false it instead scales Score by that specificity and
-    //     re-ranks on the scaled score (the candidate SET is unchanged either way).
-    //
-    // A probe's run-order-independent identity is (Start, Sequence); its full record
-    // (Tm, GcContent, Score, Warnings) is a PURE function of that one window's substring
-    // — independent of every OTHER candidate and of the rest of the target.
-    //
-    // Relation DIRECTIONS are derived from this filter/scoring structure (definition),
-    // NOT from observed output. To isolate each metamorphic relation we lift the
-    // top-K cap by designing with a very large `maxProbes` (AllProbes) so the returned
-    // set is exactly {candidates : raw score > 0} (no truncation churn), then vary ONE
-    // thing and hold the rest fixed.
-    //
-    //   • MON (wider Tm → ≥ probes): Tm is one independent SOFT penalty. Widening
-    //     [MinTm,MaxTm] removes the −0.3 Tm penalty from every window whose Tm enters
-    //     the wider band and changes NOTHING else, so each window's raw score is
-    //     NON-DECREASING ⇒ {raw score > 0} grows ⇒ probe count is non-decreasing and the
-    //     valid set is a SUPERSET. The exact, non-vacuous mechanism is asserted directly:
-    //     for a probe shared by the narrow- and wide-Tm designs, every field but Score is
-    //     identical and Score rises by EXACTLY the documented 0.3 iff the probe's Tm lay
-    //     outside the narrow window (the OligoArray-condition nearest-neighbour Tm — 1 M Na⁺,
-    //     1 µM — of balanced 50–60mers spans ~83–96 °C, partly above the 82–90 °C Microarray
-    //     window, so the toggle is real).
-    //
-    //   • SUB (stricter uniqueness → ⊆ results): `requireUnique=true` applies an EXTRA
-    //     conjunct (skip specificity < 1) over the SAME candidate stream that
-    //     `requireUnique=false` yields (which only rescales and re-ranks it). With the cap lifted it therefore yields a SUBSET:
-    //     ids(requireUnique) ⊆ ids(¬requireUnique), count non-increasing. A genome that
-    //     fully duplicates the target makes EVERY probe non-unique, so the strict filter
-    //     empties the result (the SUB endpoint), while the lenient design stays non-empty.
-    //
-    //   • INV (unrelated region append → same probes): a probe's whole record depends
-    //     only on its own window. Appending a region downstream leaves every window that
-    //     lies entirely in the original target BYTE-IDENTICAL, so each original probe is
-    //     preserved EXACTLY (same Start/Sequence/Tm/GcContent/Score/Warnings) and the
-    //     extended valid set is a SUPERSET. For EXACT set equality we append after a
-    //     poly-G tail of length ≥ MaxLength using a poly-G extension: then every window
-    //     that reaches the appended bases starts inside the tail (|tail| ≥ MaxLength), so
-    //     it is all-G ⇒ GC = 1.0 > MaxGc+0.1 ⇒ early-rejected ⇒ the append creates NO new
-    //     candidate and design(T) == design(T+X) exactly.
-    //
-    // Source (semantics pinned from spec, NOT from observed output):
-    //   docs/algorithms/MolTools/Hybridization_Probe_Design.md §2.2 (penalty table),
-    //   §2.4 (INV-01 raw-score-positive shortlist, INV-03 specificity 0/1/1·hits⁻¹),
-    //   §3.1/§3.3 (requireUnique filters specificity < 1.0; top-maxProbes after ranking),
-    //   §4.2 (Microarray default: length 50–60, Tm 82–90 °C at 1 M Na⁺ / 1 µM, GC 0.40–0.60).
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>Microarray default probe parameters (length 50–60, Tm 82–90 at 1 M Na⁺ / 1 µM, GC 0.40–0.60).</summary>
-    private static ProbeDesigner.ProbeParameters Microarray => ProbeDesigner.Defaults.Microarray;
-
     /// <summary>Documented Tm-window penalty (doc §2.2): a probe whose Tm is out of [MinTm,MaxTm] loses 0.3.</summary>
     private const double ProbeTmPenalty = 0.3;
 
@@ -1829,13 +1512,6 @@ public class MolToolsMetamorphicTests
 
     /// <summary>Run-order-independent identity of a designed probe.</summary>
     private static (int Start, string Sequence) ProbeId(ProbeDesigner.Probe p) => (p.Start, p.Sequence);
-
-    /// <summary>All probes a parameter set admits over the target (cap lifted ⇒ the full score-positive set).</summary>
-    private static List<ProbeDesigner.Probe> DesignAll(string target, ProbeDesigner.ProbeParameters param)
-        => ProbeDesigner.DesignProbes(target, param, AllProbes).ToList();
-
-    private static Dictionary<(int, string), ProbeDesigner.Probe> DesignById(string target, ProbeDesigner.ProbeParameters param)
-        => DesignAll(target, param).ToDictionary(ProbeId);
 
     /// <summary>
     /// Targets ≥ MinLength with ~50% GC and varied composition, so several Microarray
@@ -1851,220 +1527,14 @@ public class MolToolsMetamorphicTests
         yield return RandomDna(120);
     }
 
-    #region MON — widening the Tm window never removes probes; the Tm penalty toggles by exactly 0.3
 
-    [Test]
-    [Description("MON: along a chain that widens [MinTm,MaxTm] (all else fixed) the valid-probe set grows monotonically — each narrower set is a subset of the wider one, count non-decreasing.")]
-    public void DesignProbes_WideningTmWindow_YieldsSuperset_CountNonDecreasing()
-    {
-        // Increasingly wide Tm windows, each ⊇ the prior (Microarray default 82–90 outward).
-        (double Min, double Max)[] tmChain =
-        {
-            (82, 90),   // Microarray default
-            (75, 95),
-            (50, 100),
-            (0, 200),   // Tm filter effectively disabled
-        };
 
-        foreach (var target in ProbeTargets())
-        {
-            HashSet<(int, string)>? previousSet = null;
-            int previousCount = -1;
-
-            foreach (var (min, max) in tmChain)
-            {
-                var ids = DesignAll(target, Microarray with { MinTm = min, MaxTm = max })
-                    .Select(ProbeId).ToHashSet();
-
-                if (previousSet is not null)
-                {
-                    ids.IsSupersetOf(previousSet).Should().BeTrue(
-                        because: $"widening the Tm window to [{min},{max}] only removes the −{ProbeTmPenalty} Tm penalty " +
-                                 "(all other penalties fixed), so every window that already scored > 0 still does — the valid set is a superset");
-                    ids.Count.Should().BeGreaterThanOrEqualTo(previousCount,
-                        because: $"a wider Tm window [{min},{max}] can only raise raw scores, never lower one past 0 — probe count is non-decreasing");
-                }
-
-                previousSet = ids;
-                previousCount = ids.Count;
-            }
-        }
-    }
-
-    [Test]
-    [Description("MON mechanism: a probe shared by the narrow- and wide-Tm designs keeps every field but Score; its Score rises by EXACTLY the documented 0.3 iff its Tm was outside the narrow window.")]
-    public void DesignProbes_WideningTmWindow_RaisesSharedProbeScoreByExactlyTheTmPenalty()
-    {
-        bool sawTmToggle = false;
-
-        foreach (var target in ProbeTargets())
-        {
-            // narrow = Microarray default (82–90 °C); wide = Tm filter disabled.
-            var narrow = DesignById(target, Microarray with { MinTm = 82, MaxTm = 90 });
-            var wide = DesignById(target, Microarray with { MinTm = 0, MaxTm = 200 });
-
-            foreach (var (id, probe) in narrow)
-            {
-                // A probe valid under the narrow Tm window stays valid when the window widens
-                // (its raw score only rises), so the wide design must contain its twin.
-                wide.Should().ContainKey(id,
-                    because: "removing the Tm penalty cannot drop a probe that already scored > 0 under the narrow window");
-                var twin = wide[id];
-
-                twin.Sequence.Should().Be(probe.Sequence);
-                twin.Tm.Should().Be(probe.Tm, because: "Tm is a pure function of the probe window, independent of the Tm parameter range");
-                twin.GcContent.Should().Be(probe.GcContent, because: "GC content depends only on the window, not on the Tm range");
-
-                // The ONLY score difference is the Tm penalty: present in narrow iff the probe's
-                // Tm is outside [82,90]; never present in the wide (0–200) window.
-                bool tmOutsideNarrow = probe.Tm < 82 || probe.Tm > 90;
-                double expectedDelta = tmOutsideNarrow ? ProbeTmPenalty : 0.0;
-                if (tmOutsideNarrow) sawTmToggle = true;
-
-                twin.Score.Should().BeApproximately(probe.Score + expectedDelta, 1e-9,
-                    because: tmOutsideNarrow
-                        ? "the probe's Tm is outside the narrow window, so widening it removes exactly the documented 0.3 Tm penalty"
-                        : "the probe's Tm is already inside the narrow window, so widening the window leaves its score unchanged");
-            }
-        }
-
-        sawTmToggle.Should().BeTrue(
-            because: "the 1 M / 1 µM nearest-neighbour Tm of balanced 50–60mers reaches above 90 °C, so at least one probe's Tm toggles — the relation is exercised, not vacuous");
-    }
-
-    #endregion
-
-    #region SUB — requiring genome uniqueness yields a subset of the lenient design
-
-    [Test]
-    [Description("SUB: requireUnique=true applies an extra 'specificity = 1' filter over the same candidate stream, so its probe set is a subset of the requireUnique=false design (count non-increasing).")]
-    public void DesignProbes_RequireUnique_YieldsSubsetOfLenientDesign()
-    {
-        foreach (var target in ProbeTargets())
-        {
-            string upper = target.ToUpperInvariant();
-            // Genome where the FIRST part of the target is duplicated: probes drawn from that
-            // region occur twice (non-unique), the rest occur once (unique). 'N' separators
-            // carry no probe base, so they break any cross-junction match.
-            int dupLen = Math.Min(upper.Length, Microarray.MinLength + 15);
-            var genome = global::SuffixTree.SuffixTree.Build(upper + "NNNNNNNN" + upper[..dupLen]);
-
-            var unique = ProbeDesigner.DesignProbes(target, genome, Microarray, AllProbes, requireUnique: true)
-                .Select(ProbeId).ToHashSet();
-            var lenient = ProbeDesigner.DesignProbes(target, genome, Microarray, AllProbes, requireUnique: false)
-                .Select(ProbeId).ToHashSet();
-
-            lenient.IsSupersetOf(unique).Should().BeTrue(
-                because: "requiring genome uniqueness only SKIPS candidates with specificity < 1 from the same candidate stream, " +
-                         "so the unique-only probe set is a subset of the lenient one");
-            unique.Count.Should().BeLessThanOrEqualTo(lenient.Count,
-                because: "a stricter uniqueness requirement removes-or-keeps each candidate, never adds one — count is non-increasing");
-        }
-    }
-
-    [Test]
-    [Description("SUB endpoint: against a genome that fully duplicates the target every probe is non-unique, so requireUnique empties the result while the lenient design stays non-empty.")]
-    public void DesignProbes_FullyDuplicatedGenome_RequireUnique_EmptiesWhileLenientKeepsProbes()
-    {
-        foreach (var target in ProbeTargets())
-        {
-            string upper = target.ToUpperInvariant();
-            // Two full copies of the target ⇒ every probe (a substring of the target) occurs ≥ 2×.
-            var genome = global::SuffixTree.SuffixTree.Build(upper + "NNNNNNNN" + upper);
-
-            int uniqueCount = ProbeDesigner.DesignProbes(target, genome, Microarray, AllProbes, requireUnique: true).Count();
-            int lenientCount = ProbeDesigner.DesignProbes(target, genome, Microarray, AllProbes, requireUnique: false).Count();
-
-            lenientCount.Should().BeGreaterThan(0,
-                because: "the target yields probes, and the lenient design keeps non-unique candidates");
-            uniqueCount.Should().Be(0,
-                because: "every probe occurs in both target copies (specificity = 0.5 < 1), so the strict uniqueness filter removes them all");
-        }
-    }
-
-    #endregion
-
-    #region INV — appending an unrelated region preserves the originally designed probes
-
-    [Test]
-    [Description("INV: appending any unrelated downstream region preserves every original probe EXACTLY (same Start/Sequence/Tm/GC/Score/Warnings); the extended valid set is a superset.")]
-    public void DesignProbes_AppendUnrelatedRegion_PreservesOriginalProbesExactly()
-    {
-        // Microarray preset (1 M Na⁺ / 1 µM, Tm 82–90, G+C 0.40–0.60, ntthal screen) with the length window narrowed
-        // to 50–51 nt (B07 heavy tier, HEAVY-2): with the cap lifted every window gets the three ntthal recursions
-        // (≈ 30 ms per 50–60-mer in Debug), so the full 50–60 window over the 25 designs below took 9–11 min (B06
-        // "hang"). The relation — a window's record depends only on the window — is independent of the length range;
-        // two lengths keep the multi-length enumeration / tie order in play. Same targets, same appends, same checks.
-        var param = Microarray with { MaxLength = Microarray.MinLength + 1 };
-        foreach (var target in ProbeTargets())
-        {
-            var baseProbes = DesignAll(target, param);
-            baseProbes.Should().NotBeEmpty(because: "each target is constructed to yield Microarray probes");
-
-            foreach (var ext in new[] { RandomDna(30), RandomDna(60), "GGGGCCCCAAAATTTT", NonPamRegion(40) })
-            {
-                var extById = DesignById(target + ext, param);
-
-                foreach (var bp in baseProbes)
-                {
-                    extById.Should().ContainKey(ProbeId(bp),
-                        because: "windows lying entirely in the original target are byte-identical after a downstream append, " +
-                                 "so every original probe still appears");
-                    var twin = extById[ProbeId(bp)];
-
-                    twin.Sequence.Should().Be(bp.Sequence);
-                    twin.Tm.Should().Be(bp.Tm, because: "Tm depends only on the probe window, which the downstream append does not touch");
-                    twin.GcContent.Should().Be(bp.GcContent);
-                    twin.Score.Should().Be(bp.Score, because: "the heuristic score reads only the probe's own window, so a distant append cannot move it");
-                    twin.Warnings.Should().Equal(bp.Warnings, because: "warnings are recorded from the probe window alone");
-                }
-            }
-        }
-    }
-
-    [Test]
-    [Description("INV exact: with a poly-G tail ≥ MaxLength, a poly-G append creates no new candidate (every append-touching window is all-G ⇒ GC-rejected), so the designed probe set is exactly unchanged.")]
-    public void DesignProbes_PolyGTailThenPolyGAppend_DesignSetExactlyUnchanged()
-    {
-        // good region (~50% GC, yields probes) + poly-G tail of length ≥ MaxLength.
-        const string goodRegion = "ACGTGACTGACTGGATCAGTCAGTACGATCGATGCATGCATCGTAGCATGCATGCATGCAACGTGACTGACTGGATCAGT";
-        string tail = new string('G', Microarray.MaxLength + 4); // ≥ MaxLength ⇒ append windows start inside the tail
-        string baseSeq = goodRegion + tail;
-
-        var baseById = DesignById(baseSeq, Microarray);
-        baseById.Should().NotBeEmpty(because: "the balanced good region yields Microarray probes; the poly-G tail itself is GC-rejected");
-
-        foreach (int appendLen in new[] { 1, 10, 30 })
-        {
-            string extended = baseSeq + new string('G', appendLen);
-            var extById = DesignById(extended, Microarray);
-
-            extById.Keys.Should().BeEquivalentTo(baseById.Keys,
-                because: $"a poly-G×{appendLen} append after a poly-G tail of length ≥ MaxLength adds only all-G windows " +
-                         "(GC = 100% > MaxGc+0.1), which are early-rejected — so no probe is added or removed");
-
-            foreach (var (id, bp) in baseById)
-            {
-                var twin = extById[id];
-                twin.Sequence.Should().Be(bp.Sequence);
-                twin.Tm.Should().Be(bp.Tm);
-                twin.GcContent.Should().Be(bp.GcContent);
-                twin.Score.Should().Be(bp.Score, because: "the surviving probes are byte-identical windows, so every metric is preserved exactly");
-            }
-        }
-    }
-
-    #endregion
-
-    #endregion
-
-    #region PROBE-VALID-001 — probe validation
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unit: PROBE-VALID-001 — hybridization probe validation (MolTools).
     // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 25.
     //
-    // API under test (ProbeDesigner.ValidateProbe):
+    // API under test (ThermodynamicProbeDesigner.ValidateProbe):
     //   ValidateProbe(probe, references, maxMismatches = 3, selfComplementarityThreshold = 0.3)
     //     → ProbeValidation(IsValid, SpecificityScore, OffTargetHits, SelfComplementarity,
     //                       HasSecondaryStructure, Issues).
@@ -2108,10 +1578,6 @@ public class MolToolsMetamorphicTests
     /// <summary>Default self-complementarity issue threshold used by ValidateProbe.</summary>
     private const double SelfCompThreshold = 0.3;
 
-    private static ProbeDesigner.ProbeValidation Validate(
-        string probe, IEnumerable<string> references, int maxMismatches, double selfThr = SelfCompThreshold)
-        => ProbeDesigner.ValidateProbe(probe, references, maxMismatches, selfThr);
-
     /// <summary>
     /// 20-nt probes that are NOT self-complementary and form no hairpin, so the validity
     /// rule reduces to (offTargetHits ≤ 1) — letting the maxMismatches relation be tested
@@ -2148,172 +1614,8 @@ public class MolToolsMetamorphicTests
         a.Issues.Should().Equal(b.Issues, because: why);
     }
 
-    #region MON — lowering the mismatch (specificity) threshold never removes a passing probe
 
-    [Test]
-    [Description("MON: along an increasing maxMismatches chain the off-target hit count is non-decreasing and IsValid is non-increasing — lowering the threshold can only ADD passing probes, never remove one.")]
-    public void ValidateProbe_RaisingMismatchTolerance_HitsNonDecreasing_ValidityNonIncreasing()
-    {
-        int[] toleranceChain = { 0, 1, 2, 3, 4, 5, 6 };
 
-        foreach (var probe in CleanProbes())
-        {
-            var references = MismatchLadder(probe);
-
-            // Precondition: the probe is "clean" (R = true), so IsValid ⇔ offTargetHits ≤ 1.
-            var clean = Validate(probe, references, maxMismatches: 0);
-            clean.SelfComplementarity.Should().BeLessThanOrEqualTo(SelfCompThreshold,
-                because: "the construction requires a non-self-complementary probe so validity tracks only the off-target count");
-            clean.HasSecondaryStructure.Should().BeFalse(
-                because: "the construction requires a probe with no hairpin so validity tracks only the off-target count");
-
-            int previousHits = -1;
-            bool? previousValid = null;
-            bool sawValid = false, sawInvalid = false;
-
-            foreach (int k in toleranceChain)
-            {
-                var result = Validate(probe, references, maxMismatches: k);
-
-                result.OffTargetHits.Should().BeGreaterThanOrEqualTo(previousHits,
-                    because: $"raising the tolerance to {k} can only ADD approximate matches (matches(k) ⊆ matches(k+1)), so the hit count is non-decreasing");
-
-                // IsValid ⇔ offTargetHits ≤ 1 for a clean probe — the algebra, checked exactly.
-                result.IsValid.Should().Be(result.OffTargetHits <= 1,
-                    because: "for a clean probe (R = true) the validity rule reduces to offTargetHits ≤ 1");
-
-                if (previousValid is not null)
-                    (result.IsValid && !previousValid.Value).Should().BeFalse(
-                        because: $"a higher mismatch tolerance ({k}) never turns an invalid probe valid — validity is non-increasing in the threshold");
-
-                sawValid |= result.IsValid;
-                sawInvalid |= !result.IsValid;
-                previousHits = result.OffTargetHits;
-                previousValid = result.IsValid;
-            }
-
-            sawValid.Should().BeTrue(because: "at low tolerance only the exact on-target is found (1 hit) ⇒ the probe passes");
-            sawInvalid.Should().BeTrue(because: "at high tolerance the near-duplicates are also found (>1 hit) ⇒ the probe fails — the relation is exercised, not vacuous");
-        }
-    }
-
-    [Test]
-    [Description("MON (set): the set of probes that PASS validation is downward-closed in maxMismatches — lowering the threshold yields a superset of passing probes (count non-decreasing).")]
-    public void ValidateProbe_LoweringThreshold_PassingSetIsSuperset()
-    {
-        // Each probe carries its own mismatch ladder; pass/fail is decided per probe.
-        var cases = CleanProbes().Select(p => (Probe: p, Refs: MismatchLadder(p))).ToList();
-        int[] descendingThresholds = { 6, 4, 3, 2, 1, 0 };
-
-        HashSet<string>? higherSet = null;
-        foreach (int k in descendingThresholds)
-        {
-            var passing = cases.Where(c => Validate(c.Probe, c.Refs, k).IsValid).Select(c => c.Probe).ToHashSet();
-
-            if (higherSet is not null)
-                passing.IsSupersetOf(higherSet).Should().BeTrue(
-                    because: $"lowering the threshold to {k} keeps every probe that already passed and may add more — the passing set is a superset");
-
-            higherSet = passing;
-        }
-    }
-
-    [Test]
-    [Description("MON dual: the specificity score is non-increasing as the off-target hit count grows (1 hit → 1.0, N hits → 1/N).")]
-    public void ValidateProbe_MoreOffTargetHits_SpecificityScoreNonIncreasing()
-    {
-        foreach (var probe in CleanProbes())
-        {
-            var references = MismatchLadder(probe);
-            double previousScore = double.PositiveInfinity;
-
-            foreach (int k in new[] { 0, 1, 2, 3, 4, 5, 6 })
-            {
-                var result = Validate(probe, references, k);
-
-                result.SpecificityScore.Should().BeLessThanOrEqualTo(previousScore,
-                    because: $"as the tolerance rises to {k} the hit count grows and specificity (1/hits for hits>1) is non-increasing");
-                if (result.OffTargetHits >= 1)
-                    result.SpecificityScore.Should().BeApproximately(1.0 / result.OffTargetHits, 1e-12,
-                        because: "the spec maps hits>0 to 1/hits (and 1 hit to 1.0), independent of which references produced them");
-
-                previousScore = result.SpecificityScore;
-            }
-        }
-    }
-
-    #endregion
-
-    #region INV — same input → same result (deterministic, reference-order- and case-independent)
-
-    [Test]
-    [Description("INV: ValidateProbe is deterministic — repeated calls on identical input return an identical validation record.")]
-    public void ValidateProbe_SameInput_IsDeterministic()
-    {
-        foreach (var probe in CleanProbes())
-        {
-            var references = MismatchLadder(probe);
-            foreach (int k in new[] { 0, 2, 4 })
-            {
-                var first = Validate(probe, references, k);
-                for (int i = 0; i < 4; i++)
-                    AssertSameValidation(Validate(probe, references, k), first,
-                        "ValidateProbe is a pure function of (probe, references, params), so repeated calls must agree exactly");
-            }
-        }
-    }
-
-    [Test]
-    [Description("INV: permuting the reference order leaves the validation record unchanged — offTargetHits is a sum over references, which is order-independent.")]
-    public void ValidateProbe_ReferenceOrderPermutation_ResultUnchanged()
-    {
-        foreach (var probe in CleanProbes())
-        {
-            var references = MismatchLadder(probe);
-            var reversed = Enumerable.Reverse(references).ToList();
-            var rotated = references.Skip(1).Concat(references.Take(1)).ToList();
-
-            foreach (int k in new[] { 0, 2, 4, 6 })
-            {
-                var baseline = Validate(probe, references, k);
-                AssertSameValidation(Validate(probe, reversed, k), baseline,
-                    "the total hit count sums over references regardless of order, and every other field reads the probe alone");
-                AssertSameValidation(Validate(probe, rotated, k), baseline,
-                    "rotating the reference list cannot change the summed hit count or the probe-only metrics");
-            }
-        }
-    }
-
-    [Test]
-    [Description("INV: ValidateProbe is case-insensitive — lower/mixed casing the probe and references gives the same record, since both sides are uppercased before analysis.")]
-    public void ValidateProbe_CaseFolding_ResultUnchanged()
-    {
-        foreach (var probe in CleanProbes())
-        {
-            var references = MismatchLadder(probe);
-            foreach (int k in new[] { 0, 2, 4 })
-            {
-                var baseline = Validate(probe, references, k);
-
-                AssertSameValidation(
-                    Validate(probe.ToLowerInvariant(), references.Select(r => r.ToLowerInvariant()).ToList(), k),
-                    baseline,
-                    "the probe and each reference are uppercased before matching, so casing carries no information");
-
-                var mixedRefs = references
-                    .Select(r => new string(r.Select((ch, i) => i % 2 == 0 ? char.ToLowerInvariant(ch) : ch).ToArray()))
-                    .ToList();
-                AssertSameValidation(Validate(probe, mixedRefs, k), baseline,
-                    "case folding is total, so any case pattern of the same letters yields the same validation");
-            }
-        }
-    }
-
-    #endregion
-
-    #endregion
-
-    #region RESTR-FIND-001 — restriction enzyme site finding
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unit: RESTR-FIND-001 — restriction enzyme site finding (MolTools).
@@ -2399,7 +1701,6 @@ public class MolToolsMetamorphicTests
     private const string RestrMultiBody =
         "ACTGAC" + "GAATTC" + "ACTGAC" + "GGATCC" + "ACTGAC" + "AAGCTT" + "ACTGAC" + "CTCGAG" + "ACTGAC";
 
-    #region MON — enlarging the enzyme set never removes sites (count non-decreasing, superset)
 
     [Test]
     [Description("MON: along a growing chain of enzyme sets the site set grows monotonically — each smaller set's sites are a subset of the larger set's, total count non-decreasing.")]
@@ -2452,9 +1753,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region SHIFT — prepending a neutral flank advances every site by exactly the flank length
 
     [Test]
     [Description("SHIFT: prepending a neutral homopolymer flank F advances every site's Position and CutPosition by exactly |F| (both strands), preserving enzyme, strand and recognized sequence.")]
@@ -2487,9 +1786,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region INV — appending a neutral (non-site) region leaves the site set exactly unchanged
 
     [Test]
     [Description("INV: appending a neutral homopolymer region (no new site on either strand) leaves the restriction-site set EXACTLY unchanged — forward coordinates are anchored at the 5' end.")]
@@ -2519,11 +1816,8 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #endregion
 
-    #region RESTR-DIGEST-001 — restriction digest simulation
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unit: RESTR-DIGEST-001 — restriction digest simulation (MolTools).
@@ -2573,7 +1867,6 @@ public class MolToolsMetamorphicTests
         new[] { "EcoRI", "BamHI", "HindIII", "XhoI" },
     };
 
-    #region COMP — a sequence with no recognition site digests to a single full-length fragment
 
     [Test]
     [Description("COMP: digesting a sequence that contains no recognition site yields exactly ONE fragment equal to the whole input sequence.")]
@@ -2595,9 +1888,7 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
-    #region MON — adding enzymes never reduces the fragment count
 
     [Test]
     [Description("MON: along a growing enzyme chain the fragment count is non-decreasing — each added cutter only splits fragments, never merges them.")]
@@ -2627,9 +1918,7 @@ public class MolToolsMetamorphicTests
             because: "the body carries a distinct site per enzyme, so the four-enzyme digest yields strictly more fragments than the single-enzyme one — the relation is exercised");
     }
 
-    #endregion
 
-    #region INV — fragments partition the sequence: lengths sum to |seq| and concatenate back
 
     [Test]
     [Description("INV: for any enzyme set the fragment lengths sum to exactly the sequence length, and the fragments concatenate back to the original sequence — a digest is a partition.")]
@@ -2676,7 +1965,6 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
     // ───────────────────────────────────────────────────────────────────────────
     // Unit: RESTR-FILTER-001 — restriction-enzyme catalogue filtering (MolTools).
@@ -2693,16 +1981,13 @@ public class MolToolsMetamorphicTests
     //         the wider window's enzymes.
     // ───────────────────────────────────────────────────────────────────────────
 
-    #region RESTR-FILTER-001 — Helpers
 
     private static HashSet<string> Names(IEnumerable<RestrictionEnzyme> enzymes) =>
         enzymes.Select(e => e.Name).ToHashSet();
 
     private static readonly HashSet<string> AllEnzymeNames = RestrictionAnalyzer.Enzymes.Values.Select(e => e.Name).ToHashSet();
 
-    #endregion
 
-    #region RESTR-FILTER-001 SUB — every filtered set is a subset of the catalogue
 
     [Test]
     [Description("SUB: each catalogue filter returns a subset of all enzymes; blunt and sticky partition the catalogue.")]
@@ -2720,9 +2005,7 @@ public class MolToolsMetamorphicTests
         blunt.Union(sticky).Should().BeEquivalentTo(AllEnzymeNames, because: "blunt and sticky exhaust the catalogue");
     }
 
-    #endregion
 
-    #region RESTR-FILTER-001 MON — narrowing the length window yields a subset
 
     [Test]
     [Description("MON: narrowing the inclusive recognition-length window selects a subset of the wider window's enzymes.")]
@@ -2743,7 +2026,6 @@ public class MolToolsMetamorphicTests
         narrow.Should().Contain("EcoRI", because: "EcoRI has a 6-bp recognition site");
     }
 
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  PRIMER-NNTM-001 — SantaLucia nearest-neighbour, salt-corrected Tm (MolTools)
@@ -2767,7 +2049,6 @@ public class MolToolsMetamorphicTests
     //
     // API under test: PrimerDesigner.CalculateMeltingTemperatureNN.
 
-    #region PRIMER-NNTM-001 — nearest-neighbour salt-corrected Tm
 
     // Deterministic, non-self-complementary primers spanning a range of GC content and length.
     // (Literal fixtures — NOT drawn from the shared Rng, which would perturb every other fixture.)
@@ -2825,7 +2106,6 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  PRIMER-HAIRPIN-001 — most-stable DNA hairpin ΔG (MolTools)
@@ -2847,7 +2127,6 @@ public class MolToolsMetamorphicTests
     //
     // API under test: PrimerDesigner.FindMostStableHairpin (HairpinResult?).
 
-    #region PRIMER-HAIRPIN-001 — most-stable hairpin ΔG
 
     [Test]
     [Description("MON: each added stem base pair contributes one more stabilising NN stack while the loop term is fixed, so lengthening a complementary stem strictly lowers (makes more negative) the hairpin ΔG°37.")]
@@ -2898,7 +2177,6 @@ public class MolToolsMetamorphicTests
             because: "a 4-bp GC stem closing a 4-nt loop is a real hairpin — the relation is non-vacuous");
     }
 
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  PRIMER-DIMER-001 — most-stable primer dimer ΔG (MolTools)
@@ -2920,7 +2198,6 @@ public class MolToolsMetamorphicTests
     // API under test: PrimerDesigner.FindMostStableDimer / .CalculateSelfDimerMeltingTemperature /
     //   .CalculateDimerMeltingTemperature (DimerResult).
 
-    #region PRIMER-DIMER-001 — most-stable dimer ΔG
 
     // Deterministic, partially self-complementary oligos that form a real self-dimer.
     private static readonly string[] SelfDimerOligos =
@@ -2930,29 +2207,6 @@ public class MolToolsMetamorphicTests
         "ACGTACGTACGT",
         "GGGGCCCC",
     };
-
-    [Test]
-    [Description("INV: a self-dimer is the hetero-dimer of S with a copy of itself, and the dimer is symmetric in strand order — dimer(A,B) equals dimer(B,A).")]
-    public void Dimer_SelfDimer_EqualsHeteroDimerOfSWithItself()
-    {
-        foreach (string s in SelfDimerOligos)
-        {
-            string copy = new string(s.ToCharArray()); // distinct reference, same content
-
-            double selfTm = PrimerDesigner.CalculateSelfDimerMeltingTemperature(s);
-            double heteroTm = PrimerDesigner.CalculateDimerMeltingTemperature(s, copy);
-
-            // Non-vacuity: S genuinely forms a self-dimer (a real duplex, not NaN).
-            selfTm.Should().NotBe(double.NaN, because: $"'{s}' is partially self-complementary and forms a self-dimer");
-            heteroTm.Should().BeApproximately(selfTm, 1e-9,
-                because: $"the self-dimer of '{s}' is exactly the hetero-dimer of '{s}' with a copy of itself");
-
-            var self = PrimerDesigner.FindMostStableDimer(s, s);
-            var hetero = PrimerDesigner.FindMostStableDimer(s, copy);
-            self.Should().NotBeNull();
-            hetero.Should().Be(self, because: $"FindMostStableDimer('{s}','{s}') equals the hetero-dimer with a copy");
-        }
-    }
 
     [Test]
     [Description("INV/SYM: the dimer of two strands is the same physical duplex regardless of which strand is named first, so its base-pair count and ΔG°37 are symmetric in strand order.")]
@@ -2997,7 +2251,6 @@ public class MolToolsMetamorphicTests
         }
     }
 
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  PROBE-LNATM-001 — LNA-adjusted nearest-neighbour Tm (MolTools)
@@ -3017,7 +2270,6 @@ public class MolToolsMetamorphicTests
     //
     // API under test: PrimerDesigner.CalculateMeltingTemperatureNNLna vs .CalculateMeltingTemperatureNN.
 
-    #region PROBE-LNATM-001 — LNA-adjusted NN Tm
 
     [Test]
     [Description("INV-01: with no LNA positions the LNA-adjusted Tm degenerates to the unified DNA NN Tm (Biopython DNA_NN3, the MELTING LNA base table, same R) — the LNA model is a pure extension.")]
@@ -3075,7 +2327,6 @@ public class MolToolsMetamorphicTests
             because: "four internal LNA substitutions raise the Tm well above the all-DNA baseline");
     }
 
-    #endregion
 
     // ═══════════════════════════════════════════════════════════════════
     //  PROBE-EVALUE-001 — Karlin–Altschul off-target E-value statistics (MolTools)
@@ -3096,7 +2347,6 @@ public class MolToolsMetamorphicTests
     //
     // API under test: ProbeDesigner.ComputeLambdaNucleotide / .ComputeKarlinAltschul.
 
-    #region PROBE-EVALUE-001 — Karlin–Altschul E-value statistics
 
     [Test]
     [Description("MON: E = K·m·n·e^{−λS} is exactly linear in the database length n, so for a fixed raw score a larger reference strictly (and proportionally) raises the E-value.")]
@@ -3156,7 +2406,5 @@ public class MolToolsMetamorphicTests
             because: "the BLAST +1/−3 scheme has the published λ ≈ 1.374");
     }
 
-    #endregion
 
-    #endregion
 }

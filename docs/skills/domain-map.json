@@ -6,6 +6,6 @@
   "bio-annotation": ["annotation", "analysis", "embossmotifs", "embossopenreadingframes", "embossrepeats", "overrepresentedwords"],
   "bio-phylo-popgen": ["phylogenetics", "population"],
   "bio-metagenomics": ["metagenomics"],
-  "bio-moldesign": ["moltools"],
+  "bio-moldesign": ["moltools", "oligothermodynamics"],
   "bio-chromosome": ["chromosome"]
 }

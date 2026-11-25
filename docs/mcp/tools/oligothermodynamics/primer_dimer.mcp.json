@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "primer_dimer",
+  "serverName": "OligoThermodynamics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.HasPrimerDimer",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L366",
+  "description": "Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END with PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0): the 3'-anchored dpal alignment score of each primer against the other's reverse complement (+1 per complementary pair, -1 mismatch, -2 per single-base gap; max of both orientations). Flags a dimer when the score is at least min_complementarity (default 4 = Primer3's default PRIMER_PAIR_MAX_COMPL_END 3.00 exceeded). Returns the flag, the integer score and the exact score, plus complAnyScore = Primer3 alignment-mode PRIMER_PAIR_COMPL_ANY (dpal local alignment of primer1 with the reverse complement of primer2, same scoring; Primer3 default limit PRIMER_PAIR_MAX_COMPL_ANY 8.00). Call to screen a primer pair for 3'-dimer formation; for Primer3's default thermodynamic check use the C# API ThermodynamicPrimerDesigner.CalculatePrimer3PairComplementarity.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "primer1": {
+        "type": "string",
+        "description": "First primer sequence (5'->3').",
+        "minLength": 1
+      },
+      "primer2": {
+        "type": "string",
+        "description": "Second primer sequence (5'->3').",
+        "minLength": 1
+      },
+      "min_complementarity": {
+        "type": "integer",
+        "description": "Minimum 3'-end complementarity score to flag a dimer (default 4).",
+        "default": 4
+      }
+    },
+    "required": [
+      "primer1",
+      "primer2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "hasDimer": {
+        "type": "boolean",
+        "description": "True if a 3'-dimer is flagged."
+      },
+      "complementaryBases": {
+        "type": "integer",
+        "description": "Primer3 compl_end score truncated to an integer (exact for ACGT primers)."
+      },
+      "complEndScore": {
+        "type": "number",
+        "description": "Primer3 PRIMER_PAIR_COMPL_END score."
+      },
+      "complAnyScore": {
+        "type": "number",
+        "description": "Primer3 alignment-mode PRIMER_PAIR_COMPL_ANY score (default limit 8.00)."
+      }
+    },
+    "required": [
+      "hasDimer",
+      "complementaryBases",
+      "complEndScore"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "First primer cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Second primer cannot be null or empty"
+    }
+  ],
+  "examples": [
+    {
+      "name": "3'-complementary pair",
+      "input": {
+        "primer1": "AACCGGTTAACCATCGATCG",
+        "primer2": "AACCGGTTAACGATCGAT"
+      },
+      "output": {
+        "hasDimer": true,
+        "complementaryBases": 8,
+        "complEndScore": 8.0,
+        "complAnyScore": 8.0
+      }
+    },
+    {
+      "name": "GGCC ends, threshold 5",
+      "input": {
+        "primer1": "TTCAGTCAGTCAGTGGCC",
+        "primer2": "ACTGACTGACTGAGGCC",
+        "min_complementarity": 5
+      },
+      "output": {
+        "hasDimer": false,
+        "complementaryBases": 4,
+        "complEndScore": 4.0,
+        "complAnyScore": 13.0
+      }
+    },
+    {
+      "name": "Identical poly-A",
+      "input": {
+        "primer1": "AAAAAAAA",
+        "primer2": "AAAAAAAA"
+      },
+      "output": {
+        "hasDimer": false,
+        "complementaryBases": 0,
+        "complEndScore": 0.0,
+        "complAnyScore": 0.0
+      }
+    }
+  ]
+}

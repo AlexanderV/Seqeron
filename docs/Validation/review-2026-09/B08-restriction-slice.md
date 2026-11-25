@@ -1,5 +1,7 @@
 # B08 — restriction slice of the round-4 worklist (H6, H7, H13, H24, H25, H27, H28, H30–H36, H45, H52, H54-restriction)
 
+> **Moved (B09 WP80, F364):** the EMBOSS 6.6.0 ports of this report live in the separately licensed assemblies `src/Seqeron/Algorithms/Seqeron.Genomics.Emboss.{SequenceFormats,FeatureTools,Repeats,PairwiseAlignment,Motifs,OpenReadingFrames}` (GPL-2.0-or-later) with the MCP servers `src/Seqeron/Mcp/Seqeron.Mcp.Emboss*` and the tests `tests/Seqeron/Seqeron.Genomics.Emboss.*.Tests`; paths named below are historic, see [LICENSES.md](LICENSES.md).
+
 Companion to `B08.md`. The round-4 worklist in `B08.md` is implemented by two sessions in parallel:
 the orchestrator takes the CRISPR / Azimuth items, this session takes the restriction-enzyme items.
 Entries here are numbered **F100+**; the orchestrator uses F91–F99. `B08.md` itself is touched only

@@ -1,0 +1,4 @@
+# Tables of the Primer3 ports (dpal score matrices, thermodynamic tables) are read by the separately licensed Seqeron.Genomics.OligoThermodynamics assembly.
+[PrimerDesigner*.cs]
+dotnet_diagnostic.S2386.severity = suggestion
+dotnet_diagnostic.S3887.severity = suggestion

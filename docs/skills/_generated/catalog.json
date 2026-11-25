@@ -3283,13 +3283,6 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L420"
   },
   {
-    "tool": "analyze_oligo",
-    "server": "MolTools",
-    "methodId": "ProbeDesigner.AnalyzeOligo",
-    "docPath": "docs/mcp/tools/moltools/analyze_oligo.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3569"
-  },
-  {
     "tool": "blunt_cutters",
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetBluntCutters",
@@ -3395,53 +3388,11 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L26"
   },
   {
-    "tool": "design_antisense_probes",
-    "server": "MolTools",
-    "methodId": "ProbeDesigner.DesignAntisenseProbes",
-    "docPath": "docs/mcp/tools/moltools/design_antisense_probes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1401"
-  },
-  {
     "tool": "design_guide_rnas",
     "server": "MolTools",
     "methodId": "CrisprDesigner.DesignGuideRnas",
     "docPath": "docs/mcp/tools/moltools/design_guide_rnas.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L231"
-  },
-  {
-    "tool": "design_molecular_beacon",
-    "server": "MolTools",
-    "methodId": "ProbeDesigner.DesignMolecularBeacon",
-    "docPath": "docs/mcp/tools/moltools/design_molecular_beacon.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1964"
-  },
-  {
-    "tool": "design_primers",
-    "server": "MolTools",
-    "methodId": "PrimerDesigner.DesignPrimers",
-    "docPath": "docs/mcp/tools/moltools/design_primers.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L138"
-  },
-  {
-    "tool": "design_probes",
-    "server": "MolTools",
-    "methodId": "ProbeDesigner.DesignProbes",
-    "docPath": "docs/mcp/tools/moltools/design_probes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L856"
-  },
-  {
-    "tool": "design_probes_primer3",
-    "server": "MolTools",
-    "methodId": "ProbeDesigner.DesignProbesPrimer3",
-    "docPath": "docs/mcp/tools/moltools/design_probes_primer3.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1675"
-  },
-  {
-    "tool": "design_tiling_probes",
-    "server": "MolTools",
-    "methodId": "ProbeDesigner.DesignTilingProbes",
-    "docPath": "docs/mcp/tools/moltools/design_tiling_probes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1332"
   },
   {
     "tool": "digest_summary",
@@ -3477,13 +3428,6 @@
     "methodId": "CrisprDesigner.EvaluateGuideRna",
     "docPath": "docs/mcp/tools/moltools/evaluate_guide_rna.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L322"
-  },
-  {
-    "tool": "evaluate_primer",
-    "server": "MolTools",
-    "methodId": "PrimerDesigner.EvaluatePrimer",
-    "docPath": "docs/mcp/tools/moltools/evaluate_primer.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1079"
   },
   {
     "tool": "find_all_restriction_sites",
@@ -3549,13 +3493,6 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.RawSequence.cs#L74"
   },
   {
-    "tool": "generate_primer_candidates",
-    "server": "MolTools",
-    "methodId": "PrimerDesigner.GeneratePrimerCandidates",
-    "docPath": "docs/mcp/tools/moltools/generate_primer_candidates.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L4419"
-  },
-  {
     "tool": "get_enzyme",
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetEnzyme",
@@ -3610,13 +3547,6 @@
     "methodId": "RestrictionAnalyzer.PartialDigest",
     "docPath": "docs/mcp/tools/moltools/partial_digest.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs#L116"
-  },
-  {
-    "tool": "primer_dimer",
-    "server": "MolTools",
-    "methodId": "PrimerDesigner.HasPrimerDimer",
-    "docPath": "docs/mcp/tools/moltools/primer_dimer.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1898"
   },
   {
     "tool": "primer_melting_temperature",
@@ -3687,13 +3617,6 @@
     "methodId": "PrimerDesigner.Calculate3PrimeStability",
     "docPath": "docs/mcp/tools/moltools/three_prime_stability.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L2263"
-  },
-  {
-    "tool": "validate_probe",
-    "server": "MolTools",
-    "methodId": "ProbeDesigner.ValidateProbe",
-    "docPath": "docs/mcp/tools/moltools/validate_probe.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2155"
   },
   {
     "tool": "clustalw_command",
@@ -3869,6 +3792,83 @@
     "methodId": "Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeTblastxLibraryEntries",
     "docPath": "docs/mcp/tools/multiplealignment/tcoffee_tblastx_library.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Blast.cs"
+  },
+  {
+    "tool": "analyze_oligo",
+    "server": "MolTools",
+    "methodId": "ThermodynamicProbeDesigner.AnalyzeOligo",
+    "docPath": "docs/mcp/tools/oligothermodynamics/analyze_oligo.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1388"
+  },
+  {
+    "tool": "design_antisense_probes",
+    "server": "OligoThermodynamics",
+    "methodId": "ThermodynamicProbeDesigner.DesignAntisenseProbes",
+    "docPath": "docs/mcp/tools/oligothermodynamics/design_antisense_probes.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1026"
+  },
+  {
+    "tool": "design_molecular_beacon",
+    "server": "OligoThermodynamics",
+    "methodId": "ThermodynamicProbeDesigner.DesignMolecularBeacon",
+    "docPath": "docs/mcp/tools/oligothermodynamics/design_molecular_beacon.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L183"
+  },
+  {
+    "tool": "design_primers",
+    "server": "OligoThermodynamics",
+    "methodId": "ThermodynamicPrimerDesigner.DesignPrimers",
+    "docPath": "docs/mcp/tools/oligothermodynamics/design_primers.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicPrimerDesigner.Core.cs#L2113"
+  },
+  {
+    "tool": "design_probes",
+    "server": "OligoThermodynamics",
+    "methodId": "ThermodynamicProbeDesigner.DesignProbes",
+    "docPath": "docs/mcp/tools/oligothermodynamics/design_probes.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L517"
+  },
+  {
+    "tool": "design_probes_primer3",
+    "server": "OligoThermodynamics",
+    "methodId": "ThermodynamicProbeDesigner.DesignProbesPrimer3",
+    "docPath": "docs/mcp/tools/oligothermodynamics/design_probes_primer3.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1645"
+  },
+  {
+    "tool": "design_tiling_probes",
+    "server": "OligoThermodynamics",
+    "methodId": "ThermodynamicProbeDesigner.DesignTilingProbes",
+    "docPath": "docs/mcp/tools/oligothermodynamics/design_tiling_probes.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L957"
+  },
+  {
+    "tool": "evaluate_primer",
+    "server": "OligoThermodynamics",
+    "methodId": "ThermodynamicPrimerDesigner.EvaluatePrimer",
+    "docPath": "docs/mcp/tools/oligothermodynamics/evaluate_primer.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicPrimerDesigner.Core.cs#L1876"
+  },
+  {
+    "tool": "generate_primer_candidates",
+    "server": "OligoThermodynamics",
+    "methodId": "ThermodynamicPrimerDesigner.GeneratePrimerCandidates",
+    "docPath": "docs/mcp/tools/oligothermodynamics/generate_primer_candidates.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicPrimerDesigner.Core.cs#L2177"
+  },
+  {
+    "tool": "primer_dimer",
+    "server": "MolTools",
+    "methodId": "PrimerDesigner.HasPrimerDimer",
+    "docPath": "docs/mcp/tools/oligothermodynamics/primer_dimer.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L366"
+  },
+  {
+    "tool": "validate_probe",
+    "server": "OligoThermodynamics",
+    "methodId": "ThermodynamicProbeDesigner.ValidateProbe",
+    "docPath": "docs/mcp/tools/oligothermodynamics/validate_probe.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.OligoThermodynamics/ThermodynamicProbeDesigner.Core.cs#L1129"
   },
   {
     "tool": "dyad_analysis",
