@@ -14,6 +14,10 @@
          (this project's verified Python reference). Embedded so the suite is self-contained. -->
     <EmbeddedResource Include="TestData\Azimuth\nopos_oracle.csv" />
     <EmbeddedResource Include="TestData\Azimuth\full_oracle.csv" />
+    <!-- SPLICE-PREDICT-001 (B11 A3): Ensembl REST GRCh38 gene windows (HBB, TP53, CFTR exons 2-5) with annotated coding introns. -->
+    <EmbeddedResource Include="TestData\Splicing\ensembl_genes.tsv" />
+    <!-- CPAT-format hexamer table (BuildHexamerTable) of 12 other human genes (ACTB GAPDH HRAS INS GH1 TPI1 LDHA SOD1 APOE TTR CYCS GCK ALB; coding = CDS, non-coding = introns): the optional exon coding score of the A3 oracle. -->
+    <EmbeddedResource Include="TestData\Splicing\hexamer_train12.tsv" />
     <!-- ANNOT-GENE-001 (B11 A2): Prodigal V2.6.3 binary oracle on E. coli K-12 MG1655 (U00096.2) nt 1..150000: the binary training
          file (rbs_wt, type_wt) and the `-f gff` gene set; see the file headers and docs/Evidence/ANNOT-GENE-001-Evidence.md. -->
     <EmbeddedResource Include="TestData\Prodigal\ecoli_U00096.2_1-150000.txt" />
