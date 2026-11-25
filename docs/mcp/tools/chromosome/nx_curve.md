@@ -15,7 +15,8 @@ Compute Nx/Lx for multiple thresholds.
 ## Description
 
 Computes `Nx`/`Lx` (via `CalculateNx`) for each threshold, sorted ascending. When no thresholds are
-supplied, the default deciles `10, 20, …, 90` are used.
+supplied, the default deciles `10, 20, …, 90` are used. A repeated threshold yields a repeated entry.
+Inputs are validated eagerly (a threshold outside [0, 100] or a negative length is rejected).
 
 ## Core Documentation Reference
 

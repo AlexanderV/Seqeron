@@ -17,8 +17,9 @@ Extract contigs (gap-free runs) from scaffolds.
 QUAST "broken scaffolds" (`qutils.split_by_ns` + the `--min-contig` filter): splits each scaffold at
 every maximal `N`/`n` run of length ≥ `minGapLength` (default 10 = QUAST `Ns_break_threshold` and the
 NCBI assembly-gap rule; 1 cuts at every N). Shorter N-runs stay inside the contig (AGP v2.1). Every
-piece of length ≥ `minContigLength` is emitted, case preserved, as `{id}_contig{n}` (n counts the
-emitted contigs). The contigs are those of `analyze_scaffolds` with the same `minGapLength`.
+piece of length ≥ `minContigLength` is emitted, case preserved, as `{id}_contig{n}` where n is the
+contig's 1-based position among **all** contigs of its scaffold, dropped short ones included (QUAST
+`split_by_ns` numbers every piece, `--min-contig` filters afterwards), so names match `analyze_scaffolds`. The contigs are those of `analyze_scaffolds` with the same `minGapLength`.
 
 ## Core Documentation Reference
 
@@ -48,7 +49,8 @@ emitted contigs). The contigs are those of `analyze_scaffolds` with the same `mi
 
 ## Example
 
-`300×A` + `20×N` + `250×C` with `minContigLength = 200` → `s_contig1` (300 bp), `s_contig2` (250 bp).
+`300×A` + `20×N` + `250×C` with `minContigLength = 200` → `s_contig1` (300 bp), `s_contig2` (250 bp); with `150×A` + `20×N` + `250×C` → only `s_contig2` (the dropped
+`s_contig1` keeps its number).
 
 `300×A` + `9×N` + `300×C` (default `minGapLength = 10`) → one 609-bp contig; with `minGapLength = 1`
 → two 300-bp contigs.

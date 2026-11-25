@@ -103,6 +103,10 @@
 | M20 | Median = sample median | {4,3,2,1} 2.5 | `CalculateStatistics_MedianLength_IsSampleMedian` |
 | M21 | `SequenceAssembler.CalculateStats` N50 = QUAST | {4,3,2} 3; {2,1,1,1} 1; {14,10,5} 10 | `SequenceAssemblerTests.CalculateStats_N50_MatchesQuast`, `CalculateStats_ValidContigs_CalculatesN50`, `CalculateStats_N50_EqualsCanonicalGenomeAssemblyAnalyzerN50` |
 | M22 | AssembledReads = Velvet usedReads | OLC 2/3, DBG 2/4, RC 2/2 | `AssembleOLC_AssembledReads_*`, `AssembleDeBruijn_AssembledReads_*`, `AssembleDeBruijn_ReverseComplementOption_CountsOppositeStrandReadAsAssembled`, `CalculateStats_AssembledReads_*` |
+| M23 | `CalculateNxCurve` default deciles 10..90 ascending, QUAST oracle | Assembly B → (10,80,1)…(90,20,6) | `CalculateNxCurve_DefaultThresholds_AreDecilesInAscendingOrder_MatchQuastOracle`, `CalculateNxCurve_Oracle_500_400_300_200_100` |
+| M24 | `CalculateNxCurve` explicit thresholds: sorted, duplicates kept, 0/100, points = `CalculateNx` | {0,50,50,90,100} | `CalculateNxCurve_ExplicitThresholds_SortedAscending_DuplicatesKept`, `CalculateNxCurve_PointsEqualCalculateNx`, `CalculateNxCurve_EmptyLengths_ZerosAtEveryThreshold` |
+| M25 | Null / invalid input rejected eagerly (A3-3) | null lengths/thresholds, threshold ∉ [0,100], negative length, null sequence/bins | `CalculateNxCurve_NullAndInvalid_ThrowAtTheCall`, `NullAndInvalidInputs_ThrowEagerly`, `CalculateNx_InvalidInput_Throws` |
+| M26 | auN exact beyond double precision (A3-4) | Σl² > 2^53 / 2^63 | `CalculateAuN_BeyondDoublePrecision_MatchesExactQuastValue`, `CalculateAuN_SumOfSquaresAbove2Pow63_NoOverflow` |
 | C5 | Length histogram, bounds strictly increasing | half-open bins; unsorted throws | `CalculateLengthDistribution_BinsAndValidation` |
 
 ### 4.2 SHOULD Tests (Important edge cases)

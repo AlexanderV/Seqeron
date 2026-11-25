@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.ExtractContigs",
   "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L473",
-  "description": "Extract contigs from scaffolds (QUAST broken scaffolds: split_by_ns + --min-contig): cut at N-runs of length >= minGapLength (default 10; 1 cuts at every N), shorter N-runs stay inside contigs; keep contigs of length >= minContigLength.",
+  "description": "Extract contigs from scaffolds (QUAST broken scaffolds: split_by_ns + --min-contig): cut at N-runs of length >= minGapLength (default 10; 1 cuts at every N), shorter N-runs stay inside contigs; keep contigs of length >= minContigLength, named {id}_contig{n} with n the position among all contigs of the scaffold (dropped ones counted, as QUAST).",
   "inputSchema": {
     "type": "object",
     "properties": {

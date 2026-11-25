@@ -104,9 +104,9 @@ public class GenomeAssemblyAnalyzerMutationTests
         var contigs = ExtractContigs(new[] { ("s", "AAANNAAAA") }, minContigLength: 3, minGapLength: 1).ToList();
         Assert.That(contigs, Is.EqualTo(new[] { ("s_contig1", "AAA"), ("s_contig2", "AAAA") }));
 
-        // Raising the threshold drops the 3-bp contig; the 4-bp contig is renumbered from 1.
+        // Raising the threshold drops the 3-bp contig; the 4-bp contig keeps its number 2 (QUAST split_by_ns numbers every piece, A10-2).
         var filtered = ExtractContigs(new[] { ("s", "AAANNAAAA") }, minContigLength: 4, minGapLength: 1).ToList();
-        Assert.That(filtered, Is.EqualTo(new[] { ("s_contig1", "AAAA") }));
+        Assert.That(filtered, Is.EqualTo(new[] { ("s_contig2", "AAAA") }));
 
         // Default minGapLength 10 (QUAST Ns_break_threshold): the 2-N run is an ambiguity inside the contig.
         Assert.That(ExtractContigs(new[] { ("s", "AAANNAAAA") }, minContigLength: 3).ToList(),

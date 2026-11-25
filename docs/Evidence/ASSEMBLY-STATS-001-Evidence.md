@@ -198,4 +198,5 @@ x ∉ [0,100] and unsorted lengths silently; an unreached NG reference returned 
 ## Change History
 
 - **2026-06-13**: Initial documentation (ASSEMBLY-STATS-001).
+- **2026-11-25 (R1-WP2)**: QUAST `quast_libs/N50.py` (`NG50_and_LG50`, `au_metric`) re-opened; oracle `tools/review/oracles/B10/stats_oracle.py`. `CalculateNxCurve` (Assembly B deciles `(10,80,1) (20,80,1) (30,70,2) (40,70,2) (50,50,3) (60,50,3) (70,40,4) (80,30,5) (90,20,6)`; {500..100} deciles) and `CalculateAuN` exactness (`{2000000000,1999999999,1500000001,3,1}` → 1863636362.0991735, Σl² = 10249999999000000012 > 2^63; `{94906267,94906267,1}` → 94906266.50000001, Σl² = 18014399031750579 > 2^53; 50×2147483647+1 → 2147483646.98) locked; null/invalid inputs throw eagerly; the unused `AssembledSequence`/`ParseSequence` (a second GC denominator nobody read) deleted.
 - **2026-11-25**: B10 review — QUAST `basic_stats.py`/`qutils.py`, Velvet `graphStats.c` opened; QUAST oracle table; single canonical Nx core; GC/median/AssembledReads fixes.

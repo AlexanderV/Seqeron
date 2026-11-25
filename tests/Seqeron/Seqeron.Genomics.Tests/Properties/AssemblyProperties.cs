@@ -655,7 +655,7 @@ public class AssemblyProperties
     // gap characters (ABySS 2.0, Jackman et al. 2017). A non-positive gap estimate is emitted as the
     // GenBank unknown-gap length (100). Each contig is placed in at most one scaffold.
 
-    /// <summary>Generates 2..5 gap-free (ACGT) contigs and up to 4 random links over their indices.</summary>
+    /// <summary>Generates 2..5 gap-free (ACGT) contigs and up to 4 random links (distinct, in-range endpoints) over their indices.</summary>
     private static Arbitrary<(string[] contigs, (int, int, int)[] links)> ScaffoldArbitrary() =>
         Gen.Choose(0, int.MaxValue).Select(seed =>
         {
@@ -667,7 +667,11 @@ public class AssemblyProperties
             int m = rng.Next(5);
             var links = new (int, int, int)[m];
             for (int k = 0; k < m; k++)
-                links[k] = (rng.Next(n), rng.Next(n), rng.Next(-2, 150));
+            {
+                int c1 = rng.Next(n);
+                int c2 = (c1 + 1 + rng.Next(n - 1)) % n; // a self-link is invalid input (A5-6)
+                links[k] = (c1, c2, rng.Next(-2, 150));
+            }
             return (contigs, links);
         }).ToArbitrary();
 

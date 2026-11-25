@@ -88,6 +88,7 @@ All four N-run scanners (and `CalculateStatistics` gap fields) share one private
 | M5 | AnalyzeScaffolds contigs = QUAST `split_by_ns` (9 cases) | pieces table (Evidence) | `AnalyzeScaffolds_ContigsMatchQuastSplitByNs` |
 | M6 | Short N-run stays inside contig | "AAAAANNNNNTTTTT",10 → [0,14], 15/15/0 | `AnalyzeScaffolds_NRunBelowMinGap_StaysInsideTheContig`; MCP `AnalyzeScaffolds_ShortGapBelowThreshold_NotSplit` |
 | M7 | ExtractContigs default threshold 10 | 300A+9N+300C → one 609 bp; 10 N → 300 + 300; minGap 1 → 300 + 300 | `ExtractContigs_DefaultBreaksOnlyAtTenOrMoreNs`; MCP `ExtractContigs_MinGapLength_DelegatesQuastBreakThreshold` |
+| M8a | A10-2: contigs numbered from the full scaffold contig list (dropped short ones keep their number), same names as AnalyzeScaffolds | 5/300/2/250-bp pieces → `s_contig2`, `s_contig4` | `ExtractContigs_NumbersFromTheFullContigList_AgreeingWithAnalyzeScaffolds`, `ExtractContigs_NamesCountDroppedContigs_LikeAnalyzeScaffolds` (MCP) |
 | M8 | INV-4 | equal lists | `ExtractContigs_EqualsAnalyzeScaffoldsContigsFilteredByLength` |
 | M9 | Validation | null → ArgumentNullException; minGapLength < 1, minContigLength < 0 → ArgumentOutOfRangeException; null element → ArgumentException | `FindGaps_InvalidArguments_Throw`, `AnalyzeScaffolds_InvalidArguments_Throw`, `ExtractContigs_InvalidArguments_Throw`, `AnalyzeGapDistribution_EmptyAndNull`, `FilterByLength_MinAboveMax_IsEmpty_AndNullsThrow` |
 | M10 | Random cross-check | regex oracle of `split_by_ns` / `stk_gap` 2000/2000 | Fuzz `AssemblyGapsFuzzTests.GapsScaffoldsContigs_RandomSequences_MatchRegexOracle` |
@@ -127,6 +128,6 @@ All four N-run scanners (and `CalculateStatistics` gap fields) share one private
 |---|------|------------------|-------------------|
 | 1 | IUPAC codes | QUAST → N; seqtk → gap | Bases (AGP; consistent with ASSEMBLY-STATS-001) |
 | 2 | GapType | AGP 7b = evidence type | Seqeron length class (Short < 10, Medium < 100, Long < 1000, Scaffold); documented, not an AGP type |
-| 3 | Contig naming | QUAST numbers dropped pieces too | ExtractContigs numbers returned contigs |
+| 3 | Contig naming | QUAST numbers dropped pieces too | resolved (A10-2): ExtractContigs numbers every piece, as AnalyzeScaffolds |
 | 4 | FindGaps default | NCBI 10, seqtk 50 | 1 (every N-run; = CalculateStatistics); 10 via `DefaultScaffoldGapMinLength` |
 | 5 | Coordinates | AGP 1-based inclusive; BED half-open | 0-based, inclusive End (documented conversions) |

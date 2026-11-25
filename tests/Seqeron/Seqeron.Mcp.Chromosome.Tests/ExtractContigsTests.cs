@@ -62,4 +62,17 @@ public class ExtractContigsTests
         Assert.That(ChromosomeTools.ExtractContigs(scaffolds, 200, minGapLength: 1).Items.Select(i => i.Sequence.Length),
             Is.EqualTo(new[] { 300, 300 }));
     }
+
+    [Test]
+    public void ExtractContigs_NamesCountDroppedContigs_LikeAnalyzeScaffolds()
+    {
+        // A10-2: 100 A (dropped, < 200) + 20 N + 250 C -> only s_contig2, named as analyze_scaffolds names it.
+        var scaffolds = new List<NamedSequence> { new("s", Rep("A", 100) + Rep("N", 20) + Rep("C", 250)) };
+
+        var extracted = ChromosomeTools.ExtractContigs(scaffolds, 200);
+        var analyzed = ChromosomeTools.AnalyzeScaffolds(scaffolds);
+
+        Assert.That(extracted.Items.Select(i => i.Id), Is.EqualTo(new[] { "s_contig2" }));
+        Assert.That(analyzed.Items[0].Contigs.Select(c => c.ContigId), Does.Contain("s_contig2"));
+    }
 }

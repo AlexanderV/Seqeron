@@ -10,17 +10,6 @@ public static class GenomeAssemblyAnalyzer
     #region Records
 
     /// <summary>
-    /// Represents an assembled sequence (contig or scaffold).
-    /// </summary>
-    public readonly record struct AssembledSequence(
-        string Id,
-        string Sequence,
-        int Length,
-        double GcContent,
-        int GapCount,
-        int TotalGapLength);
-
-    /// <summary>
     /// Assembly statistics summary.
     /// </summary>
     public readonly record struct AssemblyStatistics(
@@ -257,10 +246,13 @@ public static class GenomeAssemblyAnalyzer
     /// </list>
     /// An empty input returns all zeros (QUAST reports these fields as undefined).
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">A sequence is null.</exception>
     public static AssemblyStatistics CalculateStatistics(
         IEnumerable<(string Id, string Sequence)> sequences)
     {
-        var seqList = sequences.Select(s => ParseSequence(s.Id, s.Sequence)).ToList();
+        ArgumentNullException.ThrowIfNull(sequences);
+        var seqList = sequences.Select(s => RequireSequence(s, nameof(sequences))).ToList();
 
         if (seqList.Count == 0)
         {
@@ -269,7 +261,6 @@ public static class GenomeAssemblyAnalyzer
 
         var lengths = seqList.Select(s => s.Length).OrderByDescending(l => l).ToList();
         long totalLength = lengths.Sum(l => (long)l);
-        long totalNoGaps = seqList.Sum(s => (long)(s.Length - s.TotalGapLength));
 
         // Calculate N50/L50
         var n50Stats = CalculateNx(lengths, totalLength, 50);
@@ -278,17 +269,23 @@ public static class GenomeAssemblyAnalyzer
         // GC content: pooled G+C over A+C+G+T (QUAST GC_content) via the canonical Core counter.
         long gcCount = 0;
         long acgtCount = 0;
-        foreach (var s in seqList)
+        int totalGaps = 0;
+        long totalGapLength = 0;
+        foreach (var sequence in seqList)
         {
-            var (gc, valid) = s.Sequence.AsSpan().CountGcAndValidNucleotides();
+            var (gc, valid) = sequence.AsSpan().CountGcAndValidNucleotides();
             gcCount += gc;
             acgtCount += valid;
+
+            // Gap statistics: maximal N/n runs (QUAST split_by_ns, threshold 1).
+            foreach (var (_, runLength) in EnumerateNRuns(sequence))
+            {
+                totalGaps++;
+                totalGapLength += runLength;
+            }
         }
         double gcContent = acgtCount > 0 ? gcCount / (double)acgtCount : 0;
-
-        // Gap statistics
-        int totalGaps = seqList.Sum(s => s.GapCount);
-        long totalGapLength = seqList.Sum(s => (long)s.TotalGapLength);
+        long totalNoGaps = totalLength - totalGapLength;
         double gapPercentage = totalLength > 0 ? totalGapLength * 100.0 / totalLength : 0;
 
         return new AssemblyStatistics(
@@ -307,24 +304,6 @@ public static class GenomeAssemblyAnalyzer
             totalGaps,
             totalGapLength,
             gapPercentage);
-    }
-
-    /// <summary>
-    /// Parses sequence and extracts metrics.
-    /// </summary>
-    private static AssembledSequence ParseSequence(string id, string sequence)
-    {
-        int gapCount = 0;
-        int totalGapLength = 0;
-        foreach (var (_, length) in EnumerateNRuns(sequence))
-        {
-            gapCount++;
-            totalGapLength += length;
-        }
-
-        double gc = sequence.AsSpan().CalculateGcFraction();
-
-        return new AssembledSequence(id, sequence, sequence.Length, gc, gapCount, totalGapLength);
     }
 
     // Nx/Lx threshold percentage for the N50/L50 statistics.
@@ -368,8 +347,12 @@ public static class GenomeAssemblyAnalyzer
     /// </remarks>
     /// <param name="lengths">Contig/scaffold lengths (any order).</param>
     /// <param name="threshold">Percentage threshold x in [0, 100] (50 for N50/L50).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="threshold"/> outside [0, 100].</exception>
+    /// <exception cref="ArgumentException">A length is negative.</exception>
     public static NxStatistics CalculateNx(IEnumerable<int> lengths, int threshold)
     {
+        ArgumentNullException.ThrowIfNull(lengths);
         var sorted = lengths.OrderByDescending(l => l).ToList();
         long total = sorted.Sum(l => (long)l);
         return CalculateNx(sorted, total, threshold);
@@ -386,28 +369,49 @@ public static class GenomeAssemblyAnalyzer
     /// assembly." Returns 0 for an empty input.
     /// </remarks>
     /// <param name="lengths">Contig/scaffold lengths (any order).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> is null.</exception>
+    /// <exception cref="ArgumentException">A length is negative.</exception>
     public static int CalculateN50(IEnumerable<int> lengths)
     {
         return CalculateNx(lengths, N50ThresholdPercent).Nx;
     }
 
     /// <summary>
-    /// Calculates Nx statistics for multiple thresholds.
+    /// Default Nx curve thresholds: the deciles 10, 20, ..., 90 (the percentages of the Nx plot,
+    /// QUAST <c>Nx</c> plot x = 0..100 in steps; N50 and N90 are among them).
     /// </summary>
+    private static readonly int[] DefaultNxCurveThresholds = { 10, 20, 30, 40, 50, 60, 70, 80, 90 };
+
+    /// <summary>
+    /// Calculates Nx/Lx for multiple thresholds (the Nx curve).
+    /// </summary>
+    /// <remarks>
+    /// One <see cref="NxStatistics"/> per entry of <paramref name="thresholds"/>, in ascending
+    /// threshold order (a repeated threshold yields a repeated entry); an empty list means the
+    /// deciles 10, 20, ..., 90. Each point is the canonical
+    /// <see cref="CalculateNx(IReadOnlyList{int},long,int)"/> (QUAST <c>NG50_and_LG50</c>) over the
+    /// assembly size. The arguments are validated and the curve is computed eagerly, so an invalid
+    /// input throws at the call (not on first enumeration).
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> or <paramref name="thresholds"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold is outside [0, 100].</exception>
+    /// <exception cref="ArgumentException">A length is negative.</exception>
     public static IEnumerable<NxStatistics> CalculateNxCurve(
         IEnumerable<int> lengths,
         params int[] thresholds)
     {
+        ArgumentNullException.ThrowIfNull(lengths);
+        ArgumentNullException.ThrowIfNull(thresholds);
+
         var sorted = lengths.OrderByDescending(l => l).ToList();
         long total = sorted.Sum(l => (long)l);
-
         if (thresholds.Length == 0)
-            thresholds = new[] { 10, 20, 30, 40, 50, 60, 70, 80, 90 };
+            thresholds = DefaultNxCurveThresholds;
 
+        var curve = new List<NxStatistics>(thresholds.Length);
         foreach (int t in thresholds.OrderBy(t => t))
-        {
-            yield return CalculateNx(sorted, total, t);
-        }
+            curve.Add(CalculateNx(sorted, total, t));
+        return curve;
     }
 
     /// <summary>
@@ -417,18 +421,31 @@ public static class GenomeAssemblyAnalyzer
     /// Li H (2020), "auN: a new metric to measure assembly contiguity"
     /// (lh3.github.io/2020/04/08/a-new-metric-on-assembly-contiguity); QUAST <c>au_metric</c>
     /// (<c>quast_libs/N50.py</c>). Returns 0 for an empty or all-zero list (QUAST <c>None</c>).
+    /// Σ Lᵢ² and Σ Lⱼ are accumulated exactly in integers (128-bit / 64-bit), so no precision is lost
+    /// for assemblies above 2^53 squared bases; the single division is performed on the exact
+    /// quotient and remainder (error ≤ 1 ulp of the result).
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> is null.</exception>
+    /// <exception cref="ArgumentException">A length is negative.</exception>
     public static double CalculateAuN(IEnumerable<int> lengths)
     {
-        var sorted = lengths.OrderByDescending(l => l).ToList();
-        if (sorted.Count == 0) return 0;
+        ArgumentNullException.ThrowIfNull(lengths);
 
-        long total = sorted.Sum(l => (long)l);
+        long total = 0;
+        UInt128 sumOfSquares = UInt128.Zero;
+        foreach (int length in lengths)
+        {
+            if (length < 0)
+                throw new ArgumentException("Sequence lengths must be non-negative.", nameof(lengths));
+            total += length;
+            sumOfSquares += (UInt128)((ulong)length * (ulong)length);
+        }
         if (total == 0) return 0;
 
-        // auN is the sum of (length * length) / total
-        double auN = sorted.Sum(l => (double)l * l) / total;
-        return auN;
+        // Exact integer quotient + remainder, divided once: Σ L² / total = q + r / total.
+        UInt128 quotient = sumOfSquares / (ulong)total;
+        UInt128 remainder = sumOfSquares % (ulong)total;
+        return (double)quotient + (double)remainder / total;
     }
 
     #endregion
@@ -655,9 +672,11 @@ public static class GenomeAssemblyAnalyzer
     /// N-run of length ≥ <paramref name="minGapLength"/> (default <see cref="DefaultScaffoldGapMinLength"/>
     /// = 10, QUAST <c>Ns_break_threshold</c> and the NCBI assembly-gap convention; pass 1 to cut at every
     /// N); shorter N-runs stay inside the contig. Contigs of length ≥ <paramref name="minContigLength"/>
-    /// are returned in scaffold order, named <c>{id}_contig{n}</c> with n counting the returned contigs
-    /// (QUAST also counts the dropped ones). The contigs are exactly those of
-    /// <see cref="AnalyzeScaffolds"/> with the same <paramref name="minGapLength"/>; case is preserved.
+    /// are returned in scaffold order, named <c>{id}_contig{n}</c> where n is the contig's 1-based
+    /// position among <b>all</b> contigs of its scaffold, dropped short ones included (QUAST
+    /// <c>split_by_ns</c> numbers every piece and <c>--min-contig</c> filters afterwards), so a
+    /// name is the same as the one <see cref="AnalyzeScaffolds"/> gives that contig with the same
+    /// <paramref name="minGapLength"/>; gaps in the numbering mark dropped contigs. Case is preserved.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="scaffolds"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minContigLength"/> &lt; 0 or
@@ -682,11 +701,12 @@ public static class GenomeAssemblyAnalyzer
         foreach (var entry in scaffolds)
         {
             string sequence = RequireSequence(entry, nameof(scaffolds));
-            int contigNum = 1;
-            foreach (var (start, end) in SplitAtGaps(sequence, minGapLength).Contigs)
+            var pieces = SplitAtGaps(sequence, minGapLength).Contigs;
+            for (int c = 0; c < pieces.Count; c++)
             {
+                var (start, end) = pieces[c];
                 if (end - start >= minContigLength)
-                    yield return ($"{entry.Id}_contig{contigNum++}", sequence[start..end]);
+                    yield return ($"{entry.Id}_contig{c + 1}", sequence[start..end]);
             }
         }
     }
@@ -2191,12 +2211,15 @@ public static class GenomeAssemblyAnalyzer
     /// </summary>
     /// <param name="lengths">Sequence lengths.</param>
     /// <param name="bins">Strictly increasing upper bounds (empty → 100, 500, 1 000, …, 1 000 000).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> or <paramref name="bins"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="bins"/> is not strictly increasing
     /// (an unsorted bound list would put a length in the first larger bound, not its own bin).</exception>
     public static IReadOnlyDictionary<string, int> CalculateLengthDistribution(
         IEnumerable<int> lengths,
         params int[] bins)
     {
+        ArgumentNullException.ThrowIfNull(lengths);
+        ArgumentNullException.ThrowIfNull(bins);
         if (bins.Length == 0)
             bins = new[] { 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000 };
         for (int i = 1; i < bins.Length; i++)

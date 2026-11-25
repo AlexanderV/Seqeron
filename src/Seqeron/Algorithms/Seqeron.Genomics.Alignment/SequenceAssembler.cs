@@ -82,6 +82,7 @@ public static class SequenceAssembler
     /// <see cref="AssemblyParameters.MinOverlap"/> &lt; 1, or <see cref="AssemblyParameters.MinIdentity"/>
     /// outside [0, 1].
     /// </exception>
+    /// <exception cref="ArgumentException">A read is null. (A null or empty read set returns an empty result.)</exception>
     public static AssemblyResult AssembleOLC(
         IReadOnlyList<string> reads,
         AssemblyParameters? parameters = null)
@@ -91,8 +92,10 @@ public static class SequenceAssembler
         var param = parameters ?? DefaultParameters;
         ValidateOverlapThresholds(param.MinOverlap, param.MinIdentity);
 
+        // A null read set is treated like an empty one (as AssembleDeBruijn); a null read is invalid.
         if (reads == null || reads.Count == 0)
             return new AssemblyResult(Array.Empty<string>(), 0, 0, 0, 0, 0);
+        RequireNoNullReads(reads, nameof(reads));
 
         // Overlap + Layout + Consensus (greedy layout over the substring-free read set).
         // Every read is placed in exactly one layout (as a path member or a contained read).
@@ -226,12 +229,17 @@ public static class SequenceAssembler
     /// over the O(N+a) suffix-tree approach because <paramref name="minIdentity"/> permits
     /// mismatches, which the exact-match suffix tree cannot model (Langmead OLC p.16).
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="reads"/> is null.</exception>
+    /// <exception cref="ArgumentException">A read is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minOverlap"/> &lt; 1 or <paramref name="minIdentity"/> outside [0, 1].</exception>
     public static IReadOnlyList<Overlap> FindAllOverlaps(
         IReadOnlyList<string> reads,
         int minOverlap = 20,
         double minIdentity = 0.9)
     {
         ValidateOverlapThresholds(minOverlap, minIdentity);
+        ArgumentNullException.ThrowIfNull(reads);
+        RequireNoNullReads(reads, nameof(reads));
         var overlaps = new List<Overlap>();
 
         for (int i = 0; i < reads.Count; i++)
@@ -262,6 +270,8 @@ public static class SequenceAssembler
     /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
     /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
     /// <returns>List of overlaps found.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="reads"/> is null.</exception>
+    /// <exception cref="ArgumentException">A read is null.</exception>
     public static IReadOnlyList<Overlap> FindAllOverlaps(
         IReadOnlyList<string> reads,
         int minOverlap,
@@ -270,6 +280,8 @@ public static class SequenceAssembler
         IProgress<double>? progress = null)
     {
         ValidateOverlapThresholds(minOverlap, minIdentity);
+        ArgumentNullException.ThrowIfNull(reads);
+        RequireNoNullReads(reads, nameof(reads));
         var overlaps = new List<Overlap>();
         int total = reads.Count * reads.Count;
         int processed = 0;
@@ -312,12 +324,15 @@ public static class SequenceAssembler
     /// <paramref name="minOverlap"/> &lt; 1 (an overlap of length 0 is no overlap), or
     /// <paramref name="minIdentity"/> outside [0, 1].
     /// </exception>
+    /// <exception cref="ArgumentNullException"><paramref name="seq1"/> or <paramref name="seq2"/> is null.</exception>
     public static (int length, int pos1, int pos2)? FindOverlap(
         string seq1, string seq2,
         int minOverlap = 20,
         double minIdentity = 0.9)
     {
         ValidateOverlapThresholds(minOverlap, minIdentity);
+        ArgumentNullException.ThrowIfNull(seq1);
+        ArgumentNullException.ThrowIfNull(seq2);
 
         // Check if suffix of seq1 overlaps with prefix of seq2
         int maxPossible = Math.Min(seq1.Length, seq2.Length);
@@ -341,8 +356,11 @@ public static class SequenceAssembler
     /// <c>1 − HammingDistance / length</c> (case-insensitive). Returns 0 for unequal lengths
     /// and 1 for two empty strings.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="seq1"/> or <paramref name="seq2"/> is null.</exception>
     public static double CalculateIdentity(string seq1, string seq2)
     {
+        ArgumentNullException.ThrowIfNull(seq1);
+        ArgumentNullException.ThrowIfNull(seq2);
         if (seq1.Length != seq2.Length) return 0;
         return WindowIdentity(seq1, seq2);
     }
@@ -355,6 +373,16 @@ public static class SequenceAssembler
     {
         if (a.Length == 0) return 1;
         return (double)(a.Length - a.HammingDistance(b)) / a.Length; // matches / L
+    }
+
+    /// <summary>A null element of a read/contig set is invalid input (not an empty sequence).</summary>
+    private static void RequireNoNullReads(IReadOnlyList<string> reads, string paramName)
+    {
+        for (int i = 0; i < reads.Count; i++)
+        {
+            if (reads[i] is null)
+                throw new ArgumentException($"{paramName}[{i}] is null.", paramName);
+        }
     }
 
     private static void ValidateOverlapThresholds(int minOverlap, double minIdentity)
@@ -794,6 +822,7 @@ public static class SequenceAssembler
     /// <see cref="int.MaxValue"/> are exact.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> is null.</exception>
+    /// <exception cref="ArgumentException">A contig is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="totalReads"/> is negative.</exception>
     public static AssemblyResult CalculateStats(
         IReadOnlyList<string> contigs, int totalReads)
@@ -807,6 +836,7 @@ public static class SequenceAssembler
     /// least the minimum contig length; Zerbino &amp; Birney 2008, <c>src/graphStats.c</c>).
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> is null.</exception>
+    /// <exception cref="ArgumentException">A contig is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="totalReads"/> is negative, or <paramref name="assembledReads"/> is outside [0, totalReads].
     /// </exception>
@@ -819,10 +849,11 @@ public static class SequenceAssembler
             throw new ArgumentOutOfRangeException(nameof(assembledReads), assembledReads,
                 "The number of assembled reads must lie in [0, totalReads].");
 
+        RequireNoNullReads(contigs, nameof(contigs));
         if (contigs.Count == 0)
             return new AssemblyResult(contigs, totalReads, assembledReads, 0, 0, 0);
 
-        var sortedLengths = contigs.Select(c => c?.Length ?? 0).OrderDescending().ToArray();
+        var sortedLengths = contigs.Select(c => c.Length).OrderDescending().ToArray();
         long totalLength = 0;
         foreach (int length in sortedLengths)
             totalLength += length;
@@ -1069,10 +1100,12 @@ public static class SequenceAssembler
     /// greedy rule, gap/overlap handling and output order.
     /// </summary>
     /// <param name="contigs">The contigs to scaffold, indexed by position; links reference these indices.</param>
-    /// <param name="links">Links <c>(contig1, contig2, gapSize)</c>; out-of-range and self links are ignored.</param>
+    /// <param name="links">Links <c>(contig1, contig2, gapSize)</c>; each index must lie in [0, contigs.Count) and the two contigs must differ.</param>
     /// <param name="gapCharacter">The character used to fill gaps between contigs (default <c>'N'</c>).</param>
     /// <returns>The scaffolds, one string per scaffold, ordered by their lowest contig index.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> or <paramref name="links"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A contig index is outside [0, contigs.Count).</exception>
+    /// <exception cref="ArgumentException">A contig is null, or a link joins a contig to itself.</exception>
     public static IReadOnlyList<string> Scaffold(
         IReadOnlyList<string> contigs,
         IReadOnlyList<(int contig1, int contig2, int gapSize)> links,
@@ -1124,11 +1157,12 @@ public static class SequenceAssembler
     /// link are singleton scaffolds. Scaffolds are listed by their lowest contig index.</para>
     /// </remarks>
     /// <param name="contigs">The contigs to scaffold, indexed by position; links reference these indices.</param>
-    /// <param name="links">Oriented, weighted links; out-of-range and self links are ignored.</param>
+    /// <param name="links">Oriented, weighted links; each index must lie in [0, contigs.Count) and the two contigs must differ.</param>
     /// <param name="gapCharacter">The character used to fill gaps between contigs (default <c>'N'</c>).</param>
     /// <returns>The scaffolds, one string per scaffold, ordered by their lowest contig index.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> or <paramref name="links"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A link has <see cref="ScaffoldLink.Weight"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A link has <see cref="ScaffoldLink.Weight"/> &lt; 1 or a contig index outside [0, contigs.Count).</exception>
+    /// <exception cref="ArgumentException">A contig is null, or a link joins a contig to itself.</exception>
     public static IReadOnlyList<string> Scaffold(
         IReadOnlyList<string> contigs,
         IReadOnlyList<ScaffoldLink> links,
@@ -1136,8 +1170,18 @@ public static class SequenceAssembler
     {
         ArgumentNullException.ThrowIfNull(contigs);
         ArgumentNullException.ThrowIfNull(links);
+        RequireNoNullReads(contigs, nameof(contigs));
         for (int i = 0; i < links.Count; i++)
         {
+            if ((uint)links[i].Contig1 >= (uint)contigs.Count)
+                throw new ArgumentOutOfRangeException(nameof(links), links[i].Contig1,
+                    $"Link {i} references contig {links[i].Contig1}; valid indices are 0..{contigs.Count - 1}.");
+            if ((uint)links[i].Contig2 >= (uint)contigs.Count)
+                throw new ArgumentOutOfRangeException(nameof(links), links[i].Contig2,
+                    $"Link {i} references contig {links[i].Contig2}; valid indices are 0..{contigs.Count - 1}.");
+            if (links[i].Contig1 == links[i].Contig2)
+                throw new ArgumentException(
+                    $"Link {i} joins contig {links[i].Contig1} to itself; a scaffold link needs two distinct contigs.", nameof(links));
             if (links[i].Weight < 1)
                 throw new ArgumentOutOfRangeException(nameof(links), links[i].Weight,
                     $"Link {i} has weight {links[i].Weight}; a link is supported by at least one mate pair.");
@@ -1166,9 +1210,6 @@ public static class SequenceAssembler
         foreach (int li in order)
         {
             var link = links[li];
-            if ((uint)link.Contig1 >= (uint)n || (uint)link.Contig2 >= (uint)n || link.Contig1 == link.Contig2)
-                continue;
-
             int exit = 2 * link.Contig1 + (link.Contig1Reversed ? 0 : 1);
             int entry = 2 * link.Contig2 + (link.Contig2Reversed ? 1 : 0);
             if (partner[exit] >= 0 || partner[entry] >= 0) continue;   // end already joined (branch)
@@ -1256,7 +1297,7 @@ public static class SequenceAssembler
         int sinceGap = 0;                              // bases placed after the last gap run
         for (int i = 0; i < path.Count; i++)
         {
-            string seq = contigs[path[i].Contig] ?? string.Empty;
+            string seq = contigs[path[i].Contig];
             if (path[i].Reversed) seq = ReverseComplement(seq);
 
             if (i == 0)

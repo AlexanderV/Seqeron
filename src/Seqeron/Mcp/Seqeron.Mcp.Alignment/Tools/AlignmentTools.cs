@@ -459,8 +459,11 @@ public class AlignmentTools
         [Description("Minimum overlap length (bp).")] int minOverlap = 20,
         [Description("Minimum identity ratio (0.0-1.0).")] double minIdentity = 0.9)
     {
+        if (reads is null)
+            throw new ArgumentException("Reads cannot be null", nameof(reads));
+
         var src = global::Seqeron.Genomics.Alignment.SequenceAssembler.FindAllOverlaps(
-            reads ?? Array.Empty<string>(), minOverlap, minIdentity);
+            reads, minOverlap, minIdentity);
         var arr = new OverlapDto[src.Count];
         for (int i = 0; i < src.Count; i++)
         {
@@ -478,8 +481,13 @@ public class AlignmentTools
         [Description("Minimum overlap length (bp).")] int minOverlap = 20,
         [Description("Minimum identity ratio (0.0-1.0).")] double minIdentity = 0.9)
     {
+        if (sequence1 is null)
+            throw new ArgumentException("Sequence1 cannot be null", nameof(sequence1));
+        if (sequence2 is null)
+            throw new ArgumentException("Sequence2 cannot be null", nameof(sequence2));
+
         var t = global::Seqeron.Genomics.Alignment.SequenceAssembler.FindOverlap(
-            sequence1 ?? string.Empty, sequence2 ?? string.Empty, minOverlap, minIdentity);
+            sequence1, sequence2, minOverlap, minIdentity);
         if (t is null)
             return new FindOverlapResult(null);
         var v = t.Value;
@@ -492,9 +500,12 @@ public class AlignmentTools
         [Description("First sequence.")] string sequence1,
         [Description("Second sequence (must equal sequence1.Length).")] string sequence2)
     {
-        var s1 = sequence1 ?? string.Empty;
-        var s2 = sequence2 ?? string.Empty;
-        var v = global::Seqeron.Genomics.Alignment.SequenceAssembler.CalculateIdentity(s1, s2);
+        if (sequence1 is null)
+            throw new ArgumentException("Sequence1 cannot be null", nameof(sequence1));
+        if (sequence2 is null)
+            throw new ArgumentException("Sequence2 cannot be null", nameof(sequence2));
+
+        var v = global::Seqeron.Genomics.Alignment.SequenceAssembler.CalculateIdentity(sequence1, sequence2);
         return new IdentityResult(v);
     }
 
@@ -505,8 +516,11 @@ public class AlignmentTools
         [Description("Total number of input reads (used to fill TotalReads).")] int totalReads,
         [Description("Optional number of reads that lie in the contigs, in [0, totalReads] (default: totalReads).")] int? assembledReads = null)
     {
+        if (contigs is null)
+            throw new ArgumentException("Contigs cannot be null", nameof(contigs));
+
         var r = global::Seqeron.Genomics.Alignment.SequenceAssembler.CalculateStats(
-            contigs ?? Array.Empty<string>(), totalReads, assembledReads ?? totalReads);
+            contigs, totalReads, assembledReads ?? totalReads);
         return ToAssemblyDto(r);
     }
 
@@ -527,11 +541,14 @@ public class AlignmentTools
     [Description("Orders and orients contigs into scaffolds from paired-end links with the greedy path-merging rule (Huson, Reinert & Myers 2002): links in descending weight; a link is used only if both contig ends it joins are still free and it does not close a cycle. Each link says contig2 follows contig1 (each optionally reverse-complemented) after gapSize characters: a positive gap emits that many gapCharacter; a negative gap collapses the overlap when the -gapSize bases agree (N matches anything), otherwise — and for a zero gap — the AGP unknown gap of 100 is emitted. Unlinked contigs are singleton scaffolds; scaffolds are listed by their lowest contig index.")]
     public static ScaffoldsResult ScaffoldContigs(
         [Description("Contig sequences.")] string[] contigs,
-        [Description("Links {contig1, contig2, gapSize, contig1Reversed?, contig2Reversed?, weight?} (indices into contigs; weight ≥ 1, default 1).")] ContigLinkInput[] links,
+        [Description("Links {contig1, contig2, gapSize, contig1Reversed?, contig2Reversed?, weight?} (indices into contigs, each in [0, contigs.Length) and contig1 ≠ contig2; weight ≥ 1, default 1).")] ContigLinkInput[] links,
         [Description("Single-character gap filler (e.g. \"N\").")] string gapCharacter = "N")
     {
         if (string.IsNullOrEmpty(gapCharacter) || gapCharacter.Length != 1)
             throw new ArgumentException("gapCharacter must be exactly one character.", nameof(gapCharacter));
+
+        if (contigs is null)
+            throw new ArgumentException("Contigs cannot be null", nameof(contigs));
 
         var srcLinks = new List<global::Seqeron.Genomics.Alignment.SequenceAssembler.ScaffoldLink>(links?.Length ?? 0);
         if (links != null)
@@ -541,7 +558,7 @@ public class AlignmentTools
         }
 
         var scaffolds = global::Seqeron.Genomics.Alignment.SequenceAssembler.Scaffold(
-            contigs ?? Array.Empty<string>(), srcLinks, gapCharacter[0]);
+            contigs, srcLinks, gapCharacter[0]);
 
         var arr = new string[scaffolds.Count];
         for (int i = 0; i < scaffolds.Count; i++)

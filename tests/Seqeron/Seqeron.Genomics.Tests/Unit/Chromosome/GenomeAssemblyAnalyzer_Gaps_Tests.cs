@@ -174,6 +174,27 @@ public class GenomeAssemblyAnalyzer_Gaps_Tests
         }
     }
 
+    // A10-2 — QUAST split_by_ns numbers every piece of the scaffold and --min-contig filters afterwards, so
+    // a dropped short contig leaves a hole in the numbering; AnalyzeScaffolds names the same contigs identically.
+    [Test]
+    public void ExtractContigs_NumbersFromTheFullContigList_AgreeingWithAnalyzeScaffolds()
+    {
+        // 5-bp, 300-bp, 2-bp, 250-bp pieces separated by 10-N runs.
+        string scaffold = Rep('A', 5) + Rep('N', 10) + Rep('C', 300) + Rep('N', 10) + "GG" + Rep('N', 10) + Rep('T', 250);
+        var scaffolds = new[] { ("s", scaffold) };
+
+        var extracted = ExtractContigs(scaffolds, 200).ToList();
+
+        Assert.That(extracted.Select(c => c.Id), Is.EqualTo(new[] { "s_contig2", "s_contig4" }),
+            "contigs 1 and 3 are dropped (< 200) but keep their numbers");
+        Assert.That(extracted.Select(c => c.Sequence.Length), Is.EqualTo(new[] { 300, 250 }));
+
+        var analyzed = AnalyzeScaffolds(scaffolds).Single().Contigs;
+        Assert.That(analyzed.Select(c => c.ContigId), Is.EqualTo(new[] { "s_contig1", "s_contig2", "s_contig3", "s_contig4" }));
+        Assert.That(extracted.Select(c => c.Id), Is.SubsetOf(analyzed.Select(c => c.ContigId)),
+            "ExtractContigs and AnalyzeScaffolds name a contig identically");
+    }
+
     [Test]
     public void ExtractContigs_LowercaseCasePreserved_MinContigZeroKeepsAll()
     {

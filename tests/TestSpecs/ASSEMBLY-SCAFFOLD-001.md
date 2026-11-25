@@ -89,8 +89,8 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | S1 | Contig not reused | `["AA","TT"]`, links `[(0,1,1),(1,0,1)]` | one scaffold `"AANTT"`, count 1 (index 0 already used) | INV-4 |
-| S2 | Out-of-range link ignored | `["AA","TT"]`, link `(0,5,2)` | `["AA","TT"]`, count 2 | malformed-link robustness |
-| S3 | Self link ignored | `["AA","TT"]`, link `(0,0,2)` | `["AA","TT"]`, count 2 | contig2==contig1 skipped |
+| S2 | Out-of-range link rejected (A5-6) | `["AA","TT"]`, link `(0,5,2)` | `ArgumentOutOfRangeException` | silent drop hid caller bugs |
+| S3 | Self link rejected (A5-6) | `["AA","TT"]`, link `(0,0,2)` | `ArgumentException` | contig2==contig1 invalid |
 | S4 | Null contigs throws | `Scaffold(null, links)` | `ArgumentNullException` | sibling convention |
 | S5 | Null links throws | `Scaffold(contigs, null)` | `ArgumentNullException` | sibling convention |
 
@@ -187,8 +187,8 @@
 | M6 | ✅ Covered | `Scaffold_NoLinks_OneScaffoldPerContig` |
 | M7 | ✅ Covered | `Scaffold_FollowedPath_LengthEqualsContigsPlusGaps` |
 | S1 | ✅ Covered | `Scaffold_LinkToAlreadyPlacedContig_ContigNotReused` |
-| S2 | ✅ Covered | `Scaffold_OutOfRangeLink_Ignored` |
-| S3 | ✅ Covered | `Scaffold_SelfLink_Ignored` |
+| S2 | ✅ Covered | `Scaffold_OutOfRangeLink_Throws` |
+| S3 | ✅ Covered | `Scaffold_SelfLink_Throws` |
 | S4 | ✅ Covered | `Scaffold_NullContigs_ThrowsArgumentNullException` |
 | S5 | ✅ Covered | `Scaffold_NullLinks_ThrowsArgumentNullException` |
 | C1 | ✅ Covered | `Scaffold_EmptyContigs_ReturnsEmpty` |
