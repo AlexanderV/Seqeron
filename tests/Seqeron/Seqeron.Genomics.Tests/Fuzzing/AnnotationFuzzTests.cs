@@ -245,28 +245,19 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// present-but-EMPTY strand field) — exactly the undisciplined fuzz failure modes
 /// (03_FUZZING.md §Description; ADVANCED_TESTING_CHECKLIST.md §8). These are now TOLERANT:
 /// a malformed numeric column makes the reader SKIP that data line (mirroring the existing
-/// &lt;9-field skip and the sibling GffParser.ParseLine discipline), and an empty strand column
-/// defaults to the valid '.' sentinel — no throw, no garbage record. The fuzz tests below pin
-/// that disciplined skip/normalize behavior, NOT a crash.
+/// &lt;9-field skip discipline). The fuzz tests below pin that disciplined skip behavior, NOT a crash.
 ///
-/// Strand DOMAIN: the spec strand alphabet is {+, -, ., ?}. The lightweight reader does NOT
-/// reject an out-of-domain strand symbol; it stores `parts[6][0]` verbatim (GFF3_IO.md §3.2
-/// "Parsed column 7 strand symbol"). So an invalid strand 'Z' is parsed as the char 'Z', not
-/// rejected — the disciplined outcome is a deterministic verbatim parse, never a crash. The
-/// fuzz test pins that documented verbatim contract rather than asserting a rejection the
-/// helper never performs.
-///
-/// TAB INJECTION (read side): an EXTRA tab inside a field yields MORE than 9 columns; because
-/// the eligibility gate is `parts.Length < 9` (not `!= 9`), the line is NOT skipped — the
-/// reader consumes columns 0..8 and the injected-tab tail beyond column 9 is dropped. This is
-/// deterministic and crash-free; the fuzz test pins that an injected tab cannot smuggle a tail
-/// fragment into the parsed attributes nor split the record into wrong columns.
+/// Column DOMAINS (B11 F9, GFF3 Spec v1.26 + GenomeTools gt gff3validator): a line must have
+/// exactly 9 columns, start/end positive with start ≤ end, strand in {+, -, ., ?}, phase in
+/// {., 0, 1, 2} and well-formed tag=value column-9 tokens; any violation (an empty or 'Z'
+/// strand, an injected tab giving 10 columns) SKIPS the line — deterministic, never a crash,
+/// never a verbatim or truncated record, and no smuggled post-tab tail.
 ///
 /// SERIALIZER (write side, the INJ high-value target): ToGff3 emits `##gff-version 3` then one
 /// 9-column row per GeneAnnotation, writing col 4 as Start + 1 (0-based internal → 1-based GFF;
-/// INV-01), source '.', phase '0' for CDS else '.', and percent-ENCODING every column-9 reserved
-/// character via EncodeGff3Value: tab→%09, newline→%0A, CR→%0D, '%'→%25, ';'→%3B, '='→%3D,
-/// '&'→%26, ','→%2C, and control chars → %XX (GFF3_IO.md §4.2; GenomeAnnotator.cs lines 530–553).
+/// INV-01), source or '.', phase for CDS else '.', and percent-ENCODING every column-9 reserved
+/// character via EncodeGff3Text: tab→%09, newline→%0A, CR→%0D, '%'→%25, ';'→%3B, '='→%3D,
+/// '&'→%26, ','→%2C, and control chars → %XX (GFF3_IO.md §4.2).
 /// A well-behaved serializer must NEVER emit a structurally broken line when an attribute value
 /// contains a tab/newline/';'/'='/'&'/',' — it must ESCAPE them. The fuzz tests pin that even an
 /// attribute value stuffed with those exact GFF-breaking characters serializes to a SINGLE
@@ -276,7 +267,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   GFF-INV-01 external GFF3 coordinates are 1-based inclusive (ToGff3 writes Start + 1);
 ///   GFF-INV-02 attribute keys are case-sensitive;
 ///   GFF-INV-03 phase is '0' for CDS, '.' otherwise.
-/// ParseGff3 / ToGff3 are LAZY iterators (`yield`), so every test forces enumeration (`.ToList()`)
+/// ParseGff3 is a LAZY iterator (`yield`) and ToGff3 returns a materialised list, so every test forces enumeration (`.ToList()`)
 /// to surface the documented behavior; any hang would manifest as a non-terminating
 /// materialization. Deterministic only: no randomness is required for this text-shaped unit.
 ///
@@ -1213,25 +1204,24 @@ public class AnnotationFuzzTests
 
     /// <summary>
     /// TF (present-but-empty strand column): a structurally-9-column line whose STRAND column is
-    /// the empty string was a caller-safety crash — `parts[6][0]` raised IndexOutOfRange on the
-    /// empty field. After the caller-safety hardening (mirroring GffParser.ParseLine) an empty
-    /// strand column defaults to the valid '.' no-strand sentinel: the line parses, no throw.
-    /// We pin BOTH the non-throw and the normalized '.' strand so the hardening cannot silently
-    /// drift back to an indexing crash.
+    /// the empty string was a caller-safety crash (`parts[6][0]` on the empty field). An empty
+    /// strand is not one of the GFF3 column-7 symbols `+ - . ?` (GFF3 Spec v1.26; GenomeTools
+    /// `gt gff3validator`: "strand '' not one character long"), so the line is a malformed data
+    /// line and is SKIPPED (B11 F9) — never an IndexOutOfRange.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void ParseGff3_EmptyStrandColumn_DefaultsToDotNotIndexOutOfRange()
+    public void ParseGff3_EmptyStrandColumn_SkippedNotIndexOutOfRange()
     {
         string emptyStrand = GffLine("seq1", "prog", "gene", "10", "99", ".", "", ".", "ID=g1");
 
-        var act = () => GenomeAnnotator.ParseGff3(new[] { emptyStrand }).ToList();
+        var act = () => GenomeAnnotator.ParseGff3(new[] { emptyStrand, ValidGffLine() }).ToList();
         act.Should().NotThrow<IndexOutOfRangeException>(
             "an empty (present-but-blank) strand column must not index past the empty field");
 
-        var feat = GenomeAnnotator.ParseGff3(new[] { emptyStrand }).ToList()
-            .Should().ContainSingle("a 9-column line with a blank strand still parses").Subject;
-        feat.Strand.Should().Be('.', "an empty strand column defaults to the GFF3 '.' no-strand sentinel");
+        GenomeAnnotator.ParseGff3(new[] { emptyStrand, ValidGffLine() }).ToList()
+            .Should().ContainSingle("the blank-strand line is skipped; only the valid line survives")
+            .Which.FeatureId.Should().Be("g1");
     }
 
     #endregion
@@ -1288,23 +1278,19 @@ public class AnnotationFuzzTests
     }
 
     /// <summary>
-    /// MC (invalid strand symbol): an out-of-domain strand 'Z' (not in {+,-,.,?}) is NOT rejected
-    /// by the lightweight reader — column 7 is parsed VERBATIM (GFF3_IO.md §3.2). The disciplined
-    /// fuzz outcome is a deterministic verbatim parse, never a crash and never a silent drop. We
-    /// pin that the line parses and the strand is exactly the supplied char, so the documented
-    /// "no strand validation" contract cannot silently change to a rejection without this test
-    /// failing.
+    /// MC (invalid strand symbol): an out-of-domain strand 'Z' (not in {+,-,.,?}, GFF3 Spec v1.26
+    /// column 7; `gt gff3validator`: "strand 'Z' … not a valid character from the set '+-.?'") is
+    /// a malformed line and is SKIPPED (B11 F9) — deterministic, never a crash, never parsed
+    /// verbatim.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void ParseGff3_InvalidStrandSymbol_ParsedVerbatimNotRejected()
+    public void ParseGff3_InvalidStrandSymbol_LineSkipped()
     {
-        string invalidStrand = GffLine("seq1", "prog", "gene", "10", "99", ".", "Z", ".", "ID=g1");
+        string invalidStrand = GffLine("seq1", "prog", "gene", "10", "99", ".", "Z", ".", "ID=bad");
 
-        var feat = GenomeAnnotator.ParseGff3(new[] { invalidStrand }).ToList()
-            .Should().ContainSingle("the lightweight reader applies no strand-domain validation").Subject;
-        feat.Strand.Should().Be('Z',
-            "column 7 is parsed verbatim, so an out-of-domain strand symbol is preserved exactly, not rejected or normalized");
+        GenomeAnnotator.ParseGff3(new[] { invalidStrand }).ToList()
+            .Should().BeEmpty("a strand outside {+,-,.,?} makes the line spec-invalid, so it is skipped");
     }
 
     #endregion
@@ -1313,30 +1299,24 @@ public class AnnotationFuzzTests
 
     /// <summary>
     /// INJ (tab injection, read side): an EXTRA literal tab inside the attributes field produces
-    /// MORE than 9 columns. Because the eligibility gate is `parts.Length &lt; 9` (not `!= 9`), the
-    /// line is NOT skipped — the reader consumes columns 0..8 and the injected-tab tail beyond
-    /// column 9 is DROPPED. The disciplined contract is that this is deterministic and crash-free,
-    /// and critically that the smuggled tail fragment can NOT leak into the parsed attribute
-    /// dictionary nor shift columns. We inject a tab after the real attributes followed by a
-    /// fake "ID=evil" tail; the parsed attributes must contain ONLY the legitimate column-9
-    /// attribute and must NOT pick up the post-tab "evil" id.
+    /// MORE than 9 columns. GFF3 files are "nine-column, tab-delimited" (GFF3 Spec v1.26; `gt
+    /// gff3validator`: "does not contain 9 tab (\t) separated fields"), so the whole line is
+    /// SKIPPED (B11 F9): neither the genuine "ID=real" nor the smuggled post-tab "ID=evil" tail can
+    /// reach the output, and the parse stays crash-free and deterministic.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void ParseGff3_TabInjectionInAttributes_DropsTailAndDoesNotCorruptColumns()
+    public void ParseGff3_TabInjectionInAttributes_LineSkippedNoSmuggledTail()
     {
         // 10 columns: a tab injected after the genuine attributes, with a fake ID tail.
         string injected = "seq1\tprog\tgene\t10\t99\t.\t+\t.\tID=real\tID=evil";
 
         var act = () => GenomeAnnotator.ParseGff3(new[] { injected }).ToList();
-        act.Should().NotThrow("a >9-column line is parsed deterministically from columns 0..8; the tail is ignored");
+        act.Should().NotThrow("a >9-column line is skipped deterministically");
 
-        var feat = GenomeAnnotator.ParseGff3(new[] { injected }).ToList()
-            .Should().ContainSingle("the injected tab does not split the record into multiple features").Subject;
-        feat.FeatureId.Should().Be("real",
-            "the genuine column-9 ID is used; the post-tab 'ID=evil' tail lies beyond column 9 and is dropped");
-        feat.Attributes.Should().ContainKey("ID")
-            .WhoseValue.Should().Be("real", "no smuggled attribute from the injected tail reaches the dictionary");
+        var feats = GenomeAnnotator.ParseGff3(new[] { injected, ValidGffLine() }).ToList();
+        feats.Should().ContainSingle("the 10-column line is skipped; only the valid line survives")
+            .Which.FeatureId.Should().Be("g1", "no smuggled 'evil' (or truncated 'real') record is produced");
     }
 
     #endregion

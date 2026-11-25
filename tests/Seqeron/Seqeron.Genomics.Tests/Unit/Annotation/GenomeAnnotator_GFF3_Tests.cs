@@ -962,4 +962,375 @@ public class GenomeAnnotator_GFF3_Tests
     }
 
     #endregion
+
+    #region B11 review (2026-11-25) — spec conformance vs gt gff3validator / gffutils / BCBio (F8–F10)
+
+    /// <summary>
+    /// The Sequence Ontology GFF3 Spec v1.26 "Canonical Gene" (EDEN, lines 2–24), tab-delimited.
+    /// It is valid per GenomeTools 1.6.5 <c>gt gff3validator</c>.
+    /// </summary>
+    private static readonly string[] CanonicalGene =
+    {
+        "##gff-version 3.1.26",
+        "##sequence-region ctg123 1 1497228",
+        "ctg123\t.\tgene\t1000\t9000\t.\t+\t.\tID=gene00001;Name=EDEN",
+        "ctg123\t.\tTF_binding_site\t1000\t1012\t.\t+\t.\tID=tfbs00001;Parent=gene00001",
+        "ctg123\t.\tmRNA\t1050\t9000\t.\t+\t.\tID=mRNA00001;Parent=gene00001;Name=EDEN.1",
+        "ctg123\t.\tmRNA\t1050\t9000\t.\t+\t.\tID=mRNA00002;Parent=gene00001;Name=EDEN.2",
+        "ctg123\t.\tmRNA\t1300\t9000\t.\t+\t.\tID=mRNA00003;Parent=gene00001;Name=EDEN.3",
+        "ctg123\t.\texon\t1300\t1500\t.\t+\t.\tID=exon00001;Parent=mRNA00003",
+        "ctg123\t.\texon\t1050\t1500\t.\t+\t.\tID=exon00002;Parent=mRNA00001,mRNA00002",
+        "ctg123\t.\texon\t3000\t3902\t.\t+\t.\tID=exon00003;Parent=mRNA00001,mRNA00003",
+        "ctg123\t.\texon\t5000\t5500\t.\t+\t.\tID=exon00004;Parent=mRNA00001,mRNA00002,mRNA00003",
+        "ctg123\t.\texon\t7000\t9000\t.\t+\t.\tID=exon00005;Parent=mRNA00001,mRNA00002,mRNA00003",
+        "ctg123\t.\tCDS\t1201\t1500\t.\t+\t0\tID=cds00001;Parent=mRNA00001;Name=edenprotein.1",
+        "ctg123\t.\tCDS\t3000\t3902\t.\t+\t0\tID=cds00001;Parent=mRNA00001;Name=edenprotein.1",
+        "ctg123\t.\tCDS\t5000\t5500\t.\t+\t0\tID=cds00001;Parent=mRNA00001;Name=edenprotein.1",
+        "ctg123\t.\tCDS\t7000\t7600\t.\t+\t0\tID=cds00001;Parent=mRNA00001;Name=edenprotein.1",
+        "ctg123\t.\tCDS\t1201\t1500\t.\t+\t0\tID=cds00002;Parent=mRNA00002;Name=edenprotein.2",
+        "ctg123\t.\tCDS\t5000\t5500\t.\t+\t0\tID=cds00002;Parent=mRNA00002;Name=edenprotein.2",
+        "ctg123\t.\tCDS\t7000\t7600\t.\t+\t0\tID=cds00002;Parent=mRNA00002;Name=edenprotein.2",
+        "ctg123\t.\tCDS\t3301\t3902\t.\t+\t0\tID=cds00003;Parent=mRNA00003;Name=edenprotein.3",
+        "ctg123\t.\tCDS\t5000\t5500\t.\t+\t1\tID=cds00003;Parent=mRNA00003;Name=edenprotein.3",
+        "ctg123\t.\tCDS\t7000\t7600\t.\t+\t1\tID=cds00003;Parent=mRNA00003;Name=edenprotein.3",
+        "ctg123\t.\tCDS\t3391\t3902\t.\t+\t0\tID=cds00004;Parent=mRNA00003;Name=edenprotein.4",
+        "ctg123\t.\tCDS\t5000\t5500\t.\t+\t1\tID=cds00004;Parent=mRNA00003;Name=edenprotein.4",
+        "ctg123\t.\tCDS\t7000\t7600\t.\t+\t1\tID=cds00004;Parent=mRNA00003;Name=edenprotein.4",
+    };
+
+    private const string ValidLine = "ctg1\t.\tgene\t1\t100\t.\t+\t.\tName=ok";
+
+    private static GenomeAnnotator.GeneAnnotation Ann(
+        int start = 9, int end = 20, char strand = '+', string type = "gene", string id = "g1",
+        string product = "p", Dictionary<string, string>? attributes = null,
+        string source = ".", IReadOnlyDictionary<string, IReadOnlyList<string>>? values = null) =>
+        new(id, start, end, strand, type, product, attributes ?? new Dictionary<string, string>(),
+            source, null, values);
+
+    private static string[] Row(GenomeAnnotator.GeneAnnotation ann, string seqId = "chr1") =>
+        GenomeAnnotator.ToGff3(new[] { ann }, seqId).Skip(1).Single().Split('\t');
+
+    /// <summary>
+    /// Spec canonical gene parsed: 23 features; multiple parentage ("using the comma symbol to
+    /// indicate multiple parentage") is a value list, identical to gffutils 0.14 / BCBio-GFF
+    /// (exon00002 → [mRNA00001, mRNA00002]); seqid/source columns kept.
+    /// </summary>
+    [Test]
+    public void ParseGff3_SpecCanonicalGene_MultipleParentageIsValueList()
+    {
+        var f = GenomeAnnotator.ParseGff3(CanonicalGene).ToList();
+
+        Assert.That(f, Has.Count.EqualTo(23));
+        var exon2 = f.Single(x => x.FeatureId == "exon00002");
+        var exon4 = f.Single(x => x.FeatureId == "exon00004");
+        Assert.Multiple(() =>
+        {
+            Assert.That(exon2.AttributeValues!["Parent"], Is.EqualTo(new[] { "mRNA00001", "mRNA00002" }));
+            Assert.That(exon4.AttributeValues!["Parent"], Is.EqualTo(new[] { "mRNA00001", "mRNA00002", "mRNA00003" }));
+            Assert.That(exon2.Attributes["Parent"], Is.EqualTo("mRNA00001,mRNA00002"));
+            Assert.That(f.All(x => x.Seqid == "ctg123" && x.Source == "."), Is.True);
+            Assert.That(f.Where(x => x.FeatureId == "cds00003").Select(x => x.Phase), Is.EqualTo(new int?[] { 0, 1, 1 }));
+        });
+    }
+
+    /// <summary>
+    /// F8: an escaped comma belongs to the value, an unescaped comma separates values (GFF3 Spec
+    /// column 9). Reference gffutils 0.14: <c>Note=a%2Cb</c> → ['a,b'], <c>Note=a,b</c> → ['a','b'].
+    /// Before the fix both lines parsed to the same single string "a,b".
+    /// </summary>
+    [Test]
+    public void ParseGff3_EscapedVersusSeparatorComma_Distinguished()
+    {
+        var f = GenomeAnnotator.ParseGff3(new[]
+        {
+            "ctg1\t.\tgene\t1\t100\t.\t+\t.\tID=g1;Note=a%2Cb",
+            "ctg1\t.\tgene\t1\t100\t.\t+\t.\tID=g2;Note=a,b;Dbxref=EMBL:AA816246,NCBI_gi:10727410",
+        }).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(f[0].AttributeValues!["Note"], Is.EqualTo(new[] { "a,b" }));
+            Assert.That(f[1].AttributeValues!["Note"], Is.EqualTo(new[] { "a", "b" }));
+            Assert.That(f[1].AttributeValues!["Dbxref"], Is.EqualTo(new[] { "EMBL:AA816246", "NCBI_gi:10727410" }));
+        });
+    }
+
+    /// <summary>
+    /// F8: columns 1–3 are kept and percent-decoded; a tag may be escaped ("URL escaping rules are
+    /// used for tags or values containing ,=;").
+    /// </summary>
+    [Test]
+    public void ParseGff3_SeqidSourceTypeAndTag_KeptAndDecoded()
+    {
+        var f = GenomeAnnotator.ParseGff3(new[] { "ctg%3B2\tsrc%09x\tgene\t1\t100\t.\t+\t.\tID=g3;na%3Dme=v" }).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(f.Seqid, Is.EqualTo("ctg;2"));
+            Assert.That(f.Source, Is.EqualTo("src\tx"));
+            Assert.That(f.Attributes["na=me"], Is.EqualTo("v"));
+        });
+    }
+
+    /// <summary>
+    /// F9: "unescaped spaces are allowed within fields" — value text is kept verbatim
+    /// (gt gff3 and gffutils keep " x y "; the old parser trimmed it to "x y"); whitespace around a
+    /// tag after "; " is not part of the tag (gt, gffutils, BCBio all read "Name").
+    /// </summary>
+    [Test]
+    public void ParseGff3_ValueSpacesKept_TagWhitespaceDropped()
+    {
+        var f = GenomeAnnotator.ParseGff3(new[] { "ctg1\t.\tgene\t1\t99\t.\t+\t.\tID=g1; Name=x;Note= x y " }).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(f.Attributes["Name"], Is.EqualTo("x"));
+            Assert.That(f.Attributes["Note"], Is.EqualTo(" x y "));
+        });
+    }
+
+    /// <summary>
+    /// F9: lines that violate the spec's column rules are skipped (one bad line never aborts the
+    /// parse and does not consume a feature_n number). Each case is rejected by GenomeTools 1.6.5
+    /// <c>gt gff3validator</c> with the quoted error; the old parser accepted all of them.
+    /// </summary>
+    [TestCase("ctg1\t.\tgene\t1\t100\t.\tZ\t.\tID=x", TestName = "strand 'Z' not a valid character from the set '+-.?'")]
+    [TestCase("ctg1\t.\tgene\t1\t100\t.\t\t.\tID=x", TestName = "strand '' not one character long")]
+    [TestCase("ctg1\t.\tgene\t1\t100\t.\t+-\t.\tID=x", TestName = "strand '+-' not one character long")]
+    [TestCase("ctg1\t.\tCDS\t1\t99\t.\t+\t3\tID=x", TestName = "phase '3' not a valid character from the set '012.'")]
+    [TestCase("ctg1\t.\tCDS\t1\t99\t.\t+\t-1\tID=x", TestName = "phase '-1' not one character long")]
+    [TestCase("ctg1\t.\tgene\t0\t99\t.\t+\t.\tID=x", TestName = "illegal feature start 0 (GFF3 files are 1-based)")]
+    [TestCase("ctg1\t.\tgene\t100\t99\t.\t+\t.\tID=x", TestName = "start '100' is larger then end '99'")]
+    [TestCase("ctg1\t.\tgene\t1\t99\t.\t+\t.\tID=x\tID=evil", TestName = "line does not contain 9 tab separated fields (10)")]
+    [TestCase("ctg1\t.\tgene\t1\t99\t.\t+\t.", TestName = "line does not contain 9 tab separated fields (8)")]
+    [TestCase("ctg1\t.\tgene\t1\t99\t.\t+\t.\tID=x;Note=a;Note=b", TestName = "more than one Note attribute")]
+    [TestCase("ctg1\t.\tgene\t1\t99\t.\t+\t.\tID=x;extra", TestName = "token does not contain exactly one '='")]
+    [TestCase("ctg1\t.\tgene\t1\t99\t.\t+\t.\tID=x;product=", TestName = "attribute has no value")]
+    public void ParseGff3_SpecInvalidLine_Skipped(string invalidLine)
+    {
+        var f = GenomeAnnotator.ParseGff3(new[] { invalidLine, ValidLine }).ToList();
+
+        Assert.That(f, Has.Count.EqualTo(1));
+        Assert.That(f[0].FeatureId, Is.EqualTo("feature_1"), "the skipped line does not consume a feature number");
+    }
+
+    /// <summary>
+    /// Spec-valid edge lines are accepted (gt gff3validator: "input is valid GFF3"): a zero-length
+    /// feature (start = end), the '?' strand, a phase on a non-CDS feature, an E-value score,
+    /// an empty column 9 ".", a trailing ';', and a CDS with phase "." (the spec requires a CDS
+    /// phase, but gt accepts the line).
+    /// </summary>
+    [TestCase("ctg1\t.\tinsertion_site\t100\t100\t.\t?\t.\tID=x")]
+    [TestCase("ctg1\t.\tgene\t1\t99\t.\t+\t1\tID=x")]
+    [TestCase("ctg1\t.\tcDNA_match\t1050\t1500\t5.8e-42\t+\t.\tID=x")]
+    [TestCase("ctg1\t.\tgene\t1\t99\t.\t+\t.\t.")]
+    [TestCase("ctg1\t.\tgene\t1\t99\t.\t+\t.\tID=x;")]
+    [TestCase("ctg1\t.\tCDS\t1\t99\t.\t+\t.\tID=x")]
+    public void ParseGff3_SpecValidEdgeLine_Accepted(string line)
+    {
+        Assert.That(GenomeAnnotator.ParseGff3(new[] { line }).ToList(), Has.Count.EqualTo(1));
+    }
+
+    /// <summary>
+    /// "##FASTA … indicates that the annotation portion of the file is at an end"; "a GFF line
+    /// that begins with the character &gt; creates an implied ##FASTA directive". Nothing after it
+    /// is read as a feature, even a tab-containing line.
+    /// </summary>
+    [TestCase("##FASTA")]
+    [TestCase(">ctg1")]
+    public void ParseGff3_FastaSection_EndsAnnotation(string fastaStart)
+    {
+        var f = GenomeAnnotator.ParseGff3(new[]
+        {
+            "##gff-version 3", ValidLine, fastaStart, "ACGT", "ctg1\t.\tgene\t1\t100\t.\t+\t.\tID=late",
+        }).ToList();
+
+        Assert.That(f.Select(x => x.FeatureId), Is.EqualTo(new[] { "feature_1" }));
+    }
+
+    /// <summary>A CRLF line terminator is not part of the last value (lines split on '\n').</summary>
+    [Test]
+    public void ParseGff3_CrLfLine_CrNotInLastValue()
+    {
+        var f = GenomeAnnotator.ParseGff3(new[] { "ctg1\t.\tgene\t1\t99\t.\t+\t.\tID=g1;Note=x\r" }).Single();
+        Assert.That(f.Attributes["Note"], Is.EqualTo("x"));
+    }
+
+    [Test]
+    public void ParseGff3_NullLines_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => GenomeAnnotator.ParseGff3(null!));
+    }
+
+    /// <summary>
+    /// The spec canonical gene, rebuilt as GeneAnnotations (0-based start = start − 1, multiple
+    /// parentage as AttributeValues), is written back byte-identical to the spec rows — including
+    /// all 13 computed CDS phases (cds00003/cds00004: 0,1,1) — and the output is valid per
+    /// gt gff3validator.
+    /// </summary>
+    [Test]
+    public void ToGff3_SpecCanonicalGene_ReproducesSpecRows()
+    {
+        var features = GenomeAnnotator.ParseGff3(CanonicalGene).ToList();
+        var annotations = features.Select(f => new GenomeAnnotator.GeneAnnotation(
+            f.FeatureId, f.Start - 1, f.End, f.Strand, f.Type, "",
+            f.AttributeValues!.Where(kv => kv.Key != "ID" && kv.Value.Count == 1)
+                .ToDictionary(kv => kv.Key, kv => kv.Value[0]),
+            f.Source, f.Score,
+            f.AttributeValues!.Where(kv => kv.Value.Count > 1).ToDictionary(kv => kv.Key, kv => kv.Value))).ToList();
+
+        var lines = GenomeAnnotator.ToGff3(annotations, "ctg123").ToList();
+
+        Assert.That(lines.Skip(1), Is.EqualTo(CanonicalGene.Skip(2)));
+    }
+
+    /// <summary>
+    /// Phase is measured from the 5' end, which is the feature end on the − strand, so mirroring the
+    /// canonical CDS segments onto the − strand (x → L + 1 − x, L = 1497228) keeps every phase:
+    /// cds00003 = 0,1,1 in 5'→3' order.
+    /// </summary>
+    [Test]
+    public void ToGff3_CanonicalCdsMirroredToMinusStrand_SamePhases()
+    {
+        const int L = 1497228;
+        (int s, int e)[] cds3 = { (3301, 3902), (5000, 5500), (7000, 7600) };
+        var anns = cds3.Select(x => Ann(start: L + 1 - x.e - 1, end: L + 1 - x.s, strand: '-', type: "CDS", id: "cds00003")).ToList();
+
+        var rows = GenomeAnnotator.ToGff3(anns, "ctg123").Skip(1).Select(l => l.Split('\t')).ToList();
+
+        Assert.That(rows.Select(r => r[7]), Is.EqualTo(new[] { "0", "1", "1" }));
+        Assert.That(rows.Select(r => r[3] + "-" + r[4]), Is.EqualTo(new[] { "1493327-1493928", "1491729-1492229", "1489629-1490229" }));
+    }
+
+    /// <summary>
+    /// F10: column 1 "must escape any characters not in the set [a-zA-Z0-9.:^*$@!+_?-|] … may not
+    /// contain unescaped whitespace and must not begin with an unescaped '&gt;'" (old output: raw).
+    /// </summary>
+    [TestCase("chr 1", "chr%201")]
+    [TestCase(">chr1", "%3Echr1")]
+    [TestCase("chr1;x", "chr1%3Bx")]
+    [TestCase("a.b:c^d*e$f@g!h+i_j?k-l|m", "a.b:c^d*e$f@g!h+i_j?k-l|m")]
+    [TestCase("ctgé", "ctg%C3%A9")]
+    public void ToGff3_SeqidOutsideAllowedSet_PercentEncoded(string seqId, string expected)
+    {
+        Assert.That(Row(Ann(), seqId)[0], Is.EqualTo(expected));
+        Assert.That(GenomeAnnotator.ParseGff3(GenomeAnnotator.ToGff3(new[] { Ann() }, seqId)).Single().Seqid, Is.EqualTo(seqId));
+    }
+
+    /// <summary>
+    /// F10: tab/newline/CR/'%'/control characters are encoded in every column — a tab in the
+    /// source used to split the row into 10 fields (gt: "does not contain 9 tab separated fields").
+    /// Column-9 reserved characters are not encoded outside column 9.
+    /// </summary>
+    [Test]
+    public void ToGff3_SourceAndTypeControlChars_Encoded()
+    {
+        var row = Row(Ann(source: "my\tsrc;1", type: "ge\nne"));
+
+        Assert.That(row, Has.Length.EqualTo(9));
+        Assert.That(row[1], Is.EqualTo("my%09src;1"));
+        Assert.That(row[2], Is.EqualTo("ge%0Ane"));
+    }
+
+    /// <summary>
+    /// F10: tags are encoded like values ("URL escaping rules are used for tags or values
+    /// containing ',=;'"); the old output "a=b=x" was rejected by gt ("does not contain exactly one '='").
+    /// </summary>
+    [Test]
+    public void ToGff3_TagWithReservedChars_Encoded()
+    {
+        var row = Row(Ann(attributes: new Dictionary<string, string> { ["a=b;c"] = "x" }));
+        Assert.That(row[8], Is.EqualTo("ID=g1;product=p;a%3Db%3Bc=x"));
+    }
+
+    /// <summary>
+    /// F10: ID and product come only from GeneId/Product — an "ID" key in Attributes used to emit a
+    /// second ID tag (gt: "more than one ID attribute"), and ParseGff3 then read the wrong ID.
+    /// </summary>
+    [Test]
+    public void ToGff3_IdAndProductInAttributes_NotRepeated()
+    {
+        var ann = Ann(attributes: new Dictionary<string, string> { ["ID"] = "x", ["product"] = "y", ["note"] = "n" });
+
+        Assert.That(Row(ann)[8], Is.EqualTo("ID=g1;product=p;note=n"));
+        Assert.That(GenomeAnnotator.ParseGff3(GenomeAnnotator.ToGff3(new[] { ann })).Single().FeatureId, Is.EqualTo("g1"));
+    }
+
+    /// <summary>
+    /// F10: an empty value is omitted (gt: 'attribute "product=" … has no value'); column 9 with no
+    /// tag left is the "." placeholder.
+    /// </summary>
+    [Test]
+    public void ToGff3_EmptyValues_Omitted()
+    {
+        Assert.That(Row(Ann(product: "", attributes: new Dictionary<string, string> { ["note"] = "n" }))[8], Is.EqualTo("ID=g1;note=n"));
+        Assert.That(Row(Ann(id: "", product: ""))[8], Is.EqualTo("."));
+    }
+
+    /// <summary>
+    /// F10: multi-valued attributes ("Parent=AF2312,AB2812,abc-3") are written with unescaped commas
+    /// between separately encoded values, and read back as the same list; a single-valued
+    /// Attributes entry keeps its comma escaped.
+    /// </summary>
+    [Test]
+    public void ToGff3_AttributeValues_CommaSeparatedAndRoundTrip()
+    {
+        var values = new Dictionary<string, IReadOnlyList<string>> { ["Parent"] = new[] { "AF2312", "AB2812", "abc-3" }, ["Alias"] = new[] { "x,y", "z" } };
+        var ann = Ann(type: "exon", product: "", attributes: new Dictionary<string, string> { ["Note"] = "a,b", ["Parent"] = "ignored" }, values: values);
+
+        var row = Row(ann);
+        var f = GenomeAnnotator.ParseGff3(GenomeAnnotator.ToGff3(new[] { ann })).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(row[8], Is.EqualTo("ID=g1;Note=a%2Cb;Parent=AF2312,AB2812,abc-3;Alias=x%2Cy,z"));
+            Assert.That(f.AttributeValues!["Parent"], Is.EqualTo(new[] { "AF2312", "AB2812", "abc-3" }));
+            Assert.That(f.AttributeValues!["Alias"], Is.EqualTo(new[] { "x,y", "z" }));
+            Assert.That(f.AttributeValues!["Note"], Is.EqualTo(new[] { "a,b" }));
+        });
+    }
+
+    /// <summary>
+    /// F10: "For zero-length features, such as insertion sites, start equals end and the implied site
+    /// is to the right of the indicated base": the empty half-open interval [s, s) is written s..s
+    /// (it used to be written start = s + 1 &gt; end = s, rejected by gt).
+    /// </summary>
+    [Test]
+    public void ToGff3_EmptyInterval_WrittenAsZeroLengthFeature()
+    {
+        var row = Row(Ann(start: 5, end: 5, type: "insertion_site"));
+        Assert.That((row[3], row[4]), Is.EqualTo(("5", "5")));
+    }
+
+    /// <summary>
+    /// F10: annotations without a GFF3 representation are rejected instead of written as invalid
+    /// lines (gt: strand 'x' not a valid character from the set '+-.?'; start larger than end).
+    /// </summary>
+    [TestCase(9, 20, 'x', "gene")]
+    [TestCase(9, 20, '\0', "gene")]
+    [TestCase(-1, 20, '+', "gene")]
+    [TestCase(20, 9, '+', "gene")]
+    [TestCase(0, 0, '+', "gene")]
+    [TestCase(9, 20, '+', "")]
+    public void ToGff3_UnrepresentableAnnotation_Throws(int start, int end, char strand, string type)
+    {
+        Assert.Throws<ArgumentException>(() => GenomeAnnotator.ToGff3(new[] { Ann(start, end, strand, type) }).ToList());
+    }
+
+    [Test]
+    public void ToGff3_NullAnnotationsOrEmptySeqId_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => GenomeAnnotator.ToGff3(null!));
+        Assert.Throws<ArgumentException>(() => GenomeAnnotator.ToGff3(new[] { Ann() }, ""));
+    }
+
+    /// <summary>The '?' and '.' strands are valid GFF3 column-7 symbols and are written verbatim.</summary>
+    [TestCase('?')]
+    [TestCase('.')]
+    public void ToGff3_UnknownAndUnstrandedSymbols_Written(char strand)
+    {
+        Assert.That(Row(Ann(strand: strand))[6], Is.EqualTo(strand.ToString()));
+    }
+
+    #endregion
 }

@@ -5,12 +5,12 @@
 | Algorithm Group | Annotation |
 | Test Unit ID | ANNOT-GFF-001 |
 | Related Projects | Seqeron.Genomics |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete (flat feature lines; gene-model assembly lives in `GffParser`) |
+| Last Reviewed | 2026-11-25 (B11 F8–F10) |
 
 ## 1. Overview
 
-GFF3 I/O in this repository is a specification-driven helper surface for reading and writing basic feature annotations. `GenomeAnnotator.ParseGff3(...)` parses flat GFF3 records into a reduced `GenomicFeature` shape, and `GenomeAnnotator.ToGff3(...)` exports `GeneAnnotation` records back to tab-delimited GFF3 lines. The implementation follows core GFF3 field rules, percent-encoding rules, and coordinate conventions, but it is intentionally narrower than the repository's fuller `GffParser` API. It should therefore be treated as a lightweight interoperability helper rather than a complete GFF3/GTF toolkit.
+GFF3 I/O in this repository is a specification-driven helper surface for reading and writing basic feature annotations. `GenomeAnnotator.ParseGff3(...)` parses GFF3 feature lines into `GenomicFeature` records (all nine columns, multi-valued attributes as value lists), and `GenomeAnnotator.ToGff3(...)` exports `GeneAnnotation` records to spec-valid GFF3 lines. Both follow the Sequence Ontology GFF3 v1.26 column rules, percent-encoding rules and coordinate conventions, cross-checked against GenomeTools `gt gff3validator`, gffutils and BCBio-GFF ([Evidence](../../Evidence/ANNOT-GFF-001-Evidence.md)). GTF / GFF2 and gene-model assembly are in `GffParser` (PARSE-GFF-001).
 
 ## 2. Scientific / Formal Basis
 
@@ -52,13 +52,15 @@ The current document also preserves the specification rule that only required ch
 |------|------|---------|-------------|-------------|
 | `lines` | `IEnumerable<string>` | required | Raw GFF3 lines consumed by `ParseGff3(...)` | Each data line must provide all 9 tab-delimited columns to be parsed |
 | `annotations` | `IEnumerable<GeneAnnotation>` | required | Gene annotations exported by `ToGff3(...)` | Expects the repository's internal `GeneAnnotation` shape |
-| `seqId` | `string` | `"seq1"` | Value written to column `1` by `ToGff3(...)` | Passed through verbatim by the lightweight exporter |
+| `seqId` | `string` | `"seq1"` | Value written to column `1` by `ToGff3(...)` | Non-empty; characters outside `[a-zA-Z0-9.:^*$@!+_?-\|]` are percent-encoded (UTF-8 bytes) |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `ParseGff3(...)` | `IEnumerable<GenomicFeature>` | Flat feature records parsed from GFF3 lines |
+| `Seqid` / `Source` | `string` | Columns 1 / 2, percent-decoded |
+| `AttributeValues` | `IReadOnlyDictionary<string, IReadOnlyList<string>>` | Column 9 tag → value list (split on the unescaped `,`, each value decoded) |
 | `FeatureId` | `string` | `ID` attribute when present, otherwise an auto-generated `feature_n` identifier |
 | `Type` | `string` | Column `3` feature type |
 | `Start` | `int` | Parsed column `4` start coordinate, preserved in 1-based inclusive GFF3 space |
@@ -66,33 +68,38 @@ The current document also preserves the specification rule that only required ch
 | `Strand` | `char` | Parsed column `7` strand symbol |
 | `Score` | `double?` | Parsed column `6` score, or `null` when the field is `.` |
 | `Phase` | `int?` | Parsed column `8` phase, or `null` when the field is `.` |
-| `Attributes` | `IReadOnlyDictionary<string, string>` | Parsed attribute dictionary from column `9` |
+| `Attributes` | `IReadOnlyDictionary<string, string>` | Column 9 tag → decoded value text (multi-values joined with `,`) |
 | `ToGff3(...)` | `IEnumerable<string>` | Output lines beginning with `##gff-version 3` followed by serialized feature rows |
 
 ### 3.3 Preconditions and Validation
 
-The lightweight `GenomeAnnotator` helpers expect non-null enumerables for `lines` and `annotations`; they do not add explicit null guards around those collections. `ParseGff3(...)` skips blank lines and all `#`-prefixed lines, ignores lines with fewer than 9 tab-separated fields, parses score and phase using `.` as the null sentinel, and percent-decodes attribute values with `Uri.UnescapeDataString`. `ToGff3(...)` expects the repository's internal `GeneAnnotation.Start` values in 0-based space and writes column `4` as `Start + 1` while leaving `End` unchanged. The lightweight exporter does not validate Sequence Ontology terms, `seqId` encoding, or hierarchical parent-child consistency.
+`ParseGff3(null)` and `ToGff3(null)` throw `ArgumentNullException`; `ToGff3` with a null/empty `seqId` throws `ArgumentException`.
+
+`ParseGff3(...)` skips blank lines and `#`/`##` lines, drops a trailing CR, and stops at `##FASTA` or a line beginning with `>` (implied `##FASTA`). A feature line is accepted only when it satisfies the spec's column rules (the rules `gt gff3validator` enforces): exactly 9 tab-separated columns; start/end positive integers (digits only) with start ≤ end; score `.` or a floating-point number (invariant culture); strand one of `+ - . ?`; phase `.` or `0`/`1`/`2`; column 9 `.` or `;`-separated `tag=value` tokens with non-empty tag and value and no repeated tag (empty tokens from a trailing `;` are ignored). Other lines are skipped without consuming a `feature_n` number. A CDS line with phase `.` is accepted (gt accepts it).
+
+`ToGff3(...)` throws `ArgumentException` for an annotation with an empty type, a strand outside `+ - . ?`, a negative start, an end before its start, or the interval `[0, 0)`. It does not validate Sequence Ontology terms or parent-child consistency.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. For parsing, iterate over input lines, skip blank or `#`-prefixed lines, and split candidate data lines on tab characters.
-2. If a line has all 9 fields, parse the numeric columns, decode the attributes, choose the `ID` attribute when present, and emit a `GenomicFeature` record.
-3. For export, emit `##gff-version 3` as the first line.
-4. Serialize each `GeneAnnotation` as a 9-column row using `seqId`, the feature's real `Source` (or `.`), the annotation type, 1-based start conversion, the annotation end coordinate, the feature's real `Score` (or `.`), strand, the computed phase, and encoded attributes.
-5. For CDS export, precompute column-8 phase per transcript: group CDS rows by `GeneId`, order them 5'→3' (ascending start on `+`, descending start on `−`), set the 5'-most segment to phase `0`, and set each later segment to `(3 − (Σ preceding segment lengths) mod 3) mod 3` [1].
+1. Parsing: iterate lines; drop a trailing CR; skip blank and `#` lines; stop at `##FASTA` / `>`.
+2. Split a candidate line on tabs and validate the columns (§3.3); skip the line on any violation.
+3. Decode columns 1–3; split column 9 on `;`, each token at the first `=` (tag trimmed, value verbatim), each value list on the unescaped `,`, and percent-decode tags and values; emit `GenomicFeature` with `FeatureId` = `ID` or `feature_n`.
+4. Export: validate every annotation, emit `##gff-version 3`, then one row per annotation: encoded seqid, encoded source (or `.`), encoded type, start (`Start + 1`, or `s` for an empty interval `[s, s)`), end, score (or `.`), strand, phase, column 9.
+5. CDS phase: group CDS rows by `GeneId`, order them 5'→3' (ascending start on `+`, descending start on `−`), set the 5'-most segment to `0` and each later segment to `(3 − (Σ preceding segment lengths) mod 3) mod 3` [1].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 | Context | Rule |
 |---------|------|
-| Parse line eligibility | Fewer than 9 tab-separated fields means the line is skipped |
+| Parse line eligibility | All column rules of §3.3; otherwise skipped |
 | Score / phase null sentinel | `.` becomes `null` on parse |
-| Source / score on export | the feature's real `Source` / `Score` when present; `.` when absent (`Source` defaults to `.`, `Score` to `null`) |
-| Phase on export | `.` for non-CDS; for CDS, the cumulative `(3 − (Σ preceding-segment lengths) mod 3) mod 3` over the transcript's CDS segments ordered 5'→3', with the 5'-most segment `0` |
-| Attribute order on export | `ID` and `product` are emitted first, then the remaining attributes except `translation` |
-| GFF3 encoding on export | Encodes tab, newline, carriage return, `%`, control characters, `;`, `=`, `&`, and `,`; leaves spaces literal |
+| Multi-valued attributes | Parse: `Parent=a,b` → `["a","b"]`, `Note=a%2Cb` → `["a,b"]`; export: `AttributeValues` values encoded separately and joined by `,` |
+| Source / score on export | the feature's real `Source` / `Score` when present; `.` when absent |
+| Phase on export | `.` for non-CDS; CDS cumulative per transcript (§4.1 step 5) |
+| Column 9 on export | `ID` (GeneId), `product` (Product), then `Attributes` except `translation`/`ID`/`product` and tags also in `AttributeValues`, then `AttributeValues`; empty values omitted; `.` if nothing remains |
+| Encoding on export | Every column: tab, LF, CR, `%`, control chars; column 9 tags and values also `; = & ,`; seqid every character outside `[a-zA-Z0-9.:^*$@!+_?-\|]`; spaces literal elsewhere |
 
 ### 4.3 Complexity
 
@@ -109,51 +116,37 @@ The lightweight `GenomeAnnotator` helpers expect non-null enumerables for `lines
 
 - `GenomeAnnotator.ParseGff3(IEnumerable<string>)`: Lightweight parser that returns a reduced flat feature shape.
 - `GenomeAnnotator.ToGff3(IEnumerable<GeneAnnotation>, string)`: Lightweight exporter from `GeneAnnotation` records.
-- `GenomeAnnotator.EncodeGff3Value(string)`: Column-9 percent-encoding helper used by the exporter.
+- `GenomeAnnotator.EncodeGff3Text(string, bool)` / `EncodeGff3Seqid(string)` / `DecodeGff3(string)`: private percent-encoding helpers.
 - `GffParser.Parse(...)`, `GffParser.ParseFile(...)`, `GffParser.WriteToStream(...)`, and `GffParser.BuildGeneModels(...)`: Fuller in-repository GFF/GTF surfaces.
 
 ### 5.2 Current Behavior
 
-Repository-specific behavior confirmed by source and tests:
-
-- `ParseGff3(...)` skips every `#`-prefixed line, so both comments and `##gff-version` / directive lines are ignored after detection.
-- The parsed `GenomicFeature` shape does not preserve `seqid` or `source`; it keeps only `FeatureId`, `Type`, `Start`, `End`, `Strand`, `Score`, `Phase`, and `Attributes`.
-- Missing `ID` attributes are replaced with sequential `feature_n` identifiers.
-- `ToGff3(...)` writes the feature's real `Source` and `Score` (falling back to `.` when absent) and computes CDS phase cumulatively per transcript; it exports only from `GeneAnnotation`, not from the parsed `GenomicFeature` type.
-- The exporter omits the `translation` attribute and preserves spaces literally while encoding only the characters explicitly required by the GFF3 rules implemented in `EncodeGff3Value(...)`.
+- `ParseGff3(...)` keeps all nine columns (`Seqid`, `Source` added by B11 F8), multi-valued attributes as lists (`AttributeValues`), and skips spec-invalid lines (B11 F9).
+- `ToGff3(...)` emits only spec-valid lines (validated by `gt gff3validator` on the canonical gene and a 300-annotation escaping corpus) and writes multi-valued attributes from `GeneAnnotation.AttributeValues` (B11 F10).
+- Round trip: `ParseGff3(ToGff3(x))` restores seqid, source, type, ID, product, tags and value lists; Start comes back in GFF3 space (`Start + 1`).
 
 ### 5.3 Conformance to Theory / Spec
 
-**Implemented (verbatim from the cited theory/spec):**
+**Implemented:** the nine columns with the spec's domains; percent-encoding/decoding in every column; seqid allowed set; multi-valued column-9 attributes; `##FASTA` and implied `>` FASTA start; zero-length features; CDS phase accumulation 5'→3' per transcript [1].
 
-- Parsing of 9-column GFF3-like feature rows.
-- Recognition of `.` as the undefined sentinel for score and phase.
-- Percent decoding of encoded attribute values on parse.
-- Emission of the `##gff-version 3` header and 1-based start coordinates.
-- Column 2 `source` and column 6 `score` carry the feature's real values when present and fall back to the `.` undefined-field placeholder otherwise [1].
-- Column 8 `phase` for CDS features computed as the number of bases forward to the next codon, accumulated across the transcript's CDS segments ordered 5'→3', strand-aware (the 5' end is the start on `+`, the end on `−`) [1]; phase `.` for non-CDS.
+**Choices (recorded, sourced):**
 
-**Intentionally simplified:**
+- CDS with phase `.` is accepted on parse: `gt gff3validator` accepts it although the spec requires a CDS phase; export always writes it.
+- Malformed lines are skipped rather than aborting the parse (gt rejects the whole file).
+- Numbers are parsed strictly (positive digits, invariant float); gt's C-library leniency (`+7` → 7, `-5` reset to 1, score `1,5` → 1) is not copied.
+- Tags are trimmed of surrounding whitespace (as gt, gffutils and BCBio do); values keep their spaces.
+- CDS segments are grouped into transcripts by `GeneId` and the 5'-most segment is phase `0` (a 5'-partial CDS starting mid-codon cannot be expressed because `GeneAnnotation` has no per-feature phase).
+- The exporter omits the `translation` attribute.
 
-- The lightweight parser drops `seqid` and `source` from its returned record shape; **consequence:** `GenomeAnnotator` round trips are not lossless even when the input is valid GFF3.
-- The lightweight exporter accepts only `GeneAnnotation` records; **consequence:** callers cannot use it as a general-purpose GFF3 writer for arbitrary feature records.
-- CDS segments are grouped into transcripts by `GeneId` and assumed pre-trimmed to the coding frame (the 5'-most segment is treated as phase `0`); **consequence:** a non-zero codon offset on the first segment (a 5'-partial CDS) is not represented because `GeneAnnotation` has no explicit per-feature phase field.
-- The exporter omits the `translation` attribute; **consequence:** large translated payloads are not preserved in lightweight GFF3 output.
-
-**Not implemented:**
-
-- GTF parsing and limited broader GFF-family flat-record parsing in the `GenomeAnnotator` helper surface; **users should rely on:** [GffParser.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GffParser.cs).
-- Hierarchical gene-model reconstruction, multi-parent handling, and full GFF feature modeling in the lightweight helper surface; **users should rely on:** [GffParser.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GffParser.cs).
-- Fully faithful parsing of classic quoted GFF2 attribute syntax; **users should rely on:** no current fully faithful GFF2-attribute parser in this repository surface.
-- FASTA-section handling in the lightweight helper surface; **users should rely on:** no current FASTA-section parser in this repository surface.
+**Not in this helper surface:** GTF/GFF2, hierarchical gene-model assembly, `##sequence-region` bounds checks, SO term validation — see [GffParser.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GffParser.cs) for GTF and gene models.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | `seqid` and `source` are discarded during lightweight parse | Deviation | Parsed records cannot reproduce all original columns without external state | accepted | This is specific to the reduced `GenomicFeature` record shape |
-| 2 | `seqId` is written verbatim by the lightweight exporter | Assumption | Callers must supply a GFF3-compliant identifier themselves | accepted | No escaping is applied to column `1` in `ToGff3(...)` |
-| 3 | The 5'-most CDS segment of each transcript is treated as phase `0` | Assumption | A 5'-partial CDS starting mid-codon would need a non-zero starting phase, which `GeneAnnotation` cannot express | accepted | Matches the SO canonical-gene example (all `cdsNNNNN` segments start at phase `0`) [1] |
+| 1 | CDS with phase `.` accepted on parse | Choice | Such a CDS has `Phase = null` | accepted | gt gff3validator accepts it |
+| 2 | The 5'-most CDS segment of each transcript is phase `0` | Assumption | 5'-partial CDS not expressible | accepted | Matches the SO canonical-gene example [1] |
+| 3 | Empty interval `[s, s)` written as `s..s` | Spec mapping | Parses back as `Start = End = s` (GFF3 space) | accepted | Spec zero-length feature rule |
 
 ## 6. Edge Cases and Limitations
 
@@ -161,20 +154,21 @@ Repository-specific behavior confirmed by source and tests:
 
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
-| Empty input | Returns no parsed records | No data lines are available |
-| Comment-only or directive-only input | Returns no parsed records | All `#`-prefixed lines are skipped |
-| Malformed line with fewer than 9 fields | Skipped | The lightweight parser requires all 9 GFF3 columns |
-| `score = "."` | `Score = null` | `.` is the undefined sentinel |
-| `phase = "."` | `Phase = null` | `.` is the undefined sentinel |
-| Export feature with no `Source`/`Score` | Columns 2 and 6 emit `.` | Defaults (`Source = "."`, `Score = null`) keep output spec-valid |
-| Export single-segment CDS | Phase `0` | The lone segment is the 5'-most, so its phase is `0` |
-| Export multi-segment CDS transcript | Phase accumulates 5'→3' across segments | `(3 − (Σ preceding lengths) mod 3) mod 3` [1] |
-| Missing `ID` attribute | Auto-generates `feature_n` | The parser fills missing feature IDs from a running counter |
-| Spaces in attribute values on export | Preserved literally | The encoder follows the rule that no other printable characters should be encoded |
+| Empty input / only `#` lines | No records | No feature lines |
+| Line not 9 columns, bad strand/phase/coordinates, repeated tag, token without `=`, empty value | Skipped | Spec column rules (gt errors) |
+| `##FASTA` or `>` line | Parsing stops | Spec FASTA section |
+| `Parent=a,b` / `Note=a%2Cb` | `["a","b"]` / `["a,b"]` | Spec column 9 |
+| `score = "."` / `phase = "."` | `null` | Undefined sentinel |
+| Missing `ID` | `feature_n` | Running counter of accepted lines |
+| Export without `Source`/`Score` | `.` / `.` | Defaults |
+| Export multi-segment CDS | Phase accumulates 5'→3' | [1] |
+| Export invalid strand, negative start, end < start, `[0,0)`, empty type | `ArgumentException` | No GFF3 representation |
+| Export seqid with space or leading `>` | Percent-encoded | Spec column 1 |
+| Export empty product / attribute value | Tag omitted | gt: "has no value" |
 
 ### 6.2 Limitations
 
-The `GenomeAnnotator` GFF3 helpers are intentionally narrower than the repository's full parser surface. They do not preserve all columns on parse, do not write arbitrary feature records, do not validate Sequence Ontology terms, and do not expose hierarchical relationships or GTF/GFF2 behaviors. FASTA sections are also not handled by this helper surface. For richer flat-record parsing or feature-model operations, the repository's `GffParser` API is the better match for GTF and key/value-style GFF-family records, but classic quoted GFF2 attributes and FASTA-section handling are still outside the currently implemented parser family.
+No GTF/GFF2 dialects, no gene-model assembly, no `##sequence-region` bounds check and no SO term validation in this helper surface (see `GffParser` for GTF and gene models).
 
 ## 8. References
 

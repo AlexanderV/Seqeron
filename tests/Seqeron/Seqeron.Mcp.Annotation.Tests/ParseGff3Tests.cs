@@ -59,4 +59,29 @@ public class ParseGff3Tests
         Assert.That(result.Features, Has.Count.EqualTo(1));
         Assert.That(result.Features[0].FeatureId, Is.EqualTo("gene1"));
     }
+
+    [Test]
+    public void ParseGff3_MultiValuedAttributeSeqidSource_DelegatedFields()
+    {
+        // Mirrors GenomeAnnotator_GFF3_Tests.ParseGff3_SpecCanonicalGene_MultipleParentageIsValueList (B11 F8).
+        string gff = "##gff-version 3\r\nctg123\tsrc%09x\texon\t1050\t1500\t.\t+\t.\tID=exon00002;Parent=mRNA00001,mRNA00002;Note=a%2Cb\r\n##FASTA\r\n>ctg123\r\nACGT";
+        var f = AnnotationTools.ParseGff3(gff).Features.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(f.Seqid, Is.EqualTo("ctg123"));
+            Assert.That(f.Source, Is.EqualTo("src\tx"));
+            Assert.That(f.AttributeValues!["Parent"], Is.EqualTo(new[] { "mRNA00001", "mRNA00002" }));
+            Assert.That(f.AttributeValues!["Note"], Is.EqualTo(new[] { "a,b" }));
+            Assert.That(f.Attributes["Note"], Is.EqualTo("a,b"));
+        });
+    }
+
+    [Test]
+    public void ParseGff3_SpecInvalidLine_Skipped()
+    {
+        // Mirrors GenomeAnnotator_GFF3_Tests.ParseGff3_SpecInvalidLine_Skipped (B11 F9): strand 'Z'.
+        var result = AnnotationTools.ParseGff3("chr1\tsrc\tgene\t1\t100\t.\tZ\t.\tID=bad\nchr1\tsrc\tgene\t1\t100\t.\t+\t.\tID=ok");
+        Assert.That(result.Features.Select(x => x.FeatureId), Is.EqualTo(new[] { "ok" }));
+    }
 }

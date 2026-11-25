@@ -16,7 +16,10 @@ public record OrfDto(
 /// <summary>Longest ORF per reading frame entry.</summary>
 public record LongestOrfFrame(int Frame, OrfDto? Orf);
 
-/// <summary>Predicted gene annotation.</summary>
+/// <summary>Predicted gene annotation (0-based half-open Start/End).</summary>
+/// <param name="Source">GFF3 column 2; null or empty → ".".</param>
+/// <param name="Score">GFF3 column 6; null → ".".</param>
+/// <param name="AttributeValues">Multi-valued GFF3 attributes (e.g. Parent → [m1, m2]), written comma-separated.</param>
 public record GeneAnnotationDto(
     string GeneId,
     int Start,
@@ -24,9 +27,15 @@ public record GeneAnnotationDto(
     char Strand,
     string Type,
     string Product,
-    Dictionary<string, string> Attributes);
+    Dictionary<string, string> Attributes,
+    string? Source = null,
+    double? Score = null,
+    Dictionary<string, List<string>>? AttributeValues = null);
 
-/// <summary>Generic GFF3 genomic feature.</summary>
+/// <summary>Generic GFF3 genomic feature (1-based inclusive Start/End).</summary>
+/// <param name="Seqid">GFF3 column 1, percent-decoded.</param>
+/// <param name="Source">GFF3 column 2, percent-decoded.</param>
+/// <param name="AttributeValues">Column 9 as tag → value list (split on the unescaped ',', each value decoded).</param>
 public record GenomicFeatureDto(
     string FeatureId,
     string Type,
@@ -35,7 +44,10 @@ public record GenomicFeatureDto(
     char Strand,
     double? Score,
     int? Phase,
-    Dictionary<string, string> Attributes);
+    Dictionary<string, string> Attributes,
+    string? Seqid = null,
+    string? Source = null,
+    Dictionary<string, List<string>>? AttributeValues = null);
 
 /// <summary>Ribosome binding site (Shine–Dalgarno) hit.</summary>
 public record RibosomeBindingSite(int Position, string Sequence, double Score);

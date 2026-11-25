@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.ParseGff3",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L439",
-  "description": "Parse a GFF3 annotation document into structured features.",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L565",
+  "description": "Parse a GFF3 (SO spec v1.26) document into features: 1-based inclusive coordinates, percent-decoded seqid/source/type/attributes, multi-valued attributes as value lists; stops at ##FASTA; spec-invalid feature lines are skipped.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -29,7 +29,10 @@
             "strand": { "type": "string", "description": "Column 7 strand (+/-/./?)" },
             "score": { "type": ["number", "null"], "description": "Column 6 score; null for '.'" },
             "phase": { "type": ["integer", "null"], "description": "Column 8 phase; null for '.'" },
-            "attributes": { "type": "object", "description": "Column 9 key=value attributes (URL-decoded)" }
+            "attributes": { "type": "object", "description": "Column 9 tag -> percent-decoded value text (multi-values joined by ',')" },
+            "seqid": { "type": "string", "description": "Column 1, percent-decoded" },
+            "source": { "type": "string", "description": "Column 2, percent-decoded" },
+            "attributeValues": { "type": "object", "description": "Column 9 tag -> value list (split on the unescaped ',', each value percent-decoded)" }
           },
           "required": ["featureId", "type", "start", "end", "strand", "attributes"]
         }
@@ -44,7 +47,7 @@
     {
       "name": "Fully specified CDS line",
       "input": { "gff3Text": "chr1\tENSEMBL\tCDS\t1000\t2000\t95.5\t-\t2\tID=cds1;Name=TestCDS" },
-      "output": { "features": [ { "featureId": "cds1", "type": "CDS", "start": 1000, "end": 2000, "score": 95.5, "strand": "-", "phase": 2, "attributes": { "ID": "cds1", "Name": "TestCDS" } } ] }
+      "output": { "features": [ { "featureId": "cds1", "type": "CDS", "start": 1000, "end": 2000, "score": 95.5, "strand": "-", "phase": 2, "attributes": { "ID": "cds1", "Name": "TestCDS" }, "seqid": "chr1", "source": "ENSEMBL", "attributeValues": { "ID": ["cds1"], "Name": ["TestCDS"] } } ] }
     },
     {
       "name": "Undefined score and phase",

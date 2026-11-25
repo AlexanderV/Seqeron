@@ -457,8 +457,9 @@ public class AnnotationMetamorphicTests
     //     annotation: seqId . Type (Start+1) End . Strand phase attrs, where phase = 0 for
     //     CDS else '.', attrs = "ID={GeneId};product={Product};{other attrs except translation}"
     //     with GFF3 column-9 percent-encoding.
-    //   ParseGff3(lines) skips blank/'#' lines and <9-column lines, then reads each feature:
-    //     Start = col4 (kept 1-based), End = col5, Strand = col7[0], phase from col8,
+    //   ParseGff3(lines) skips blank/'#' lines and spec-invalid lines (≠ 9 columns, bad
+    //     strand/phase/coordinates; B11 F9), then reads each feature:
+    //     Start = col4 (kept 1-based), End = col5, Strand = col7, phase from col8,
     //     attributes split on ';' into a dict (order-independent, %-decoded), FeatureId = ID.
     //
     // Relations (derived from the format definition, NOT from output):

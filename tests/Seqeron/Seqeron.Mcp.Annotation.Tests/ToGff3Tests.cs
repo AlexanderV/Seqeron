@@ -65,4 +65,24 @@ public class ToGff3Tests
             Assert.That(parsed.Features[0].Strand, Is.EqualTo('+'));
         });
     }
+
+    [Test]
+    public void ToGff3_SourceScoreAttributeValuesAndSeqid_Delegated()
+    {
+        // Mirrors GenomeAnnotator_GFF3_Tests.ToGff3_AttributeValues_CommaSeparatedAndRoundTrip /
+        // ToGff3_SeqidOutsideAllowedSet_PercentEncoded (B11 F10).
+        var exon = new GeneAnnotationDto("e1", 1049, 1500, '+', "exon", "", new Dictionary<string, string>(),
+            Source: "src", Score: 0.5,
+            AttributeValues: new Dictionary<string, List<string>> { ["Parent"] = new() { "mRNA00001", "mRNA00002" } });
+
+        var line = AnnotationTools.ToGff3(new[] { exon }, "chr 1").Lines[1];
+
+        Assert.That(line, Is.EqualTo("chr%201\tsrc\texon\t1050\t1500\t0.5\t+\t.\tID=e1;Parent=mRNA00001,mRNA00002"));
+    }
+
+    [Test]
+    public void ToGff3_InvalidStrand_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => AnnotationTools.ToGff3(new[] { Gene() with { Strand = 'x' } }, "chr1"));
+    }
 }

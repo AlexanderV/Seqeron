@@ -88,7 +88,7 @@ public class AnnotationTools
 
     /// <summary>Parse a GFF3 annotation document into structured features.</summary>
     [McpServerTool(Name = "parse_gff3", Title = "Annotation — Parse GFF3", ReadOnly = true)]
-    [Description("Parse a GFF3 annotation document into structured features.")]
+    [Description("Parse a GFF3 (SO spec v1.26) document into features: 1-based inclusive coordinates, percent-decoded seqid/source/type/attributes, multi-valued attributes (e.g. Parent=a,b) as value lists in AttributeValues. Stops at ##FASTA (or a '>' line); spec-invalid feature lines (not 9 columns, start<1 or start>end, strand not +-.?, phase not 0/1/2, malformed or repeated column-9 tags) are skipped.")]
     public static ParseGff3Result ParseGff3(
         [Description("GFF3 document text (lines separated by newlines)")] string gff3Text)
     {
@@ -102,7 +102,7 @@ public class AnnotationTools
 
     /// <summary>Serialize gene annotations to GFF3 lines.</summary>
     [McpServerTool(Name = "to_gff3", Title = "Annotation — Export GFF3", ReadOnly = true)]
-    [Description("Serialize gene annotations to GFF3 lines (with header).")]
+    [Description("Serialize gene annotations (0-based half-open) to GFF3 lines with the ##gff-version 3 header: start+1/end, source and score or '.', CDS phase accumulated per GeneId 5'->3', ID/product then attributes (AttributeValues written comma-separated), spec percent-encoding (seqid outside [a-zA-Z0-9.:^*$@!+_?-|], column-9 ;=&, escaped). Rejects strands other than +-.? and empty/inverted intervals.")]
     public static ToGff3Result ToGff3(
         [Description("Gene annotations to serialize")] IReadOnlyList<GeneAnnotationDto> annotations,
         [Description("Sequence identifier for column 1")] string seqId = "seq1")
@@ -187,15 +187,24 @@ public class AnnotationTools
 
     private static GeneAnnotationDto ToDto(GenomeAnnotator.GeneAnnotation g) =>
         new(g.GeneId, g.Start, g.End, g.Strand, g.Type, g.Product,
-            g.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value));
+            g.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value),
+            g.Source, g.Score, ToListDictionary(g.AttributeValues));
 
     private static GenomicFeatureDto ToDto(GenomeAnnotator.GenomicFeature f) =>
         new(f.FeatureId, f.Type, f.Start, f.End, f.Strand, f.Score, f.Phase,
-            f.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value));
+            f.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value),
+            f.Seqid, f.Source, ToListDictionary(f.AttributeValues));
 
     private static GenomeAnnotator.GeneAnnotation FromDto(GeneAnnotationDto g) =>
         new(g.GeneId, g.Start, g.End, g.Strand, g.Type, g.Product,
-            g.Attributes ?? new Dictionary<string, string>());
+            g.Attributes ?? new Dictionary<string, string>(),
+            string.IsNullOrEmpty(g.Source) ? "." : g.Source,
+            g.Score,
+            g.AttributeValues?.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value));
+
+    private static Dictionary<string, List<string>>? ToListDictionary(
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? values) =>
+        values?.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
     // ================================================================
     // VariantCaller tools (12)

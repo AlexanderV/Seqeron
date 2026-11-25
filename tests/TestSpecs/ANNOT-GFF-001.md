@@ -9,8 +9,8 @@
 | **Algorithm** | GFF3 I/O |
 | **Canonical Methods** | `GenomeAnnotator.ParseGff3(IEnumerable<string>)`, `GenomeAnnotator.ToGff3(IEnumerable<GeneAnnotation>, string)` |
 | **Complexity** | O(n) |
-| **Evidence Sources** | Sequence Ontology GFF3 Spec v1.26, Wikipedia (GFF), RFC 3986 |
-| **Date** | 2026-03-05 |
+| **Evidence Sources** | Sequence Ontology GFF3 Spec v1.26, Wikipedia (GFF), RFC 3986; references GenomeTools 1.6.5 gt gff3validator, gffutils 0.14, BCBio-GFF ([Evidence](../../docs/Evidence/ANNOT-GFF-001-Evidence.md)) |
+| **Date** | 2026-03-05 (B11 review 2026-11-25: F8–F10) |
 | **Status** | Final |
 
 ---
@@ -33,7 +33,10 @@
 - **Strand**: `+`, `-`, `.`, `?` (4 values, per GFF3 Spec column 7)
 - **Phase**: `0`, `1`, `2` for CDS features; `"."` for all others (NOTE 4: "The phase is REQUIRED for all CDS features")
 - **Comments**: lines starting with `#`; **Directives**: lines starting with `##`
-- **Attributes**: semicolon-separated `key=value` pairs in column 9; attribute names are case-sensitive
+- **Attributes**: semicolon-separated `key=value` pairs in column 9; attribute names are case-sensitive; multiple values of one tag are comma-separated (`Parent=AF2312,AB2812,abc-3`)
+- **Seqid**: characters outside `[a-zA-Z0-9.:^*$@!+_?-|]` must be escaped; no unescaped whitespace or leading `>`
+- **Coordinates**: positive integers, start ≤ end; zero-length feature = start equals end
+- **`##FASTA`** (or a line beginning with `>`) ends the annotation section
 
 ---
 
@@ -100,6 +103,19 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 | M29 | ToGff3 computes cumulative CDS phase across a − strand multi-segment transcript (5'=end; 2,2,0 in genomic order) | Phase accumulation, minus strand | GFF3 Spec col 8 ("5' end … is the feature's end") |
 | M30 | ToGff3 keeps phase accumulation independent per transcript (no bleed across GeneId) | Per-transcript phase | GFF3 Spec col 8 |
 
+| M31 | ParseGff3 reads the spec canonical gene: 23 features, multiple parentage as value lists, seqid/source kept | Column 9 multi-value; columns 1/2 | GFF3 Spec canonical gene; gffutils |
+| M32 | ParseGff3 splits values on the unescaped ',' only (`Note=a%2Cb` → [a,b-as-one]; `Note=a,b` → two) | Multi-value vs escaped comma (F8) | GFF3 Spec col 9; gffutils |
+| M33 | ParseGff3 decodes seqid, source, type and tags | Encoding applies to every column (F8) | GFF3 Spec |
+| M34 | ParseGff3 keeps value spaces, drops whitespace around tags | "unescaped spaces are allowed within fields" (F9) | GFF3 Spec; gt, gffutils |
+| M35 | ParseGff3 skips spec-invalid lines (strand ∉ +-.?, phase ∉ 0/1/2, start < 1, start > end, ≠ 9 columns, repeated tag, token without '=', empty value) without consuming a feature number | Column rules (F9) | GFF3 Spec; gt gff3validator errors |
+| M36 | ParseGff3 accepts spec-valid edge lines (zero-length, '?', phase on non-CDS, E-value score, column 9 ".", trailing ';', CDS phase ".") | Column rules | gt gff3validator "valid" |
+| M37 | ParseGff3 stops at `##FASTA` and at a `>` line | FASTA section | GFF3 Spec |
+| M38 | ToGff3 reproduces the spec canonical gene rows byte-identical (incl. 13 CDS phases); − strand mirror keeps phases | Export + phase | GFF3 Spec canonical gene; gt valid |
+| M39 | ToGff3 encodes seqid outside the allowed set (UTF-8 bytes), control chars in source/type, reserved chars in tags | Encoding (F10) | GFF3 Spec |
+| M40 | ToGff3 never repeats ID/product, omits empty values ("." when none left) | Column 9 (F10) | gt gff3validator |
+| M41 | ToGff3 writes `AttributeValues` comma-separated and round-trips them | Multi-value export (F10) | GFF3 Spec col 9 |
+| M42 | ToGff3 writes an empty interval [s,s) as zero-length s..s; rejects invalid strand, negative start, end < start, [0,0), empty type, null/empty arguments | Coordinates/strand (F10) | GFF3 Spec; gt |
+
 ### Should Tests
 
 | ID | Test | Rationale |
@@ -119,8 +135,8 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 
 ## Invariants
 
-1. **Coordinate conversion**: Export adds 1 to 0-based internal Start
-2. **Escaping symmetry**: Decoded on parse (`Uri.UnescapeDataString`), encoded on export (`EncodeGff3Value`)
+1. **Coordinate conversion**: Export adds 1 to 0-based internal Start (empty [s,s) → s..s)
+2. **Escaping symmetry**: Decoded on parse (`Uri.UnescapeDataString`, every column and tag), encoded on export (`EncodeGff3Text`, `EncodeGff3Seqid`); ToGff3 → ParseGff3 restores seqid, source, ID, product, tags and value lists exactly (tags without surrounding whitespace)
 3. **Column count**: All output lines have exactly 9 tab-separated fields
 4. **Phase**: non-CDS → `.`; CDS → cumulative `(3 − (Σ preceding-segment lengths) mod 3) mod 3` over the transcript's CDS segments ordered 5'→3' (ascending start on `+`, descending start on `−`); the 5'-most segment is phase `0`
 5. **Source/score fidelity**: column 2 = feature's real `Source` (else `.`); column 6 = feature's real `Score` (else `.`); a feature constructed without source/score stays spec-valid (`.`/`.`)
@@ -135,17 +151,17 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 | Source column | Free text or "." | Real `GeneAnnotation.Source` if present, else "." | **Resolved** (fix): `Source` field added (default ".") |
 | Score column | Floating point or "." | Real `GeneAnnotation.Score` if present, else "." | **Resolved** (fix): nullable `Score` field added (default null → ".") |
 | Phase | 0, 1, or 2 for CDS, accumulated 5'→3' across segments | Cumulative `(3 − (Σ preceding lengths) mod 3) mod 3`, strand-aware | **Resolved** (fix): computed per transcript (grouped by `GeneId`); first CDS segment = 0. Phase still 0 for a single CDS segment, so prior round-trip tests hold |
-| Hierarchical relationships | Parent-child feature grouping | Not supported | Simplified GFF3 I/O; full hierarchy available in `GffParser` (PARSE-GFF-001) |
-| Multi-value attributes | Comma-separated values for Parent, Alias, Note, etc. | Single value only | Simplified implementation |
-| FASTA section | `##FASTA` directive | Not handled | Out of scope for annotation export |
-| Seqid encoding | Characters not in `[a-zA-Z0-9.:^*$@!+_?-\|]` must be escaped | seqId written raw | `seqId` parameter is application-controlled |
-
----
+| Hierarchical relationships | Parent-child feature grouping | Flat records; `Parent` available as a value list in `AttributeValues` | A line parser; gene-model assembly is `GffParser.BuildGeneModels` (PARSE-GFF-001) |
+| Multi-value attributes | Comma-separated values for Parent, Alias, Note, etc. | `GenomicFeature.AttributeValues` / `GeneAnnotation.AttributeValues` (value lists); `Attributes` keeps the joined text | **Resolved** (B11 F8/F10) |
+| FASTA section | `##FASTA` directive / implied by `>` | Parsing stops there | **Resolved** (B11 F9) |
+| Seqid encoding | Characters not in `[a-zA-Z0-9.:^*$@!+_?-\|]` must be escaped | Encoded (UTF-8 bytes) on export, decoded on parse | **Resolved** (B11 F10) |
+| Column validation | Strand, phase, coordinates, 9 columns, tag=value | Lines violating them are skipped (gt rejects the file) | Malformed-line discipline; numbers parsed strictly (gt's strtol/strtod leniency on `+7`, `-5`, `1,5` not copied) |
+| CDS without phase | "REQUIRED for all CDS features" | Accepted on parse (phase null) | gt gff3validator accepts it; export always writes the phase |
 
 ## Test File Structure
 
 ```
-GenomeAnnotator_GFF3_Tests.cs (46 tests)
+GenomeAnnotator_GFF3_Tests.cs (94 test cases)
 ├── ParseGff3 - Basic Parsing
 │   ├── M2: All 9 columns (exact values)
 │   └── M18: Strand values (+, -, ., ?)
@@ -195,6 +211,8 @@ GenomeAnnotator_GFF3_Tests.cs (46 tests)
 │   └── Default seqId
 ├── Roundtrip Tests
 │   └── S4: Core data + attributes preserved
-└── Multiple Features
-    └── Order preserved
+├── Multiple Features
+│   └── Order preserved
+└── B11 review (M31–M42): canonical gene parse/export, multi-value, decoding, spec-invalid lines,
+    FASTA section, seqid/tag encoding, ID/product/empty values, zero-length, rejections
 ```

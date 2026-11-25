@@ -32,6 +32,14 @@ public static class GenomeAnnotator
     /// (Sequence Ontology GFF3 Spec v1.26). <see langword="null"/> means undefined and is
     /// serialised as the "." placeholder.
     /// </param>
+    /// <param name="AttributeValues">
+    /// Optional multi-valued GFF3 column-9 attributes ("Multiple attributes of the same type are
+    /// indicated by separating the values with the comma ',' character, as in
+    /// <c>Parent=AF2312,AB2812,abc-3</c>" — GFF3 Spec v1.26). Each value is percent-encoded on its
+    /// own and the values are joined with a literal comma, so a value that itself contains a comma
+    /// stays one value. A tag present here replaces the same tag in <paramref name="Attributes"/>
+    /// (whose values are always written as one value, with commas encoded as <c>%2C</c>).
+    /// </param>
     public readonly record struct GeneAnnotation(
         string GeneId,
         int Start,
@@ -41,11 +49,26 @@ public static class GenomeAnnotator
         string Product,
         IReadOnlyDictionary<string, string> Attributes,
         string Source = UndefinedFieldPlaceholder,
-        double? Score = null);
+        double? Score = null,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? AttributeValues = null);
 
     /// <summary>
-    /// Represents a genomic feature.
+    /// Represents a genomic feature parsed from one GFF3 feature line. <see cref="Start"/> and
+    /// <see cref="End"/> stay in GFF3 space (1-based, inclusive).
     /// </summary>
+    /// <param name="Attributes">
+    /// Column 9 as tag → percent-decoded value text. For a multi-valued tag the decoded values are
+    /// joined with ',' (so <c>Note=a%2Cb</c> and <c>Note=a,b</c> both read "a,b" here); use
+    /// <paramref name="AttributeValues"/> to tell them apart.
+    /// </param>
+    /// <param name="Seqid">Column 1 (landmark ID), percent-decoded.</param>
+    /// <param name="Source">Column 2 (source), percent-decoded; "." when undefined.</param>
+    /// <param name="AttributeValues">
+    /// Column 9 as tag → list of values: the raw value is split on the unescaped ',' separator and
+    /// each value is percent-decoded separately (GFF3 Spec v1.26, column 9), e.g.
+    /// <c>Parent=mRNA00001,mRNA00002</c> → ["mRNA00001", "mRNA00002"] and <c>Note=a%2Cb</c> → ["a,b"].
+    /// Always set by <see cref="ParseGff3"/>.
+    /// </param>
     public readonly record struct GenomicFeature(
         string FeatureId,
         string Type,
@@ -54,7 +77,10 @@ public static class GenomeAnnotator
         char Strand,
         double? Score,
         int? Phase,
-        IReadOnlyDictionary<string, string> Attributes);
+        IReadOnlyDictionary<string, string> Attributes,
+        string Seqid = UndefinedFieldPlaceholder,
+        string Source = UndefinedFieldPlaceholder,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? AttributeValues = null);
 
     /// <summary>
     /// Initiation codons recognised by <see cref="FindOrfs"/>: ATG, GTG and TTG — the
@@ -508,85 +534,174 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Parses a GFF3 format annotation file.
+    /// Parses the feature lines of a GFF3 document (Sequence Ontology GFF3 Spec v1.26).
+    /// <para>
+    /// Line handling: blank lines and <c>#</c> comment / <c>##</c> directive lines are skipped; a
+    /// trailing CR (CRLF line ending) is not part of the last column; the annotation section ends
+    /// at the <c>##FASTA</c> directive or at a line beginning with <c>&gt;</c> ("a GFF line that
+    /// begins with the character &gt; creates an implied ##FASTA directive"), and nothing after it
+    /// is read as a feature.
+    /// </para>
+    /// <para>
+    /// A feature line is accepted only when it satisfies the column rules of the spec — the same
+    /// rules GenomeTools <c>gt gff3validator</c> enforces — and is otherwise skipped (one malformed
+    /// line never aborts the parse and does not consume a <c>feature_n</c> number):
+    /// exactly nine tab-separated columns; start and end positive integers with start ≤ end;
+    /// score "." or a floating-point number; strand one of <c>+ - . ?</c>; phase "." or one of
+    /// <c>0 1 2</c>; column 9 "." or ';'-separated tag=value pairs with non-empty tag and value and
+    /// no tag repeated. A CDS line with phase "." is accepted (the spec
+    /// requires a phase for CDS, but <c>gt gff3validator</c> accepts it too).
+    /// </para>
+    /// <para>
+    /// Decoding: columns 1–3 and every tag and value are RFC 3986 percent-decoded. Column 9 is
+    /// split on ';' into tag=value pairs (the first '=' separates tag from value; surrounding
+    /// whitespace of a tag is dropped, value text is kept verbatim — "unescaped spaces are allowed
+    /// within fields"), and each value list is split on the unescaped ',' before decoding, so
+    /// <c>Parent=a,b</c> is two values and <c>Note=a%2Cb</c> is one. Coordinates stay in GFF3
+    /// space (1-based, inclusive).
+    /// </para>
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="lines"/> is null.</exception>
     public static IEnumerable<GenomicFeature> ParseGff3(IEnumerable<string> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        return ParseGff3Lines(lines);
+    }
+
+    private static IEnumerable<GenomicFeature> ParseGff3Lines(IEnumerable<string> lines)
     {
         int featureCount = 0;
 
-        foreach (string line in lines)
+        foreach (string rawLine in lines)
         {
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+            if (rawLine is null)
                 continue;
 
-            string[] parts = line.Split('\t');
-            if (parts.Length < 9)
+            string line = rawLine.EndsWith('\r') ? rawLine[..^1] : rawLine;
+            if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            // Malformed-but-9-column lines are skipped, not thrown — mirroring the
-            // "skip malformed line" discipline already applied for the <9-column case and
-            // the sibling GffParser.ParseLine. A non-numeric start/end/score/phase or an
-            // empty (present-but-blank) strand column is a malformed data line, not a
-            // parse-fatal crash: tolerant TryParse keeps the lightweight reader caller-safe
-            // (no uncaught FormatException, no IndexOutOfRange on an empty strand field).
-            if (!int.TryParse(parts[3], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int start))
-                continue;
-            if (!int.TryParse(parts[4], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int end))
+            // End of the annotation section: explicit ##FASTA or the implied one ('>' line).
+            if (line[0] == '>' || line.TrimEnd() == Gff3FastaDirective)
+                yield break;
+
+            if (line[0] == '#')
                 continue;
 
-            double? score = null;
-            if (parts[5] != ".")
-            {
-                if (!double.TryParse(parts[5], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double parsedScore))
-                    continue;
-                score = parsedScore;
-            }
-
-            char strand = parts[6].Length > 0 ? parts[6][0] : '.';
-
-            int? phase = null;
-            if (parts[7] != ".")
-            {
-                if (!int.TryParse(parts[7], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int parsedPhase))
-                    continue;
-                phase = parsedPhase;
-            }
+            if (!TryParseGff3FeatureLine(line, featureCount + 1, out var feature))
+                continue;
 
             featureCount++;
-
-            var attributes = ParseGff3Attributes(parts[8]);
-
-            string featureId = attributes.GetValueOrDefault("ID", $"feature_{featureCount}");
-
-            yield return new GenomicFeature(
-                FeatureId: featureId,
-                Type: parts[2],
-                Start: start,
-                End: end,
-                Strand: strand,
-                Score: score,
-                Phase: phase,
-                Attributes: attributes);
+            yield return feature;
         }
     }
 
-    private static Dictionary<string, string> ParseGff3Attributes(string attributeString)
+    private const int Gff3ColumnCount = 9;
+    private const string Gff3FastaDirective = "##FASTA";
+    private const string Gff3StrandSymbols = "+-.?";
+
+    private static bool TryParseGff3FeatureLine(string line, int featureNumber, out GenomicFeature feature)
     {
-        var attributes = new Dictionary<string, string>();
+        feature = default;
 
-        foreach (string attr in attributeString.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        string[] parts = line.Split('\t');
+        if (parts.Length != Gff3ColumnCount)
+            return false;
+
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+
+        // Columns 4/5: "positive 1-based integer coordinates … Start is always less than or equal to end".
+        if (!int.TryParse(parts[3], System.Globalization.NumberStyles.None, invariant, out int start) ||
+            !int.TryParse(parts[4], System.Globalization.NumberStyles.None, invariant, out int end) ||
+            start < 1 || end < start)
+            return false;
+
+        double? score = null;
+        if (parts[5] != UndefinedFieldPlaceholder)
         {
-            int eqPos = attr.IndexOf('=');
-            if (eqPos > 0)
-            {
-                string key = attr.Substring(0, eqPos).Trim();
-                string value = Uri.UnescapeDataString(attr.Substring(eqPos + 1).Trim());
-                attributes[key] = value;
-            }
+            if (!double.TryParse(parts[5], System.Globalization.NumberStyles.Float, invariant, out double parsedScore))
+                return false;
+            score = parsedScore;
         }
 
-        return attributes;
+        // Column 7: one of '+', '-', '.', '?'.
+        if (parts[6].Length != 1 || !Gff3StrandSymbols.Contains(parts[6][0]))
+            return false;
+        char strand = parts[6][0];
+
+        // Column 8: "The phase is one of the integers 0, 1, or 2" ('.' when undefined).
+        int? phase = null;
+        if (parts[7] != UndefinedFieldPlaceholder)
+        {
+            if (parts[7].Length != 1 || parts[7][0] < '0' || parts[7][0] > '2')
+                return false;
+            phase = parts[7][0] - '0';
+        }
+
+        if (!TryParseGff3Attributes(parts[8], out var attributeValues))
+            return false;
+
+        var attributes = new Dictionary<string, string>(attributeValues.Count, StringComparer.Ordinal);
+        foreach (var (tag, values) in attributeValues)
+            attributes[tag] = string.Join(',', values);
+
+        feature = new GenomicFeature(
+            FeatureId: attributes.GetValueOrDefault("ID", $"feature_{featureNumber}"),
+            Type: DecodeGff3(parts[2]),
+            Start: start,
+            End: end,
+            Strand: strand,
+            Score: score,
+            Phase: phase,
+            Attributes: attributes,
+            Seqid: DecodeGff3(parts[0]),
+            Source: DecodeGff3(parts[1]),
+            AttributeValues: attributeValues);
+        return true;
     }
+
+    /// <summary>
+    /// Splits GFF3 column 9 into tag → decoded value list. Returns false — as
+    /// <c>gt gff3validator</c> does — for a token that is not tag=value, an empty tag or value, or
+    /// a tag that occurs twice (multiple values of one tag must be comma-separated in a single
+    /// tag=value pair).
+    /// </summary>
+    private static bool TryParseGff3Attributes(
+        string column,
+        out Dictionary<string, IReadOnlyList<string>> attributeValues)
+    {
+        attributeValues = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        if (column == UndefinedFieldPlaceholder)
+            return true;
+
+        foreach (string pair in column.Split(';'))
+        {
+            // Empty tokens come from a trailing ';' or "; " separators and carry nothing.
+            if (string.IsNullOrWhiteSpace(pair))
+                continue;
+
+            // Every token must be tag=value with a non-empty tag and value.
+            int eqPos = pair.IndexOf('=');
+            if (eqPos < 0 || eqPos == pair.Length - 1)
+                return false;
+
+            string tag = DecodeGff3(pair[..eqPos].Trim());
+            if (tag.Length == 0)
+                return false;
+
+            string[] values = pair[(eqPos + 1)..].Split(',');
+            for (int i = 0; i < values.Length; i++)
+                values[i] = DecodeGff3(values[i]);
+
+            if (!attributeValues.TryAdd(tag, values))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>RFC 3986 percent-decoding of one GFF3 field (GFF3 Spec v1.26, "Description of the Format").</summary>
+    private static string DecodeGff3(string value) => Uri.UnescapeDataString(value);
 
     /// <summary>
     /// The GFF3 undefined-field placeholder: "Undefined fields are replaced with the '.' character"
@@ -595,7 +710,14 @@ public static class GenomeAnnotator
     private const string UndefinedFieldPlaceholder = ".";
 
     /// <summary>
-    /// Exports annotations in GFF3 format.
+    /// Exports annotations in GFF3 format: the <c>##gff-version 3</c> directive, then one
+    /// nine-column feature line per annotation, in input order.
+    /// <para>
+    /// Coordinates: the internal 0-based half-open [Start, End) becomes 1-based inclusive
+    /// start = Start + 1, end = End. An empty interval [s, s) (s ≥ 1) is written as the spec's
+    /// zero-length feature start = end = s ("the implied site is to the right of the indicated
+    /// base").
+    /// </para>
     /// <para>
     /// Column 2 (source) and column 6 (score) carry the feature's real values when present and
     /// fall back to the "." undefined-field placeholder otherwise. Column 8 (phase) is computed
@@ -604,16 +726,35 @@ public static class GenomeAnnotator
     /// segments of a transcript (grouped by <see cref="GeneAnnotation.GeneId"/>); non-CDS
     /// features emit ".".
     /// </para>
-    /// Source: Sequence Ontology GFF3 Spec v1.26 — columns 2/6/8 definitions; "The phase is
-    /// REQUIRED for all CDS features."
-    /// Encoding: GFF3-specific (only tab, newline, CR, %, control chars, ;, =, &amp;, , in column 9).
-    /// Source: GFF3 Spec v1.26 — "no other characters may be encoded."
+    /// <para>
+    /// Column 9: <c>ID</c> = <see cref="GeneAnnotation.GeneId"/> and <c>product</c> =
+    /// <see cref="GeneAnnotation.Product"/> first (these two tags are taken only from those
+    /// properties, never repeated from the dictionaries), then <see cref="GeneAnnotation.Attributes"/>
+    /// (except <c>translation</c>) and <see cref="GeneAnnotation.AttributeValues"/>; a tag with an
+    /// empty value is omitted, and "." is written when no tag remains.
+    /// </para>
+    /// <para>
+    /// Encoding (GFF3 Spec v1.26): tab, newline, CR, '%' and control characters are
+    /// percent-encoded in every column, "no other characters may be encoded"; in column 9 tags and
+    /// values also encode ';', '=', '&amp;' and ','; column 1 (seqid) encodes every character
+    /// outside <c>[a-zA-Z0-9.:^*$@!+_?-|]</c> (UTF-8 bytes), so it never contains whitespace or
+    /// begins with '&gt;'.
+    /// </para>
+    /// Source: Sequence Ontology GFF3 Spec v1.26 — column definitions; "The phase is REQUIRED for
+    /// all CDS features."
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="annotations"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="seqId"/> is null or empty, or an annotation has an empty type, a strand
+    /// outside <c>+ - . ?</c>, a negative start, an end before its start, or the empty interval
+    /// [0, 0) (no base to the left of position 1).
+    /// </exception>
     public static IEnumerable<string> ToGff3(
         IEnumerable<GeneAnnotation> annotations,
         string seqId = "seq1")
     {
-        yield return "##gff-version 3";
+        ArgumentNullException.ThrowIfNull(annotations);
+        ArgumentException.ThrowIfNullOrEmpty(seqId);
 
         // Phase is a per-transcript cumulative quantity, so we must know the order of a
         // transcript's CDS segments before we can emit any of its rows. Materialise once and
@@ -621,22 +762,38 @@ public static class GenomeAnnotator
         // emission order (and thus output line order) is preserved exactly.
         var annotationList = annotations as IReadOnlyList<GeneAnnotation> ?? annotations.ToList();
         var cdsPhases = ComputeCdsPhases(annotationList);
+        string seqidColumn = EncodeGff3Seqid(seqId);
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
 
+        var output = new List<string>(annotationList.Count + 1) { "##gff-version 3" };
         for (int i = 0; i < annotationList.Count; i++)
         {
             var ann = annotationList[i];
-            string attributes = FormatGff3Attributes(ann.Attributes, ann.GeneId, ann.Product);
+            if (string.IsNullOrEmpty(ann.Type))
+                throw new ArgumentException($"Annotation {i} has no feature type (GFF3 column 3).", nameof(annotations));
+            if (!Gff3StrandSymbols.Contains(ann.Strand))
+                throw new ArgumentException($"Annotation {i} has strand '{ann.Strand}'; GFF3 column 7 allows only '+', '-', '.', '?'.", nameof(annotations));
+            if (ann.Start < 0 || ann.End < ann.Start || (ann.End == ann.Start && ann.Start == 0))
+                throw new ArgumentException($"Annotation {i} has the interval [{ann.Start}, {ann.End}), which has no GFF3 representation (positive 1-based start ≤ end).", nameof(annotations));
 
-            string source = string.IsNullOrEmpty(ann.Source) ? UndefinedFieldPlaceholder : ann.Source;
+            int gffStart = ann.End == ann.Start ? ann.Start : ann.Start + 1;
+
+            string source = string.IsNullOrEmpty(ann.Source) ? UndefinedFieldPlaceholder : EncodeGff3Text(ann.Source, encodeAttributeReserved: false);
             string score = ann.Score.HasValue
-                ? ann.Score.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                ? ann.Score.Value.ToString(invariant)
                 : UndefinedFieldPlaceholder;
             string phase = cdsPhases.TryGetValue(i, out int p)
-                ? p.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                ? p.ToString(invariant)
                 : UndefinedFieldPlaceholder;
+            string type = EncodeGff3Text(ann.Type, encodeAttributeReserved: false);
 
-            yield return $"{seqId}\t{source}\t{ann.Type}\t{ann.Start + 1}\t{ann.End}\t{score}\t{ann.Strand}\t{phase}\t{attributes}";
+            output.Add(string.Join('\t',
+                seqidColumn, source, type,
+                gffStart.ToString(invariant), ann.End.ToString(invariant),
+                score, ann.Strand.ToString(), phase, FormatGff3Attributes(ann)));
         }
+
+        return output;
     }
 
     /// <summary>
@@ -698,58 +855,97 @@ public static class GenomeAnnotator
         return phases;
     }
 
-    private static string FormatGff3Attributes(
-        IReadOnlyDictionary<string, string> attributes,
-        string id,
-        string product)
+    private static string FormatGff3Attributes(GeneAnnotation ann)
     {
-        var sb = new StringBuilder();
-        sb.Append($"ID={EncodeGff3Value(id)}");
-        sb.Append($";product={EncodeGff3Value(product)}");
+        var pairs = new List<string>();
 
-        foreach (var kvp in attributes)
+        void Add(string tag, IEnumerable<string?> values)
         {
-            if (kvp.Key != "translation") // Skip large translation
+            var encoded = values
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Select(v => EncodeGff3Text(v!, encodeAttributeReserved: true))
+                .ToList();
+            if (tag.Length > 0 && encoded.Count > 0)
+                pairs.Add($"{EncodeGff3Text(tag, encodeAttributeReserved: true)}={string.Join(',', encoded)}");
+        }
+
+        static bool IsReservedOrSkipped(string tag) =>
+            tag is "ID" or "product" or "translation"; // ID/product come from GeneId/Product; translation is too large
+
+        Add("ID", new[] { ann.GeneId });
+        Add("product", new[] { ann.Product });
+
+        var multi = ann.AttributeValues;
+        if (ann.Attributes is not null)
+        {
+            foreach (var (tag, value) in ann.Attributes)
             {
-                sb.Append($";{kvp.Key}={EncodeGff3Value(kvp.Value)}");
+                if (!IsReservedOrSkipped(tag) && (multi is null || !multi.ContainsKey(tag)))
+                    Add(tag, new[] { value });
             }
         }
 
-        return sb.ToString();
+        if (multi is not null)
+        {
+            foreach (var (tag, values) in multi)
+            {
+                if (!IsReservedOrSkipped(tag) && values is not null)
+                    Add(tag, values);
+            }
+        }
+
+        return pairs.Count == 0 ? UndefinedFieldPlaceholder : string.Join(';', pairs);
     }
 
     /// <summary>
-    /// Encodes a value for GFF3 column 9 (attributes) per the GFF3 Specification v1.26.
-    /// Only encodes characters required by the spec; "no other characters may be encoded."
-    /// Source: GFF3 Spec — tab (%09), newline (%0A), CR (%0D), percent (%25), control chars,
-    /// plus column 9 reserved: semicolon (%3B), equals (%3D), ampersand (%26), comma (%2C).
-    /// Spaces are explicitly allowed unencoded: "unescaped spaces are allowed within fields."
+    /// Percent-encodes a GFF3 field per the GFF3 Specification v1.26: tab (%09), newline (%0A),
+    /// CR (%0D), percent (%25) and control characters (%00–%1F, %7F) everywhere; with
+    /// <paramref name="encodeAttributeReserved"/> also the column-9 reserved characters
+    /// ';' (%3B), '=' (%3D), '&amp;' (%26), ',' (%2C). "No other characters may be encoded" —
+    /// in particular spaces stay literal ("unescaped spaces are allowed within fields").
     /// </summary>
-    private static string EncodeGff3Value(string value)
+    private static string EncodeGff3Text(string value, bool encodeAttributeReserved)
     {
         var sb = new StringBuilder(value.Length);
         foreach (char c in value)
         {
-            switch (c)
-            {
-                case '\t': sb.Append("%09"); break;
-                case '\n': sb.Append("%0A"); break;
-                case '\r': sb.Append("%0D"); break;
-                case '%': sb.Append("%25"); break;
-                case ';': sb.Append("%3B"); break;
-                case '=': sb.Append("%3D"); break;
-                case '&': sb.Append("%26"); break;
-                case ',': sb.Append("%2C"); break;
-                default:
-                    if (c < 0x20 || c == 0x7F)
-                        sb.Append($"%{(int)c:X2}");
-                    else
-                        sb.Append(c);
-                    break;
-            }
+            bool encode = c < 0x20 || c == 0x7F || c == '%'
+                || (encodeAttributeReserved && c is ';' or '=' or '&' or ',');
+            if (encode)
+                sb.Append('%').Append(((int)c).ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+            else
+                sb.Append(c);
         }
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Encodes GFF3 column 1: "IDs may contain any characters, but must escape any characters not
+    /// in the set [a-zA-Z0-9.:^*$@!+_?-|]. In particular, IDs may not contain unescaped whitespace
+    /// and must not begin with an unescaped '&gt;'" (GFF3 Spec v1.26). Characters outside the set
+    /// are written as the percent-encoded bytes of their UTF-8 form (RFC 3986 §2.1).
+    /// </summary>
+    private static string EncodeGff3Seqid(string seqId)
+    {
+        var sb = new StringBuilder(seqId.Length);
+        Span<byte> utf8 = stackalloc byte[4];
+        foreach (Rune rune in seqId.EnumerateRunes())
+        {
+            if (rune.IsAscii && IsGff3SeqidChar((char)rune.Value))
+            {
+                sb.Append((char)rune.Value);
+                continue;
+            }
+
+            int count = rune.EncodeToUtf8(utf8);
+            for (int i = 0; i < count; i++)
+                sb.Append('%').Append(utf8[i].ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+        }
+        return sb.ToString();
+    }
+
+    private static bool IsGff3SeqidChar(char c) =>
+        char.IsAsciiLetterOrDigit(c) || ".:^*$@!+_?-|".Contains(c);
 
     /// <summary>
     /// Finds bacterial σ70 promoter boxes: the −35 and −10 hexamers of every −35/−10 pair returned by the canonical
