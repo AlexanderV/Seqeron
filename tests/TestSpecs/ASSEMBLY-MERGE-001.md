@@ -202,3 +202,16 @@
 
 1. None. The two assumptions are API-contract boundaries derived from the authoritative overlap
    definition, not invented numeric/scoring values; no correctness-affecting assumption remains.
+
+## R1-WP1 addendum (2026-11-25): ASCII fold / span k-mers (A15-7)
+
+`SequenceAssembler` private `char.ToUpperInvariant` folds -> `SequenceCase.ToUpperAscii`; `BuildDeBruijnGraph` / `SpellStrandPairsOnce` use `KmerEnumerator` + span dictionary lookups; `ReverseComplement` checks the `TryGetReverseComplement` result. New tests in `Unit/Alignment/SequenceAssembler_AsciiFold_Tests.cs`:
+
+| Test | Locks |
+|---|---|
+| `ComputeConsensus_LongS_IsNotCountedAsAsciiS` | Biopython `dumb_consensus`: S, U+017F, s -> 2/3 < 0.7 -> N; threshold 0.5 -> S |
+| `MergeContigs_ResolveConflicts_LongSDiffersFromS_BestQualityDecides` | EMBOSS merger quality windows: "A\u017F"+"ST" -> "AST" |
+| `Scaffold_NegativeGap_LongSOverlapDisagrees_WritesUnknownGap` / `..._LowerCaseOverlapAgrees_Collapsed` | ABySS agreement ignoring ASCII case only; AGP unknown gap 100 |
+| `BuildDeBruijnGraph_NonAsciiLetter_KeptVerbatim_SharedPrefixNodeAccumulates` | node/edge multimap unchanged by the span path |
+| `AssembleDeBruijn_BothStrands_NonAsciiLetter_StrandPairEmittedOnce` | strand-pair emission unchanged |
+

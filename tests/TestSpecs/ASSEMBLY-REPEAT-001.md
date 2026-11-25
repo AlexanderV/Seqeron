@@ -119,3 +119,8 @@
 | 2 | WindowMasker merge pass, discontiguous units, T_low/T_high | optional | not implemented |
 | 3 | `minCopies` of FindTandemRepeats | TRF reports ≥ 1.9 copies | extra library filter (default 3) |
 | 4 | Overlap between classes | RepeatMasker resolved annotation order | first in (start, input order) |
+
+## R1-WP1 addendum (2026-11-25): ASCII fold, span unit lookup, `IsValidDna` (A15-7, A11-6)
+
+`GenomeAssemblyAnalyzer`: five `ToUpperInvariant` folds -> `SequenceCase.ToUpperAscii`; `FindRepetitiveRegions` unit counts via `KmerEnumerator` + span lookup (new private `UnitCounts`); private `IsAcgt` deleted -> `IsValidDna` (identical on the upper-cased input). New tests in `Unit/Chromosome/GenomeAssemblyAnalyzer_AsciiFold_Tests.cs`: `FindRepetitiveRegions_NonAsciiLetter_ActsAsNonAcgtSymbol` (U+017F, U+0130 vs N), `FindRepetitiveRegions_LowerCase_EqualsUpperCase`, `EstimateCompletenessFromKmers_LongSAndS_AreDistinctKmers`, `EstimateCompletenessFromKmers_Canonical_NonAsciiKmer_RejectedAsNotAcgt`, `FindMarkerHits_NonAsciiMarkerBase_FullLengthHitFound`, `FindMarkerHits_LowerCaseMarkerAndAssembly_FullIdentity`, `FindSyntenicBlocks_NonAsciiQueryLetter_ActsAsNonAcgt`, `CalculateLocalQuality_NonAsciiLetter_ExcludedFromGc`.
+

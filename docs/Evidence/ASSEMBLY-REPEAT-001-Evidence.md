@@ -76,3 +76,8 @@ Per-base marking oracle (annotation first in (start, input order) owns the base)
 ## Deviations kept (documented)
 
 WindowMasker: T_threshold / T_extend are counts (percentile derivation needs a genome-wide count distribution), merge pass and discontiguous units omitted, T_low/T_high count-database cut-offs omitted. TRF: `minCopies` is an additional library filter (TRF itself reports ≥ 1.9 copies). Repeat content: when two overlapping annotations belong to different classes the overlap is credited to the one first in (start, input order); RepeatMasker credits by its resolved annotation order.
+
+## R1-WP1 addendum (2026-11-25): ASCII fold (A15-7, A11-6)
+
+Sources opened: `Infrastructure/SequenceCase.cs` remarks (ASCII-only fold; B01 F21), `SequenceExtensions.IsValidDna` (IUPAC-IUB unambiguous DNA = Biopython `unambiguous_dna_letters`). `IsAcgt(span)` vs `IsValidDna(span)` differ only for lower-case input, which `FindRepetitiveRegions` has already upper-cased. Non-ACGT (incl. non-ASCII) symbols make a WindowMasker unit invalid exactly as `N` does (tests compare the result with the `N` variant). Note: `CalculateLocalQuality` passes the window to `SequenceComplexity.CalculateLinguisticComplexity`, which folds with `ToUpperInvariant` itself (B04 file, left as is; cross-batch note in the WP report).
+

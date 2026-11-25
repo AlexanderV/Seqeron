@@ -196,7 +196,7 @@ public static class GcSkewCalculator
     /// window truncated at the sequence end (Biopython <c>GC_skew</c> slicing <c>seq[i:i+window]</c>).
     /// Yields (start, actual length); overflow-safe for huge steps.
     /// </summary>
-    private static IEnumerable<(int Start, int Length)> EnumerateWindows(
+    internal static IEnumerable<(int Start, int Length)> EnumerateWindows(
         int sequenceLength, int windowSize, int stepSize, bool includePartialWindow)
     {
         for (int i = 0; includePartialWindow ? i < sequenceLength : windowSize <= sequenceLength - i; i += stepSize)
@@ -1201,6 +1201,32 @@ public static class GcSkewCalculator
             return Enumerable.Empty<GcContentPoint>();
 
         return CalculateWindowedGcContentCore(sequence, windowSize, stepSize, fraction, ambiguityMode);
+    }
+
+    /// <summary>
+    /// <see cref="CalculateWindowedGcContent(string,int,int,bool,bool)"/> with Biopython
+    /// <c>gc_fraction(window, ambiguous=…)</c> IUPAC-ambiguity handling (additive overload; B10 R1-WP1):
+    /// every window — complete, and with <paramref name="includePartialWindow"/> also the truncated trailing
+    /// ones — is scored by the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char},SequenceExtensions.GcAmbiguityMode)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1.</exception>
+    public static IEnumerable<GcContentPoint> CalculateWindowedGcContent(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool fraction,
+        SequenceExtensions.GcAmbiguityMode ambiguityMode,
+        bool includePartialWindow)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
+
+        if (string.IsNullOrEmpty(sequence))
+            return Enumerable.Empty<GcContentPoint>();
+
+        return CalculateWindowedGcContentCore(sequence, windowSize, stepSize, fraction, ambiguityMode, includePartialWindow);
     }
 
     /// <summary>

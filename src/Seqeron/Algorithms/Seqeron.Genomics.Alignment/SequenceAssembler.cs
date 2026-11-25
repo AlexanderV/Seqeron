@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 using System.Text;
 
 namespace Seqeron.Genomics.Alignment;
@@ -573,24 +574,27 @@ public static class SequenceAssembler
         if (reads == null)
             return graph;
 
+        // Span lookup: a node string is allocated only for its first occurrence as a prefix.
+        var nodes = graph.GetAlternateLookup<ReadOnlySpan<char>>();
+
         foreach (string read in reads)
         {
             if (read == null || read.Length < k)
                 continue; // A read shorter than k contributes no k-mers (Langmead DBG p.16).
 
-            // Chop the read into k-mers: i in [0, read.Length - k].
-            for (int i = 0; i <= read.Length - k; i++)
+            // Chop the read into k-mers (canonical enumerator): i in [0, read.Length - k].
+            foreach (ReadOnlySpan<char> kmer in read.AsSpan().EnumerateKmers(k))
             {
-                string prefix = read.Substring(i, k - 1);     // left (k-1)-mer
-                string suffix = read.Substring(i + 1, k - 1); // right (k-1)-mer
+                ReadOnlySpan<char> prefix = kmer[..(k - 1)]; // left (k-1)-mer
+                ReadOnlySpan<char> suffix = kmer[1..];       // right (k-1)-mer
 
-                if (!graph.TryGetValue(prefix, out var neighbors))
+                if (!nodes.TryGetValue(prefix, out var neighbors))
                 {
                     neighbors = new List<string>();
-                    graph[prefix] = neighbors;
+                    nodes[prefix] = neighbors;
                 }
 
-                neighbors.Add(suffix);
+                neighbors.Add(suffix.ToString());
             }
         }
 
@@ -698,6 +702,7 @@ public static class SequenceAssembler
     private static List<string> SpellStrandPairsOnce(IReadOnlyList<IReadOnlyList<string>> paths)
     {
         var covered = new HashSet<string>(StringComparer.Ordinal);
+        var coveredLookup = covered.GetAlternateLookup<ReadOnlySpan<char>>();
         var contigs = new List<string>();
         foreach (var path in paths)
         {
@@ -706,11 +711,13 @@ public static class SequenceAssembler
             if (covered.Contains(contig[..k]))
                 continue;
 
-            for (int i = 0; i + k <= contig.Length; i++)
+            char[] rc = new char[k];
+            foreach (ReadOnlySpan<char> kmer in contig.AsSpan().EnumerateKmers(k))
             {
-                string kmer = contig.Substring(i, k);
-                covered.Add(kmer);
-                covered.Add(ReverseComplement(kmer));
+                coveredLookup.Add(kmer);
+                if (!kmer.TryGetReverseComplement(rc))
+                    throw new InvalidOperationException("Reverse-complement buffer too small.");
+                coveredLookup.Add(rc);
             }
 
             string reverse = ReverseComplement(contig);
@@ -753,9 +760,13 @@ public static class SequenceAssembler
     }
 
     /// <summary>Reverse complement through the canonical Core helper.</summary>
-    private static string ReverseComplement(string sequence) =>
-        string.Create(sequence.Length, sequence,
-            static (dest, src) => src.AsSpan().TryGetReverseComplement(dest));
+    private static string ReverseComplement(string sequence)
+    {
+        Span<char> buffer = sequence.Length <= 256 ? stackalloc char[sequence.Length] : new char[sequence.Length];
+        if (!sequence.AsSpan().TryGetReverseComplement(buffer))
+            throw new InvalidOperationException("Reverse-complement buffer too small.");
+        return new string(buffer);
+    }
 
     /// <summary>k-mers split into two (k-1)-mer nodes, so k must be at least 2 (Langmead DBG p.5).</summary>
     private static void ValidateDeBruijnK(int k)
@@ -969,9 +980,9 @@ public static class SequenceAssembler
         {
             char p = contig1[start1 + i];
             char q = contig2[i];
-            if (char.ToUpperInvariant(p) == 'N') merged.Append(q);
-            else if (char.ToUpperInvariant(q) == 'N') merged.Append(p);
-            else if (char.ToUpperInvariant(p) != char.ToUpperInvariant(q))
+            if (SequenceCase.ToUpperAscii(p) == 'N') merged.Append(q);
+            else if (SequenceCase.ToUpperAscii(q) == 'N') merged.Append(p);
+            else if (SequenceCase.ToUpperAscii(p) != SequenceCase.ToUpperAscii(q))
                 merged.Append(MergerFirstHasBestQuality(contig1, contig2, start1 + i, i) ? p : q);
             else merged.Append(p);
         }
@@ -1010,7 +1021,7 @@ public static class SequenceAssembler
         return (float)(value / (window * 2.0 + 1.0));
     }
 
-    private static int MergerBasePoints(char c) => char.ToUpperInvariant(c) switch
+    private static int MergerBasePoints(char c) => SequenceCase.ToUpperAscii(c) switch
     {
         'A' or 'C' or 'G' or 'T' or 'U' => 2,
         'M' or 'R' or 'W' or 'S' or 'Y' or 'K' or 'V' or 'H' or 'D' or 'B' => 1,
@@ -1288,8 +1299,8 @@ public static class SequenceAssembler
         int start = placed.Length - overlap;
         for (int i = 0; i < overlap; i++)
         {
-            char a = char.ToUpperInvariant(placed[start + i]);
-            char b = char.ToUpperInvariant(next[i]);
+            char a = SequenceCase.ToUpperAscii(placed[start + i]);
+            char b = SequenceCase.ToUpperAscii(next[i]);
             if (a != b && a != 'N' && b != 'N') return false;
         }
 
@@ -1544,7 +1555,7 @@ public static class SequenceAssembler
             {
                 if (pos >= read.Length) continue;
 
-                char c = ignoreCase ? char.ToUpperInvariant(read[pos]) : read[pos];
+                char c = ignoreCase ? SequenceCase.ToUpperAscii(read[pos]) : read[pos];
                 if (c == GapDash || c == GapDot) continue;
 
                 counts[c] = counts.GetValueOrDefault(c, 0) + 1;

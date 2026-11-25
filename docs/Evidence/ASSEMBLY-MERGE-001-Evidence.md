@@ -246,3 +246,8 @@ The tie-break inputs were found by a seeded random search (seed 7, 200 000 trial
 - **2026-06-13**: Initial documentation.
 - **2026-11-25**: B10 review — Langmead `CG_SCS.ipynb` code and EMBOSS `merger.c` opened; out-of-range
   overlap now rejected (F-MERGE-1); opt-in EMBOSS conflict rule (F-MERGE-2) with port-oracle table.
+
+## R1-WP1 addendum (2026-11-25): ASCII fold (A15-7)
+
+Sources opened: `docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md` (Biopython 1.85 `dumb_consensus`, EMBOSS `cons`/`merger`, ABySS `createConsensus` already cited), B01 F21 / B02 `Infrastructure/SequenceCase.ToUpperAscii` XML remarks (U+017F must stay invalid; EMBOSS pepstats skips it). Reference numbers: the expected values in `SequenceAssembler_AsciiFold_Tests` are hand-derived from those rules (quality 2/11 vs 3/11 for the merger case; 2/3 vs threshold 0.7 for the consensus case); the refactor itself was checked by a differential test (old vs new, 20,000 random alignments for `GenerateDumbConsensus`; bit-identical outputs).
+

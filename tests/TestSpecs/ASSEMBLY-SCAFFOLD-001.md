@@ -209,3 +209,16 @@
 
 1. Decision: This unit consumes a supplied gap estimate; the upstream maximum-likelihood distance estimator (Jackman et al. 2017; Sahlin et al. 2012) is out of scope.
 2. Decision (B10): Huson's interleaving ("zipper") merge and happy/unhappy test need per-link σ, not in the input; such links are conflicts. Bundling, SSPACE ratio filter and ABySS gapped-overlap fallback not implemented (see Scaffolding.md §5.3).
+
+## R1-WP1 addendum (2026-11-25): ASCII fold / span k-mers (A15-7)
+
+`SequenceAssembler` private `char.ToUpperInvariant` folds -> `SequenceCase.ToUpperAscii`; `BuildDeBruijnGraph` / `SpellStrandPairsOnce` use `KmerEnumerator` + span dictionary lookups; `ReverseComplement` checks the `TryGetReverseComplement` result. New tests in `Unit/Alignment/SequenceAssembler_AsciiFold_Tests.cs`:
+
+| Test | Locks |
+|---|---|
+| `ComputeConsensus_LongS_IsNotCountedAsAsciiS` | Biopython `dumb_consensus`: S, U+017F, s -> 2/3 < 0.7 -> N; threshold 0.5 -> S |
+| `MergeContigs_ResolveConflicts_LongSDiffersFromS_BestQualityDecides` | EMBOSS merger quality windows: "A\u017F"+"ST" -> "AST" |
+| `Scaffold_NegativeGap_LongSOverlapDisagrees_WritesUnknownGap` / `..._LowerCaseOverlapAgrees_Collapsed` | ABySS agreement ignoring ASCII case only; AGP unknown gap 100 |
+| `BuildDeBruijnGraph_NonAsciiLetter_KeptVerbatim_SharedPrefixNodeAccumulates` | node/edge multimap unchanged by the span path |
+| `AssembleDeBruijn_BothStrands_NonAsciiLetter_StrandPairEmittedOnce` | strand-pair emission unchanged |
+

@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 namespace Seqeron.Genomics.Chromosome;
 
 /// <summary>
@@ -969,7 +970,7 @@ public static class GenomeAssemblyAnalyzer
 
     private static List<(string Id, string Sequence)> MaterializeAssembly(
         IEnumerable<(string Id, string Sequence)> assembly, string paramName)
-        => assembly.Select(s => (s.Id, RequireSequence(s, paramName).ToUpperInvariant())).ToList();
+        => assembly.Select(s => (s.Id, SequenceCase.ToUpperAscii(RequireSequence(s, paramName)))).ToList();
 
     private static string RequireMarker(string id, string? sequence, string paramName)
     {
@@ -977,7 +978,7 @@ public static class GenomeAssemblyAnalyzer
             throw new ArgumentException($"Marker '{id}' sequence is null.", paramName);
         if (sequence.Length == 0)
             throw new ArgumentException($"Marker '{id}' sequence is empty.", paramName);
-        return sequence.ToUpperInvariant();
+        return SequenceCase.ToUpperAscii(sequence);
     }
 
     private static void ValidateFraction(double value, string paramName)
@@ -1066,7 +1067,7 @@ public static class GenomeAssemblyAnalyzer
                     $"All spectrum k-mers must have the same length (found {k} and {kmer.Length}).", nameof(readKmerSpectrum));
             if (count < 1)
                 throw new ArgumentException($"K-mer '{kmer}' has count {count}; counts must be ≥ 1.", nameof(readKmerSpectrum));
-            if (!spectrum.TryAdd(kmer.ToUpperInvariant(), count))
+            if (!spectrum.TryAdd(SequenceCase.ToUpperAscii(kmer), count))
                 throw new ArgumentException($"K-mer '{kmer}' is listed more than once.", nameof(readKmerSpectrum));
         }
         if (spectrum.Count == 0)
@@ -1240,7 +1241,7 @@ public static class GenomeAssemblyAnalyzer
         ArgumentOutOfRangeException.ThrowIfGreaterThan(textend, minCopies);
 
         return FindRepetitiveRegionsCore(
-            sequences.Select(s => (s.Id, Sequence: (s.Sequence ?? string.Empty).ToUpperInvariant())).ToList(),
+            sequences.Select(s => (s.Id, Sequence: SequenceCase.ToUpperAscii(s.Sequence ?? string.Empty))).ToList(),
             kmerSize, minCopies, windowSize, bothStrands, textend);
     }
 
@@ -1248,18 +1249,12 @@ public static class GenomeAssemblyAnalyzer
         List<(string Id, string Sequence)> sequences,
         int k, int cutoff, int windowSize, bool bothStrands, int textend)
     {
-        var forward = new Dictionary<string, int>();
+        var forward = new Dictionary<string, int>(StringComparer.Ordinal);
         var acgt = new KmerCountingOptions(AcgtOnly: true);
         foreach (var (_, sequence) in sequences)
         {
             foreach (var (kmer, n) in KmerAnalyzer.CountKmers(sequence, k, acgt))
                 forward[kmer] = forward.GetValueOrDefault(kmer) + n;
-        }
-
-        int UnitCount(string kmer)
-        {
-            int c = forward.GetValueOrDefault(kmer);
-            return bothStrands ? c + forward.GetValueOrDefault(DnaSequence.GetReverseComplementString(kmer)) : c;
         }
 
         int numUnits = windowSize - k + 1;
@@ -1269,12 +1264,7 @@ public static class GenomeAssemblyAnalyzer
             if (n < windowSize) continue;
 
             // unit[j] = count of the k-mer starting at j (-1 when it contains a non-ACGT symbol).
-            var unit = new int[n - k + 1];
-            for (int j = 0; j < unit.Length; j++)
-            {
-                var span = seq.AsSpan(j, k);
-                unit[j] = IsAcgt(span) ? UnitCount(seq.Substring(j, k)) : -1;
-            }
+            int[] unit = UnitCounts(seq, k, forward, bothStrands);
 
             // Prefix sums of the counts and of the invalid-unit flags give each window's mean in O(1).
             var sum = new long[unit.Length + 1];
@@ -1341,14 +1331,39 @@ public static class GenomeAssemblyAnalyzer
         }
     }
 
-    private static bool IsAcgt(ReadOnlySpan<char> span)
+    /// <summary>
+    /// Count of every k-mer start of an upper-case sequence (-1 for a k-mer with a non-ACGT symbol), looked up
+    /// by span (no per-position string); with <paramref name="bothStrands"/> the reverse-complement count is added.
+    /// </summary>
+    private static int[] UnitCounts(string seq, int k, Dictionary<string, int> forward, bool bothStrands)
     {
-        foreach (char c in span)
+        var lookup = forward.GetAlternateLookup<ReadOnlySpan<char>>();
+        var unit = new int[seq.Length - k + 1];
+        char[] rc = new char[k];
+        int j = 0;
+        foreach (ReadOnlySpan<char> kmer in seq.AsSpan().EnumerateKmers(k))
         {
-            if (c is not ('A' or 'C' or 'G' or 'T')) return false;
+            if (kmer.IsValidDna())
+            {
+                int c = lookup.TryGetValue(kmer, out int f) ? f : 0;
+                if (bothStrands)
+                {
+                    if (!kmer.TryGetReverseComplement(rc))
+                        throw new InvalidOperationException("Reverse-complement buffer too small.");
+                    c += lookup.TryGetValue(rc, out int r) ? r : 0;
+                }
+
+                unit[j] = c;
+            }
+            else
+            {
+                unit[j] = -1;
+            }
+
+            j++;
         }
 
-        return true;
+        return unit;
     }
 
     private static int MaxUnit(int[] unit, int start, int end, int k)
@@ -1667,7 +1682,7 @@ public static class GenomeAssemblyAnalyzer
         {
             for (int i = 0; i < span.Length; i++)
             {
-                char c = char.ToUpperInvariant(state.sequence[i]);
+                char c = SequenceCase.ToUpperAscii(state.sequence[i]);
                 span[i] = c is 'A' or 'C' or 'G' or 'T' ? c : state.mismatchSymbol;
             }
         });
@@ -1963,7 +1978,7 @@ public static class GenomeAssemblyAnalyzer
             {
                 string window = sequence.Substring(w.Start, w.Length);
                 yield return (id, w.Start, w.Length, w.Gc, w.NCount,
-                    SequenceComplexity.CalculateLinguisticComplexity(window.ToUpperInvariant()));
+                    SequenceComplexity.CalculateLinguisticComplexity(SequenceCase.ToUpperAscii(window)));
             }
         }
     }

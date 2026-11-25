@@ -116,3 +116,10 @@
 | 1 | Window / step (500, w/2) and N/GC cut-offs | none published | caller parameters; documented as a screen |
 | 2 | Pooled GC as reference | none | assembly-wide QUAST GC |
 | 3 | Misassembly detection | alignment based (QUAST/GAGE) | not a misassembly caller; out of scope without a reference |
+
+## R1-WP1 addendum (2026-11-25): ASCII fold, span unit lookup, `IsValidDna` (A15-7, A11-6)
+
+`GenomeAssemblyAnalyzer`: five `ToUpperInvariant` folds -> `SequenceCase.ToUpperAscii`; `FindRepetitiveRegions` unit counts via `KmerEnumerator` + span lookup (new private `UnitCounts`); private `IsAcgt` deleted -> `IsValidDna` (identical on the upper-cased input). New tests in `Unit/Chromosome/GenomeAssemblyAnalyzer_AsciiFold_Tests.cs`: `FindRepetitiveRegions_NonAsciiLetter_ActsAsNonAcgtSymbol` (U+017F, U+0130 vs N), `FindRepetitiveRegions_LowerCase_EqualsUpperCase`, `EstimateCompletenessFromKmers_LongSAndS_AreDistinctKmers`, `EstimateCompletenessFromKmers_Canonical_NonAsciiKmer_RejectedAsNotAcgt`, `FindMarkerHits_NonAsciiMarkerBase_FullLengthHitFound`, `FindMarkerHits_LowerCaseMarkerAndAssembly_FullIdentity`, `FindSyntenicBlocks_NonAsciiQueryLetter_ActsAsNonAcgt`, `CalculateLocalQuality_NonAsciiLetter_ExcludedFromGc`.
+
+
+New (R1-WP1, A15-2): `GcSkewCalculator_PartialWindowMode_Tests` — `CalculateWindowedGcContent_PartialWindow_Mode_MatchesBiopython` (x3 modes), `SequenceStatistics_GcProfile_PartialWindow_Mode_ProjectsSameValues` (x3), `CalculateWindowedGcContent_NoPartialWindow_Mode_EqualsExistingOverload` (x3), `CalculateWindowedGcContent_PartialWindow_Mode_RejectsBadWindowAndStep`. Oracle `tools/review/oracles/B10/gc_profile_partial_oracle.py` (Biopython `gc_fraction(seq[i:i+w], ambiguous=mode)`, i in range(0, len, step)).

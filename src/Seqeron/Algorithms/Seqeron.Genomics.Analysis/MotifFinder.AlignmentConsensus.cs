@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Alignment;
 using System.Text;
 
 namespace Seqeron.Genomics.Analysis;
@@ -458,50 +459,9 @@ public static partial class MotifFinder
         List<string> rows = MaterializeAligned(alignedSequences, nameof(alignedSequences));
         if (rows.Count == 0) return "";
 
-        int length = rows[0].Length;
-        var consensus = new StringBuilder(length);
-        var counts = new Dictionary<char, int>();
-
-        for (int n = 0; n < length; n++)
-        {
-            counts.Clear();
-            int numAtoms = 0;
-            foreach (string row in rows)
-            {
-                char c = row[n];
-                if (c != '-' && c != '.')
-                {
-                    counts[c] = counts.GetValueOrDefault(c) + 1;
-                    numAtoms++;
-                }
-            }
-
-            char best = '\0';
-            int maxSize = 0;
-            int maxAtoms = 0;
-            foreach (var (atom, count) in counts)
-            {
-                if (count > maxSize)
-                {
-                    best = atom;
-                    maxSize = count;
-                    maxAtoms = 1;
-                }
-                else if (count == maxSize)
-                {
-                    maxAtoms++;
-                }
-            }
-
-            if (requireMultiple && numAtoms == 1)
-                consensus.Append(ambiguous);
-            else if (maxAtoms == 1 && (double)maxSize / numAtoms >= threshold)
-                consensus.Append(best);
-            else
-                consensus.Append(ambiguous);
-        }
-
-        return consensus.ToString();
+        // Equal length is verified above; the column rule itself is the canonical Biopython
+        // dumb_consensus implementation (case-sensitive, as Biopython).
+        return SequenceAssembler.ComputeConsensus(rows, threshold, ambiguous, requireMultiple, ignoreCase: false);
     }
 
     #endregion

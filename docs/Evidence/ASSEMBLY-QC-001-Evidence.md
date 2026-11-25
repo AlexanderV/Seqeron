@@ -51,3 +51,10 @@ All C# values agree with the oracle to 1e-9. (The oracle's first LC draft used t
 ## Findings
 
 F58–F61 (see B10 summary): infinite loop for windowSize 1 / invalid sizes; inconsistent GC denominators and private GC loop; unsourced `FindSuspiciousRegions` thresholds, score and region ends; additive Core `includePartialWindow`.
+
+## R1-WP1 addendum (2026-11-25): ASCII fold (A15-7, A11-6)
+
+Sources opened: `Infrastructure/SequenceCase.cs` remarks (ASCII-only fold; B01 F21), `SequenceExtensions.IsValidDna` (IUPAC-IUB unambiguous DNA = Biopython `unambiguous_dna_letters`). `IsAcgt(span)` vs `IsValidDna(span)` differ only for lower-case input, which `FindRepetitiveRegions` has already upper-cased. Non-ACGT (incl. non-ASCII) symbols make a WindowMasker unit invalid exactly as `N` does (tests compare the result with the `N` variant). Note: `CalculateLocalQuality` passes the window to `SequenceComplexity.CalculateLinguisticComplexity`, which folds with `ToUpperInvariant` itself (B04 file, left as is; cross-batch note in the WP report).
+
+
+R1-WP1 (A15-2) reference numbers: Biopython 1.88 `gc_fraction(seq[i:i+5], ambiguous=mode)*100`, i = 0,4,…,16, seq `ACGTNSWRYacgtnGGCC`: remove [50,50,50,75,100], ignore [40,20,40,60,100], weighted [50,50,50,70,100] (oracle `tools/review/oracles/B10/gc_profile_partial_oracle.py`); the C# overload and the `SequenceStatistics` projection reproduce them to 1e-12.
