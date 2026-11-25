@@ -206,7 +206,8 @@ public static class RnaSecondaryStructure
     };
 
     // Terminal mismatch stacking energies (kcal/mol at 37°C) — see Turner2004Parameters.
-    // Applied to hairpin loops ≥4nt, internal loops (other sizes), and exterior loops.
+    // Applied to exterior / multibranch helix ends and (plus the NNDB bonuses) hairpin loops ≥ 4 nt;
+    // interior loops use Turner2004InteriorLoopTables.
     private static readonly IReadOnlyDictionary<string, double> TerminalMismatchEnergies =
         Turner2004Parameters.TerminalMismatchEnergies;
 
@@ -272,8 +273,8 @@ public static class RnaSecondaryStructure
     private const double BulgeSpecialC_Bonus = -0.9;
 
     // 3' dangling end energies (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/de-parameters.html
-    // Key = closing5' + danglingBase + closing3'. Dangling base is 3' to the closing pair.
+    // Source: NNDB rna_2004_dangling_ends.html (= ViennaRNA 2.7.2 dangle3_37).
+    // Key = closing5' + danglingBase + closing3': the dangling base is 3' of closing5'.
     private static readonly Dictionary<string, double> DanglingEnd3 = new()
     {
         // Closing A-U
@@ -291,8 +292,8 @@ public static class RnaSecondaryStructure
     };
 
     // 5' dangling end energies (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/de-parameters.html
-    // Key = closing5' + danglingBase + closing3'. Dangling base is 5' to the closing pair.
+    // Source: NNDB rna_2004_dangling_ends.html (= ViennaRNA 2.7.2 dangle5_37).
+    // Key = closing5' + danglingBase + closing3': the dangling base is 5' of closing3'.
     private static readonly Dictionary<string, double> DanglingEnd5 = new()
     {
         // Closing A-U
@@ -309,18 +310,22 @@ public static class RnaSecondaryStructure
         { "UAG", -0.3 }, { "UCG", -0.3 }, { "UGG", -0.4 }, { "UUG", -0.2 },
     };
 
-    // Multibranch loop parameters (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/mb-parameters.html
-    // ΔG° = a + b×avg_asymmetry + c×num_helices + strain
+    // Multibranch loop initiation, NNDB Turner 2004 (efn2) model (kcal/mol at 37°C).
+    // Source: NNDB rna_2004_multibranch_loops.html §9.1 + parameter table turner_2004_multi_branch:
+    // ΔG°init = a + b×[average asymmetry] + c×[number of branching helices] + ΔG°strain,
+    // average asymmetry = min[2.0, mean |unpaired 5' side − unpaired 3' side| over the helices];
+    // strain only for three-way loops with fewer than two unpaired nucleotides.
     private const double MultibranchLoop_Offset = 9.25;     // a
     private const double MultibranchLoop_Asymmetry = 0.91;  // b
     private const double MultibranchLoop_Helix = -0.63;     // c
     private const double MultibranchLoop_Strain = 3.14;     // 3-way with <2 unpaired
+    private const double MultibranchLoop_MaxAsymmetry = 2.0;
 
     // Coaxial stacking parameters (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/coax.html
-    // Flush coaxial: use WC/GU stacking as if no backbone break.
-    // Mismatch-mediated: terminal mismatch + base constant + WC/GU bonus.
+    // Source: NNDB rna_2004_coaxial_stacking.html §8.2–8.3 + table turner_2004_coax:
+    // flush: the helical stack as if there were no backbone break; mismatch-mediated: terminal mismatch
+    // (continuous backbone) + −2.1 (discontinuous backbone) + −0.4 / −0.2 when the "mismatch" could form a
+    // Watson–Crick / G·U pair.
     private const double CoaxialMismatch_Base = -2.1;
     private const double CoaxialMismatch_WC_Bonus = -0.4;
     private const double CoaxialMismatch_GU_Bonus = -0.2;
@@ -716,24 +721,69 @@ public static class RnaSecondaryStructure
     }
 
     /// <summary>
-    /// Returns the terminal mismatch stacking energy for a closing pair and adjacent mismatched bases.
+    /// Returns the Turner 2004 terminal-mismatch stacking energy (NNDB terminal mismatches, kcal/mol) of the
+    /// helix end <c>5'-closingBase5 mismatch5-3' / 3'-closingBase3 mismatch3-5'</c>: <paramref name="mismatch5"/>
+    /// is the unpaired base 3' of <paramref name="closingBase5"/>, <paramref name="mismatch3"/> the unpaired base
+    /// 5' of <paramref name="closingBase3"/>. This is the term of exterior and multibranch helix ends (ViennaRNA
+    /// 2.7.2 <c>mismatchExt37</c> = <c>mismatchM37</c> <c>[pair(closingBase3, closingBase5)][mismatch3][mismatch5]</c>).
     /// </summary>
+    /// <remarks>
+    /// Bases are case-insensitive and DNA T is read as U. An unpaired base other than A/C/G/U (N, IUPAC codes,
+    /// gaps) is ViennaRNA's unknown base 'N', whose <c>params/default.c</c> entries are the maximum (least
+    /// stabilising) value over A/C/G/U; the same maximum is taken here. A closing pair that is not canonical
+    /// (Watson–Crick or G·U, see <see cref="CanPair"/>) is outside the nearest-neighbour model and returns 0.
+    /// </remarks>
     public static double GetTerminalMismatchEnergy(char closingBase5, char closingBase3, char mismatch5, char mismatch3)
     {
-        string key = $"{char.ToUpperInvariant(closingBase5)}{char.ToUpperInvariant(mismatch5)}" +
-                     $"{char.ToUpperInvariant(mismatch3)}{char.ToUpperInvariant(closingBase3)}";
-        return TerminalMismatchEnergies.TryGetValue(key, out double e) ? e : 0.0;
+        char c5 = NormalizeBase(closingBase5);
+        char c3 = NormalizeBase(closingBase3);
+        if (!CanPair(c5, c3))
+            return 0.0;
+        return MaxOverUnknownBases(NormalizeBase(mismatch5), NormalizeBase(mismatch3),
+            (x, y) => TerminalMismatchEnergies[$"{c5}{x}{y}{c3}"]);
     }
 
     /// <summary>
-    /// Returns the dangling end energy contribution.
+    /// Returns the Turner 2004 dangling-end energy (NNDB dangling ends, kcal/mol) of a single unpaired base
+    /// stacked on the helix end <c>5'-closingBase5-3' / 3'-closingBase3-5'</c>: a 3' dangle
+    /// (<paramref name="is3Prime"/> = true) sits 3' of <paramref name="closingBase5"/>, a 5' dangle 5' of
+    /// <paramref name="closingBase3"/> (ViennaRNA 2.7.2 <c>dangle3_37</c> / <c>dangle5_37</c>
+    /// <c>[pair(closingBase3, closingBase5)][danglingBase]</c>).
     /// </summary>
+    /// <remarks>
+    /// Same base conventions as <see cref="GetTerminalMismatchEnergy"/>: case-insensitive, T read as U, an unknown
+    /// dangling base takes the maximum over A/C/G/U (ViennaRNA's 'N' column), a non-canonical closing pair returns 0.
+    /// </remarks>
     public static double GetDanglingEndEnergy(char closingBase5, char closingBase3, char danglingBase, bool is3Prime)
     {
-        string key = $"{char.ToUpperInvariant(closingBase5)}{char.ToUpperInvariant(danglingBase)}" +
-                     $"{char.ToUpperInvariant(closingBase3)}";
+        char c5 = NormalizeBase(closingBase5);
+        char c3 = NormalizeBase(closingBase3);
+        if (!CanPair(c5, c3))
+            return 0.0;
         var table = is3Prime ? DanglingEnd3 : DanglingEnd5;
-        return table.TryGetValue(key, out double e) ? e : 0.0;
+        return MaxOverUnknownBases(NormalizeBase(danglingBase), 'A', (d, _) => table[$"{c5}{d}{c3}"]);
+    }
+
+    private static bool IsKnownBase(char b) => b is 'A' or 'C' or 'G' or 'U';
+
+    /// <summary>
+    /// Evaluates <paramref name="term"/> for two (normalised) single-base positions; a position holding an unknown
+    /// base (anything but A/C/G/U) is ViennaRNA's 'N' and is replaced by every A/C/G/U, keeping the maximum —
+    /// the rule by which ViennaRNA 2.7.2 <c>params/default.c</c> fills every 'N' row/column of its Turner 2004
+    /// mismatch and dangle tables.
+    /// </summary>
+    private static double MaxOverUnknownBases(char x, char y, Func<char, char, double> term)
+    {
+        if (IsKnownBase(x) && IsKnownBase(y))
+            return term(x, y);
+
+        string xs = IsKnownBase(x) ? x.ToString() : "ACGU";
+        string ys = IsKnownBase(y) ? y.ToString() : "ACGU";
+        double max = double.NegativeInfinity;
+        foreach (char a in xs)
+            foreach (char b in ys)
+                max = Math.Max(max, term(a, b));
+        return max;
     }
 
     /// <summary>
@@ -816,27 +866,13 @@ public static class RnaSecondaryStructure
     /// is taken here over every A/C/G/U substitution of the unknown base(s).
     /// </summary>
     private static double HairpinFirstMismatchTerm(char c5, char x, char y, char c3)
-    {
-        static bool Known(char b) => b is 'A' or 'C' or 'G' or 'U';
-        static double Term(char c5, char x, char y, char c3)
+        => MaxOverUnknownBases(x, y, (a, b) =>
         {
-            double e = TerminalMismatchEnergies.TryGetValue($"{c5}{x}{y}{c3}", out double tm) ? tm : 0.0;
-            if ((x == 'U' && y == 'U') || (x == 'G' && y == 'A')) e += UU_GA_MismatchBonus;
-            if (x == 'G' && y == 'G') e += GG_MismatchBonus;
+            double e = TerminalMismatchEnergies.TryGetValue($"{c5}{a}{b}{c3}", out double tm) ? tm : 0.0;
+            if ((a == 'U' && b == 'U') || (a == 'G' && b == 'A')) e += UU_GA_MismatchBonus;
+            if (a == 'G' && b == 'G') e += GG_MismatchBonus;
             return e;
-        }
-
-        if (Known(x) && Known(y))
-            return Term(c5, x, y, c3);
-
-        string xs = Known(x) ? x.ToString() : "ACGU";
-        string ys = Known(y) ? y.ToString() : "ACGU";
-        double max = double.NegativeInfinity;
-        foreach (char a in xs)
-            foreach (char b in ys)
-                max = Math.Max(max, Term(c5, a, b, c3));
-        return max;
-    }
+        });
 
     /// <summary>
     /// Calculates the free energy of the degree-2 loop closed by the outer pair (i,j) and the inner pair
@@ -977,37 +1013,41 @@ public static class RnaSecondaryStructure
     /// <param name="pair3_base2">3' base of the pair on the 3' side.</param>
     /// <param name="numStates">Number of equivalent states for degeneracy (n=1 only). Default 1 = no degeneracy.</param>
     /// <param name="bulgeOn5PrimeStrand">
-    /// Strand of the bulge when known: <c>true</c> = between <paramref name="pair5_base1"/> and
+    /// Strand of the bulge: <c>true</c> = between <paramref name="pair5_base1"/> and
     /// <paramref name="pair3_base1"/>, <c>false</c> = between <paramref name="pair3_base2"/> and
-    /// <paramref name="pair5_base2"/>. NNDB's special C bulge needs a paired C ADJACENT to the bulged C, i.e.
-    /// one of those two neighbours; when <c>null</c> (side unknown) any of the four closing bases counts.
+    /// <paramref name="pair5_base2"/>. NNDB's special C bulge (−0.9) needs a paired C ADJACENT to the bulged C,
+    /// i.e. one of the two closing bases on the bulged strand. When <c>null</c> (strand not given) the rule cannot
+    /// be decided from the arguments; the bonus is then applied only when it holds on BOTH strands, i.e. the
+    /// result is the larger (least stabilising) of the two readings — the convention ViennaRNA 2.7.2 uses for
+    /// every unknown in its Turner 2004 tables (maximum over the possibilities). Pass the strand for the exact
+    /// NNDB value.
     /// </param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="bulgeSize"/> is less than 1.</exception>
+    /// <remarks>Bases are case-insensitive and DNA T is read as U.</remarks>
     public static double CalculateBulgeLoopEnergy(
         int bulgeSize, char bulgedBase,
         char pair5_base1, char pair5_base2,
         char pair3_base1, char pair3_base2,
         int numStates = 1, bool? bulgeOn5PrimeStrand = null)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(bulgeSize, 1);
+
         // Initiation energy
         double energy;
         if (BulgeLoopInitiation.TryGetValue(bulgeSize, out double initEnergy))
         {
             energy = initEnergy;
         }
-        else if (bulgeSize > 30)
-        {
-            // Extrapolation: init(6) + 1.75·R·T·ln(n/6)
-            energy = 4.4 + 1.75 * 1.987 * 310.15 / 1000.0 * Math.Log((double)bulgeSize / 6.0);
-        }
         else
         {
-            energy = 3.8; // Minimum
+            // n > 30 (the table covers 1..30): NNDB extrapolation init(6) + 1.75·R·T·ln(n/6)
+            energy = 4.4 + 1.75 * 1.987 * 310.15 / 1000.0 * Math.Log((double)bulgeSize / 6.0);
         }
 
-        char p5b1 = char.ToUpperInvariant(pair5_base1);
-        char p5b2 = char.ToUpperInvariant(pair5_base2);
-        char p3b1 = char.ToUpperInvariant(pair3_base1);
-        char p3b2 = char.ToUpperInvariant(pair3_base2);
+        char p5b1 = NormalizeBase(pair5_base1);
+        char p5b2 = NormalizeBase(pair5_base2);
+        char p3b1 = NormalizeBase(pair3_base1);
+        char p3b2 = NormalizeBase(pair3_base2);
 
         if (bulgeSize == 1)
         {
@@ -1017,12 +1057,14 @@ public static class RnaSecondaryStructure
                 energy += stackEnergy;
 
             // Special C bulge bonus: bulged C adjacent to at least one paired C
-            char bulge = char.ToUpperInvariant(bulgedBase);
+            char bulge = NormalizeBase(bulgedBase);
+            bool on5 = p5b1 == 'C' || p3b1 == 'C';
+            bool on3 = p5b2 == 'C' || p3b2 == 'C';
             bool adjacentC = bulgeOn5PrimeStrand switch
             {
-                true => p5b1 == 'C' || p3b1 == 'C',
-                false => p5b2 == 'C' || p3b2 == 'C',
-                null => p5b1 == 'C' || p5b2 == 'C' || p3b1 == 'C' || p3b2 == 'C',
+                true => on5,
+                false => on3,
+                null => on5 && on3, // strand unknown: least stabilising reading (see parameter doc)
             };
             if (bulge == 'C' && adjacentC)
                 energy += BulgeSpecialC_Bonus;
@@ -1048,57 +1090,132 @@ public static class RnaSecondaryStructure
     }
 
     /// <summary>
-    /// Calculates the free energy of a multibranch loop using Turner 2004 parameters.
-    /// ΔG° = a + b·avg_asymmetry + c·num_helices + optimal_stacking + strain
+    /// Initiation free energy of a multibranch loop in the linear Turner 2004 model used for dynamic programming —
+    /// the model of every folding engine in this class (<see cref="CalculateMinimumFreeEnergy"/>,
+    /// <see cref="CalculateMfeStructure"/>, <see cref="CalculatePartitionFunction"/>):
+    /// ΔG°init = a + b·[unpaired nucleotides] + c·[branching helices, the closing helix included],
+    /// a = 9.3, b = 0, c = −0.9 kcal/mol (Mathews et al. 2004 PNAS 101:7287; ViennaRNA 2.7.2
+    /// <c>params/default.c</c> <c>ML_closing37 = 930</c>, <c>ML_BASE37 = 0</c>, <c>ML_intern37 = −90</c>),
+    /// plus <paramref name="stackingEnergy"/> (the dangles / terminal mismatches of the branches, see
+    /// <see cref="GetTerminalMismatchEnergy"/>). The NNDB efn2 model with the asymmetry and strain terms is the
+    /// overload taking the unpaired-nucleotide counts between the helices.
     /// </summary>
-    /// <param name="numHelices">Number of helical branches in the multibranch loop.</param>
-    /// <param name="numUnpaired">Total number of unpaired nucleotides in the loop.</param>
-    /// <param name="hasStrain">True for 3-way junctions with fewer than 2 unpaired bases.</param>
-    /// <param name="stackingEnergy">Pre-computed optimal stacking/dangling end energy for the junction.</param>
+    /// <param name="numHelices">Number of helices in the loop, the closing helix included (≥ 3).</param>
+    /// <param name="numUnpaired">Total number of unpaired nucleotides in the loop (≥ 0; b = 0 in this model).</param>
+    /// <param name="hasStrain">
+    /// Must be <c>false</c>: the three-way strain term exists only in the NNDB efn2 model; use
+    /// <see cref="CalculateMultibranchLoopEnergy(IReadOnlyList{int}, double)"/>, which derives it from the loop.
+    /// </param>
+    /// <param name="stackingEnergy">Stacking (dangles / terminal mismatches / coaxial stacks) of the loop, added as given.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="numHelices"/> &lt; 3 or <paramref name="numUnpaired"/> &lt; 0.</exception>
+    /// <exception cref="ArgumentException"><paramref name="hasStrain"/> is <c>true</c>.</exception>
     public static double CalculateMultibranchLoopEnergy(
         int numHelices, int numUnpaired, bool hasStrain = false, double stackingEnergy = 0.0)
     {
-        double asymmetry = numHelices > 0 ? (double)numUnpaired / numHelices : 0.0;
-        double energy = MultibranchLoop_Offset
-                      + MultibranchLoop_Asymmetry * asymmetry
-                      + MultibranchLoop_Helix * numHelices
-                      + stackingEnergy;
-
+        ArgumentOutOfRangeException.ThrowIfLessThan(numHelices, 3);
+        ArgumentOutOfRangeException.ThrowIfNegative(numUnpaired);
         if (hasStrain)
+            throw new ArgumentException(
+                "The strain term belongs to the NNDB efn2 multibranch model; call the overload with the unpaired " +
+                "counts between the helices, which applies it to three-way loops with fewer than two unpaired nucleotides.",
+                nameof(hasStrain));
+
+        double energy = Dp_ML_closing + Dp_ML_base * numUnpaired + Dp_ML_intern * numHelices + stackingEnergy;
+        return Math.Round(energy, 2);
+    }
+
+    /// <summary>
+    /// Free energy of a multibranch loop in the NNDB Turner 2004 (efn2) model (NNDB "Multibranch Loops" §9.1;
+    /// Mathews &amp; Turner 2002, Biochemistry 41:869):
+    /// ΔG° = a + b·[average asymmetry] + c·[branching helices] + ΔG°strain + ΔG°stacking with a = 9.25, b = 0.91,
+    /// c = −0.63, strain = +3.14 kcal/mol; average asymmetry = min[2.0, mean over the helices of
+    /// |unpaired nucleotides on the 5' side − unpaired nucleotides on the 3' side|]; the strain applies to
+    /// three-way loops with fewer than two unpaired nucleotides.
+    /// </summary>
+    /// <param name="unpairedBetweenHelices">
+    /// The loop read 5'→3' starting after the closing pair: element k is the number of unpaired nucleotides
+    /// between helix k and helix k+1 (cyclically; helix 0 is the closing helix, the last element is the gap
+    /// before the 3' base of the closing pair). Its length is the number of helices (≥ 3); helix k has
+    /// element k−1 on its 5' side and element k on its 3' side.
+    /// </param>
+    /// <param name="stackingEnergy">
+    /// Optimal configuration of dangling ends, terminal mismatches and coaxial stacks (NNDB §9.1), added as given
+    /// (see <see cref="GetDanglingEndEnergy"/>, <see cref="GetTerminalMismatchEnergy"/>,
+    /// <see cref="CalculateFlushCoaxialStacking"/>, <see cref="CalculateMismatchCoaxialStacking"/>).
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="unpairedBetweenHelices"/> is null.</exception>
+    /// <exception cref="ArgumentException">Fewer than 3 helices, or a negative count.</exception>
+    public static double CalculateMultibranchLoopEnergy(IReadOnlyList<int> unpairedBetweenHelices, double stackingEnergy = 0.0)
+    {
+        ArgumentNullException.ThrowIfNull(unpairedBetweenHelices);
+        int h = unpairedBetweenHelices.Count;
+        if (h < 3)
+            throw new ArgumentException("A multibranch loop has at least 3 helices (the closing helix included).",
+                nameof(unpairedBetweenHelices));
+
+        int total = 0;
+        double asymmetrySum = 0;
+        for (int k = 0; k < h; k++)
+        {
+            int after = unpairedBetweenHelices[k];
+            if (after < 0)
+                throw new ArgumentException("Unpaired counts must be non-negative.", nameof(unpairedBetweenHelices));
+            int before = unpairedBetweenHelices[(k + h - 1) % h];
+            asymmetrySum += Math.Abs(before - after);
+            total += after;
+        }
+
+        double averageAsymmetry = Math.Min(MultibranchLoop_MaxAsymmetry, asymmetrySum / h);
+        double energy = MultibranchLoop_Offset
+                      + MultibranchLoop_Asymmetry * averageAsymmetry
+                      + MultibranchLoop_Helix * h
+                      + stackingEnergy;
+        if (h == 3 && total < 2)
             energy += MultibranchLoop_Strain;
 
         return Math.Round(energy, 2);
     }
 
     /// <summary>
-    /// Calculates flush coaxial stacking energy — uses the WC/GU stacking table
-    /// as if the two helices were continuous with no backbone break.
+    /// Flush coaxial stacking energy of two helices with no intervening unpaired nucleotide (NNDB Turner 2004
+    /// "Coaxial Stacking" §8.2): the Watson–Crick / G·U helical stack as though there were no backbone break.
+    /// The continuous strand runs 5'→3' through <paramref name="base5_1"/> then <paramref name="base5_2"/>;
+    /// (<paramref name="base5_1"/>, <paramref name="base3_1"/>) and (<paramref name="base5_2"/>,
+    /// <paramref name="base3_2"/>) are the two terminal pairs — e.g. an A·U pair followed by a C·G pair is
+    /// <c>('A','U','C','G')</c> = −2.24 (NNDB example). Case-insensitive, T read as U; a non-canonical pair
+    /// returns 0 (outside the model). The terminal AU/GU penalties of the helices are not included (NNDB note).
     /// </summary>
     public static double CalculateFlushCoaxialStacking(
         char base5_1, char base3_1, char base5_2, char base3_2)
     {
-        string stack = $"{char.ToUpperInvariant(base5_1)}{char.ToUpperInvariant(base5_2)}/" +
-                       $"{char.ToUpperInvariant(base3_1)}{char.ToUpperInvariant(base3_2)}";
+        string stack = $"{NormalizeBase(base5_1)}{NormalizeBase(base5_2)}/{NormalizeBase(base3_1)}{NormalizeBase(base3_2)}";
         return StackingEnergies.TryGetValue(stack, out double e) ? Math.Round(e, 2) : 0.0;
     }
 
     /// <summary>
-    /// Calculates mismatch-mediated coaxial stacking energy.
-    /// ΔG° = terminal_mismatch + base_constant + WC/GU_bonus
+    /// Mismatch-mediated coaxial stacking energy (NNDB Turner 2004 "Coaxial Stacking" §8.3 and parameter table):
+    /// ΔG° = terminal mismatch of the helix end with the continuous backbone
+    /// (<see cref="GetTerminalMismatchEnergy"/>) − 2.1 (stack on the second helix, backbone not continuous)
+    /// − 0.4 when the "mismatch" (<paramref name="mismatch5"/>, <paramref name="mismatch3"/>) could form a
+    /// Watson–Crick pair, or − 0.2 when it could form a G·U pair; no bonus otherwise. NNDB example: A·U followed
+    /// by a GG mismatch = −0.8 − 2.1 = −2.9 kcal/mol. Case-insensitive, T read as U; an unknown mismatch base takes
+    /// the maximum over A/C/G/U (ViennaRNA 'N' convention); a non-canonical closing pair returns 0.
     /// </summary>
     public static double CalculateMismatchCoaxialStacking(
         char closingBase5, char closingBase3, char mismatch5, char mismatch3)
     {
-        double tmEnergy = GetTerminalMismatchEnergy(closingBase5, closingBase3, mismatch5, mismatch3);
-        double energy = tmEnergy + CoaxialMismatch_Base;
+        char c5 = NormalizeBase(closingBase5);
+        char c3 = NormalizeBase(closingBase3);
+        if (!CanPair(c5, c3))
+            return 0.0;
 
-        char c5 = char.ToUpperInvariant(closingBase5);
-        char c3 = char.ToUpperInvariant(closingBase3);
-        if ((c5 == 'G' && c3 == 'U') || (c5 == 'U' && c3 == 'G'))
-            energy += CoaxialMismatch_GU_Bonus;
-        else
-            energy += CoaxialMismatch_WC_Bonus;
-
+        double energy = MaxOverUnknownBases(NormalizeBase(mismatch5), NormalizeBase(mismatch3), (x, y) =>
+            TerminalMismatchEnergies[$"{c5}{x}{y}{c3}"] + CoaxialMismatch_Base + GetBasePairType(x, y) switch
+            {
+                BasePairType.WatsonCrick => CoaxialMismatch_WC_Bonus,
+                BasePairType.Wobble => CoaxialMismatch_GU_Bonus,
+                _ => 0.0,
+            });
         return Math.Round(energy, 2);
     }
 
@@ -1608,6 +1725,30 @@ public static class RnaSecondaryStructure
         }
 
         return pairs;
+    }
+
+    /// <summary>
+    /// Free energy ΔG°37 (kcal/mol) of a given pseudoknot-free secondary structure — the Turner 2004 loop-by-loop
+    /// sum (exterior d2 stem terms, hairpins, stacks, bulges, interior loops, GGUC/CUGG three-stack, linear d2
+    /// multiloops) of exactly the model minimised by <see cref="CalculateMinimumFreeEnergy"/>; the counterpart of
+    /// ViennaRNA 2.7.2 <c>vrna_eval_structure</c> (<c>RNAeval</c>, <c>-d2</c>). For every sequence,
+    /// <c>CalculateFreeEnergy(s, CalculateMfeStructure(s).DotBracket)</c> equals the MFE.
+    /// </summary>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U), case-insensitive.</param>
+    /// <param name="dotBracket">Structure of the same length using only '(', ')' and '.'.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// The structure has another character, is unbalanced, has the wrong length, or pairs bases that cannot pair
+    /// (see <see cref="CanPair"/>).
+    /// </exception>
+    public static double CalculateFreeEnergy(string rnaSequence, string dotBracket)
+    {
+        ArgumentNullException.ThrowIfNull(rnaSequence);
+        ArgumentNullException.ThrowIfNull(dotBracket);
+        foreach (char c in dotBracket)
+            if (c is not ('(' or ')' or '.'))
+                throw new ArgumentException("Only '(', ')' and '.' are allowed (pseudoknot-free structure).", nameof(dotBracket));
+        return EvaluateStructureEnergy(rnaSequence, dotBracket);
     }
 
     /// <summary>

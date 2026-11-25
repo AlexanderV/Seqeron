@@ -1050,6 +1050,9 @@ public record MismatchCoaxialStackingResult(double Energy);
 /// <summary>Result of <c>minimum_free_energy</c>.</summary>
 public record MinimumFreeEnergyResult(double Mfe);
 
+/// <summary>Result of <c>rna_structure_energy</c>: free energy of the given structure (kcal/mol).</summary>
+public record RnaStructureEnergyResult(double Energy);
+
 /// <summary>Result of <c>predict_rna_structure</c>.</summary>
 public record PredictRnaStructureResult(
     string Sequence,

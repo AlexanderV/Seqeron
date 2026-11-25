@@ -10,13 +10,14 @@
   "inputSchema": {
     "type": "object",
     "properties": {
-      "bulgeSize": { "type": "integer", "description": "Number of unpaired bases in the bulge" },
+      "bulgeSize": { "type": "integer", "minimum": 1, "description": "Number of unpaired bases in the bulge" },
       "bulgedBase": { "type": "string", "description": "Bulged nucleotide (single char)", "minLength": 1, "maxLength": 1 },
       "pair5_base1": { "type": "string", "description": "5' base of the pair on the 5' side", "minLength": 1, "maxLength": 1 },
       "pair5_base2": { "type": "string", "description": "3' base of the pair on the 5' side", "minLength": 1, "maxLength": 1 },
       "pair3_base1": { "type": "string", "description": "5' base of the pair on the 3' side", "minLength": 1, "maxLength": 1 },
       "pair3_base2": { "type": "string", "description": "3' base of the pair on the 3' side", "minLength": 1, "maxLength": 1 },
-      "numStates": { "type": "integer", "description": "Equivalent states for degeneracy entropy (n=1 only)", "default": 1, "minimum": 1 }
+      "numStates": { "type": "integer", "description": "Equivalent states for degeneracy entropy (n=1 only)", "default": 1, "minimum": 1 },
+      "bulgeOn5PrimeStrand": { "type": ["boolean", "null"], "description": "Strand of the bulge (true = 5' strand between pair5_base1 and pair3_base1); null = unknown: special-C bonus only if valid on both strands", "default": null }
     },
     "required": ["bulgeSize", "bulgedBase", "pair5_base1", "pair5_base2", "pair3_base1", "pair3_base2"]
   },

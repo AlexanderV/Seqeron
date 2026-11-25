@@ -24,10 +24,15 @@ public class MismatchCoaxialStackingTests
     {
         Assert.Multiple(() =>
         {
-            // GC closing, AA mismatch -> tm(-1.1) + base(-2.1) + WC bonus(-0.4) = -3.6.
-            Assert.That(AnalysisTools.MismatchCoaxialStacking("G", "C", "A", "A").Energy, Is.EqualTo(-3.6).Within(0.01));
-            // GU closing, AA mismatch -> tm(-0.3) + base(-2.1) + GU bonus(-0.2) = -2.6.
-            Assert.That(AnalysisTools.MismatchCoaxialStacking("G", "U", "A", "A").Energy, Is.EqualTo(-2.6).Within(0.01));
+            // NNDB coaxial stacking §8.3 / turner_2004_coax: tm − 2.1, −0.4 / −0.2 only if the MISMATCH could pair.
+            // GC closing, AA mismatch (cannot pair) -> tm(-1.1) + (-2.1) = -3.2.
+            Assert.That(AnalysisTools.MismatchCoaxialStacking("G", "C", "A", "A").Energy, Is.EqualTo(-3.2).Within(1e-9));
+            // GU closing, AA mismatch -> tm(-0.3) + (-2.1) = -2.4.
+            Assert.That(AnalysisTools.MismatchCoaxialStacking("G", "U", "A", "A").Energy, Is.EqualTo(-2.4).Within(1e-9));
+            // NNDB §8.4 example: AU followed by a GG mismatch = -0.8 - 2.1 = -2.9.
+            Assert.That(AnalysisTools.MismatchCoaxialStacking("A", "U", "G", "G").Energy, Is.EqualTo(-2.9).Within(1e-9));
+            // GC closing, AU mismatch (Watson-Crick capable) -> tm(-1.5) - 2.1 - 0.4 = -4.0.
+            Assert.That(AnalysisTools.MismatchCoaxialStacking("G", "C", "A", "U").Energy, Is.EqualTo(-4.0).Within(1e-9));
         });
     }
 }

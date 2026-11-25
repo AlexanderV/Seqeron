@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rna_structure_energy",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateFreeEnergy",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs",
+  "description": "Turner 2004 free energy (kcal/mol) of a given pseudoknot-free dot-bracket structure, with the same model as minimum_free_energy (ViennaRNA RNAeval -d2 counterpart).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rnaSequence": { "type": "string", "description": "RNA sequence (T read as U, case-insensitive)", "minLength": 1 },
+      "dotBracket": { "type": "string", "description": "Structure of the same length using only '(', ')' and '.'" }
+    },
+    "required": ["rnaSequence", "dotBracket"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "energy": { "type": "number", "description": "kcal/mol" } },
+    "required": ["energy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Invalid structure (characters, balance, length or non-canonical pair)" }
+  ],
+  "examples": [
+    { "name": "Hairpin", "input": { "rnaSequence": "GGGAAACCC", "dotBracket": "(((...)))" }, "output": { "energy": -1.12 } },
+    { "name": "Three-way multiloop", "input": { "rnaSequence": "GAGGGAAAACCCAGGGAAAACCCAC", "dotBracket": "(.(((....))).(((....))).)" }, "output": { "energy": -1.54 } }
+  ]
+}

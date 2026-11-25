@@ -15,8 +15,12 @@ Turner 2004 terminal-mismatch stacking energy.
 ## Description
 
 Returns the **terminal-mismatch stacking energy** (kcal/mol) for a closing base pair
-and the first mismatch pair stacked at a helix end, from the Turner 2004 (NNDB)
-tables. Used in hairpin, internal-loop and coaxial-stacking calculations.
+and the first mismatch pair stacked at a helix end `5'-closingBase5 mismatch5-3' / 3'-closingBase3 mismatch3-5'`,
+from the NNDB Turner 2004 terminal-mismatch table (= ViennaRNA 2.7.2 `mismatchExt37` / `mismatchM37`). It is the
+exterior / multibranch helix-end term of the MFE engine, the base of the hairpin first-mismatch term and of
+mismatch-mediated coaxial stacking (interior loops use their own tables). Bases are case-insensitive, T is read as U,
+an unknown mismatch base (N, IUPAC, gap) takes the maximum over A/C/G/U (ViennaRNA's 'N' entries), and a
+non-canonical closing pair returns 0.
 
 ## Core Documentation Reference
 

@@ -14,23 +14,32 @@ Turner 2004 multibranch-loop free energy.
 
 ## Description
 
-Computes the **multibranch-loop free energy** (kcal/mol) with the Turner 2004 affine
-model: `a + b·(unpaired/helices) + c·helices`, where `a = 9.25`, `b = 0.91`,
-`c = −0.63`. An optional pre-computed stacking/dangling term is added, and a strain
-penalty of +3.14 is applied when the junction is sterically strained.
+Computes the **multibranch-loop free energy** (kcal/mol) in one of two sourced Turner 2004 models:
+
+- **Linear model (default; the MFE / partition-function engines' model):**
+  `9.3 + 0·numUnpaired − 0.9·numHelices + stackingEnergy` (Mathews et al. 2004; ViennaRNA 2.7.2
+  `ML_closing37 = 930`, `ML_BASE37 = 0`, `ML_intern37 = −90`). `hasStrain = true` is rejected here.
+- **NNDB efn2 model (when `unpairedBetweenHelices` is given):**
+  `9.25 + 0.91·min(2, average asymmetry) − 0.63·numHelices + 3.14·[3-way loop with < 2 unpaired] + stackingEnergy`,
+  where the average asymmetry is the mean over the helices of |unpaired 5' of the helix − unpaired 3' of the helix|
+  (NNDB "Multibranch Loops" §9.1 and parameter table). `unpairedBetweenHelices` must have `numHelices` entries
+  summing to `numUnpaired`, and `hasStrain` must equal the derived strain condition.
+
+`numHelices` counts the closing helix (≥ 3).
 
 ## Core Documentation Reference
 
-- Source: [RnaSecondaryStructure.cs#L961](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L961)
+- Source: [RnaSecondaryStructure.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs) (`CalculateMultibranchLoopEnergy`, both overloads)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `numHelices` | integer | Yes | Number of helical branches |
-| `numUnpaired` | integer | Yes | Total unpaired nucleotides in the loop |
-| `hasStrain` | boolean | No | Junction has steric strain (default false) |
+| `numHelices` | integer | Yes | Helices in the loop, the closing helix included (≥ 3) |
+| `numUnpaired` | integer | Yes | Total unpaired nucleotides in the loop (≥ 0) |
+| `hasStrain` | boolean | No | efn2 strain flag; only with `unpairedBetweenHelices` (default false) |
 | `stackingEnergy` | number | No | Pre-computed optimal stacking/dangling energy (default 0) |
+| `unpairedBetweenHelices` | integer[] | No | efn2 input: unpaired nucleotides between consecutive helices, 5'→3' around the loop starting after the closing pair |
 
 ## Output Schema
 
@@ -40,41 +49,34 @@ penalty of +3.14 is applied when the junction is sterically strained.
 
 ## Errors
 
-None (numeric inputs).
+`numHelices < 3`, `numUnpaired < 0`, `hasStrain` without `unpairedBetweenHelices`, or an inconsistent
+`unpairedBetweenHelices` → argument error.
 
 ## Examples
 
-### Example 1: 3-way junction, 6 unpaired
+### Example 1: 3-way junction, linear model
 
-**User Prompt:**
-> Multibranch energy for a 3-way junction with 6 unpaired bases.
-
-**Expected Tool Call:**
 ```json
 { "tool": "multibranch_loop_energy", "arguments": { "numHelices": 3, "numUnpaired": 6 } }
 ```
 
-**Response:**
+**Response:** `{ "energy": 6.6 }` — 9.3 − 0.9·3 (= ViennaRNA `eval_structure_verbose` "Multi loop" 660, dangles 0).
+
+### Example 2: NNDB efn2 worked example (§9.3)
+
 ```json
-{ "energy": 9.18 }
-```
-9.25 + 0.91·(6/3) + (−0.63)·3 = 9.18.
-
-### Example 2: Strained junction with stacking
-
-**User Prompt:**
-> Multibranch energy for a strained 3-way junction with 1 unpaired base and −2.0 stacking.
-
-**Expected Tool Call:**
-```json
-{ "tool": "multibranch_loop_energy", "arguments": { "numHelices": 3, "numUnpaired": 1, "hasStrain": true, "stackingEnergy": -2.0 } }
+{ "tool": "multibranch_loop_energy", "arguments": { "numHelices": 4, "numUnpaired": 8, "unpairedBetweenHelices": [2, 0, 1, 5] } }
 ```
 
-**Response:**
+**Response:** `{ "energy": 8.55 }` — average asymmetry 2.5 capped at 2.0: 9.25 + 0.91·2 − 0.63·4 (NNDB prints 8.6).
+
+### Example 3: strained 3-way junction (efn2)
+
 ```json
-{ "energy": 8.8 }
+{ "tool": "multibranch_loop_energy", "arguments": { "numHelices": 3, "numUnpaired": 1, "hasStrain": true, "stackingEnergy": -2.0, "unpairedBetweenHelices": [1, 0, 0] } }
 ```
-Adds the −2.0 stacking term and the +3.14 strain penalty.
+
+**Response:** `{ "energy": 9.11 }` — 9.25 + 0.91·(2/3) − 1.89 − 2.0 + 3.14.
 
 ## Performance
 

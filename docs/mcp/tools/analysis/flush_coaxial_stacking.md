@@ -15,8 +15,10 @@ Coaxial stacking energy for two flush RNA helices.
 ## Description
 
 Returns the **flush coaxial stacking energy** (kcal/mol) for two RNA helices stacked
-end-to-end with no intervening unpaired bases, using the Turner 2004 Watson-Crick / G-U
-stacking table.
+end-to-end with no intervening unpaired bases: the Turner 2004 Watson-Crick / G-U helical stack
+of pair (`base5_1`, `base3_1`) followed by pair (`base5_2`, `base3_2`) on the continuous strand, as
+though there were no backbone break (NNDB "Coaxial Stacking" §8.2; §8.4 example A·U followed by C·G =
+−2.24). Case-insensitive, T read as U; a non-canonical pair returns 0.
 
 ## Core Documentation Reference
 

@@ -129,6 +129,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "pwm_score_thresholds",
         "reversal_distance",
         "rna_complement_base",
+        "rna_structure_energy",
         "scan_with_alphabet_pwm",
         "scan_with_pwm",
         "scan_with_pwm_both_strands",

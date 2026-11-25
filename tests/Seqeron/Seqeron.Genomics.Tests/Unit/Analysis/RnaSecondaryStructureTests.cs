@@ -1176,32 +1176,30 @@ public class RnaSecondaryStructureTests
     }
 
     /// <summary>
-    /// Validates multibranch loop energy calculation.
-    /// ΔG° = a(9.25) + b(0.91)·asymmetry + c(-0.63)·helices + stacking + strain
-    /// Source: rna.urmc.rochester.edu/NNDB/turner04/mb-parameters.html
+    /// Linear Turner 2004 multibranch model (the folding engines' model): 9.3 + 0·unpaired − 0.9·helices.
+    /// ViennaRNA 2.7.2 eval_structure_verbose (dangles = 0) "Multi loop" of a GC-closed 3-way junction = 660
+    /// (GAGGGAAAACCCAGGGAAAACCCAC); 4-way with 0 or 11 unpaired = 570.
     /// </summary>
-    [Test]
-    public void CalculateMultibranchLoopEnergy_ThreeWay_MatchesNNDB()
+    [TestCase(3, 3, 6.6)]
+    [TestCase(4, 0, 5.7)]
+    [TestCase(4, 11, 5.7)]
+    public void CalculateMultibranchLoopEnergy_Linear_MatchesViennaRnaMultiLoop(int helices, int unpaired, double expected)
     {
-        // 3-way junction with 6 unpaired bases, no strain, no stacking
-        // a=9.25, b·(6/3)=0.91·2=1.82, c·3=-0.63·3=-1.89
-        double energy = CalculateMultibranchLoopEnergy(3, 6);
-
-        double expected = 9.25 + 0.91 * 2.0 + (-0.63) * 3; // = 9.18
-        Assert.That(energy, Is.EqualTo(Math.Round(expected, 2)).Within(0.01),
-            "3-way junction should use NNDB multibranch formula");
+        Assert.That(CalculateMultibranchLoopEnergy(helices, unpaired), Is.EqualTo(expected).Within(1e-9));
     }
 
+    /// <summary>
+    /// NNDB efn2 model: 9.25 + 0.91·min(2, mean |5' − 3' unpaired|) − 0.63·helices + strain 3.14 (3-way, &lt; 2 unpaired).
+    /// Source: NNDB rna_2004_multibranch_loops.html §9.1/9.3, parameter table turner_2004_multi_branch.
+    /// </summary>
     [Test]
-    public void CalculateMultibranchLoopEnergy_WithStrain_AddsStrainPenalty()
+    public void CalculateMultibranchLoopEnergy_StrainedThreeWay_AddsStrainPenalty()
     {
-        // 3-way junction with 1 unpaired base (strain applies) + stacking=-2.0
-        double energy = CalculateMultibranchLoopEnergy(3, 1, hasStrain: true, stackingEnergy: -2.0);
-
-        double asymmetry = 1.0 / 3.0;
-        double expected = 9.25 + 0.91 * asymmetry + (-0.63) * 3 + (-2.0) + 3.14;
-        Assert.That(energy, Is.EqualTo(Math.Round(expected, 2)).Within(0.01),
-            "Strained 3-way junction should add +3.14 strain penalty");
+        // gaps (1,0,0): helix asymmetries |0−1|, |1−0|, |0−0| → mean 2/3; strain (3-way, 1 unpaired).
+        double energy = CalculateMultibranchLoopEnergy(new[] { 1, 0, 0 }, stackingEnergy: -2.0);
+        double expected = 9.25 + 0.91 * (2.0 / 3.0) + (-0.63) * 3 + (-2.0) + 3.14; // 9.106…
+        Assert.That(energy, Is.EqualTo(Math.Round(expected, 2)).Within(1e-9));
+        Assert.Throws<ArgumentException>(() => CalculateMultibranchLoopEnergy(3, 1, hasStrain: true));
     }
 
     /// <summary>
@@ -1223,44 +1221,36 @@ public class RnaSecondaryStructureTests
     }
 
     /// <summary>
-    /// Validates flush coaxial stacking — uses WC/GU stacking table.
-    /// Source: rna.urmc.rochester.edu/NNDB/turner04/coax.html
+    /// Flush coaxial stacking = the helical WC/GU stack as though there were no backbone break.
+    /// Source: NNDB rna_2004_coaxial_stacking.html §8.2 / §8.4 (AU followed by CG = −2.24).
     /// </summary>
     [Test]
     public void CalculateFlushCoaxialStacking_MatchesStackingTable()
     {
-        // Flush stack of GC onto CG → GC/CG stacking = -3.42
-        double energy = CalculateFlushCoaxialStacking('G', 'C', 'C', 'G');
-
-        Assert.That(energy, Is.EqualTo(-3.42).Within(0.01),
-            "Flush coaxial should use WC stacking");
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateFlushCoaxialStacking('G', 'C', 'C', 'G'), Is.EqualTo(-3.42).Within(1e-9));
+            Assert.That(CalculateFlushCoaxialStacking('A', 'U', 'C', 'G'), Is.EqualTo(-2.24).Within(1e-9));
+        });
     }
 
     /// <summary>
-    /// Validates mismatch-mediated coaxial stacking.
-    /// ΔG° = terminal_mismatch + (-2.1) + WC/GU bonus.
-    /// Source: rna.urmc.rochester.edu/NNDB/turner04/coax.html
+    /// Mismatch-mediated coaxial stacking = terminal mismatch − 2.1, − 0.4 / − 0.2 only when the "mismatch"
+    /// could form a Watson–Crick / G·U pair. Source: NNDB rna_2004_coaxial_stacking.html §8.3 and table
+    /// turner_2004_coax.html.
     /// </summary>
     [Test]
     public void CalculateMismatchCoaxialStacking_MatchesNNDB()
     {
-        // GC closing, AA mismatch: tm(GAAC)=-1.1, base=-2.1, WC bonus=-0.4
-        double energy = CalculateMismatchCoaxialStacking('G', 'C', 'A', 'A');
-
-        double expected = -1.1 + (-2.1) + (-0.4); // = -3.6
-        Assert.That(energy, Is.EqualTo(Math.Round(expected, 2)).Within(0.01),
-            "Mismatch coaxial with WC pair should use tm + base + WC bonus");
+        // GC closing, AA mismatch (cannot pair): tm(GAAC) = −1.1, −2.1, no bonus.
+        Assert.That(CalculateMismatchCoaxialStacking('G', 'C', 'A', 'A'), Is.EqualTo(-3.2).Within(1e-9));
     }
 
     [Test]
-    public void CalculateMismatchCoaxialStacking_GUPair_UsesGUBonus()
+    public void CalculateMismatchCoaxialStacking_GUClosingWithAAMismatch_HasNoBonus()
     {
-        // GU closing, AA mismatch: tm(GAAU)=-0.3, base=-2.1, GU bonus=-0.2
-        double energy = CalculateMismatchCoaxialStacking('G', 'U', 'A', 'A');
-
-        double expected = -0.3 + (-2.1) + (-0.2); // = -2.6
-        Assert.That(energy, Is.EqualTo(Math.Round(expected, 2)).Within(0.01),
-            "Mismatch coaxial with GU pair should use tm + base + GU bonus");
+        // GU closing, AA mismatch: tm(GAAU) = −0.3, −2.1; the bonus depends on the mismatch, not the closing pair.
+        Assert.That(CalculateMismatchCoaxialStacking('G', 'U', 'A', 'A'), Is.EqualTo(-2.4).Within(1e-9));
     }
 
     #endregion
