@@ -83,10 +83,11 @@ Three GC pairs (stacking −6.52) plus a 3-nt hairpin initiation (+5.4) ⇒ −1
 
 ## Performance
 
-- **Time Complexity:** O(n³).
+- **Time Complexity:** O(n³) (multiloop split) + O(n²·30²) (interior loops ≤ 30 nt); ~0.8 s at n = 500, ~3.5 s at n = 1000 (Release).
 - **Space Complexity:** O(n²).
 
 ## See Also
 
-- [predict_rna_structure](predict_rna_structure.md) — full structure prediction
+- [rna_mfe_structure](rna_mfe_structure.md) — the MFE structure (dot-bracket + pairs) for this value
+- [predict_rna_structure](predict_rna_structure.md) — stem-loop assembly (not the MFE fold)
 - [find_stem_loops](find_stem_loops.md) — hairpin enumeration with energies

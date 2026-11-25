@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RnaSecondaryStructure.PredictStructure",
-  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L1839",
-  "description": "Greedy non-overlapping stem-loop selection producing dot-bracket notation, base pairs, stems, pseudoknots and total MFE for an RNA sequence.",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs",
+  "description": "Stem-loop assembly: the lowest-free-energy set of non-overlapping hairpin stem-loops (perfect stems >= minStemLength, loops minLoopSize..maxLoopSize), with dot-bracket, base pairs, stem-loops and the free energy of the returned structure. No multiloops or interior loops: for the true MFE fold use rna_mfe_structure.",
   "inputSchema": {
     "type": "object",
     "properties": {

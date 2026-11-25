@@ -3248,8 +3248,21 @@ public class AnalysisTools
         return new RnaStructureEnergyResult(RnaSecondaryStructure.CalculateFreeEnergy(rnaSequence, dotBracket));
     }
 
+    [McpServerTool(Name = "rna_mfe_structure", Title = "RNA — MFE Secondary Structure (fold)", ReadOnly = true)]
+    [Description("Minimum-free-energy secondary structure (Zuker DP traceback, Turner 2004, dangles d2; ViennaRNA RNAfold counterpart): dot-bracket, base pairs and MFE (kcal/mol, equals minimum_free_energy). T read as U, case-insensitive.")]
+    public static RnaMfeStructureResult RnaMfeStructure(
+        [Description("RNA sequence (T read as U, case-insensitive; other characters never pair).")] string rnaSequence,
+        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+
+        var s = RnaSecondaryStructure.PredictStructureMfe(rnaSequence, minLoopSize);
+        return new RnaMfeStructureResult(s.Sequence, s.DotBracket, s.BasePairs.Select(ToItem).ToArray(), s.MinimumFreeEnergy);
+    }
+
     [McpServerTool(Name = "predict_rna_structure", Title = "RNA — Predict Secondary Structure", ReadOnly = true)]
-    [Description("Greedy non-overlapping stem-loop selection — produces dot-bracket notation, base pairs, stems, pseudoknots, and total MFE.")]
+    [Description("Stem-loop assembly: the lowest-free-energy set of non-overlapping hairpin stem-loops (perfect stems ≥ minStemLength, loops minLoopSize..maxLoopSize) — dot-bracket, base pairs, stem-loops and the structure's free energy (kcal/mol). No multiloops or interior loops: for the true MFE fold use rna_mfe_structure.")]
     public static PredictRnaStructureResult PredictRnaStructure(
         [Description("RNA sequence.")] string rnaSequence,
         [Description("Minimum stem length (default 3).")] int minStemLength = 3,

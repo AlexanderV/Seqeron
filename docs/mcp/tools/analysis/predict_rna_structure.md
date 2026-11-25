@@ -1,6 +1,6 @@
 # predict_rna_structure
 
-Predict RNA secondary structure by greedy stem-loop selection.
+Assemble an RNA secondary structure from hairpin stem-loops.
 
 ## Overview
 
@@ -14,14 +14,19 @@ Predict RNA secondary structure by greedy stem-loop selection.
 
 ## Description
 
-Predicts an RNA **secondary structure** by greedily selecting non-overlapping
-stem-loops (most stable first). Returns the echoed sequence, dot-bracket notation, the
-base pairs, the selected stem-loops, any pseudoknots, and the total minimum free
-energy. Structural elements do not overlap (nested pairs only).
+Assembles an RNA **secondary structure** from the hairpin stem-loops of `find_stem_loops`
+(perfect stems of ≥ `minStemLength` pairs, loops of `minLoopSize`..`maxLoopSize` nt): the
+lowest-free-energy set of non-overlapping stem-loops, chosen exactly by the Zuker–Stiegler
+exterior-loop recursion over the candidates (each scored in context, d2 exterior terms included).
+Stem-loops that would be less stable than the open chain are never selected. Returns the
+normalised sequence, dot-bracket, base pairs, the selected stem-loops, pseudoknots (always
+empty) and `minimumFreeEnergy` = the free energy of the returned structure (= `rna_structure_energy`,
+≤ 0). The search space has no multiloops, bulges or interior loops, so the result can be less stable
+than the true MFE fold — use [rna_mfe_structure](rna_mfe_structure.md) for that.
 
 ## Core Documentation Reference
 
-- Source: [RnaSecondaryStructure.cs#L1839](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L1839)
+- Source: [RnaSecondaryStructure.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs) (`PredictStructure`)
 
 ## Input Schema
 
@@ -41,7 +46,7 @@ energy. Structural elements do not overlap (nested pairs only).
 | `basePairs` | array | Base pairs |
 | `stemLoops` | array | Selected stem-loops |
 | `pseudoknots` | array | Detected pseudoknots |
-| `minimumFreeEnergy` | number | Total MFE (kcal/mol) |
+| `minimumFreeEnergy` | number | Free energy of the returned structure (kcal/mol, ≤ 0) |
 
 ## Errors
 
@@ -66,9 +71,9 @@ energy. Structural elements do not overlap (nested pairs only).
 
 **Response:**
 ```json
-{ "sequence": "GGGAAAACCC", "dotBracket": "(((....)))" }
+{ "sequence": "GGGAAAACCC", "dotBracket": "(((....)))", "minimumFreeEnergy": -2.02 }
 ```
-A single 3bp hairpin around the AAAA loop.
+A single 3bp hairpin around the AAAA loop (ViennaRNA `eval_structure` −2.02).
 
 ### Example 2: Unstructured
 
@@ -91,11 +96,12 @@ No stable pairs ⇒ all-dot structure.
 
 ## Performance
 
-- **Time Complexity:** O(n²) stem-loop enumeration + greedy selection.
-- **Space Complexity:** O(number of stem-loops).
+- **Time Complexity:** O(n·(maxLoopSize − minLoopSize + 1)) candidates, each scored in O(n) → O(n²); selection O(n + candidates).
+- **Space Complexity:** O(n + number of candidates).
 
 ## See Also
 
 - [find_stem_loops](find_stem_loops.md) — the candidate hairpins
 - [minimum_free_energy](minimum_free_energy.md) — Zuker MFE
+- [rna_mfe_structure](rna_mfe_structure.md) — MFE structure
 - [parse_dot_bracket](parse_dot_bracket.md) — extract pairs from the notation

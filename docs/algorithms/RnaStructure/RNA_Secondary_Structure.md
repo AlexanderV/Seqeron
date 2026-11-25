@@ -13,9 +13,9 @@
 RNA secondary structure prediction identifies intramolecular base-pairing interactions and expresses the result as stems, loops, base-pair lists, and dot-bracket notation. This repository exposes **two** prediction paths over the same Turner 2004 energy model:
 
 - **MFE-optimal (default for correctness):** `CalculateMfeStructure` / `PredictStructureMfe` return the globally optimal pseudoknot-free structure by Zuker–Stiegler (1981) dynamic-programming **traceback** over the same V/W/WM matrices used to compute the scalar MFE. The reconstructed structure's free energy equals the value returned by `CalculateMinimumFreeEnergy` for the same input — they are mutually consistent by construction [2].
-- **Greedy (fast heuristic):** `PredictStructure` is a heuristic stem-loop assembler: it enumerates candidate stem-loops, orders them by free energy, greedily selects a non-overlapping subset, and derives a dot-bracket string. It is retained as a fast path; its reported energy is the sum of the selected stem-loop energies and is generally **not** the global optimum.
+- **Stem-loop assembly (restricted):** `PredictStructure` enumerates hairpin stem-loop candidates (`FindStemLoops`: perfect stems ≥ `minStemLength`, loops `minLoopSize`..`maxLoopSize`) and selects the minimum-free-energy non-overlapping subset exactly, by the Zuker–Stiegler exterior-loop recursion over the candidates (RNA-MFE-001, 2026-11-25; previously a greedy pass that could select destabilising stem-loops). Its reported energy is the free energy of the returned structure (`CalculateFreeEnergy`, ≤ 0), but the search space has no multiloops, bulges or interior loops, so it is generally **not** the global optimum.
 
-Previously only the greedy path was available, so the returned structure was the greedy approximation even though the scalar MFE was correct. The traceback closes that gap.
+Previously only the stem-loop path was available, so the returned structure was an approximation even though the scalar MFE was correct. The traceback closes that gap (MCP `rna_mfe_structure`).
 
 ## 2. Scientific / Formal Basis
 
@@ -34,19 +34,19 @@ RNA secondary structure is governed primarily by Watson-Crick and wobble base pa
 
 The **traceback** re-derives, at each cell, which recurrence option attained the stored optimum and recurses into the corresponding sub-problem(s), recording a base pair whenever a `V(i,j)` cell is entered. Because it mirrors the fill exactly, the reconstructed structure's energy equals `W(0,n-1)` — the scalar MFE.
 
-**Greedy path (`PredictStructure`).** Built from three conceptual pieces:
+**Stem-loop assembly path (`PredictStructure`).** Built from three conceptual pieces:
 
 - Base-pair admissibility through canonical RNA pairing rules (`A-U`, `U-A`, `G-C`, `C-G`, and `G-U` / `U-G` wobble pairs).
 - Candidate stem-loop enumeration over loop start and loop-size combinations.
-- Greedy selection of the lowest-energy non-overlapping stem-loops to assemble the final structure.
+- Exact selection of the lowest-free-energy set of non-overlapping stem-loops: `W(j) = min{W(j−1), min_c W(c.Start−1) + E(c)}`, E(c) = free energy of the sequence folded into candidate c alone (under d2 the exterior terms depend only on the sequence, so disjoint candidates add).
 
-The reported `MinimumFreeEnergy` in the greedy `SecondaryStructure` is the sum of the selected stem-loop energies rather than the direct output of the global `CalculateMinimumFreeEnergy` dynamic-programming routine.
+The reported `MinimumFreeEnergy` of `PredictStructure` is `CalculateFreeEnergy` of the returned structure (≥ the global `CalculateMinimumFreeEnergy`, ≤ 0).
 
 ### 2.3 Modeling Assumptions (Optional)
 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
-| ASM-01 | A useful structure summary can be formed from a non-overlapping subset of candidate stem-loops | The greedy selection may omit globally better combinations of interacting motifs |
+| ASM-01 | A useful structure summary can be formed from a non-overlapping subset of candidate stem-loops | Structures needing multiloops / interior loops / nested hairpins are outside the search space |
 | ASM-02 | Wobble pairing is biologically acceptable for the default prediction path | Disallowing wobble pairs would change the candidate set and predicted structures |
 
 ### 2.4 Properties and Invariants
@@ -56,7 +56,7 @@ The reported `MinimumFreeEnergy` in the greedy `SecondaryStructure` is the sum o
 | INV-01 | Output `Sequence` is uppercase | `PredictStructure` uppercases the input sequence before further processing |
 | INV-02 | `DotBracket.Length` equals `Sequence.Length` | The full dot-bracket generator allocates one character per sequence position |
 | INV-03 | `MinimumFreeEnergy` equals the sum of `TotalFreeEnergy` over the selected stem-loops | The method computes the field by summing `selectedStemLoops.Sum(sl => sl.TotalFreeEnergy)` |
-| INV-04 | Returned base pairs are ordered by ascending 5' position | The selected base pairs are materialized through `OrderBy(bp => bp.Position1)` (greedy) / sorted by `Position1` (traceback) |
+| INV-04 | Returned base pairs are ordered by ascending 5' position | The selected base pairs are materialized through `OrderBy(bp => bp.Position1)` (stem-loop assembly) / sorted by `Position1` (traceback) |
 | INV-05 | `CalculateMfeStructure(s).FreeEnergy == CalculateMinimumFreeEnergy(s)` | The traceback follows the same V/W/WM recurrences that produced the scalar MFE |
 | INV-06 | The traceback structure is pseudoknot-free (no crossing pairs) | The Zuker–Stiegler recurrences only nest or juxtapose helices |
 
@@ -64,7 +64,7 @@ The reported `MinimumFreeEnergy` in the greedy `SecondaryStructure` is the sum o
 
 | Aspect | Repository `PredictStructure` | Classical Nussinov / MFE folding |
 |--------|-------------------------------|----------------------------------|
-| Search strategy | Greedy selection over enumerated stem-loops | Dynamic programming over full sequence states |
+| Search strategy | Exact exterior-loop recursion over enumerated stem-loops | Dynamic programming over full sequence states |
 | Optimization target | Non-overlapping low-energy stem-loops | Global optimality under the chosen recurrence and energy model |
 | Pseudoknots | Detected after selection | Usually excluded from standard DP recurrences |
 
@@ -109,13 +109,13 @@ Empty input returns a `SecondaryStructure` with empty strings, empty collections
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The predictor uses wobble pairing because `FindStemLoops` defaults `allowWobble` to `true` and `PredictStructure` does not override that default. Greedy selection is overlap-based: once a candidate stem-loop is selected, every sequence position between its `Start` and `End` is marked as used, and overlapping candidates are rejected. The generated dot-bracket output uses `(` and `)` for selected pairs and `.` for unpaired positions.
+The predictor uses wobble pairing because `FindStemLoops` defaults `allowWobble` to `true` and `PredictStructure` does not override that default. Selection is over intervals: chosen stem-loops occupy disjoint `[Start, End]` spans (no nesting), so overlapping candidates are never combined. The generated dot-bracket output uses `(` and `)` for selected pairs and `.` for unpaired positions.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `PredictStructure` (greedy) | `O(C + h log h)` plus candidate search | `O(h + b)` | `C` = cost of `FindStemLoops`, `h` = number of candidate stem-loops, `b` = selected base pairs |
+| `PredictStructure` | `O(C + h·n)` (each candidate scored in context in O(n)) | `O(n + h + b)` | `C` = cost of `FindStemLoops`, `h` = number of candidate stem-loops, `b` = selected base pairs |
 | `CalculateMfeStructure` / `PredictStructureMfe` (DP + traceback) | `O(n³)` fill + `O(n²)`-style traceback | `O(n²)` | Same recurrences as `CalculateMinimumFreeEnergy`; traceback re-evaluates options per visited cell |
 
 A measured baseline is recorded in the MFE benchmark fixture ([RnaSecondaryStructure_MFE_Benchmark.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_MFE_Benchmark.cs)); the traceback adds an `O(n²)`-order pass over the already-filled `O(n³)` matrices and does not change the asymptotic class.
@@ -128,15 +128,15 @@ A measured baseline is recorded in the MFE benchmark fixture ([RnaSecondaryStruc
 
 - `RnaSecondaryStructure.CalculateMfeStructure(string, int)`: MFE-optimal structure via DP traceback; returns `MfeStructure` (sequence, dot-bracket, base-pair tuples, energy).
 - `RnaSecondaryStructure.PredictStructureMfe(string, int)`: MFE-optimal structure in the `SecondaryStructure` shape (optimal counterpart of `PredictStructure`).
-- `RnaSecondaryStructure.PredictStructure(string, int, int, int)`: Greedy heuristic structure summary (fast path).
-- `RnaSecondaryStructure.FindStemLoops(string, int, int, int, bool)`: Supplies the candidate stem-loops used by the greedy predictor.
+- `RnaSecondaryStructure.PredictStructure(string, int, int, int)`: stem-loop assembly (exact over the candidates, not the MFE fold).
+- `RnaSecondaryStructure.FindStemLoops(string, int, int, int, bool)`: Supplies the candidate stem-loops used by `PredictStructure`.
 - `RnaSecondaryStructure.CalculateMinimumFreeEnergy(string, int)`: Scalar global MFE routine documented in [RNA_Free_Energy.md](./RNA_Free_Energy.md); shares its `FillDp` matrices with the traceback.
 
 ### 5.2 Current Behavior
 
 `CalculateMfeStructure` fills the V/W/WM matrices via the shared `FillDp` routine (identical to `CalculateMinimumFreeEnergy`, but into non-pooled arrays that survive the fill) and then runs the Zuker–Stiegler traceback to recover the optimal base-pair set. The structure energy is `W(0,n-1)` and equals the scalar MFE. `PredictStructureMfe` wraps this in the `SecondaryStructure` record (and, because the optimum is pseudoknot-free, its `Pseudoknots` field is empty).
 
-The greedy `PredictStructure` is unchanged: it scores candidate stem-loops locally, sorts by energy, and performs a greedy non-overlap selection. Because that selection marks every position in a chosen stem-loop span as used, crossing stem combinations are typically eliminated before the later `DetectPseudoknots(...)` call, so its `Pseudoknots` field is only a residual check over the surviving set. Both paths emit dot-bracket strings using parentheses and dots only.
+`PredictStructure` scores each candidate stem-loop in context and runs the exterior recursion over the candidates; chosen spans are disjoint, so its `Pseudoknots` field (from `DetectPseudoknots(...)`) is always empty. Both paths emit dot-bracket strings using parentheses and dots only.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -148,7 +148,7 @@ The greedy `PredictStructure` is unchanged: it scores candidate stem-loops local
 
 **Intentionally simplified:**
 
-- The greedy `PredictStructure` path uses non-overlapping stem-loop selection rather than the global optimum; **consequence:** it is a fast heuristic summary, retained alongside the optimal path. Use `CalculateMfeStructure` / `PredictStructureMfe` when global optimality is required.
+- `PredictStructure` optimises only over combinations of isolated hairpin stem-loops; **consequence:** it is a restricted summary, retained alongside the optimal path. Use `CalculateMfeStructure` / `PredictStructureMfe` when global optimality is required.
 
 **Not implemented:**
 
@@ -163,17 +163,18 @@ The greedy `PredictStructure` is unchanged: it scores candidate stem-loops local
 |------|-------------------|-----------|
 | Empty input sequence | Returns empty strings, empty collections, and zero energy | Explicit early return in `PredictStructure` |
 | No candidate stem-loops | Dot-bracket contains only `.` characters and `MinimumFreeEnergy = 0` | No selected stem-loops contribute base pairs or energy |
-| Overlapping low-energy candidates | Only the earliest accepted candidate in the energy-sorted greedy pass is retained | Overlap rejection is position-based |
+| Overlapping low-energy candidates | The combination of disjoint candidates with the lowest total in-context energy is chosen (ties: earlier candidate) | Exterior recursion over intervals |
+| Candidate with ΔG ≥ 0 in context | Never selected (the open chain is better) | Zuker open-chain option W(j−1) |
 
 ### 6.2 Limitations
 
-The MFE-optimal path returns the global optimum **for the Turner 2004 energy model and the pseudoknot-free structure class**: it does not predict pseudoknots (excluded by the `O(n³)` recurrences), modified bases, or comparative/consensus structure. The greedy `PredictStructure` path remains a heuristic approximation whose energy is a stem-loop sum, not a thermodynamic optimum; prefer the MFE path when optimality matters.
+The MFE-optimal path returns the global optimum **for the Turner 2004 energy model and the pseudoknot-free structure class**: it does not predict pseudoknots (excluded by the `O(n³)` recurrences), modified bases, or comparative/consensus structure. The `PredictStructure` path is restricted to isolated hairpin stem-loops; its energy is the true energy of its structure but not the thermodynamic optimum; prefer the MFE path when optimality matters.
 
 ## 7. Examples and Related Material
 
 - [RNA-STRUCT-001](../../../tests/TestSpecs/RNA-STRUCT-001.md) documents the repository's RNA secondary-structure test specification.
 - [RnaSecondaryStructure_MfeStructure_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_MfeStructure_Tests.cs) is the canonical test fixture for the MFE-optimal traceback.
-- [RNA_Stemloop.md](./RNA_Stemloop.md) documents the stem-loop finder used as the greedy candidate generator.
+- [RNA_Stemloop.md](./RNA_Stemloop.md) documents the stem-loop finder used as the `PredictStructure` candidate generator.
 - [RNA_Free_Energy.md](./RNA_Free_Energy.md) documents the underlying energy calculations and the scalar MFE.
 
 ## 8. References

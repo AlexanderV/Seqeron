@@ -1510,8 +1510,8 @@ public static class RnaSecondaryStructure
     /// <summary>
     /// Computes the MFE-OPTIMAL secondary structure of an RNA sequence by Zuker–Stiegler (1981)
     /// dynamic-programming traceback over the same V/W/WM matrices used by
-    /// <see cref="CalculateMinimumFreeEnergy"/>. Unlike <see cref="PredictStructure"/> (a greedy
-    /// stem-loop heuristic), this returns the globally optimal pseudoknot-free structure for the
+    /// <see cref="CalculateMinimumFreeEnergy"/>. Unlike <see cref="PredictStructure"/> (an assembly of
+    /// isolated hairpin stem-loops), this returns the globally optimal pseudoknot-free structure for the
     /// Turner 2004 energy model, and its <see cref="MfeStructure.FreeEnergy"/> equals the scalar
     /// MFE for the same input and parameters.
     /// </summary>
@@ -1560,7 +1560,7 @@ public static class RnaSecondaryStructure
     /// <summary>
     /// Predicts the MFE-optimal secondary structure via DP traceback and returns it in the same
     /// <see cref="SecondaryStructure"/> shape as <see cref="PredictStructure"/>. This is the
-    /// optimal counterpart of the greedy <see cref="PredictStructure"/>: the dot-bracket and base
+    /// global-optimum counterpart of the stem-loop assembly <see cref="PredictStructure"/>: the dot-bracket and base
     /// pairs are the DP optimum (Zuker–Stiegler 1981) and <see cref="SecondaryStructure.MinimumFreeEnergy"/>
     /// equals <see cref="CalculateMinimumFreeEnergy"/>.
     /// </summary>
@@ -1910,9 +1910,23 @@ public static class RnaSecondaryStructure
     #region Structure Prediction
 
     /// <summary>
-    /// Predicts the secondary structure of an RNA sequence.
-    /// Case-insensitive; DNA T is read as U (the returned sequence is the normalised A/C/G/U string).
+    /// Assembles a secondary structure from hairpin stem-loops: the minimum-free-energy set of mutually
+    /// non-overlapping candidates of <see cref="FindStemLoops"/> (stems of ≥ <paramref name="minStemLength"/> stacked
+    /// pairs closing a hairpin of <paramref name="minLoopSize"/>..<paramref name="maxLoopSize"/> nt) placed in the
+    /// exterior loop. Case-insensitive; DNA T is read as U (the returned sequence is the normalised A/C/G/U string).
     /// </summary>
+    /// <remarks>
+    /// The selection is the Zuker–Stiegler (1981) exterior-loop recursion restricted to the candidate set:
+    /// <c>W(j) = min{ W(j−1), min over candidates (i,j) of W(i−1) + E(i,j) }</c>, where <c>E(i,j)</c> is the free energy of
+    /// the whole sequence folded into that single stem-loop (<see cref="CalculateFreeEnergy"/>: stem, hairpin and the
+    /// d2 exterior terminal-mismatch/dangle term, which under d2 depends on the sequence only, so the terms of disjoint
+    /// stem-loops add up). It is therefore the exact optimum over every combination of candidates — no candidate whose
+    /// energy is ≥ 0 is ever chosen and <see cref="SecondaryStructure.MinimumFreeEnergy"/> is the free energy of the
+    /// returned structure (= <see cref="CalculateFreeEnergy"/> on its dot-bracket, ≤ 0). The search space has no
+    /// multiloops, interior loops, bulges or nested hairpins, so the result is in general LESS stable than the global
+    /// optimum: for the minimum-free-energy fold use <see cref="PredictStructureMfe"/> / <see cref="CalculateMfeStructure"/>
+    /// (ViennaRNA RNAfold counterpart).
+    /// </remarks>
     public static SecondaryStructure PredictStructure(
         string rnaSequence,
         int minStemLength = 3,
@@ -1928,25 +1942,18 @@ public static class RnaSecondaryStructure
 
         string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
 
-        // Find stem-loops
-        var stemLoops = FindStemLoops(seq, minStemLength, minLoopSize, maxLoopSize)
-            .OrderBy(sl => sl.TotalFreeEnergy)
-            .ToList();
+        var candidates = FindStemLoops(seq, minStemLength, minLoopSize, maxLoopSize).ToList();
+        var selectedStemLoops = SelectStemLoopsByExteriorDp(seq, candidates);
 
-        // Select non-overlapping structures greedily by energy
-        var selectedStemLoops = SelectNonOverlapping(stemLoops);
-
-        // Collect all base pairs
         var allBasePairs = selectedStemLoops
             .SelectMany(sl => sl.Stem.BasePairs)
             .OrderBy(bp => bp.Position1)
             .ToList();
 
-        // Generate dot-bracket notation
         string dotBracket = GenerateFullDotBracket(seq.Length, allBasePairs);
 
-        // Calculate total MFE
-        double mfe = selectedStemLoops.Sum(sl => sl.TotalFreeEnergy);
+        // Free energy of the assembled structure with the canonical evaluator (RNAeval -d2 counterpart).
+        double mfe = EvaluateStructureEnergy(seq, dotBracket);
 
         // Detect pseudoknots
         var pseudoknots = DetectPseudoknots(allBasePairs).ToList();
@@ -1960,33 +1967,58 @@ public static class RnaSecondaryStructure
             MinimumFreeEnergy: mfe);
     }
 
-    private static List<StemLoop> SelectNonOverlapping(List<StemLoop> stemLoops)
+    /// <summary>
+    /// Zuker–Stiegler exterior-loop recursion over a fixed candidate set of stem-loops:
+    /// W(j) = min{ W(j−1), min_(c ends at j) W(c.Start−1) + E(c) }, E(c) = free energy of the full sequence folded
+    /// into stem-loop c alone. Ties keep the unpaired option (W(j−1)), then the first candidate in input order.
+    /// </summary>
+    private static List<StemLoop> SelectStemLoopsByExteriorDp(string seq, List<StemLoop> candidates)
     {
-        var selected = new List<StemLoop>();
-        var used = new HashSet<int>();
-
-        foreach (var sl in stemLoops)
+        int n = seq.Length;
+        var byEnd = new List<(int Index, double Energy)>?[n];
+        var db = new char[n];
+        for (int c = 0; c < candidates.Count; c++)
         {
-            bool overlaps = false;
-            for (int pos = sl.Start; pos <= sl.End; pos++)
+            var sl = candidates[c];
+            Array.Fill(db, '.');
+            foreach (var bp in sl.Stem.BasePairs)
             {
-                if (used.Contains(pos))
-                {
-                    overlaps = true;
-                    break;
-                }
+                db[bp.Position1] = '(';
+                db[bp.Position2] = ')';
             }
+            double e = EvaluateStructureEnergy(seq, new string(db));
+            (byEnd[sl.End] ??= new List<(int, double)>()).Add((c, e));
+        }
 
-            if (!overlaps)
+        const double eps = 1e-9;
+        var w = new double[n + 1];      // w[j + 1] = W(j); w[0] = 0 (empty prefix)
+        var choice = new int[n + 1];    // candidate index ending at j, or −1 = j unpaired
+        choice[0] = -1;
+        for (int j = 0; j < n; j++)
+        {
+            w[j + 1] = w[j];
+            choice[j + 1] = -1;
+            if (byEnd[j] is null) continue;
+            foreach (var (index, e) in byEnd[j]!)
             {
-                selected.Add(sl);
-                for (int pos = sl.Start; pos <= sl.End; pos++)
+                double v = w[candidates[index].Start] + e;
+                if (v < w[j + 1] - eps)
                 {
-                    used.Add(pos);
+                    w[j + 1] = v;
+                    choice[j + 1] = index;
                 }
             }
         }
 
+        var selected = new List<StemLoop>();
+        for (int j = n; j > 0;)
+        {
+            if (choice[j] < 0) { j--; continue; }
+            var sl = candidates[choice[j]];
+            selected.Add(sl);
+            j = sl.Start;
+        }
+        selected.Reverse();
         return selected;
     }
 
