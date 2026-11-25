@@ -12,6 +12,12 @@ namespace SuffixTree.Esa;
 /// </summary>
 internal sealed unsafe class EsaNavigationPack : IDisposable
 {
+    /// <summary>
+    /// The text length above which a container without an ISA section does not get a heap inverse suffix array (work package S2.5, ADR-005 section 3.3 and R5): 2^28 symbols, 1 GB of ISA. Above it <c>RankOf</c> and <c>ExtendLeft</c> are
+    /// <see cref="NotSupportedException"/> that names the member, the limit and the way out; at or below it the array is built when it is first needed, as before.
+    /// </summary>
+    internal const long PackHeapLimit = 1L << 28;
+
     private readonly EsaIndex _index;
     private readonly int _n;
     private readonly PinnedArray<int>? _sa;

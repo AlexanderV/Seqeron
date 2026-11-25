@@ -86,6 +86,19 @@ public abstract class ClosedFormText
     /// <summary>The sum of <c>LCP[r]</c> over every rank (about n^2 / 2, so wider than <c>long</c>).</summary>
     internal abstract Int128 LcpSum { get; }
 
+    /// <summary>
+    /// <c>min LCP[lo..hi]</c> (inclusive; the range minimum that the LCP pyramid answers). The default reads the range (at most 2^20 ranks); a family with a closed form for it overrides it, so that the levels of the pyramid of a text of
+    /// 2^32 symbols can be written without reading its 2^32 LCP values (work package S2.5).
+    /// </summary>
+    internal virtual long LcpMin(long lo, long hi)
+    {
+        if (lo < 0 || hi < lo || hi > Length) throw new ArgumentOutOfRangeException(nameof(lo), lo, $"[{lo}, {hi}] is not a range of {Length + 1} ranks");
+        if (hi - lo > 1 << 20) throw new NotSupportedException($"{Name} has no closed form for the minimum of {hi - lo + 1} LCP values");
+        long min = long.MaxValue;
+        for (long r = lo; r <= hi; r++) min = Math.Min(min, Lcp(r));
+        return min;
+    }
+
     /// <summary>The number of internal nodes other than the root (the lcp-intervals of value above 0).</summary>
     internal abstract long InternalCount { get; }
 

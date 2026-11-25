@@ -39,6 +39,13 @@ internal sealed class PowerOfA : ClosedFormText
         return rank <= 1 ? 0 : rank - 1;
     }
 
+    /// <summary>The LCP array of <c>a^n</c> does not decrease (0, 0, 1, 2, ...): the minimum of a range is its first value.</summary>
+    internal override long LcpMin(long lo, long hi)
+    {
+        if (lo < 0 || hi < lo || hi > Length) throw new ArgumentOutOfRangeException(nameof(lo), lo, $"[{lo}, {hi}] is not a range of {Length + 1} ranks");
+        return Lcp(lo);
+    }
+
     /// <summary>The sum of 0, 0, 1, ..., n - 1.</summary>
     internal override Int128 LcpSum => Length == 0 ? 0 : (Int128)Length * (Length - 1) / 2;
 

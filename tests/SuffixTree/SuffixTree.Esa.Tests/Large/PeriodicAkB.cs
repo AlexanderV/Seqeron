@@ -77,6 +77,25 @@ internal sealed class PeriodicAkB : ClosedFormText
         return j == 0 ? _k - phase : _t + (j * _p) - phase;
     }
 
+    /// <summary>
+    /// The minimum of a range in closed form: the pure runs and the last values of each block increase, a block starts with <c>k - phase</c> (below every later value of its block, and decreasing with the phase): the range minimum is the
+    /// smaller of the first value of the range and the first value of the last block that the range enters at its start.
+    /// </summary>
+    internal override long LcpMin(long lo, long hi)
+    {
+        if (lo < 0 || hi < lo || hi > Length) throw new ArgumentOutOfRangeException(nameof(lo), lo, $"[{lo}, {hi}] is not a range of {Length + 1} ranks");
+        if (_pure is not null) return _pure.LcpMin(lo, hi);
+        long min = Lcp(lo); // the first value: the pure runs and the values inside a block increase from here
+        if (hi > _t + 1)
+        {
+            // the first element of the block of hi is in the range when the block of hi starts after lo: its value k - phase is the smallest start of any block between
+            long x = hi - 1 - _t;
+            long phase = x / _q, start = Rank(phase, 0);
+            if (start > lo) min = Math.Min(min, Lcp(start));
+        }
+        return min;
+    }
+
     internal override Int128 LcpSum
     {
         get

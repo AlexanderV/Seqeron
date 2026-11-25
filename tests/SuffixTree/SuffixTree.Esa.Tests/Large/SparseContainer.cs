@@ -44,6 +44,9 @@ internal sealed record SparseSpec
     /// <summary>Whether the PSI section is present.</summary>
     internal bool Psi { get; init; }
 
+    /// <summary>Whether the RMQ section (the persisted LCP pyramid, S2.5) is present.</summary>
+    internal bool Rmq { get; init; }
+
     /// <summary><c>PARAM0</c> of PSI: the rank of the suffix at position 0.</summary>
     internal long PsiPrimaryRow { get; init; }
 
@@ -72,8 +75,9 @@ internal sealed record SparseSpec
     internal static int LcpBytes(int codec) => codec switch { 1 => 1, 2 => 2, 3 => 4, 4 => 8, _ => throw new ArgumentOutOfRangeException(nameof(codec), codec, "LCP codec 1..4") };
 
     /// <summary>The spec of a closed-form text: the header numbers from its statistics.</summary>
-    internal static SparseSpec For(ClosedFormText f, int posWidth = 0, bool psi = false) => new()
+    internal static SparseSpec For(ClosedFormText f, int posWidth = 0, bool psi = false, bool rmq = false) => new()
     {
+        Rmq = rmq,
         N = f.Length,
         PosWidth = posWidth,
         Sigma = f.Sigma,
@@ -102,7 +106,7 @@ internal sealed record SparseLayout(SparseSpec Spec, int PosWidth, int LcpCodec,
         return kind switch
         {
             SesaFormat.KindText => s.Length - 64,
-            SesaFormat.KindSa or SesaFormat.KindChild or SesaFormat.KindPsi => s.Count * s.ElemWidth,
+            SesaFormat.KindSa or SesaFormat.KindChild or SesaFormat.KindPsi or SesaFormat.KindRmq => s.Count * s.ElemWidth,
             _ => s.Length,
         };
     }
@@ -160,6 +164,14 @@ internal static class SparseContainer
         long lcpOffset = SesaFormat.AlignedOffset(infoOffset + BuildInfoCapacity, widestLcp * rows);
         long lcpLength = rows * lcpBytes;
         long fileSize = lcpOffset + lcpLength;
+        long rmqCount = spec.Rmq ? RmqLevels(rows).Sum(l => l.Count) : 0;
+        long rmqLength = spec.Rmq ? (width * rmqCount) + (width == 5 ? ZeroPadding5 : 0) : 0;
+        long rmqOffset = 0;
+        if (spec.Rmq)
+        {
+            rmqOffset = SesaFormat.AlignedOffset(fileSize, rmqLength);
+            fileSize = rmqOffset + rmqLength;
+        }
 
         const int required = SesaFormat.FlagRequired | SesaFormat.FlagHasCrc;
         const int optional = SesaFormat.FlagHasCrc;
@@ -174,7 +186,22 @@ internal static class SparseContainer
         if (spec.Psi) sections.Add(new SesaSection(SesaFormat.KindPsi, optional, psiOffset, arrayLength, rows, width, 1, spec.PsiPrimaryRow, 0, 0));
         sections.Add(new SesaSection(SesaFormat.KindBuildInfo, optional, infoOffset, info.Length, info.Count(b => b == (byte)'\n'), 0, 1, 0, 0, 0));
         sections.Add(new SesaSection(SesaFormat.KindLcp, required, lcpOffset, lcpLength, rows, lcpBytes, lcpCodec, 0, 0, 0));
+        if (spec.Rmq) sections.Add(new SesaSection(SesaFormat.KindRmq, optional, rmqOffset, rmqLength, rmqCount, width, 1, SesaFormat.RmqFanout, 0, 0));
         return new SparseLayout(spec, width, lcpCodec, sections, fileSize);
+    }
+
+    /// <summary>The levels of the pyramid of an LCP array of <paramref name="rows"/> entries: where each starts (in entries of the RMQ section) and how many entries it has (level 0 first).</summary>
+    internal static List<(long Start, long Count)> RmqLevels(long rows)
+    {
+        var levels = new List<(long, long)>();
+        long start = 0, size = rows;
+        while (size > 1)
+        {
+            size = (size + SesaFormat.RmqFanout - 1) / SesaFormat.RmqFanout;
+            levels.Add((start, size));
+            start += size;
+        }
+        return levels;
     }
 
     /// <summary>The nominal size of the file (what <c>ls</c> says; the disk takes only the header page and the patches).</summary>
@@ -358,6 +385,49 @@ internal static class SparseContainer
         yield return new SparsePatch(SesaFormat.KindChild, from * w, child);
         yield return new SparsePatch(SesaFormat.KindLcp, from * lw, lcp);
         if (psi is not null) yield return new SparsePatch(SesaFormat.KindPsi, from * w, psi);
+    }
+
+    /// <summary>
+    /// The patches of the RMQ section for the queries around the given windows of ranks (call it once: its patches are merged and never overlap): on every level the entries of the blocks that contain a window and the 32 on either side
+    /// of them (the group of siblings that the climb of a search scans), and every entry of a level of at most 2^16 entries; each entry is the closed-form minimum of its block of the LCP array (<see cref="ClosedFormText.LcpMin"/>).
+    /// </summary>
+    internal static IReadOnlyList<SparsePatch> RmqPatches(ClosedFormText f, SparseLayout layout, params (long From, long To)[] windows)
+    {
+        var patches = new List<SparsePatch>();
+        if (!layout.Has(SesaFormat.KindRmq)) return patches;
+        long rows = f.Length + 1;
+        int w = layout.PosWidth;
+        long block = SesaFormat.RmqFanout;
+        foreach ((long start, long count) in RmqLevels(rows))
+        {
+            var spans = new List<(long Lo, long Hi)>();
+            if (count <= 1 << 16) spans.Add((0, count - 1));
+            else
+            {
+                foreach ((long from, long to) in windows) spans.Add((Math.Max(0, (from / block) - 32), Math.Min(count - 1, (to / block) + 32)));
+                spans.Sort();
+                for (int i = spans.Count - 1; i > 0; i--)
+                {
+                    if (spans[i].Lo <= spans[i - 1].Hi + 1)
+                    {
+                        spans[i - 1] = (spans[i - 1].Lo, Math.Max(spans[i - 1].Hi, spans[i].Hi));
+                        spans.RemoveAt(i);
+                    }
+                }
+            }
+            foreach ((long lo, long hi) in spans)
+            {
+                var data = new byte[checked((hi - lo + 1) * w)];
+                for (long j = lo; j <= hi; j++)
+                {
+                    long first = j * block;
+                    PutPosition(data, j - lo, w, f.LcpMin(first, Math.Min(rows - 1, first + block - 1)));
+                }
+                patches.Add(new SparsePatch(SesaFormat.KindRmq, (start + lo) * w, data));
+            }
+            block *= SesaFormat.RmqFanout;
+        }
+        return patches;
     }
 
     /// <summary><c>PSI[r] = ISA[SA[r] + 1]</c>; 0 for the empty suffix and for the suffix of the last symbol (its successor is the empty suffix).</summary>

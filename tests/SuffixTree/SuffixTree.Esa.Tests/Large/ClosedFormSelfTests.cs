@@ -50,6 +50,40 @@ public class ClosedFormSelfTests
     [TestCaseSource(nameof(SmallShapes))]
     public void EqualsTheDefinitions_UpTo2000(Func<ClosedFormText> make) => ClosedFormChecks.AgainstBruteForce(make());
 
+    /// <summary>The range minimum of the LCP array in closed form (work package S2.5: the levels of the pyramid of a text of 2^32 symbols) equals the minimum that is read value by value.</summary>
+    [TestCaseSource(nameof(SmallShapes))]
+    public void LcpMin_EqualsTheMinimumOfTheValues_ForEveryRangeOfASmallText(Func<ClosedFormText> make)
+    {
+        ClosedFormText f = make();
+        long rows = f.Length + 1;
+        if (rows > 90) return; // every range of the short texts; the longer ones are sampled below
+        for (long lo = 0; lo < rows; lo++)
+        {
+            long expected = long.MaxValue;
+            for (long hi = lo; hi < rows; hi++)
+            {
+                expected = Math.Min(expected, f.Lcp(hi));
+                Assert.That(f.LcpMin(lo, hi), Is.EqualTo(expected), $"{f.Name} LcpMin({lo}, {hi})");
+            }
+        }
+    }
+
+    [TestCaseSource(nameof(SmallShapes))]
+    public void LcpMin_EqualsTheMinimumOfTheValues_ForSampledRangesOfALongerText(Func<ClosedFormText> make)
+    {
+        ClosedFormText f = make();
+        long rows = f.Length + 1;
+        if (rows <= 90) return;
+        var rng = new SplitMix64(0x1C9A11 + (ulong)rows);
+        for (int i = 0; i < 300; i++)
+        {
+            long a = rng.NextInt((int)rows), b = rng.NextInt((int)rows);
+            long lo = Math.Min(a, b), hi = Math.Max(a, b), expected = long.MaxValue;
+            for (long r = lo; r <= hi; r++) expected = Math.Min(expected, f.Lcp(r));
+            Assert.That(f.LcpMin(lo, hi), Is.EqualTo(expected), $"{f.Name} LcpMin({lo}, {hi})");
+        }
+    }
+
     public static IEnumerable<TestCaseData> LargerShapes()
     {
         foreach (long n in new long[] { 100_000, 1_000_000 }) yield return Case($"a^{n}", () => new PowerOfA(n));
