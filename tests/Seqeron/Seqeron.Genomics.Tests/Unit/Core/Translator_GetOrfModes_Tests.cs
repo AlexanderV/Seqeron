@@ -281,4 +281,56 @@ public class Translator_GetOrfModes_Tests
     }
 
     #endregion
+
+    #region FindStartToStopOrfs (B11 for B02: custom start set, nested starts)
+
+    // Defaults reproduce -find 1 exactly.
+    [Test]
+    public void FindStartToStopOrfs_Defaults_EqualFindMode1()
+    {
+        var expected = Translator.FindOrfs(Worked, OrfFindMode.TranslationStartToStop, minSize: 9).ToList();
+        var actual = Translator.FindStartToStopOrfs(Worked, minSize: 9).ToList();
+
+        Assert.That(actual, Is.EqualTo(expected));
+        Assert.That(actual, Is.Not.Empty);
+    }
+
+    // Rosalind nested-start semantics: ATGATGAAATAA, ATG at 0 and 3 share the TAA: both ORFs (MMK, MK).
+    [Test]
+    public void FindStartToStopOrfs_NestedStarts_ReportsEveryStartToSharedStop()
+    {
+        var result = Translator.FindStartToStopOrfs("ATGATGAAATAA", new[] { "ATG" }, reportNestedStarts: true,
+            minSize: 3, searchBothStrands: false).ToList();
+
+        Assert.That(result.Select(r => (r.StartPosition, r.EndPosition, r.IsTerminated, r.Sequence)), Is.EqualTo(new[]
+        {
+            (0, 11, true, "MMK"),
+            (3, 11, true, "MK"),
+        }));
+
+        var notNested = Translator.FindStartToStopOrfs("ATGATGAAATAA", new[] { "ATG" }, minSize: 3,
+            searchBothStrands: false).ToList();
+        Assert.That(notNested.Select(r => r.Sequence), Is.EqualTo(new[] { "MMK" }));
+    }
+
+    // Custom start set: GTG opens only when listed, and is translated as Met (getorf -methionine).
+    [Test]
+    public void FindStartToStopOrfs_CustomStartSet_UsesGivenCodons()
+    {
+        const string seq = "GTGAAAAAAAAATAA";
+
+        var gtg = Translator.FindStartToStopOrfs(seq, new[] { "GTG" }, searchBothStrands: false, minSize: 3).ToList();
+        var atg = Translator.FindStartToStopOrfs(seq, new[] { "ATG" }, searchBothStrands: false, minSize: 3).ToList();
+
+        Assert.That(gtg.Select(r => r.Sequence), Is.EqualTo(new[] { "MKKK" }));
+        Assert.That(atg, Is.Empty);
+    }
+
+    [Test]
+    public void FindStartToStopOrfs_AmbiguousStartCodon_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => Translator.FindStartToStopOrfs("ATGAAATAA", new[] { "ATN" }).ToList());
+    }
+
+    #endregion
 }

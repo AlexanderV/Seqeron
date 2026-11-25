@@ -244,6 +244,9 @@ namespace Seqeron.Genomics.Core
         private static bool IsOrfStartCodon(GeneticCode code, string codon) =>
             IsUnambiguousDnaCodon(codon) && code.IsStartCodon(codon);
 
+        private static bool IsOrfStartCodon(GetOrfSettings s, string codon) =>
+            s.StartCodons is null ? IsOrfStartCodon(s.Code, codon) : s.StartCodons.Contains(codon);
+
         // EMBOSS getorf.acd defaults: -minsize 30, -maxsize 1000000, -flanking 100.
         private const int GetOrfDefaultMinSize = 30;
         private const int GetOrfDefaultMaxSize = 1_000_000;
@@ -399,7 +402,64 @@ namespace Seqeron.Genomics.Core
         }
 
         private readonly record struct GetOrfSettings(OrfFindMode Mode, GeneticCode Code,
-            int MinSize, int MaxSize, int Flanking, bool Methionine);
+            int MinSize, int MaxSize, int Flanking, bool Methionine,
+            IReadOnlySet<string>? StartCodons = null, bool NestedStarts = false);
+
+        /// <summary>
+        /// Finds START→STOP ORFs (getorf <c>-find 1</c>) with a caller-chosen set of initiation codons and,
+        /// optionally, every nested in-frame START (additive options of
+        /// <see cref="FindOrfs(string, OrfFindMode, GeneticCode?, int, int, int, bool, bool, bool)"/>
+        /// with <see cref="OrfFindMode.TranslationStartToStop"/>; the default arguments reproduce it exactly).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Start set. When <paramref name="startCodons"/> is given, only these unambiguous codons (case-insensitive,
+        /// U read as T) open an ORF, instead of the table's start codons — e.g. the prokaryotic ATG/GTG/TTG set
+        /// of Prodigal (Hyatt et al. 2010, BMC Bioinformatics 11:119, <c>is_start()</c>).
+        /// </para>
+        /// <para>
+        /// Nested starts. getorf opens an ORF at the first START of an open reading frame and ignores later
+        /// in-frame STARTs. With <paramref name="reportNestedStarts"/> every START is paired with the nearest
+        /// downstream STOP (Rosalind ORF semantics): the ORFs sharing a STOP are reported outermost first,
+        /// each translated from its own START (methionine option applies to each). Records are emitted when
+        /// the shared STOP (or the strand end) closes the frame.
+        /// </para>
+        /// All other semantics (frames, coordinates, open ORFs, size filter in nucleotides converted to
+        /// residues, ambiguity handling, reverse strand) are those of the getorf mode.
+        /// </remarks>
+        /// <param name="sequence">IUPAC nucleotide sequence (DNA or RNA, case-insensitive).</param>
+        /// <param name="startCodons">Initiation codons, or <see langword="null"/> for the genetic code's own starts.</param>
+        /// <param name="reportNestedStarts">Whether every in-frame START (not only the first) opens an ORF.</param>
+        /// <param name="geneticCode">The genetic code (default: Standard).</param>
+        /// <param name="minSize">Minimum ORF size in nucleotides (default 30).</param>
+        /// <param name="maxSize">Maximum ORF size in nucleotides (default 1 000 000).</param>
+        /// <param name="searchBothStrands">Whether to search the reverse complement.</param>
+        /// <param name="methionine">Whether an initiating codon is translated as Met (getorf <c>-methionine</c>).</param>
+        /// <returns>Mode-1 records in scan order (open ORFs have <see cref="OrfFeature.IsTerminated"/> false).</returns>
+        /// <exception cref="ArgumentException">A start codon is not three unambiguous nucleotides.</exception>
+        public static IEnumerable<OrfFeature> FindStartToStopOrfs(string sequence,
+            IEnumerable<string>? startCodons = null, bool reportNestedStarts = false, GeneticCode? geneticCode = null,
+            int minSize = GetOrfDefaultMinSize, int maxSize = GetOrfDefaultMaxSize,
+            bool searchBothStrands = true, bool methionine = true)
+        {
+            string normalized = NormalizeIupacNucleotides(sequence);
+            HashSet<string>? starts = null;
+            if (startCodons is not null)
+            {
+                starts = new HashSet<string>(StringComparer.Ordinal);
+                foreach (string codon in startCodons)
+                {
+                    string c = NormalizeIupacNucleotides(codon);
+                    if (c.Length != CodonLength || !IsUnambiguousDnaCodon(c))
+                        throw new ArgumentException(
+                            $"Start codon '{codon}' must be three unambiguous nucleotides (A, C, G, T/U).", nameof(startCodons));
+                    starts.Add(c);
+                }
+            }
+            var settings = CreateGetOrfSettings(OrfFindMode.TranslationStartToStop, geneticCode, minSize, maxSize,
+                GetOrfDefaultFlanking, methionine) with { StartCodons = starts, NestedStarts = reportNestedStarts };
+            return FindOrfsGetOrfCore(normalized, settings, searchBothStrands, circular: false);
+        }
 
         private static IEnumerable<OrfFeature> FindOrfsGetOrfCore(string sequence, GetOrfSettings settings,
             bool searchBothStrands, bool circular)
@@ -444,6 +504,10 @@ namespace Seqeron.Genomics.Core
             var buffer = new StringBuilder[ReadingFramesPerStrand];
             // LASTORF: the frame hit its last STOP / end codon past the end of a circular genome.
             var finished = new bool[ReadingFramesPerStrand];
+            // Nested in-frame STARTs of the open ORF of each frame (FindStartToStopOrfs reportNestedStarts).
+            var nested = new List<int>[ReadingFramesPerStrand];
+            for (int f = 0; f < ReadingFramesPerStrand; f++)
+                nested[f] = new List<int>();
             // GOTSTOP: the frame contains at least one STOP (circular STOP→STOP modes).
             var gotStop = new bool[ReadingFramesPerStrand];
             for (int f = 0; f < ReadingFramesPerStrand; f++)
@@ -499,12 +563,18 @@ namespace Seqeron.Genomics.Core
                         AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
                     }
                 }
-                else if (!open[frame] && IsOrfStartCodon(s.Code, codon))
+                else if (s.NestedStarts && open[frame] && !isStop && !isLastCodon && IsOrfStartCodon(s, codon))
+                {
+                    nested[frame].Add(pos);
+                    AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
+                }
+                else if (!open[frame] && IsOrfStartCodon(s, codon))
                 {
                     // A START past the end of a circular genome opens nothing (getorf: if(pos < len)).
                     if (pos < len)
                     {
                         buffer[frame].Clear();
+                        nested[frame].Clear();
                         open[frame] = true;
                         start[frame] = pos;
                         AppendGetOrf(buffer[frame], sequence, pos, s.Methionine ? InitiatorMethionine : aa, storesProtein);
@@ -521,6 +591,20 @@ namespace Seqeron.Genomics.Core
                             && TryBuildGetOrfFeature(sequence, len, s, isReverseComplement, start[frame],
                                 pos + CodonLength - 1, isStop, buffer[frame], out var feature))
                             yield return feature;
+                        // Nested STARTs share the closing STOP: same record, own START and translation.
+                        foreach (int nestedStart in nested[frame])
+                        {
+                            var tail = new StringBuilder(buffer[frame].ToString(
+                                (nestedStart - start[frame]) / CodonLength,
+                                buffer[frame].Length - (nestedStart - start[frame]) / CodonLength));
+                            if (s.Methionine && tail.Length > 0)
+                                tail[0] = InitiatorMethionine;
+                            if (SizeOk(tail.Length, min, max)
+                                && TryBuildGetOrfFeature(sequence, len, s, isReverseComplement, nestedStart,
+                                    pos + CodonLength - 1, isStop, tail, out var nestedFeature))
+                                yield return nestedFeature;
+                        }
+                        nested[frame].Clear();
                     }
                     if (pastGenomeEnd)
                     {

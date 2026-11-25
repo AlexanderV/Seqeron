@@ -88,16 +88,11 @@ public static class GenomeAnnotator
     /// <c>is_start()</c> in Prodigal <c>sequence.c</c> accepts exactly ATG/GTG/TTG for
     /// translation table 11). This is a start-selection policy, not a genetic-code table:
     /// stop recognition and codon translation come from the canonical
-    /// <see cref="GeneticCode.Standard"/> via <see cref="GeneticCode.IsStopCodon"/> and
-    /// <see cref="Translator.Translate(string, GeneticCode?, int, bool)"/>.
+    /// <see cref="GeneticCode.Standard"/>, and the scan itself is the canonical getorf engine
+    /// <see cref="Translator.FindOrfs(string, OrfFindMode, GeneticCode?, int, int, int, bool, bool, bool)"/>
+    /// / <see cref="Translator.FindStartToStopOrfs"/>.
     /// </summary>
-    private static readonly HashSet<string> StartCodons = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "ATG", "GTG", "TTG"
-    };
-
-    /// <summary>Genetic code used for stop recognition and translation (NCBI table 1).</summary>
-    private static GeneticCode OrfGeneticCode => GeneticCode.Standard;
+    private static readonly string[] StartCodons = { "ATG", "GTG", "TTG" };
 
     /// <summary>
     /// Finds all open reading frames in a DNA sequence.
@@ -116,6 +111,14 @@ public static class GenomeAnnotator
     /// codon without a stop; no start-codon sub-ORFs are added.
     /// </param>
     /// <returns>All found ORFs.</returns>
+    /// <remarks>
+    /// Delegates to the canonical getorf port in <see cref="Translator"/>: stop-to-stop is
+    /// <see cref="OrfFindMode.TranslationStopToStop"/>; start-to-stop is
+    /// <see cref="Translator.FindStartToStopOrfs"/> with the ATG/GTG/TTG start set and nested starts
+    /// reported. Input must be IUPAC nucleotides (case-insensitive, U read as T); any other
+    /// character raises <see cref="ArgumentException"/>. Only stop-terminated ORFs are returned in
+    /// start-to-stop mode. Results are ordered strand, frame, then start.
+    /// </remarks>
     public static IEnumerable<OpenReadingFrame> FindOrfs(
         string dnaSequence,
         int minLength = 100,
@@ -123,168 +126,45 @@ public static class GenomeAnnotator
         bool requireStartCodon = true)
     {
         if (string.IsNullOrEmpty(dnaSequence))
-            yield break;
+            return Enumerable.Empty<OpenReadingFrame>();
 
-        var geneticCode = OrfGeneticCode;
+        // minLength is in amino acids; an empty region is not an ORF, so stop-to-stop needs >= 1 residue.
+        int minAa = Math.Max(minLength, requireStartCodon ? 0 : 1);
+        int minSize = (int)Math.Min((long)minAa * 3, int.MaxValue);
 
-        // Search forward strand
-        foreach (var orf in FindOrfsInStrand(dnaSequence, geneticCode, minLength, requireStartCodon, false))
-        {
-            yield return orf;
-        }
+        var features = requireStartCodon
+            ? Translator.FindStartToStopOrfs(dnaSequence, StartCodons, reportNestedStarts: true,
+                minSize: minSize, maxSize: int.MaxValue, searchBothStrands: searchBothStrands)
+            : Translator.FindOrfs(dnaSequence, OrfFindMode.TranslationStopToStop,
+                minSize: minSize, maxSize: int.MaxValue, searchBothStrands: searchBothStrands);
 
-        // Search reverse complement
-        if (searchBothStrands)
-        {
-            string revComp = DnaSequence.GetReverseComplementString(dnaSequence);
-            foreach (var orf in FindOrfsInStrand(revComp, geneticCode, minLength, requireStartCodon, true))
-            {
-                // Adjust coordinates for reverse strand
-                int adjStart = dnaSequence.Length - orf.End;
-                int adjEnd = dnaSequence.Length - orf.Start;
-                yield return orf with { Start = adjStart, End = adjEnd };
-            }
-        }
+        string revComp = searchBothStrands ? DnaSequence.GetReverseComplementString(dnaSequence) : string.Empty;
+        int length = dnaSequence.Length;
+
+        return features
+            .Where(f => !requireStartCodon || f.IsTerminated)
+            .Select(f => ToOpenReadingFrame(f, dnaSequence, revComp, length))
+            .OrderBy(o => o.IsReverseComplement)
+            .ThenBy(o => o.Frame)
+            .ThenBy(o => o.IsReverseComplement ? length - o.End : o.Start)
+            .ToList();
     }
 
-    private static IEnumerable<OpenReadingFrame> FindOrfsInStrand(
-        string sequence,
-        GeneticCode geneticCode,
-        int minLength,
-        bool requireStartCodon,
-        bool isReverseComplement)
+    // Maps a getorf record (0-based inclusive end, scanned-strand coordinates) to the half-open
+    // forward-strand OpenReadingFrame; the protein carries the terminating '*' as translated.
+    private static OpenReadingFrame ToOpenReadingFrame(OrfFeature f, string forward, string revComp, int length)
     {
-        // Search all three reading frames
-        for (int frame = 0; frame < 3; frame++)
-        {
-            foreach (var orf in FindOrfsInFrame(sequence, frame, geneticCode, minLength, requireStartCodon, isReverseComplement))
-            {
-                yield return orf;
-            }
-        }
-    }
-
-    private static IEnumerable<OpenReadingFrame> FindOrfsInFrame(
-        string sequence,
-        int frame,
-        GeneticCode geneticCode,
-        int minLength,
-        bool requireStartCodon,
-        bool isReverseComplement)
-    {
-        return requireStartCodon
-            ? FindStartToStopOrfsInFrame(sequence, frame, geneticCode, minLength, isReverseComplement)
-            : FindStopToStopOrfsInFrame(sequence, frame, geneticCode, minLength, isReverseComplement);
-    }
-
-    /// <summary>
-    /// Start-to-stop ORFs in one frame: every pending start is closed by the next in-frame stop.
-    /// </summary>
-    private static IEnumerable<OpenReadingFrame> FindStartToStopOrfsInFrame(
-        string sequence,
-        int frame,
-        GeneticCode geneticCode,
-        int minLength,
-        bool isReverseComplement)
-    {
-        var currentOrfStarts = new List<int>();
-
-        for (int i = frame; i <= sequence.Length - 3; i += 3)
-        {
-            string codon = sequence.Substring(i, 3);
-
-            if (StartCodons.Contains(codon))
-            {
-                currentOrfStarts.Add(i);
-            }
-            else if (geneticCode.IsStopCodon(codon))
-            {
-                foreach (int start in currentOrfStarts)
-                {
-                    int orfAaLength = (i - start) / 3;
-                    if (orfAaLength >= minLength)
-                    {
-                        string orfSeq = sequence.Substring(start, i + 3 - start);
-                        yield return new OpenReadingFrame(
-                            Start: start,
-                            End: i + 3,
-                            Frame: frame + 1,
-                            IsReverseComplement: isReverseComplement,
-                            Sequence: orfSeq,
-                            ProteinSequence: TranslateWithInitiatorMet(orfSeq, geneticCode));
-                    }
-                }
-
-                currentOrfStarts.Clear();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Stop-to-stop regions in one frame (EMBOSS getorf <c>-find 0</c>, linear sequence):
-    /// the frame is treated as already open at its offset, every stop closes the current
-    /// region and opens the next one at the following codon, and the region still open at the
-    /// end of the sequence is reported up to the last complete codon. Regions that contain no
-    /// sense codon are not ORFs and are skipped.
-    /// </summary>
-    private static IEnumerable<OpenReadingFrame> FindStopToStopOrfsInFrame(
-        string sequence,
-        int frame,
-        GeneticCode geneticCode,
-        int minLength,
-        bool isReverseComplement)
-    {
-        int regionStart = frame;
-        int i = frame;
-
-        for (; i <= sequence.Length - 3; i += 3)
-        {
-            if (!geneticCode.IsStopCodon(sequence.Substring(i, 3)))
-                continue;
-
-            int aaLength = (i - regionStart) / 3;
-            if (aaLength >= 1 && aaLength >= minLength)
-            {
-                string orfSeq = sequence.Substring(regionStart, i + 3 - regionStart);
-                yield return new OpenReadingFrame(
-                    Start: regionStart,
-                    End: i + 3,
-                    Frame: frame + 1,
-                    IsReverseComplement: isReverseComplement,
-                    Sequence: orfSeq,
-                    ProteinSequence: Translator.Translate(orfSeq, geneticCode).Sequence);
-            }
-
-            regionStart = i + 3;
-        }
-
-        // Trailing region without a stop: i is now the first codon position that does not fit.
-        int endPos = i;
-        int trailingAa = (endPos - regionStart) / 3;
-        if (endPos > regionStart && trailingAa >= minLength)
-        {
-            string orfSeq = sequence.Substring(regionStart, endPos - regionStart);
-            yield return new OpenReadingFrame(
-                Start: regionStart,
-                End: endPos,
-                Frame: frame + 1,
-                IsReverseComplement: isReverseComplement,
-                Sequence: orfSeq,
-                ProteinSequence: Translator.Translate(orfSeq, geneticCode).Sequence);
-        }
-    }
-
-    /// <summary>
-    /// Translates a start-codon-initiated ORF with the canonical translator, rendering the
-    /// initiating codon as Met: an alternative initiator (GTG/TTG) is decoded by initiator
-    /// tRNA-fMet, so EMBOSS getorf (<c>-methionine</c>, default Y: "START codons at the
-    /// beginning of protein products will usually code for Methionine") and Biopython
-    /// <c>Seq.translate(cds=True)</c> both emit M for it (GTGAAAAAAAAATAA → MKKK).
-    /// </summary>
-    private static string TranslateWithInitiatorMet(string orfSeq, GeneticCode geneticCode)
-    {
-        string protein = Translator.Translate(orfSeq, geneticCode).Sequence;
-        return protein.Length == 0 || protein[0] == 'M' ? protein : string.Concat("M", protein.AsSpan(1));
+        int start = f.StartPosition;
+        int end = f.EndPosition + 1;
+        string strandSeq = f.IsReverseStrand ? revComp : forward;
+        string protein = f.IsTerminated ? f.Sequence + "*" : f.Sequence;
+        return new OpenReadingFrame(
+            Start: f.IsReverseStrand ? length - end : start,
+            End: f.IsReverseStrand ? length - start : end,
+            Frame: Math.Abs(f.Frame),
+            IsReverseComplement: f.IsReverseStrand,
+            Sequence: strandSeq.Substring(start, end - start),
+            ProteinSequence: protein);
     }
 
     /// <summary>

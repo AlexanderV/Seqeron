@@ -755,5 +755,31 @@ public class GenomeAnnotator_ORF_Tests
         Assert.That(actual, Is.EqualTo(new[] { "1,7,2,K*", "2,11,3,NEI", "3,12,1,MK*", "7,10,2,N" }));
     }
 
+    /// <summary>
+    /// B11 A1: FindOrfs delegates to the canonical getorf engine (Translator), which reads IUPAC
+    /// nucleotides only (U as T): a non-IUPAC character is an ArgumentException in both modes and
+    /// both strand settings, and RNA gives the DNA result.
+    /// </summary>
+    [TestCase(true, true)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(false, false)]
+    public void FindOrfs_NonIupacCharacter_ThrowsArgumentException(bool requireStart, bool bothStrands)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            GenomeAnnotator.FindOrfs("ATGAA-TAA", minLength: 1, bothStrands, requireStart));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void FindOrfs_RnaInput_EqualsDnaInput(bool requireStart)
+    {
+        var dna = Describe(GenomeAnnotator.FindOrfs("GGATGAAACCCTAAGG", minLength: 1, true, requireStart));
+        var rna = Describe(GenomeAnnotator.FindOrfs("GGAUGAAACCCUAAGG", minLength: 1, true, requireStart));
+
+        Assert.That(rna, Is.EqualTo(dna));
+        Assert.That(dna, Is.Not.Empty);
+    }
+
     #endregion
 }

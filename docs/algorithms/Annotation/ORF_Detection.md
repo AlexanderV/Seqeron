@@ -63,7 +63,7 @@ under the condition that $t - s$ is divisible by $3$. ORF enumeration therefore 
 
 ### 3.3 Preconditions and Validation
 
-`GenomeAnnotator.FindOrfs(...)` returns an empty sequence for null or empty input. It uppercases each scanned codon internally, so lowercase and mixed-case DNA are accepted. The canonical ORF finder does not pre-validate the alphabet; codons containing characters such as `N` simply fail start/stop matching and are treated as ordinary non-boundary codons. When `requireStartCodon = true`, an ORF without a terminating stop codon is not emitted. Reverse-strand results are remapped to the coordinate system of the original forward input before they are returned.
+`GenomeAnnotator.FindOrfs(...)` returns an empty sequence for null or empty input. It uppercases each scanned codon internally, so lowercase and mixed-case DNA are accepted. The scan is delegated to the canonical getorf engine in `Translator`, so input must be IUPAC nucleotides (case-insensitive, `U` read as `T`); any other character raises `ArgumentException` (B11 A1; previously only some inputs threw). IUPAC-ambiguous codons such as `N` never start an ORF, `TAR` ends one and other ambiguous codons are ordinary non-boundary codons. When `requireStartCodon = true`, an ORF without a terminating stop codon is not emitted. Reverse-strand results are remapped to the coordinate system of the original forward input before they are returned.
 
 ## 4. Algorithm
 
@@ -84,7 +84,7 @@ The canonical implementation uses two fixed codon sets:
 | Start codons | `ATG`, `GTG`, `TTG` |
 | Stop codons | `TAA`, `TAG`, `TGA` |
 
-Within each frame, `GenomeAnnotator.FindOrfsInFrame(...)` keeps a list of pending start positions rather than a single active start. This allows nested or overlapping ORFs that share the same terminating stop codon to be emitted independently when they all meet the length threshold.
+Within each frame, `Translator.FindStartToStopOrfs(..., reportNestedStarts: true)` (the engine `GenomeAnnotator.FindOrfs` delegates to) keeps the list of nested in-frame starts of the open ORF rather than only the first start (getorf `-find 1` default). This allows nested or overlapping ORFs that share the same terminating stop codon to be emitted independently when they all meet the length threshold.
 
 ### 4.3 Complexity
 
@@ -108,7 +108,7 @@ Within each frame, `GenomeAnnotator.FindOrfsInFrame(...)` keeps a list of pendin
 
 Repository-specific behavior confirmed by source and tests:
 
-- `GenomeAnnotator.FindOrfs(...)` always translates with `GeneticCode.Standard` through the canonical `Translator.Translate`, recognises stops with `GeneticCode.Standard.IsStopCodon`, and reverse-complements with `DnaSequence.GetReverseComplementString`; only the ATG/GTG/TTG start-selection policy is local.
+- `GenomeAnnotator.FindOrfs(...)` always translates with `GeneticCode.Standard` through the canonical `Translator.Translate`, recognises stops with `GeneticCode.Standard.IsStopCodon`, and reverse-complements with `DnaSequence.GetReverseComplementString`; only the ATG/GTG/TTG start-selection policy is local. The scan itself is `Translator.FindOrfs(..., OrfFindMode.TranslationStopToStop)` (stop-to-stop) or `Translator.FindStartToStopOrfs` with the ATG/GTG/TTG start set and nested starts (start-to-stop); there is no second ORF engine (B11 A1, `(B11 for B02)` additive options).
 - Start-to-stop ORFs render the initiating codon as `M` (EMBOSS getorf `-methionine` default Y; Biopython `translate(cds=True)`: `GTGAAAAAAAAATAA` → `MKKK`).
 - `requireStartCodon = false` reproduces EMBOSS getorf `-find 0` (linear): leading and trailing stop-less segments are reported, one region per segment.
 - Returned `ProteinSequence` values include the terminal `*` stop symbol for stop-terminated ORFs.
@@ -163,7 +163,7 @@ This implementation is an ORF enumerator, not a full gene-prediction model. The 
 
 ## 7. Validation (review 2026-09)
 
-- Cross-check: independent Python/Biopython 1.88 reference (start-to-stop = every ATG/GTG/TTG with nearest in-frame stop, initiator via `translate(table=11, cds=True)`; stop-to-stop = EMBOSS getorf `-find 0` logic from `getorf.c`) vs `FindOrfs` on 2,988 random sequences (0–300 nt, mixed case, all `minLength`/strand/mode combinations): 0 mismatches.
+- Cross-check: independent Python/Biopython 1.88 reference (start-to-stop = every ATG/GTG/TTG with nearest in-frame stop, initiator via `translate(table=11, cds=True)`; stop-to-stop = EMBOSS getorf `-find 0` logic from `getorf.c`) vs `FindOrfs` on 2,988 random sequences (0–300 nt, mixed case, all `minLength`/strand/mode combinations): 0 mismatches. Re-run after the engine unification (B11 A1) on 3,300 sequences × 20 parameter combinations (66,000 cases): 0 mismatches vs the reference and 0 differences vs the previous engine on A/C/G/T input; RNA (`U`) is now read as `T` (the previous engine did not recognise `AUG`).
 - Rosalind ORF sample: all four ATG proteins plus TTG-initiated `MD`, `ME`, with exact coordinates locked in `FindOrfs_RosalindDataset_ExactSixFrameSetMatchesBiopythonReference`.
 - Fixed: alternative initiators translated as V/L instead of M; `requireStartCodon = false` dropped the leading stop-to-stop region and duplicated start-codon sub-ORFs (e.g. `TAAATGAAATAA` emitted `[3,12)` twice).
 - Note: codons with `N` translate to `X` via the canonical `GeneticCode.Translate` (Biopython resolves e.g. `GCN` → `A`); this is Translator behaviour, outside this unit.
