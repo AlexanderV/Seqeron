@@ -53,18 +53,21 @@ public class MiRnaAnalyzer_ContextScoreAssembly_Tests
         Assert.That(sa, Is.EqualTo(0.0));
     }
 
-    // CNNC detection window = offsets {16,17,18} downstream of the Drosha cut. Placing a CNNC ONLY at
-    // the MAX offset (18) pins the inclusive `offset <= CnncMaxNtDownstreamOfDroshaCut` bound: a
+    // CNNC detection window = offsets {16,17,18} downstream of the 3p Drosha cut (Auyeung 2013). Placing a
+    // CNNC ONLY at the MAX offset (18) pins the inclusive `offset <= CnncMaxNtDownstreamOfDroshaCut` bound: a
     // `offset < max` mutant never tests offset 18 and reports no motif.
     [Test]
     public void Cnnc_AtMaxOffset18_IsDetected()
     {
-        // basalJunction=5 → droshaCut5Prime=16; offset 18 → start=34; CNNC = C at 34 and 37.
-        var s = new char[60];
-        Array.Fill(s, 'A');
-        s[34] = 'C'; s[37] = 'C'; // CNNC only at offset 18
-        var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(new string(s), 5);
-        Assert.That(c!.Value.HasCnncMotif, Is.True, "CNNC at the max offset (18) must be detected");
+        // Perfect hairpin (5-nt flank, 35-bp stem, 8-nt loop, 25-nt flank), junction 5 ⇒ 12th pair (16, 71),
+        // DroshaCut3Prime = 73; offset 18 ⇒ start 91; CNNC = C at 91 and 94.
+        string pri = new string('A', 5) + new string('G', 35) + new string('A', 8) + new string('C', 35) + new string('A', 25);
+        string fold = new string('.', 5) + new string('(', 35) + new string('.', 8) + new string(')', 35) + new string('.', 25);
+        var s = pri.ToCharArray();
+        s[91] = 'C'; s[94] = 'C'; // CNNC only at offset 18
+        var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(new string(s), 5, fold);
+        Assert.That(c!.Value.DroshaCut3Prime, Is.EqualTo(73));
+        Assert.That(c.Value.HasCnncMotif, Is.True, "CNNC at the max offset (18) must be detected");
     }
 
     // ── short-input guards ──

@@ -17,6 +17,10 @@
       "totalReads": {
         "type": "integer",
         "description": "Total number of input reads (used to fill totalReads)."
+      },
+      "assembledReads": {
+        "type": "integer",
+        "description": "Optional number of reads that lie in the contigs, in [0, totalReads]; default totalReads (0 when there are no contigs)."
       }
     },
     "required": [
@@ -37,11 +41,11 @@
       },
       "assembledReads": {
         "type": "integer",
-        "description": "Number of reads incorporated (simplified: all reads)."
+        "description": "Reads that lie in the contigs (Velvet usedReads); the supplied assembledReads, else totalReads (0 without contigs)."
       },
       "n50": {
         "type": "number",
-        "description": "N50 contig length."
+        "description": "N50 contig length (QUAST N50; 0 without contigs)."
       },
       "longestContig": {
         "type": "integer",
@@ -61,7 +65,12 @@
       "totalLength"
     ]
   },
-  "errors": [],
+  "errors": [
+    {
+      "code": 1001,
+      "message": "assembledReads must lie in [0, totalReads]; totalReads must be non-negative"
+    }
+  ],
   "examples": [
     {
       "name": "Three contigs",

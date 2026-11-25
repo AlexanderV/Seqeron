@@ -42,4 +42,15 @@ public class FindRepetitiveElementsTests
 
         Assert.That(result.Repeats.Any(e => e.Type == "tandem_repeat" && e.Sequence.Contains("ATTCGATTCG")), Is.False);
     }
+
+    [Test]
+    public void FindRepetitiveElements_SubStemsAndRunsOfN_OnlyMaximalAcgtElementsDelegated()
+    {
+        // EMBOSS palindrome -minpallen 3 -gaplimit 100 -nummismatches 0: one maximal stem AGGATCCT [0,8);
+        // the NNNNNNNN tail forms neither a tandem unit nor stem pairs (ACGT only, B11 F14/F15).
+        var result = AnnotationTools.FindRepetitiveElements("AGGATCCTNNNNNNNN", minRepeatLength: 3, minCopies: 2);
+
+        Assert.That(result.Repeats.Select(e => (e.Start, e.End, e.Type, e.Sequence)),
+            Is.EqualTo(new[] { (0, 8, "inverted_repeat", "AGGATCCT") }));
+    }
 }

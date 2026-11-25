@@ -114,6 +114,25 @@ public static class GenomeAssemblyAnalyzer
     /// <summary>
     /// Calculates comprehensive assembly statistics.
     /// </summary>
+    /// <remarks>
+    /// Definitions (QUAST <c>basic_stats.py</c> / <c>N50.py</c> / <c>qutils.py</c>, ablab/quast master):
+    /// <list type="bullet">
+    /// <item>TotalLength = Σ sequence lengths (every character, N included); N50/L50, N90/L90 =
+    /// <see cref="CalculateNx(IReadOnlyList{int},long,int)"/> at x = 50 / 90 (QUAST <c>N50_and_L50</c>).</item>
+    /// <item>GcContent = pooled (G + C) / (A + C + G + T) over all sequences as a fraction in [0, 1]
+    /// (QUAST <c>GC_content</c>: <c>total_GC_amount / total_contig_length</c> with the ACGT length
+    /// <c>len − count('N')</c> after <c>correct_seq</c> upper-cases and turns IUPAC codes into N);
+    /// counted by the canonical <see cref="SequenceExtensions.CountGcAndValidNucleotides"/>, so
+    /// N, IUPAC ambiguity codes and gap symbols are excluded from both counts (U, which QUAST rejects,
+    /// counts as a valid base). 0 when there is no A/C/G/T.</item>
+    /// <item>Gaps = maximal runs of N/n (QUAST <c>split_by_ns</c> with the threshold 1); TotalGapLength
+    /// = number of N/n; TotalLengthNoGaps = TotalLength − TotalGapLength; GapPercentage = 100 ·
+    /// TotalGapLength / TotalLength. IUPAC ambiguity codes are bases, not gaps.</item>
+    /// <item>MeanLength = TotalLength / count; MedianLength = sample median of the lengths (mean of the
+    /// two central values for an even count, <see cref="StatisticsHelper.Median"/>).</item>
+    /// </list>
+    /// An empty input returns all zeros (QUAST reports these fields as undefined).
+    /// </remarks>
     public static AssemblyStatistics CalculateStatistics(
         IEnumerable<(string Id, string Sequence)> sequences)
     {
@@ -132,10 +151,16 @@ public static class GenomeAssemblyAnalyzer
         var n50Stats = CalculateNx(lengths, totalLength, 50);
         var n90Stats = CalculateNx(lengths, totalLength, 90);
 
-        // GC content
-        long gcCount = seqList.Sum(s => CountGC(s.Sequence));
-        long totalBases = seqList.Sum(s => CountBases(s.Sequence));
-        double gcContent = totalBases > 0 ? gcCount / (double)totalBases : 0;
+        // GC content: pooled G+C over A+C+G+T (QUAST GC_content) via the canonical Core counter.
+        long gcCount = 0;
+        long acgtCount = 0;
+        foreach (var s in seqList)
+        {
+            var (gc, valid) = s.Sequence.AsSpan().CountGcAndValidNucleotides();
+            gcCount += gc;
+            acgtCount += valid;
+        }
+        double gcContent = acgtCount > 0 ? gcCount / (double)acgtCount : 0;
 
         // Gap statistics
         int totalGaps = seqList.Sum(s => s.GapCount);
@@ -153,7 +178,7 @@ public static class GenomeAssemblyAnalyzer
             lengths[0],
             lengths[^1],
             totalLength / (double)seqList.Count,
-            lengths[lengths.Count / 2],
+            StatisticsHelper.Median(lengths.Select(l => (double)l).ToArray()),
             gcContent,
             totalGaps,
             totalGapLength,
@@ -167,49 +192,15 @@ public static class GenomeAssemblyAnalyzer
     {
         int gapCount = 0;
         int totalGapLength = 0;
-        int currentGapLength = 0;
-
-        foreach (char c in sequence)
-        {
-            if (c == 'N' || c == 'n')
-            {
-                currentGapLength++;
-            }
-            else if (currentGapLength > 0)
-            {
-                gapCount++;
-                totalGapLength += currentGapLength;
-                currentGapLength = 0;
-            }
-        }
-
-        if (currentGapLength > 0)
+        foreach (var (_, length) in EnumerateNRuns(sequence))
         {
             gapCount++;
-            totalGapLength += currentGapLength;
+            totalGapLength += length;
         }
 
-        long gcCount = CountGC(sequence);
-        long bases = CountBases(sequence);
-        double gc = bases > 0 ? gcCount / (double)bases : 0;
+        double gc = sequence.AsSpan().CalculateGcFraction();
 
         return new AssembledSequence(id, sequence, sequence.Length, gc, gapCount, totalGapLength);
-    }
-
-    /// <summary>
-    /// Counts GC bases in sequence.
-    /// </summary>
-    private static long CountGC(string sequence)
-    {
-        return sequence.Count(c => c == 'G' || c == 'g' || c == 'C' || c == 'c');
-    }
-
-    /// <summary>
-    /// Counts non-N bases.
-    /// </summary>
-    private static long CountBases(string sequence)
-    {
-        return sequence.Count(c => c != 'N' && c != 'n');
     }
 
     // Nx/Lx threshold percentage for the N50/L50 statistics.
@@ -223,40 +214,24 @@ public static class GenomeAssemblyAnalyzer
     /// <remarks>
     /// Nx is the length of the shortest sequence such that sequences of that length or
     /// longer cover at least x% of the assembly; Lx is the count of those sequences.
-    /// Source: Miller, Koren &amp; Sutton (2010), Genomics 95(6):315-327, §1.2. The
-    /// inclusive "at least x%" cumulative comparison matches the QUAST reference
-    /// implementation (quast_libs/N50.py, NG50_and_LG50).
+    /// Source: Miller, Koren &amp; Sutton (2010), Genomics 95(6):315-327, §1.2. Delegates to the
+    /// single canonical core <see cref="SequenceAssembler.CalculateNx(IReadOnlyList{int},long,int)"/>
+    /// (port of QUAST <c>quast_libs/N50.py</c> <c>NG50_and_LG50</c>, inclusive "at least x%").
+    /// Passing an (estimated) genome size as <paramref name="totalLength"/> gives NGx/LGx; when the
+    /// lengths never reach x% of it (QUAST <c>None</c>), as for an empty list, Nx = Lx = 0.
     /// </remarks>
-    /// <param name="sortedLengths">Sequence lengths sorted in descending order.</param>
-    /// <param name="totalLength">Sum of all sequence lengths (the assembly size).</param>
+    /// <param name="sortedLengths">Non-negative sequence lengths sorted in non-increasing order.</param>
+    /// <param name="totalLength">Sum of all sequence lengths (the assembly size), or a genome size for NGx.</param>
     /// <param name="threshold">Percentage threshold x in [0, 100] (50 for N50/L50).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="threshold"/> outside [0, 100] or negative <paramref name="totalLength"/>.</exception>
+    /// <exception cref="ArgumentException">A negative length, or lengths not in non-increasing order.</exception>
     public static NxStatistics CalculateNx(
         IReadOnlyList<int> sortedLengths,
         long totalLength,
         int threshold)
     {
-        if (sortedLengths.Count == 0 || totalLength == 0)
-            return new NxStatistics(threshold, 0, 0, 0);
-
-        long cumulative = 0;
-        int count = 0;
-
-        foreach (int length in sortedLengths)
-        {
-            cumulative += length;
-            count++;
-
-            // Inclusive "at least threshold%" test, evaluated with integer arithmetic to
-            // avoid floating-point rounding of the cutoff. Equivalent to QUAST's
-            // "reference_length - cumulative <= reference_length * (100 - threshold) / 100".
-            // Source: QUAST quast_libs/N50.py NG50_and_LG50; Miller et al. (2010) §1.2.
-            if (cumulative * 100 >= totalLength * threshold)
-            {
-                return new NxStatistics(threshold, length, count, cumulative);
-            }
-        }
-
-        return new NxStatistics(threshold, sortedLengths[^1], count, cumulative);
+        var (nx, lx, cumulative) = SequenceAssembler.CalculateNx(sortedLengths, totalLength, threshold);
+        return new NxStatistics(threshold, nx, lx, cumulative);
     }
 
     /// <summary>
@@ -312,8 +287,13 @@ public static class GenomeAssemblyAnalyzer
     }
 
     /// <summary>
-    /// Calculates auN (area under Nx curve) - assembly contiguity metric.
+    /// Calculates auN (area under the Nx curve): auN = Σ Lᵢ² / Σ Lⱼ.
     /// </summary>
+    /// <remarks>
+    /// Li H (2020), "auN: a new metric to measure assembly contiguity"
+    /// (lh3.github.io/2020/04/08/a-new-metric-on-assembly-contiguity); QUAST <c>au_metric</c>
+    /// (<c>quast_libs/N50.py</c>). Returns 0 for an empty or all-zero list (QUAST <c>None</c>).
+    /// </remarks>
     public static double CalculateAuN(IEnumerable<int> lengths)
     {
         var sorted = lengths.OrderByDescending(l => l).ToList();
@@ -332,40 +312,121 @@ public static class GenomeAssemblyAnalyzer
     #region Gap Analysis
 
     /// <summary>
-    /// Identifies all gaps in assembly sequences.
+    /// Default minimum N-run length that separates two contigs of a scaffold: NCBI treats "every run of
+    /// 10 or more Ns" as an assembly gap when assembly statistics are calculated (GenBank "Gapped Format
+    /// for Genome Submissions", table2asn <c>-gaps-min 10</c>), and QUAST breaks scaffolds into contigs at
+    /// runs of ≥ <c>qconfig.Ns_break_threshold = 10</c> Ns (<c>qutils.broke_scaffolds</c>). Shorter runs
+    /// are ambiguous bases inside a contig (AGP v2.1: "there may be short runs of Ns due to ambiguous
+    /// base calls").
     /// </summary>
-    public static IEnumerable<GapInfo> FindGaps(
-        IEnumerable<(string Id, string Sequence)> sequences,
-        int minGapLength = 1)
+    public const int DefaultScaffoldGapMinLength = 10;
+
+    /// <summary>
+    /// Enumerates the maximal runs of <c>N</c>/<c>n</c> in <paramref name="sequence"/> as
+    /// (0-based start, length). The single N-run scanner behind <see cref="FindGaps"/>,
+    /// <see cref="AnalyzeScaffolds"/>, <see cref="ExtractContigs"/> and the gap fields of
+    /// <see cref="CalculateStatistics"/>. Only N/n is a gap symbol; IUPAC ambiguity codes are bases.
+    /// </summary>
+    private static IEnumerable<(int Start, int Length)> EnumerateNRuns(string sequence)
     {
-        foreach (var (id, sequence) in sequences)
+        int i = 0;
+        while (i < sequence.Length)
         {
-            int gapStart = -1;
-
-            for (int i = 0; i <= sequence.Length; i++)
+            if (sequence[i] is 'N' or 'n')
             {
-                bool isN = i < sequence.Length && (sequence[i] == 'N' || sequence[i] == 'n');
-
-                if (isN && gapStart < 0)
-                {
-                    gapStart = i;
-                }
-                else if (!isN && gapStart >= 0)
-                {
-                    int length = i - gapStart;
-                    if (length >= minGapLength)
-                    {
-                        string gapType = ClassifyGap(length);
-                        yield return new GapInfo(id, gapStart, i - 1, length, gapType);
-                    }
-                    gapStart = -1;
-                }
+                int start = i;
+                while (i < sequence.Length && sequence[i] is 'N' or 'n')
+                    i++;
+                yield return (start, i - start);
+            }
+            else
+            {
+                i++;
             }
         }
     }
 
     /// <summary>
-    /// Classifies gap by length.
+    /// Splits a scaffold into its contigs, port of QUAST <c>qutils.split_by_ns</c>: the scaffold is cut
+    /// at every maximal N-run of length ≥ <paramref name="minGapLength"/>; shorter N-runs stay inside the
+    /// contig. Returns the non-empty contigs as half-open [Start, End) and the separating gaps.
+    /// </summary>
+    private static (List<(int Start, int End)> Contigs, List<(int Start, int Length)> Gaps)
+        SplitAtGaps(string sequence, int minGapLength)
+    {
+        var contigs = new List<(int Start, int End)>();
+        var gaps = new List<(int Start, int Length)>();
+        int contigStart = 0;
+        foreach (var run in EnumerateNRuns(sequence))
+        {
+            if (run.Length < minGapLength)
+                continue;
+            if (run.Start > contigStart)
+                contigs.Add((contigStart, run.Start));
+            gaps.Add(run);
+            contigStart = run.Start + run.Length;
+        }
+        if (sequence.Length > contigStart)
+            contigs.Add((contigStart, sequence.Length));
+        return (contigs, gaps);
+    }
+
+    private static string RequireSequence((string Id, string Sequence) entry, string paramName)
+        => entry.Sequence ?? throw new ArgumentException(
+            $"Sequence '{entry.Id}' is null.", paramName);
+
+    private static void ValidateMinGapLength(int minGapLength)
+    {
+        if (minGapLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minGapLength), minGapLength,
+                "A gap is a run of at least one N; the minimum gap length must be ≥ 1.");
+    }
+
+    /// <summary>
+    /// Identifies all gaps (maximal runs of <c>N</c>/<c>n</c>) in assembly sequences.
+    /// </summary>
+    /// <remarks>
+    /// One <see cref="GapInfo"/> per maximal N-run of length ≥ <paramref name="minGapLength"/>, in
+    /// sequence order. Coordinates are 0-based with an <b>inclusive</b> <c>End</c>
+    /// (<c>Length = End − Start + 1</c>); the AGP v2.1 equivalent is <c>[Start + 1, End + 1]</c>
+    /// (1-based inclusive) and the BED / <c>seqtk gap</c> equivalent is <c>[Start, End + 1)</c>.
+    /// Only <c>N</c>/<c>n</c> marks a gap: IUPAC ambiguity codes are bases (AGP v2.1, NCBI gapped
+    /// format; QUAST <c>correct_seq</c> and <c>seqtk gap</c> instead treat them as N — documented
+    /// deviation, consistent with <see cref="CalculateStatistics"/>). With the default 1 the gaps are
+    /// exactly those counted by <see cref="CalculateStatistics"/>; pass
+    /// <see cref="DefaultScaffoldGapMinLength"/> (10) for the NCBI assembly-gap convention.
+    /// <see cref="GapInfo.GapType"/> is a Seqeron length class (&lt; 10 "Short", &lt; 100 "Medium",
+    /// &lt; 1000 "Long", else "Scaffold"); it is <b>not</b> the AGP column 7b gap type, which records
+    /// linkage evidence that a sequence does not carry.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minGapLength"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentException">A sequence is null (raised during enumeration).</exception>
+    public static IEnumerable<GapInfo> FindGaps(
+        IEnumerable<(string Id, string Sequence)> sequences,
+        int minGapLength = 1)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        ValidateMinGapLength(minGapLength);
+        return FindGapsIterator(sequences, minGapLength);
+    }
+
+    private static IEnumerable<GapInfo> FindGapsIterator(
+        IEnumerable<(string Id, string Sequence)> sequences, int minGapLength)
+    {
+        foreach (var entry in sequences)
+        {
+            string sequence = RequireSequence(entry, nameof(sequences));
+            foreach (var (start, length) in EnumerateNRuns(sequence))
+            {
+                if (length >= minGapLength)
+                    yield return new GapInfo(entry.Id, start, start + length - 1, length, ClassifyGap(length));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Classifies gap by length (Seqeron length bins; not an AGP gap type).
     /// </summary>
     private static string ClassifyGap(int length)
     {
@@ -381,23 +442,31 @@ public static class GenomeAssemblyAnalyzer
     /// <summary>
     /// Analyzes gap distribution in assembly.
     /// </summary>
+    /// <remarks>
+    /// Count, arithmetic mean, sample median (mean of the two central values for an even count, numpy
+    /// <c>median</c> / <see cref="StatisticsHelper.Median"/>, as <see cref="CalculateStatistics"/>
+    /// MedianLength), maximum gap length and the number of gaps per <see cref="GapInfo.GapType"/>.
+    /// An empty list returns all zeros and an empty map.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="gaps"/> is null.</exception>
     public static (int Count, double MeanLength, double MedianLength, int MaxLength, IReadOnlyDictionary<string, int> TypeCounts)
         AnalyzeGapDistribution(IEnumerable<GapInfo> gaps)
     {
+        ArgumentNullException.ThrowIfNull(gaps);
         var gapList = gaps.ToList();
 
         if (gapList.Count == 0)
             return (0, 0, 0, 0, new Dictionary<string, int>());
 
-        var lengths = gapList.Select(g => g.Length).OrderBy(l => l).ToList();
+        var lengths = gapList.Select(g => (double)g.Length).ToArray();
         var typeCounts = gapList.GroupBy(g => g.GapType)
                                 .ToDictionary(g => g.Key, g => g.Count());
 
         return (
             gapList.Count,
             lengths.Average(),
-            lengths[lengths.Count / 2],
-            lengths.Max(),
+            StatisticsHelper.Median(lengths),
+            gapList.Max(g => g.Length),
             typeCounts);
     }
 
@@ -408,100 +477,92 @@ public static class GenomeAssemblyAnalyzer
     /// <summary>
     /// Analyzes scaffold structure (contigs and gaps).
     /// </summary>
+    /// <remarks>
+    /// A scaffold is split into contigs at every maximal N-run of length ≥ <paramref name="minGapLength"/>
+    /// (QUAST <c>qutils.split_by_ns</c>; default <see cref="DefaultScaffoldGapMinLength"/> = 10, the NCBI
+    /// assembly-gap convention). Shorter N-runs are ambiguous bases inside a contig (AGP v2.1), so
+    /// <c>ContigLength + GapLength = TotalLength</c> always holds. Contigs are named
+    /// <c>{id}_contig{n}</c> (n from 1) and, like the gaps, use 0-based inclusive <c>[Start, End]</c>
+    /// coordinates; a leading or trailing gap opens no empty contig.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="scaffolds"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minGapLength"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentException">A sequence is null (raised during enumeration).</exception>
     public static IEnumerable<ScaffoldStructure> AnalyzeScaffolds(
         IEnumerable<(string Id, string Sequence)> scaffolds,
-        int minGapLength = 10)
+        int minGapLength = DefaultScaffoldGapMinLength)
     {
-        foreach (var (id, sequence) in scaffolds)
+        ArgumentNullException.ThrowIfNull(scaffolds);
+        ValidateMinGapLength(minGapLength);
+        return AnalyzeScaffoldsIterator(scaffolds, minGapLength);
+    }
+
+    private static IEnumerable<ScaffoldStructure> AnalyzeScaffoldsIterator(
+        IEnumerable<(string Id, string Sequence)> scaffolds, int minGapLength)
+    {
+        foreach (var entry in scaffolds)
         {
-            var contigs = new List<(string, int, int)>();
-            var gaps = new List<GapInfo>();
+            string id = entry.Id;
+            string sequence = RequireSequence(entry, nameof(scaffolds));
+            var (pieces, runs) = SplitAtGaps(sequence, minGapLength);
 
-            int contigStart = 0;
-            int contigId = 1;
-            int gapStart = -1;
+            var contigs = new List<(string, int, int)>(pieces.Count);
+            for (int c = 0; c < pieces.Count; c++)
+                contigs.Add(($"{id}_contig{c + 1}", pieces[c].Start, pieces[c].End - 1));
 
-            for (int i = 0; i <= sequence.Length; i++)
-            {
-                bool isN = i < sequence.Length && (sequence[i] == 'N' || sequence[i] == 'n');
-
-                if (isN && gapStart < 0)
-                {
-                    // End of contig, start of gap
-                    if (i > contigStart)
-                    {
-                        contigs.Add(($"{id}_contig{contigId}", contigStart, i - 1));
-                        contigId++;
-                    }
-                    gapStart = i;
-                }
-                else if (!isN && gapStart >= 0)
-                {
-                    // End of gap
-                    int gapLength = i - gapStart;
-                    if (gapLength >= minGapLength)
-                    {
-                        gaps.Add(new GapInfo(id, gapStart, i - 1, gapLength, ClassifyGap(gapLength)));
-                    }
-                    contigStart = i;
-                    gapStart = -1;
-                }
-            }
-
-            // Handle final contig
-            if (gapStart < 0 && contigStart < sequence.Length)
-            {
-                contigs.Add(($"{id}_contig{contigId}", contigStart, sequence.Length - 1));
-            }
-
-            int totalContigLength = contigs.Sum(c => c.Item3 - c.Item2 + 1);
-            int totalGapLen = gaps.Sum(g => g.Length);
+            var gaps = runs
+                .Select(r => new GapInfo(id, r.Start, r.Start + r.Length - 1, r.Length, ClassifyGap(r.Length)))
+                .ToList();
 
             yield return new ScaffoldStructure(
                 id, contigs, gaps,
-                sequence.Length, totalContigLength, totalGapLen);
+                sequence.Length,
+                pieces.Sum(p => p.End - p.Start),
+                runs.Sum(r => r.Length));
         }
     }
 
     /// <summary>
     /// Extracts contigs from scaffolds.
     /// </summary>
+    /// <remarks>
+    /// Port of QUAST "broken scaffolds" (<c>qutils.split_by_ns</c> followed by the
+    /// <c>--min-contig</c> length filter of <c>correct_fasta</c>): each scaffold is cut at every maximal
+    /// N-run of length ≥ <paramref name="minGapLength"/> (default <see cref="DefaultScaffoldGapMinLength"/>
+    /// = 10, QUAST <c>Ns_break_threshold</c> and the NCBI assembly-gap convention; pass 1 to cut at every
+    /// N); shorter N-runs stay inside the contig. Contigs of length ≥ <paramref name="minContigLength"/>
+    /// are returned in scaffold order, named <c>{id}_contig{n}</c> with n counting the returned contigs
+    /// (QUAST also counts the dropped ones). The contigs are exactly those of
+    /// <see cref="AnalyzeScaffolds"/> with the same <paramref name="minGapLength"/>; case is preserved.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="scaffolds"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minContigLength"/> &lt; 0 or
+    /// <paramref name="minGapLength"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentException">A sequence is null (raised during enumeration).</exception>
     public static IEnumerable<(string Id, string Sequence)> ExtractContigs(
         IEnumerable<(string Id, string Sequence)> scaffolds,
-        int minContigLength = 200)
+        int minContigLength = 200,
+        int minGapLength = DefaultScaffoldGapMinLength)
     {
-        foreach (var (id, sequence) in scaffolds)
+        ArgumentNullException.ThrowIfNull(scaffolds);
+        if (minContigLength < 0)
+            throw new ArgumentOutOfRangeException(nameof(minContigLength), minContigLength,
+                "The minimum contig length cannot be negative.");
+        ValidateMinGapLength(minGapLength);
+        return ExtractContigsIterator(scaffolds, minContigLength, minGapLength);
+    }
+
+    private static IEnumerable<(string Id, string Sequence)> ExtractContigsIterator(
+        IEnumerable<(string Id, string Sequence)> scaffolds, int minContigLength, int minGapLength)
+    {
+        foreach (var entry in scaffolds)
         {
-            var contigs = new List<(int Start, int End)>();
-            int contigStart = -1;
-
-            for (int i = 0; i <= sequence.Length; i++)
-            {
-                bool isN = i < sequence.Length && (sequence[i] == 'N' || sequence[i] == 'n');
-
-                if (!isN && contigStart < 0)
-                {
-                    contigStart = i;
-                }
-                else if (isN && contigStart >= 0)
-                {
-                    if (i - contigStart >= minContigLength)
-                    {
-                        contigs.Add((contigStart, i));
-                    }
-                    contigStart = -1;
-                }
-            }
-
-            if (contigStart >= 0 && sequence.Length - contigStart >= minContigLength)
-            {
-                contigs.Add((contigStart, sequence.Length));
-            }
-
+            string sequence = RequireSequence(entry, nameof(scaffolds));
             int contigNum = 1;
-            foreach (var (start, end) in contigs)
+            foreach (var (start, end) in SplitAtGaps(sequence, minGapLength).Contigs)
             {
-                yield return ($"{id}_contig{contigNum++}", sequence[start..end]);
+                if (end - start >= minContigLength)
+                    yield return ($"{entry.Id}_contig{contigNum++}", sequence[start..end]);
             }
         }
     }
@@ -1174,35 +1235,65 @@ public static class GenomeAssemblyAnalyzer
     /// <summary>
     /// Filters sequences by length.
     /// </summary>
+    /// <remarks>
+    /// Keeps, in input order, the sequences with <c>minLength ≤ length ≤ maxLength</c> (both bounds
+    /// inclusive, as QUAST <c>--min-contig</c> <c>len(seq) &gt;= min_contig</c> and
+    /// <c>seqkit seq -m/-M</c>); length counts every character, N included. A minimum above the
+    /// maximum yields nothing.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">A sequence is null (raised during enumeration).</exception>
     public static IEnumerable<(string Id, string Sequence)> FilterByLength(
         IEnumerable<(string Id, string Sequence)> sequences,
         int minLength = 0,
         int maxLength = int.MaxValue)
     {
-        return sequences.Where(s => s.Sequence.Length >= minLength && s.Sequence.Length <= maxLength);
+        ArgumentNullException.ThrowIfNull(sequences);
+        return sequences.Where(s =>
+        {
+            int length = RequireSequence(s, nameof(sequences)).Length;
+            return length >= minLength && length <= maxLength;
+        });
     }
 
     /// <summary>
-    /// Sorts sequences by length descending.
+    /// Sorts sequences by length (descending by default).
     /// </summary>
+    /// <remarks>
+    /// Stable: sequences of equal length keep their input order (LINQ <c>OrderBy</c>/<c>OrderByDescending</c>).
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">A sequence is null (raised during enumeration).</exception>
     public static IEnumerable<(string Id, string Sequence)> SortByLength(
         IEnumerable<(string Id, string Sequence)> sequences,
         bool descending = true)
     {
+        ArgumentNullException.ThrowIfNull(sequences);
+        var checkedSequences = sequences.Select(s => (s.Id, Sequence: RequireSequence(s, nameof(sequences))));
         return descending ?
-            sequences.OrderByDescending(s => s.Sequence.Length) :
-            sequences.OrderBy(s => s.Sequence.Length);
+            checkedSequences.OrderByDescending(s => s.Sequence.Length) :
+            checkedSequences.OrderBy(s => s.Sequence.Length);
     }
 
     /// <summary>
-    /// Calculates sequence length distribution.
+    /// Calculates the sequence length histogram: bin "&lt;b" counts lengths in [previous bound, b)
+    /// and "&gt;=last" counts lengths at or above the last bound.
     /// </summary>
+    /// <param name="lengths">Sequence lengths.</param>
+    /// <param name="bins">Strictly increasing upper bounds (empty → 100, 500, 1 000, …, 1 000 000).</param>
+    /// <exception cref="ArgumentException"><paramref name="bins"/> is not strictly increasing
+    /// (an unsorted bound list would put a length in the first larger bound, not its own bin).</exception>
     public static IReadOnlyDictionary<string, int> CalculateLengthDistribution(
         IEnumerable<int> lengths,
         params int[] bins)
     {
         if (bins.Length == 0)
             bins = new[] { 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000 };
+        for (int i = 1; i < bins.Length; i++)
+        {
+            if (bins[i] <= bins[i - 1])
+                throw new ArgumentException("Bin upper bounds must be strictly increasing.", nameof(bins));
+        }
 
         var distribution = bins.ToDictionary(b => $"<{b}", _ => 0);
         distribution[$">={bins[^1]}"] = 0;

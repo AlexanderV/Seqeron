@@ -2,8 +2,8 @@
 
 - **Validated:** 2026-06-25   **Area:** MiRNA
 - **Canonical method(s):** `MiRnaAnalyzer.PredictDroshaDicerCleavage(string sequence, int basalJunction)` → `DroshaDicerCleavage?`
-- **Stage A verdict:** ✅ PASS
-- **Stage B verdict:** 🟡 PASS-WITH-NOTES
+- **Stage A verdict:** ✅ PASS (2026-06-25) → 🟡 PASS-WITH-NOTES (B13 re-review 2026-11-25)
+- **Stage B verdict:** 🟡 PASS-WITH-NOTES (2026-06-25) → ❌ FAIL → FIXED (B13 F27–F30, 2026-11-25; see the last section)
 - **State:** ✅ CLEAN
 
 Source: `src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs` (region "Drosha/Dicer cleavage-site prediction", ~L2021–2185).
@@ -109,3 +109,33 @@ Single public overload; no `*Fast`/instance variant. N/A.
 ## Runtime enforcement (LimitationPolicy)
 
 This unit's guarded branch — the approximate linear 3p/star (miRNA\*) span (the 5p Drosha/Dicer cut is exact) — has **minimum access mode `Permissive`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it throws `SeqeronLimitationException` (this guarded branch is allowed only under `Permissive`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.
+
+
+## B13 re-review (2026-11-25) — FAIL → FIXED (F27–F30)
+
+The 2026-06-25 verdict accepted a model that did not fold the hairpin. Re-checked against the sources:
+
+- **F27 — 3p product on the wrong arm.** The "star" was the 5p span shifted +2 nt on the 5' arm. The
+  published rule (2-nt 3' overhang across the duplex) needs the structure; miRDeep2 `find_star` and
+  Auyeung et al. 2013 (cleavage sites inferred from RNAfold of hairpin ± 20 nt with a 2-nt 3' overhang)
+  implement it. Now: 3p 3' end = partner(5p start) + 2, 3p start = partner(5p end − 2) with bulge
+  compensation. The method also threw under the default `Moderate` LimitationPolicy mode.
+- **F28 — the Drosha ruler counted nucleotides.** Han 2006 counts ~11 bp; the code added 11 nt to the
+  junction. On real pri-miRNAs (junction 11 bp below the annotated 5p start, RNAfold structure) the old
+  5' cut missed by −10 (mir-16-1), −5 (mir-30a), −4/−5 (let-7a-1), −3 (mir-21), −1 (mir-155) nt.
+- **F29 — CNNC measured from the wrong site.** Auyeung numbers positive positions downstream of the 3p
+  Drosha cut; the code scanned 16–18 nt 3' of the 5p cut (inside the 5p product) and missed the CNNC of
+  mir-16-1 and mir-30a (the paper's own examples). Basal UG (−14/−13) flag added. Apical UGU/GUG has no
+  positional rule in the text (documented, not flagged).
+- **F30 — no stem required; 3' counting missing.** Poly-A returned "ruler coordinates"; now a junction that
+  is not the 5' base of a ≥ 12-pair stem gives null, a malformed structure throws. Park 2011 3' counting
+  added as `DicerCountingRule.ThreePrimeCounting`.
+
+Oracle (miRBase + UCSC hg38 + ViennaRNA 2.8; predicted − annotated, 5p start/end | 3p start/end):
+mir-21 0/−2 | +1/−1; let-7a-1 +1/0 | −1/0; mir-16-1 0/0 | 0/+1; mir-30a 0/0 | +2/0; mir-155 0/−2 | +2/0.
+The old linear model put the 3p of every hairpin on the 5' arm (e.g. mir-21 `GCUUAUC…` vs miRBase 3p
+`CAACACCAGUCGAUGGGCUGUCU`). Tests: DD1–DD14 rewritten; heavy-tier cleavage classes updated.
+
+Runtime enforcement: `LimitationPolicy.Enforce("MIRNA-CLEAVAGE-001")` was removed from the method (no
+approximate branch remains). The catalog entry in `LimitationPolicy.cs`, its `LIMITATIONS.md` rows and
+`LimitationPolicy_Strict_Tests` section 5 are Core-owned and were filed as a cross-batch request.

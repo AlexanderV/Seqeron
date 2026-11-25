@@ -3041,19 +3041,20 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_stem_loops", Title = "RNA — Find Stem-Loops", ReadOnly = true)]
-    [Description("Enumerates hairpin stem-loop candidates with stem, loop, and Turner 2004 free energy.")]
+    [Description("Enumerates hairpin stem-loop candidates (one per hairpin loop) with stem, loop, and Turner 2004 free energy of the isolated stem-loop (ViennaRNA eval_structure counterpart). DNA T is read as U; non-ACGU symbols never pair.")]
     public static FindStemLoopsResult FindStemLoops(
         [Description("RNA sequence.")] string rnaSequence,
         [Description("Minimum stem length (default 3).")] int minStemLength = 3,
         [Description("Minimum loop size (default 3).")] int minLoopSize = 3,
         [Description("Maximum loop size (default 10).")] int maxLoopSize = 10,
-        [Description("Allow G-U wobble pairs in the stem (default true).")] bool allowWobble = true)
+        [Description("Allow G-U wobble pairs in the stem (default true).")] bool allowWobble = true,
+        [Description("0 (default) = perfect stems only; > 0 = the stem is the minimum-free-energy unbranched chain and may contain bulges/internal loops of up to this many unpaired nucleotides.")] int maxInternalLoopSize = 0)
     {
         if (string.IsNullOrEmpty(rnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
 
         var items = RnaSecondaryStructure
-            .FindStemLoops(rnaSequence, minStemLength, minLoopSize, maxLoopSize, allowWobble)
+            .FindStemLoops(rnaSequence, minStemLength, minLoopSize, maxLoopSize, allowWobble, maxInternalLoopSize)
             .Select(ToItem)
             .ToArray();
         return new FindStemLoopsResult(items);
@@ -3075,7 +3076,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "terminal_mismatch_energy", Title = "RNA — Terminal Mismatch Energy", ReadOnly = true)]
-    [Description("Closing-pair × first-mismatch terminal stacking energy (Turner 2004).")]
+    [Description("Closing-pair × first-mismatch terminal stacking energy (Turner 2004, exterior/multibranch helix ends; unknown mismatch base = max over A/C/G/U as in ViennaRNA).")]
     public static TerminalMismatchEnergyResult TerminalMismatchEnergy(
         [Description("Closing pair 5' base (length-1 string).")] string closingBase5,
         [Description("Closing pair 3' base (length-1 string).")] string closingBase3,
@@ -3090,7 +3091,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "dangling_end_energy", Title = "RNA — Dangling-End Energy", ReadOnly = true)]
-    [Description("5' or 3' dangling-end stacking energy for an RNA helix end.")]
+    [Description("5' or 3' dangling-end stacking energy for an RNA helix end (Turner 2004; 3' dangle sits 3' of closingBase5, 5' dangle 5' of closingBase3; unknown base = max over A/C/G/U as in ViennaRNA).")]
     public static DanglingEndEnergyResult DanglingEndEnergy(
         [Description("Closing pair 5' base (length-1 string).")] string closingBase5,
         [Description("Closing pair 3' base (length-1 string).")] string closingBase3,
@@ -3146,15 +3147,16 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "bulge_loop_energy", Title = "RNA — Bulge Loop Energy", ReadOnly = true)]
-    [Description("Free energy of an RNA bulge loop (special-C bonus, n=1 stacking, degeneracy entropy from numStates).")]
+    [Description("Free energy of an RNA bulge loop (Turner 2004 / NNDB: initiation, n=1 stacking, special-C bonus, degeneracy entropy from numStates; n>1 AU/GU closure penalties).")]
     public static BulgeLoopEnergyResult BulgeLoopEnergy(
-        [Description("Number of unpaired bases in the bulge.")] int bulgeSize,
+        [Description("Number of unpaired bases in the bulge (>= 1).")] int bulgeSize,
         [Description("Bulged base (length-1 string).")] string bulgedBase,
         [Description("5' base of the pair on the 5' side.")] string pair5_base1,
         [Description("3' base of the pair on the 5' side.")] string pair5_base2,
         [Description("5' base of the pair on the 3' side.")] string pair3_base1,
         [Description("3' base of the pair on the 3' side.")] string pair3_base2,
-        [Description("Number of equivalent states for degeneracy entropy (default 1).")] int numStates = 1)
+        [Description("Number of equivalent states for degeneracy entropy (default 1).")] int numStates = 1,
+        [Description("Strand of the bulge: true = between pair5_base1 and pair3_base1 (5' strand), false = between pair3_base2 and pair5_base2 (3' strand). Needed for the NNDB special-C rule (bulged C adjacent to a paired C on its strand); omitted = the bonus applies only if it holds on both strands.")] bool? bulgeOn5PrimeStrand = null)
     {
         return new BulgeLoopEnergyResult(RnaSecondaryStructure.CalculateBulgeLoopEnergy(
             bulgeSize,
@@ -3163,23 +3165,35 @@ public class AnalysisTools
             RequireChar(pair5_base2, nameof(pair5_base2)),
             RequireChar(pair3_base1, nameof(pair3_base1)),
             RequireChar(pair3_base2, nameof(pair3_base2)),
-            numStates));
+            numStates,
+            bulgeOn5PrimeStrand));
     }
 
     [McpServerTool(Name = "multibranch_loop_energy", Title = "RNA — Multibranch Loop Energy", ReadOnly = true)]
-    [Description("Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain).")]
+    [Description("Free energy of an RNA multibranch loop. Without unpairedBetweenHelices: the linear Turner 2004 dynamic-programming model used by the MFE/partition-function engines, 9.3 + 0*unpaired - 0.9*helices (+ stackingEnergy). With unpairedBetweenHelices: the NNDB Turner 2004 efn2 model, 9.25 + 0.91*min(2, average asymmetry) - 0.63*helices + 3.14 strain (3-way, < 2 unpaired) (+ stackingEnergy).")]
     public static MultibranchLoopEnergyResult MultibranchLoopEnergy(
-        [Description("Number of helical branches.")] int numHelices,
+        [Description("Number of helices in the loop, the closing helix included (>= 3).")] int numHelices,
         [Description("Total unpaired nucleotides in the loop.")] int numUnpaired,
-        [Description("True if the junction has steric strain (default false).")] bool hasStrain = false,
-        [Description("Pre-computed optimal stacking/dangling end energy (default 0).")] double stackingEnergy = 0.0)
+        [Description("Strain flag of the NNDB efn2 model; only valid with unpairedBetweenHelices, where it must match the derived strain (3-way loop with < 2 unpaired). Default false.")] bool hasStrain = false,
+        [Description("Pre-computed optimal stacking/dangling end energy (default 0).")] double stackingEnergy = 0.0,
+        [Description("Optional NNDB efn2 input: unpaired nucleotides between consecutive helices, read 5'->3' around the loop starting after the closing pair (length = numHelices, sum = numUnpaired).")] int[]? unpairedBetweenHelices = null)
     {
+        if (unpairedBetweenHelices is null)
+            return new MultibranchLoopEnergyResult(RnaSecondaryStructure.CalculateMultibranchLoopEnergy(
+                numHelices, numUnpaired, hasStrain, stackingEnergy));
+
+        if (unpairedBetweenHelices.Length != numHelices)
+            throw new ArgumentException("unpairedBetweenHelices must have one entry per helix (numHelices).", nameof(unpairedBetweenHelices));
+        if (unpairedBetweenHelices.Sum() != numUnpaired)
+            throw new ArgumentException("unpairedBetweenHelices must sum to numUnpaired.", nameof(unpairedBetweenHelices));
+        if (hasStrain != (numHelices == 3 && numUnpaired < 2))
+            throw new ArgumentException("hasStrain must equal the NNDB strain condition (3-way loop with fewer than 2 unpaired nucleotides).", nameof(hasStrain));
         return new MultibranchLoopEnergyResult(RnaSecondaryStructure.CalculateMultibranchLoopEnergy(
-            numHelices, numUnpaired, hasStrain, stackingEnergy));
+            unpairedBetweenHelices, stackingEnergy));
     }
 
     [McpServerTool(Name = "flush_coaxial_stacking", Title = "RNA — Flush Coaxial Stacking", ReadOnly = true)]
-    [Description("Coaxial stacking energy for two RNA helices with no intervening unpaired bases.")]
+    [Description("Flush coaxial stacking energy of two RNA helices with no intervening unpaired bases (NNDB Turner 2004: the helical WC/GU stack of pair (base5_1,base3_1) followed by pair (base5_2,base3_2)).")]
     public static FlushCoaxialStackingResult FlushCoaxialStacking(
         [Description("5' base of first helix end.")] string base5_1,
         [Description("3' base of first helix end.")] string base3_1,
@@ -3194,7 +3208,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "mismatch_coaxial_stacking", Title = "RNA — Mismatch Coaxial Stacking", ReadOnly = true)]
-    [Description("Mismatch-mediated coaxial stacking energy: terminal mismatch + base + WC/GU bonus.")]
+    [Description("Mismatch-mediated coaxial stacking energy (NNDB Turner 2004): terminal mismatch - 2.1, plus -0.4 / -0.2 when the mismatch could form a Watson-Crick / G-U pair.")]
     public static MismatchCoaxialStackingResult MismatchCoaxialStacking(
         [Description("Closing pair 5' base.")] string closingBase5,
         [Description("Closing pair 3' base.")] string closingBase3,
@@ -3220,8 +3234,35 @@ public class AnalysisTools
         return new MinimumFreeEnergyResult(RnaSecondaryStructure.CalculateMinimumFreeEnergy(rnaSequence, minLoopSize));
     }
 
+    [McpServerTool(Name = "rna_structure_energy", Title = "RNA — Structure Free Energy (eval)", ReadOnly = true)]
+    [Description("Turner 2004 free energy (kcal/mol) of a given pseudoknot-free dot-bracket structure, loop by loop with the same model as minimum_free_energy (ViennaRNA RNAeval -d2 counterpart).")]
+    public static RnaStructureEnergyResult RnaStructureEnergy(
+        [Description("RNA sequence (T read as U, case-insensitive).")] string rnaSequence,
+        [Description("Dot-bracket structure of the same length using only '(', ')' and '.'.")] string dotBracket)
+    {
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+        if (dotBracket is null)
+            throw new ArgumentException("Structure cannot be null", nameof(dotBracket));
+
+        return new RnaStructureEnergyResult(RnaSecondaryStructure.CalculateFreeEnergy(rnaSequence, dotBracket));
+    }
+
+    [McpServerTool(Name = "rna_mfe_structure", Title = "RNA — MFE Secondary Structure (fold)", ReadOnly = true)]
+    [Description("Minimum-free-energy secondary structure (Zuker DP traceback, Turner 2004, dangles d2; ViennaRNA RNAfold counterpart): dot-bracket, base pairs and MFE (kcal/mol, equals minimum_free_energy). T read as U, case-insensitive.")]
+    public static RnaMfeStructureResult RnaMfeStructure(
+        [Description("RNA sequence (T read as U, case-insensitive; other characters never pair).")] string rnaSequence,
+        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+
+        var s = RnaSecondaryStructure.PredictStructureMfe(rnaSequence, minLoopSize);
+        return new RnaMfeStructureResult(s.Sequence, s.DotBracket, s.BasePairs.Select(ToItem).ToArray(), s.MinimumFreeEnergy);
+    }
+
     [McpServerTool(Name = "predict_rna_structure", Title = "RNA — Predict Secondary Structure", ReadOnly = true)]
-    [Description("Greedy non-overlapping stem-loop selection — produces dot-bracket notation, base pairs, stems, pseudoknots, and total MFE.")]
+    [Description("Stem-loop assembly: the lowest-free-energy set of non-overlapping hairpin stem-loops (perfect stems ≥ minStemLength, loops minLoopSize..maxLoopSize) — dot-bracket, base pairs, stem-loops and the structure's free energy (kcal/mol). No multiloops or interior loops: for the true MFE fold use rna_mfe_structure.")]
     public static PredictRnaStructureResult PredictRnaStructure(
         [Description("RNA sequence.")] string rnaSequence,
         [Description("Minimum stem length (default 3).")] int minStemLength = 3,

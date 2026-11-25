@@ -195,7 +195,7 @@ public class SequenceAssembler_Scaffold_Tests
     {
         var contigs = new[] { "AA" };
 
-        Assert.That(() => SequenceAssembler.Scaffold(contigs, null!),
+        Assert.That(() => SequenceAssembler.Scaffold(contigs, (IReadOnlyList<(int, int, int)>)null!),
             NUnit.Framework.Throws.TypeOf<ArgumentNullException>(),
             "Null links is invalid input and must throw ArgumentNullException.");
     }
@@ -255,6 +255,136 @@ public class SequenceAssembler_Scaffold_Tests
 
         Assert.That(scaffolds, Is.Empty,
             "No contigs means no scaffolds.");
+    }
+
+    #endregion
+
+    #region Greedy path selection, orientation and overlaps (B10 review, F16-F18)
+
+    // Expected values below were produced by the independent Python oracle recorded in
+    // docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md (Huson, Reinert & Myers 2002 Algorithm 5.1
+    // greedy over contig end nodes; Biopython reverse complement; ABySS MergeContigs overlap rule;
+    // NCBI AGP v2.1 unknown gap = 100).
+
+    private static string Gap(int n) => new('N', n);
+
+    // F16 — a link INTO a lower-index contig was dropped because scaffolds were started at every
+    // unused index in ascending order (old: ["AA","TT"]).
+    [Test]
+    public void Scaffold_LinkIntoLowerIndexContig_IsJoined()
+    {
+        var scaffolds = SequenceAssembler.Scaffold(new[] { "AA", "TT" }, new[] { (1, 0, 2) });
+        Assert.That(scaffolds, Is.EqualTo(new[] { "TTNNAA" }));
+    }
+
+    [Test]
+    public void Scaffold_PredecessorOfFirstContig_StartsTheScaffold()
+    {
+        var scaffolds = SequenceAssembler.Scaffold(new[] { "AA", "CC", "GG" }, new[] { (2, 0, 1), (0, 1, 1) });
+        Assert.That(scaffolds, Is.EqualTo(new[] { "GGNAANCC" }), "path 2→0→1 (old: AANCC, GG)");
+    }
+
+    // A second successor at an already-joined end is a conflict and is not used (old code
+    // skipped the placed target and took the next link: CCNGG).
+    [Test]
+    public void Scaffold_SecondSuccessorOfJoinedEnd_IsRejected()
+    {
+        var scaffolds = SequenceAssembler.Scaffold(new[] { "AA", "CC", "GG" }, new[] { (1, 0, 1), (1, 2, 1) });
+        Assert.That(scaffolds, Is.EqualTo(new[] { "CCNAA", "GG" }));
+    }
+
+    [Test]
+    public void Scaffold_HeavierLinkWins_RegardlessOfInputOrder()
+    {
+        var contigs = new[] { "AAAA", "CCCC", "GGGG" };
+        var links = new[]
+        {
+            new SequenceAssembler.ScaffoldLink(0, 1, 2, Weight: 1),
+            new SequenceAssembler.ScaffoldLink(0, 2, 3, Weight: 5),
+        };
+        Assert.That(SequenceAssembler.Scaffold(contigs, links), Is.EqualTo(new[] { "AAAANNNGGGG", "CCCC" }),
+            "mate-edges are taken in descending weight (Huson et al. 2002 Alg. 5.1)");
+    }
+
+    [Test]
+    public void Scaffold_CycleClosingLink_IsRejected()
+    {
+        var scaffolds = SequenceAssembler.Scaffold(new[] { "AA", "CC", "GG" }, new[] { (2, 0, 1), (0, 1, 1), (1, 2, 1) });
+        Assert.That(scaffolds, Is.EqualTo(new[] { "GGNAANCC" }), "1→2 would close the cycle 2→0→1→2");
+    }
+
+    [TestCase(false, true, "AACGNNNGCAA")]
+    [TestCase(true, false, "GCAANNNAACG")]
+    [TestCase(true, true, "TTGCNNNAACG")]
+    public void Scaffold_OrientedLink_ReverseComplementsContigs(bool rev1, bool rev2, string expected)
+    {
+        var links = new[] { new SequenceAssembler.ScaffoldLink(0, 1, 3, rev1, rev2) };
+        Assert.That(SequenceAssembler.Scaffold(new[] { "AACG", "TTGC" }, links), Is.EqualTo(new[] { expected }));
+    }
+
+    [Test]
+    public void Scaffold_OrientedChain_FollowsBidirectedPath()
+    {
+        var contigs = new[] { "ACCA", "GGTT", "CATG" };
+        var consistent = new[]
+        {
+            new SequenceAssembler.ScaffoldLink(0, 1, 2, Contig2Reversed: true),
+            new SequenceAssembler.ScaffoldLink(1, 2, 4, Contig1Reversed: true),
+        };
+        var inconsistent = new[]
+        {
+            new SequenceAssembler.ScaffoldLink(0, 1, 2, Contig2Reversed: true),
+            new SequenceAssembler.ScaffoldLink(1, 2, 4),
+        };
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.Scaffold(contigs, consistent), Is.EqualTo(new[] { "ACCANNAACCNNNNCATG" }));
+            Assert.That(SequenceAssembler.Scaffold(contigs, inconsistent), Is.EqualTo(new[] { "ACCANNAACC", "CATG" }),
+                "1+→2+ needs contig 1's 3′ end, already joined to contig 0");
+        });
+    }
+
+    [TestCase("ACGTAC", "TACGGA", "ACGTACGGA")]
+    [TestCase("ACGTNC", "TACGGA", "ACGTACGGA")]
+    public void Scaffold_NegativeGapWithAgreeingOverlap_IsCollapsed(string a, string b, string expected)
+    {
+        Assert.That(SequenceAssembler.Scaffold(new[] { a, b }, new[] { (0, 1, -3) }), Is.EqualTo(new[] { expected }),
+            "an overlap of −d agreeing bases is merged (Jackman et al. 2017; ABySS MergeContigs)");
+    }
+
+    [Test]
+    public void Scaffold_NegativeGapWithMismatchedOverlap_EmitsUnknownGap()
+    {
+        Assert.That(SequenceAssembler.Scaffold(new[] { "ACGTAC", "TTCGGA" }, new[] { (0, 1, -3) }),
+            Is.EqualTo(new[] { "ACGTAC" + Gap(100) + "TTCGGA" }));
+    }
+
+    [Test]
+    public void Scaffold_NegativeGapOverlapOnReverseComplement_IsCollapsed()
+    {
+        var links = new[] { new SequenceAssembler.ScaffoldLink(0, 1, -2, Contig2Reversed: true) };
+        Assert.That(SequenceAssembler.Scaffold(new[] { "GGATCC", "TTTGG" }, links), Is.EqualTo(new[] { "GGATCCAAA" }));
+    }
+
+    [Test]
+    public void Scaffold_OverlapThenGap_Chain()
+    {
+        var scaffolds = SequenceAssembler.Scaffold(new[] { "AAACG", "CGTTT", "GGGG" }, new[] { (0, 1, -2), (1, 2, 3) });
+        Assert.That(scaffolds, Is.EqualTo(new[] { "AAACGTTTNNNGGGG" }));
+    }
+
+    [Test]
+    public void Scaffold_ScaffoldsOrderedByLowestContigIndex()
+    {
+        Assert.That(SequenceAssembler.Scaffold(new[] { "AAA", "CCC", "GGG" }, new[] { (2, 1, 4) }),
+            Is.EqualTo(new[] { "AAA", "GGGNNNNCCC" }));
+    }
+
+    [Test]
+    public void Scaffold_LinkWeightBelowOne_Throws()
+    {
+        var links = new[] { new SequenceAssembler.ScaffoldLink(0, 1, 3, Weight: 0) };
+        Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.Scaffold(new[] { "AA", "CC" }, links));
     }
 
     #endregion

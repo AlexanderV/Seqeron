@@ -232,4 +232,193 @@ public class RnaSecondaryStructure_MinimumFreeEnergy_Tests
     }
 
     #endregion
+
+    #region RNA-MFE-001 review 2026-11: contracts vs ViennaRNA 2.7.2 RNA.fold
+
+    // Expected values: ViennaRNA 2.7.2 RNA.fold / fold_compound(seq, md).mfe() with md.dangles = 2, md.noLP = 0
+    // (defaults) and the NNDB-precision Turner 2004 parameter file (Evidence RNA-STRUCT-001 §12.2), checked with
+    // GGGAAAACCC (((....))) = −2.02. Each sequence below contains no NNDB-only motif, so ours = RNA.fold exactly.
+
+    private static void AssertFold(string seq, string expectedDb, double expectedMfe)
+    {
+        var mfe = CalculateMfeStructure(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateMinimumFreeEnergy(seq), Is.EqualTo(expectedMfe).Within(1e-9), $"MFE of {seq}");
+            Assert.That(mfe.DotBracket, Is.EqualTo(expectedDb), $"MFE structure of {seq}");
+            Assert.That(mfe.FreeEnergy, Is.EqualTo(expectedMfe).Within(1e-9), "traceback energy = scalar MFE");
+            Assert.That(CalculateFreeEnergy(seq, mfe.DotBracket), Is.EqualTo(expectedMfe).Within(1e-9),
+                "eval of the reported structure = MFE");
+        });
+    }
+
+    // Input alphabet: lower case, DNA T (= U), and characters ViennaRNA encodes as 0 (N, IUPAC, '-', '.', X, I)
+    // never pair but take the max-over-bases mismatch/dangle value (default.c N rows) — RNA.fold on the raw string.
+    [TestCase("gggaaaaccc", "(((....)))", -2.02)]
+    [TestCase("GGGTTTTCCC", "(((....)))", -2.52)]
+    [TestCase("GGGAAATCCC", "(((....)))", -2.42)]
+    [TestCase("GGGNNNNCCC", "(((....)))", -1.42)]
+    [TestCase("GGGRYAACCC", "(((....)))", -2.02)]
+    [TestCase("GGG-AAA-CCC", "(((.....)))", -1.32)]
+    [TestCase("GGG..AAA.CCC", "(((......)))", -1.62)]
+    [TestCase("GGGXAAAACCC", "(((.....)))", -1.92)]
+    [TestCase("NNNNNNNNNN", "..........", 0.0)]
+    [TestCase("A", ".", 0.0)]
+    [TestCase("GGGAC", ".....", 0.0)]
+    public void RnaMfe001_InputAlphabet_MatchesViennaRnaFold(string seq, string db, double mfe)
+        => AssertFold(seq, db, mfe);
+
+    // minLoopSize = ViennaRNA md.min_loop_size: values 0..2 behave exactly as 3 (RNA.fold identical — hairpins < 3 nt
+    // are INF in eval_hairpin.c), larger values forbid shorter hairpins.
+    [TestCase("GGGGACCCC", 0, "(((...)))", -1.12)]
+    [TestCase("GGGGACCCC", 3, "(((...)))", -1.12)]
+    [TestCase("GGGGACCCC", 4, ".........", 0.0)]
+    [TestCase("GGGGAAACCCC", 2, "((((...))))", -4.38)]
+    [TestCase("GGGGAAACCCC", 4, "(((....))).", -4.22)]
+    [TestCase("GGGGAAACCCC", 5, "(((.....)))", -2.32)]
+    [TestCase("GGGGAAAACCCC", 5, "(((.....))).", -4.12)]
+    [TestCase("GGGGAAAAACCCC", 5, "((((.....))))", -5.18)]
+    public void RnaMfe001_MinLoopSize_MatchesViennaRnaMinLoopSize(string seq, int minLoop, string db, double mfe)
+    {
+        var s = CalculateMfeStructure(seq, minLoop);
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateMinimumFreeEnergy(seq, minLoop), Is.EqualTo(mfe).Within(1e-9));
+            Assert.That(s.DotBracket, Is.EqualTo(db));
+            Assert.That(s.FreeEnergy, Is.EqualTo(mfe).Within(1e-9));
+        });
+    }
+
+    // MAXLOOP = 30 (ViennaRNA MAXLOOP, the bound on bulge/interior loop size n1 + n2): a 30-nt bulge closes the outer helix, a 31-nt one cannot
+    // (and a 15×16 interior loop cannot either) — RNA.fold gives the same structures.
+    [TestCase("GGGACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCGCGAAAACGCGCGUCCC",
+        "(((((..............................(((((....))))))))))", -12.07)]
+    [TestCase("GGGACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCGCGAAAACGCGCGUCCC",
+        "....................................(((((....))))).....", -8.46)]
+    [TestCase("GGGACAAAAAAAAAAAAAAAAGCGCGAAAACGCGCAAAAAAAAAAAAAAAGUCCC",
+        ".....................(((((....)))))....................", -8.56)]
+    public void RnaMfe001_MaxLoop30_MatchesViennaRnaFold(string seq, string db, double mfe)
+        => AssertFold(seq, db, mfe);
+
+    // Lonely (isolated) pairs are allowed (ViennaRNA default md.noLP = 0): the MFE structure has the lonely pair
+    // at 16·34 and equals RNA.fold.
+    [Test]
+    public void RnaMfe001_LonelyPairsAllowed_AsViennaRnaNoLP0()
+        => AssertFold("ACGUAUGAUGAUCGUAGAGCAUCUACACGAUGAGCGACGCGUCUCUGUAC",
+            "..((((((.((((((.(..((((.....))))..).))).))))).))))", -10.87);
+
+    // G·U pair closing a helix towards the exterior loop: terminal GU penalty + exterior terminal mismatch (d2).
+    [Test]
+    public void RnaMfe001_GuHelixEnd_MatchesViennaRnaFold()
+        => AssertFold("ACGUCGAUGCAGAUAU", "..(((......)))..", -0.96);
+
+    // Multiloop-containing 240-nt sequence (no repeated neighbours, so no NNDB-only bulge degeneracy terms):
+    // exact RNA.fold structure and energy.
+    [Test]
+    public void RnaMfe001_Random240nt_MatchesViennaRnaFold()
+        => AssertFold(
+            "AGCUACUCAUCAGUCAUGCUGACUCUGUAUACGCUCAGCUCUCAGUGUCGCAUCACGCAUCAUGUAGCACAUGCUGAUCUGUCAGUCAUACAGAGUCGCGACUAGCGCUGACUAUGAUAGCUCACGUGACACGUAUACAUCGUACUAUCAGUCUCGACUAGCUACUGCUCUGCUCGCGUCGUGAUGAUCUGACUCUAGUCUAGAUCUCGUGACUGAGCGAUGUCUAGCUCGCUGUAGAGC",
+            "(((((.((((.(((((((((((((((((((((...(((.((.((((((.((((........)))).)))).))..)).)))...)).))))))))))......)))).)))))))))))))).((((...))))..(((((((....((((((.(((..(((....)))....((((...)))).((((((((....))).)))))))).)))))))))))))...((((......))))",
+            -79.91);
+
+    // Degenerate optimum (tie): RNA.fold reports '....((....))...........' (−1.52); ours reports another structure of
+    // the same energy, deterministically, valid, and RNA.eval_structure of it is also −1.52.
+    [Test]
+    public void RnaMfe001_Tie_DeterministicValidStructureWithMfeEnergy()
+    {
+        const string seq = "GUGCGCGAUAGCUGAGAUACUAU";
+        var a = CalculateMfeStructure(seq);
+        var b = CalculateMfeStructure(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.DotBracket, Is.EqualTo("..((......))..........."));
+            Assert.That(b.DotBracket, Is.EqualTo(a.DotBracket), "deterministic traceback");
+            Assert.That(a.FreeEnergy, Is.EqualTo(-1.52).Within(1e-9));
+            Assert.That(CalculateFreeEnergy(seq, a.DotBracket), Is.EqualTo(-1.52).Within(1e-9));
+            Assert.That(CalculateFreeEnergy(seq, "....((....))..........."), Is.EqualTo(-1.52).Within(1e-9),
+                "RNA.fold's tied structure has the same energy");
+        });
+    }
+
+    // PredictStructure (stem-loop assembly). Defect fixed in RNA-MFE-001: the old greedy pass (sorted by the isolated
+    // stem-loop energy) accepted destabilising stem-loops and reported the sum of isolated stem-loop energies.
+    // Now: Zuker exterior recursion over the candidates; energy = CalculateFreeEnergy(structure) = RNA.eval_structure.
+    [Test]
+    public void RnaMfe001_PredictStructure_RejectsDestabilisingStemLoop()
+    {
+        // Old: "...(((......)))..." with MinimumFreeEnergy +2.91 (RNA.eval_structure of it +1.91); RNA.fold: open chain 0.
+        var s = PredictStructure("ACAAAUACACAGGUUAAU");
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.DotBracket, Is.EqualTo(".................."));
+            Assert.That(s.BasePairs, Is.Empty);
+            Assert.That(s.MinimumFreeEnergy, Is.EqualTo(0.0));
+            Assert.That(CalculateFreeEnergy("ACAAAUACACAGGUUAAU", "...(((......)))..."), Is.EqualTo(1.91).Within(1e-9));
+        });
+    }
+
+    [Test]
+    public void RnaMfe001_PredictStructure_EnergyIsEnergyOfReturnedStructure()
+    {
+        // Old greedy: '..((((..........))))' (isolated sum −1.99; RNA.eval_structure −2.09).
+        // Exterior DP: '..((((.........)))).' — RNA.eval_structure −2.51 (exterior d2 mismatch counted).
+        var s1 = PredictStructure("GCUUCCGCAAUCAGAGGGAA");
+        // Two hairpins: old reported −2.24 (isolated sum); RNA.eval_structure / RNA.fold −4.14.
+        var s2 = PredictStructure("GGGAAACCCAGGGAAACCC");
+        Assert.Multiple(() =>
+        {
+            Assert.That(s1.DotBracket, Is.EqualTo("..((((.........))))."));
+            Assert.That(s1.MinimumFreeEnergy, Is.EqualTo(-2.51).Within(1e-9));
+            Assert.That(s2.DotBracket, Is.EqualTo("(((...))).(((...)))"));
+            Assert.That(s2.MinimumFreeEnergy, Is.EqualTo(-4.14).Within(1e-9));
+            Assert.That(s2.StemLoops, Has.Count.EqualTo(2));
+        });
+    }
+
+    // The exterior DP is the exact optimum over every non-overlapping combination of FindStemLoops candidates
+    // (brute force over all subsets), its energy is CalculateFreeEnergy of the returned structure, and it lies
+    // between the true MFE and the open chain.
+    [Test]
+    public void RnaMfe001_PredictStructure_ExactOptimumOverCandidateSubsets()
+    {
+        var rng = new System.Random(20261125);
+        for (int t = 0; t < 60; t++)
+        {
+            int len = rng.Next(18, 36);
+            var chars = new char[len];
+            for (int k = 0; k < len; k++) chars[k] = "ACGU"[rng.Next(4)];
+            string seq = new string(chars);
+
+            var candidates = FindStemLoops(seq, 3, 3, 10).ToList();
+            double best = 0.0;
+            void Search(int from, int lastEnd, List<StemLoop> chosen)
+            {
+                if (chosen.Count > 0)
+                {
+                    var db = Enumerable.Repeat('.', len).ToArray();
+                    foreach (var bp in chosen.SelectMany(c => c.Stem.BasePairs)) { db[bp.Position1] = '('; db[bp.Position2] = ')'; }
+                    best = System.Math.Min(best, CalculateFreeEnergy(seq, new string(db)));
+                }
+                for (int c = from; c < candidates.Count; c++)
+                {
+                    if (candidates[c].Start <= lastEnd) continue;
+                    chosen.Add(candidates[c]);
+                    Search(0, candidates[c].End, chosen);
+                    chosen.RemoveAt(chosen.Count - 1);
+                }
+            }
+            Search(0, -1, new List<StemLoop>());
+
+            var s = PredictStructure(seq);
+            Assert.Multiple(() =>
+            {
+                Assert.That(s.MinimumFreeEnergy, Is.EqualTo(best).Within(1e-9), seq);
+                Assert.That(s.MinimumFreeEnergy, Is.EqualTo(CalculateFreeEnergy(seq, s.DotBracket)).Within(1e-9), seq);
+                Assert.That(s.MinimumFreeEnergy, Is.LessThanOrEqualTo(0.0), seq);
+                Assert.That(s.MinimumFreeEnergy, Is.GreaterThanOrEqualTo(CalculateMinimumFreeEnergy(seq) - 1e-9), seq);
+            });
+        }
+    }
+
+    #endregion
 }

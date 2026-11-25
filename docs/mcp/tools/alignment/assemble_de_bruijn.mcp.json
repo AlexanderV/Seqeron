@@ -57,7 +57,7 @@
       },
       "assembledReads": {
         "type": "integer",
-        "description": "Number of reads incorporated (simplified: all reads)."
+        "description": "Reads with at least one k-mer (either strand with includeReverseComplement) in a reported contig (Velvet usedReads)."
       },
       "n50": {
         "type": "number",

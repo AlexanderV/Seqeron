@@ -160,10 +160,11 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     • G:U wobble {G-U,U-G} → alignment symbol `:`, GUWobbles++ — counted SEPARATELY
 ///       from canonical matches (§2.2[4], §6.1; INV-02). Wobble ⊆ pairable (INV-03).
 ///     • Mismatch otherwise → space, Mismatches++ (A pairs only with U, C only with G).
-///   Gaps is always 0 (ungapped). FreeEnergy is a Turner-2004 nearest-neighbor stacking
-///   sum over runs of consecutive paired positions; a fully Watson-Crick duplex has
-///   FreeEnergy ≤ 0, and an all-mismatch duplex has FreeEnergy = 0 (no paired stacks),
-///   per INV-06. Supporting predicates: CanPair (INV-01), IsWobblePair (INV-02),
+///   Gaps is always 0 (ungapped). FreeEnergy is the Turner-2004 nearest-neighbour energy of
+///   the duplex (intermolecular initiation +4.09, stacks, internal loops, terminal AU/GU,
+///   dangling ends / terminal mismatches — NNDB); an all-mismatch duplex has FreeEnergy = 0
+///   (no pair, no duplex). A short A·U duplex is NOT stabilising (AAAA/UUUU = +2.20, NNDB
+///   hand sum), while longer perfect complements are (let-7a RC −35.90), per INV-06. Supporting predicates: CanPair (INV-01), IsWobblePair (INV-02),
 ///   GetReverseComplement (reverse + complement A↔U/G↔C, T→A, length-preserving, INV-04).
 ///   Documented BE boundary handling (§3.3, §6.1):
 ///     • No complementarity — a target sharing no complementary base at any antiparallel
@@ -171,7 +172,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///       = overlap, AlignmentString all spaces, FreeEnergy 0 — defined, never a crash.
 ///     • Perfect match — a target that is the antiparallel Watson-Crick complement of the
 ///       miRNA yields Matches = overlap, GUWobbles 0, Mismatches 0, AlignmentString all
-///       `|`, FreeEnergy ≤ 0 (the doc's "AAAA"/"UUUU" worked example, §7.1).
+///       `|`; FreeEnergy = +2.20 for the doc's "AAAA"/"UUUU" example (initiation dominates)
+///       and ≤ 0 for the 7–22-bp perfect complements.
 ///     • Short miRNA — a miRNA SHORTER than the target (down to empty / null): the overlap
 ///       is the shorter length, the antiparallel index never walks off either string
 ///       (no IndexOutOfRange), and an empty/null input returns the empty MiRnaDuplex
@@ -1020,7 +1022,7 @@ public class MiRnaFuzzTests
     /// BE — "no complementarity": a target that pairs with NO miRNA position. The aligner
     /// pairs miRNA[i] antiparallel with target[len−1−i]; if no such pair is in the pairing
     /// set the whole alignment is spaces: Matches 0, GUWobbles 0, Mismatches = overlap,
-    /// AlignmentString all spaces, and FreeEnergy = 0 (no consecutive paired stack to sum,
+    /// AlignmentString all spaces, and FreeEnergy = 0 (no base pair, hence no duplex,
     /// INV-06 lower bound). We use a poly-A miRNA against a poly-A target — antiparallel A:A
     /// never pairs (A pairs only with U) — at several overlap widths, plus a hand-built
     /// G-vs-G case, and assert a fully unpaired, crash-free, defined result (§2.2, §6.1).
@@ -1040,14 +1042,14 @@ public class MiRnaFuzzTests
             d.GUWobbles.Should().Be(0, "A:A is not a G:U wobble (§2.2[4])");
             d.Mismatches.Should().Be(n, "every antiparallel A:A position is a mismatch (INV-05)");
             d.AlignmentString.Should().Be(new string(' ', n), "a fully unpaired alignment is all spaces");
-            d.FreeEnergy.Should().Be(0.0, "no paired stack contributes energy — ΔG = 0 (INV-06 lower bound)");
+            d.FreeEnergy.Should().Be(0.0, "no base pair → no duplex → ΔG = 0 (INV-06 lower bound)");
         }
 
         // Hand-built G-vs-G: antiparallel G:G never pairs either.
         var gg = MiRnaAnalyzer.AlignMiRnaToTarget("GGGG", "GGGG");
         AssertDuplexShape(gg, 4);
         gg.Mismatches.Should().Be(4, "antiparallel G:G is a mismatch at every position");
-        gg.FreeEnergy.Should().Be(0.0, "no paired stack → ΔG = 0");
+        gg.FreeEnergy.Should().Be(0.0, "no base pair → ΔG = 0");
     }
 
     #endregion
@@ -1057,11 +1059,11 @@ public class MiRnaFuzzTests
     /// <summary>
     /// BE — "perfect match": the doc's §7.1 worked example. "AAAA" vs "UUUU" — antiparallel
     /// A:U at all four positions → 4 Watson-Crick matches, 0 wobbles, 0 mismatches,
-    /// AlignmentString "||||", and FreeEnergy ≤ 0 (a fully WC duplex is stabilising, INV-06).
+    /// AlignmentString "||||", and FreeEnergy = +2.20 (NNDB: initiation outweighs three A·U stacks).
     /// We assert that exact hand-derived result, then generalise: a target that is the
     /// antiparallel Watson-Crick complement of an arbitrary miRNA (its reverse complement)
     /// must be FULLY paired — Matches = length, 0 mismatches/wobbles, all-'|' alignment,
-    /// ΔG ≤ 0. This pins the perfect-complementarity contract on a value derived from the
+    /// ΔG ≤ 0 for these 7–22-bp duplexes. This pins the perfect-complementarity contract on a value derived from the
     /// spec, not from the code.
     /// </summary>
     [Test]
@@ -1074,8 +1076,10 @@ public class MiRnaFuzzTests
         d.GUWobbles.Should().Be(0, "no G:U pair in an A/U duplex (§7.1)");
         d.Mismatches.Should().Be(0, "a perfectly complementary duplex has no mismatch (§7.1)");
         d.AlignmentString.Should().Be("||||", "a perfect Watson-Crick duplex aligns as all '|' (§7.1)");
-        d.FreeEnergy.Should().BeLessThanOrEqualTo(0.0,
-            "a fully Watson-Crick-paired duplex is stabilising — ΔG ≤ 0 (INV-06)");
+        // NNDB Turner 2004: 4.09 (intermolecular initiation) + 3 × 5'AA/3'UU (−0.93) + 2 × AU end (0.45)
+        // = +2.20 — the initiation outweighs three A·U stacks (ViennaRNA 2.8 eval_structure: +2.40).
+        d.FreeEnergy.Should().BeApproximately(2.20, 1e-9,
+            "a 4-bp A·U duplex is not stabilising: NNDB init 4.09 − 2.79 + 0.90 (INV-06)");
 
         // Generalisation: the reverse complement of any miRNA is its perfect antiparallel
         // Watson-Crick target. RC(GAGGUAG)=CUACCUC; let-7a's RC target is fully paired.
@@ -1093,7 +1097,7 @@ public class MiRnaFuzzTests
             p.Mismatches.Should().Be(0, "a perfect antiparallel complement has no mismatch");
             p.AlignmentString.Should().Be(new string('|', overlap), "perfect complement → all '|'");
             p.FreeEnergy.Should().BeLessThanOrEqualTo(0.0,
-                "a fully Watson-Crick duplex is stabilising — ΔG ≤ 0 (INV-06)");
+                "a 7–22-bp Watson-Crick duplex is stabilising — ΔG ≤ 0 (GAGGUAG −9.25, ACGCACGC −13.61, let-7a −35.90; INV-06)");
         }
     }
 

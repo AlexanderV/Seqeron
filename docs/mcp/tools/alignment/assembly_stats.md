@@ -26,6 +26,7 @@ Compute assembly statistics (N50, longest contig, total length, read accounting)
 |-----------|------|----------|-------------|
 | `contigs` | array<string> | Yes | Assembled contig sequences. |
 | `totalReads` | integer | Yes | Total number of input reads (used to fill totalReads). |
+| `assembledReads` | integer | No | Reads that lie in the contigs, in `[0, totalReads]`; default `totalReads` (0 when there are no contigs). |
 
 ## Output Schema
 
@@ -33,8 +34,8 @@ Compute assembly statistics (N50, longest contig, total length, read accounting)
 |-------|------|-------------|
 | `contigs` | array<string> | The input contigs (echoed). |
 | `totalReads` | integer | Total number of input reads. |
-| `assembledReads` | integer | Number of reads incorporated (simplified: all reads). |
-| `n50` | number | N50 contig length. |
+| `assembledReads` | integer | Reads that lie in the contigs (Velvet `usedReads`); the supplied `assembledReads`, else `totalReads` (0 without contigs). |
+| `n50` | number | N50 contig length (QUAST `N50`: shortest contig of the fewest longest contigs covering ≥ 50 % of the total; 0 without contigs). |
 | `longestContig` | integer | Longest contig length (bp). |
 | `totalLength` | integer | Total contig length (bp). |
 
@@ -100,7 +101,10 @@ Compute assembly statistics (N50, longest contig, total length, read accounting)
 
 ## Worked Example
 
-Lengths 10, 20, 30 (total 60, half 30). Sorted descending, cumulative length reaches the half at the 30-bp contig, so N50 = 30.
+Lengths 10, 20, 30 (total 60). Sorted descending, the 30-bp contig alone covers 30·100 ≥ 60·50, so N50 = 30.
+Odd total: lengths 4, 3, 2 (total 9): 4·100 < 9·50, 7·100 ≥ 9·50 → N50 = 3 (QUAST `N50.py`; the
+former `total/2 = 4` integer cut-off reported 4). The N50 comes from the single canonical Nx core
+`SequenceAssembler.CalculateNx`, shared with `GenomeAssemblyAnalyzer.CalculateNx`.
 
 ## References
 

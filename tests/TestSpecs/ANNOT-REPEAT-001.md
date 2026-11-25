@@ -5,7 +5,7 @@
 **Algorithm:** Repetitive Element Detection and Classification
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25 (B11 review F14–F17)
 
 ---
 
@@ -19,6 +19,8 @@
 | 2 | Wikipedia — Inverted repeat (cites Ussery 2008; Ye 2014) | 4 | https://en.wikipedia.org/wiki/Inverted_repeat | 2026-06-13 |
 | 3 | Hampson et al. (2021) IUPACpal, BMC Bioinformatics | 1 | https://doi.org/10.1186/s12859-021-03983-2 | 2026-06-13 |
 | 4 | RepeatMasker documentation (Smit/Hubley/Green; Repbase) | 3 | https://www.repeatmasker.org/webrepeatmaskerhelp.html | 2026-06-13 |
+| 5 | EMBOSS 6.6.0 `palindrome` (binary + `palindrome.acd`), IUPACpal README (defaults) | 2 | local binary; raw.githubusercontent.com/steven31415/IUPACpal | 2026-11-25 |
+| 6 | Kolpakov & Kucherov 1999 (maximal repetitions); MISA / pytrf 1.5.0 convention (via `RepeatFinder.FindMicrosatellites`, B04) | 1 | FOCS 1999 | 2026-11-25 |
 
 ### 1.2 Key Evidence Points
 
@@ -56,7 +58,8 @@
 |----|-----------|------------|----------|
 | INV-1 | Every reported tandem repeat's `sequence` equals `dnaSequence[start..end]` (0-based, end-exclusive) and is exactly `copies × unitLen` bp | Yes | Source 1 (head-to-tail) |
 | INV-2 | Every reported tandem repeat has ≥ `minCopies` (≥2) adjacent identical primitive units | Yes | Source 1 |
-| INV-3 | For every reported inverted repeat, right arm = reverse complement of left arm | Yes | Sources 2, 3 (WGW̄ᴿ) |
+| INV-3 | For every reported inverted repeat, right arm = reverse complement of left arm (ACGT pairs) and the stem is maximal (EMBOSS palindrome) | Yes | Sources 2, 3, 5 |
+| INV-5 | Each maximal tandem run is reported once, at its left end, with a primitive ACGT unit | Yes | Sources 1, 6 |
 | INV-4 | `ClassifyRepeat` returns a value from the source class vocabulary (library class or Simple_repeat/Unknown) | Yes | Source 4 |
 
 ---
@@ -89,6 +92,21 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | INV-1/INV-2 property | random + tandem inputs | every tandem repeat span = copies×unit, copies≥minCopies, sequence==slice | property-based, O(n²) invariant |
+
+### 4.4 Review additions (B11, 2026-11-25)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | `CATATATA`, minLen 4 | exactly (1,7,`ATATAT`) — rotation TATATA is the same run (F14) | Source 6; Python maximal-run oracle |
+| R2 | `NNNNNNNN`, minLen 3 | empty (no N units, no N·N pairs) (F14/F15) | MISA `[acgt]`; EMBOSS einverted |
+| R3 | `AGGATCCT`, minLen 3 | only (0,8,`AGGATCCT`) (F15) | EMBOSS palindrome |
+| R4 | arm 12 + 80-nt loop | reported (loop ≤ 100) (F15) | EMBOSS `-gaplimit` / IUPACpal `-g` default 100 |
+| R5 | 110-bp stem | not reported/split at minLen 10; reported at minLen 110 (F15) | EMBOSS `-maxpallen` |
+| R6 | 63-bp mixed fixture, minLen 4 | 3 tandem + 3 inverted, exact list | oracle + EMBOSS palindrome |
+| R7 | 40 random sequences | = RepeatFinder.FindMicrosatellites / FindInvertedRepeats projection | rule 3 delegation |
+| R8 | query = revcomp(Alu) in flanks | `SINE/Alu` (F16) | RepeatMasker "C" orientation |
+| R9 | `NNNNNNNN` / `ATATA` / 7-bp unit ×2 | `Unknown`; `atatat`, 5-bp unit ×2, (A)30 → `Simple_repeat` (F16) | MISA `[acgt]`, STR 1–6 bp |
+| R10 | SW-Gotoh overload (1,−2,−4,−3): mutated Alu ± strand score 11 | `SINE/Alu` at cutoff 11, `Unknown` at 12; satellite variant `Satellite` (F17) | Biopython PairwiseAligner local |
 
 ---
 
@@ -171,11 +189,11 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | `ClassifyRepeat` matches the library by exact substring containment of a library element within the query (one-directional, element ⊆ query) rather than Smith-Waterman homology; the class vocabulary is source-backed | M5, M6, M7 |
+| 1 | `ClassifyRepeat(sequence, repeatDb)` matches by exact containment of a library element or its reverse complement within the query (element ⊆ query); scored homology is the `ScoringMatrix` overload (F17); the class vocabulary is source-backed | M5, M6, M7, R8, R10 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. **Decided:** suffix tree evaluated, not used for repeat *discovery* (structural unit discovery / reverse-complement arm pairing is not a fixed-pattern occurrence query). Recorded in algorithm doc §5.2.
-2. **Decided:** `ClassifyRepeat` uses exact-substring library matching (Assumption 1) — documented as Simplified/Framework limitation, not an invented constant.
+2. **Decided (B11 2026-11-25):** exact overload kept (both strands); Smith-Waterman-Gotoh overload added (caller-supplied scheme + cutoff, no invented default). Detection delegates to `RepeatFinder` (no local tandem/stem/primitivity code).

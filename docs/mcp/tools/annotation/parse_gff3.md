@@ -14,16 +14,22 @@ Parse a GFF3 annotation document into structured features.
 
 ## Description
 
-Parses a GFF3 document (lines separated by newlines) into structured genomic features. Blank lines
-and lines starting with `#` (comments and `##` directives) are skipped, as are lines with fewer than
-9 tab-separated columns or with non-numeric start/end/score/phase fields. Column 6 (`score`) and
-column 8 (`phase`) map to `null` when they carry the `.` undefined-field placeholder. The feature id
-is taken from the column-9 `ID` attribute, falling back to `feature_{n}`. Column-9 attributes are
-split on `;` into a key→value map with URL-decoded values.
+Parses a GFF3 document (Sequence Ontology GFF3 spec v1.26; lines separated by newlines, a trailing CR
+is dropped) into structured genomic features. Blank lines and lines starting with `#` (comments and `##`
+directives) are skipped, and reading stops at `##FASTA` or at a line beginning with `>` (implied
+`##FASTA`). A feature line is accepted only when it follows the spec's column rules — the same rules
+GenomeTools `gt gff3validator` enforces — and is skipped otherwise: exactly 9 tab-separated columns,
+start/end positive integers with start ≤ end, score `.` or a number, strand one of `+ - . ?`, phase `.`
+or `0`/`1`/`2`, column 9 `.` or `tag=value` pairs with non-empty tag and value and no repeated tag.
+Column 6 (`score`) and column 8 (`phase`) map to `null` for `.`. Columns 1–3 and every tag/value are
+percent-decoded; values keep their spaces. `attributes` maps each tag to its decoded value text
+(multi-values joined by `,`); `attributeValues` keeps the value list, split on the unescaped `,`
+(`Parent=a,b` → `["a","b"]`, `Note=a%2Cb` → `["a,b"]`). The feature id is the `ID` attribute,
+falling back to `feature_{n}`. Coordinates stay 1-based inclusive.
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L439](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L439)
+- Source: [GenomeAnnotator.cs#L565](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L565)
 
 ## Input Schema
 
@@ -35,7 +41,7 @@ split on `;` into a key→value map with URL-decoded values.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `features` | array | `{ featureId, type, start, end, strand, score, phase, attributes }` per feature |
+| `features` | array | `{ featureId, type, start, end, strand, score, phase, attributes, seqid, source, attributeValues }` per feature |
 
 ## Errors
 
@@ -51,12 +57,17 @@ split on `;` into a key→value map with URL-decoded values.
 
 **Response:**
 ```json
-{ "features": [ { "featureId": "cds1", "type": "CDS", "start": 1000, "end": 2000, "score": 95.5, "strand": "-", "phase": 2, "attributes": { "ID": "cds1", "Name": "TestCDS" } } ] }
+{ "features": [ { "featureId": "cds1", "type": "CDS", "start": 1000, "end": 2000, "score": 95.5, "strand": "-", "phase": 2, "attributes": { "ID": "cds1", "Name": "TestCDS" }, "seqid": "chr1", "source": "ENSEMBL", "attributeValues": { "ID": ["cds1"], "Name": ["TestCDS"] } } ] }
 ```
 
 ### Example 2: Undefined score/phase
 
 `chr1  src  gene  1  100  .  +  .  ID=gene1` yields `score: null` and `phase: null`.
+
+### Example 3: Multi-valued attribute (spec canonical gene, line 8)
+
+`ctg123  .  exon  1050  1500  .  +  .  ID=exon00002;Parent=mRNA00001,mRNA00002` yields
+`attributeValues.Parent = ["mRNA00001", "mRNA00002"]` (and `attributes.Parent = "mRNA00001,mRNA00002"`).
 
 ## Performance
 

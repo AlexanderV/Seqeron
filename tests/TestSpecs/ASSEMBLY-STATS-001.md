@@ -5,7 +5,7 @@
 **Algorithm:** Assembly Statistics (N50 / L50 / Nx / Lx / auN, gap detection, contiguity summary)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -47,7 +47,9 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `CalculateStatistics(sequences)` | GenomeAssemblyAnalyzer | Canonical | Aggregates N50/L50/N90/L90/largest/smallest/totals/GC/gaps |
-| `CalculateNx(sortedLengths, totalLength, threshold)` | GenomeAssemblyAnalyzer | Canonical | Core Nx/Lx; inclusive ≥ threshold% |
+| `CalculateNx(sortedLengths, totalLength, threshold)` | GenomeAssemblyAnalyzer | Delegate | → `SequenceAssembler.CalculateNx` (single Nx/Lx core; NGx with a genome size) |
+| `CalculateNx(lengthsDescending, referenceLength, percentage)` | SequenceAssembler | Canonical | QUAST `NG50_and_LG50` port |
+| `CalculateStats(contigs, totalReads[, assembledReads])` | SequenceAssembler | Delegate | N50 via the canonical core |
 | `CalculateNx(lengths, threshold)` | GenomeAssemblyAnalyzer | Delegate | Sorts + totals, delegates to core overload |
 | `CalculateN50(lengths)` | GenomeAssemblyAnalyzer | Delegate | `CalculateNx(lengths, 50).Nx` |
 | `CalculateAuN(lengths)` | GenomeAssemblyAnalyzer | Canonical | Σl²/Σl |
@@ -87,6 +89,21 @@
 | M11 | FindGaps leading gap | "NNNNACGT" | one gap Start=0, End=3, Length=4 | INV-6 |
 | M12 | FindGaps trailing gap | "ACGTNNNN" | one gap Start=4, End=7, Length=4 | INV-6 |
 | M13 | FindGaps minGapLength filter | "ACGTNNACGTNNNNNNACGT", minGapLength=5 | one gap Length=6, Start=10, End=15 | INV-6 |
+
+#### 4.1b B10 review additions (2026-11-25; values from QUAST `N50.py` / `basic_stats.py`, Velvet `graphStats.c`)
+
+| ID | Test Case | Expected Outcome | Test |
+|----|-----------|------------------|------|
+| M14 | Nx on odd totals, ties, x = 0/100, zero lengths | QUAST table (Evidence) | `CalculateNx_MatchesQuastN50Py` (13 cases) |
+| M15 | NGx with a genome size; unreached → 0/0 | A@400: (50,3); NG90 (0,0) | `CalculateNx_GenomeSizeReference_MatchesQuastNG50` |
+| M16 | Total > int.MaxValue | {2e9,2e9,1}: N50 2e9/2, N100 1/3, cum 4000000001 | `CalculateNx_TotalAboveInt32_IsExact` |
+| M17 | x ∉ [0,100], unsorted/negative lengths | throws | `CalculateNx_InvalidInput_Throws` |
+| M18 | auN = QUAST `au_metric` | B 55.16393442622951 | `CalculateAuN_MatchesQuastAuMetric` |
+| M19 | GC = (G+C)/(A+C+G+T), IUPAC/N excluded | "ACGTRYSW" 0.5 | `CalculateStatistics_GcContent_MatchesQuastGcContent` |
+| M20 | Median = sample median | {4,3,2,1} 2.5 | `CalculateStatistics_MedianLength_IsSampleMedian` |
+| M21 | `SequenceAssembler.CalculateStats` N50 = QUAST | {4,3,2} 3; {2,1,1,1} 1; {14,10,5} 10 | `SequenceAssemblerTests.CalculateStats_N50_MatchesQuast`, `CalculateStats_ValidContigs_CalculatesN50`, `CalculateStats_N50_EqualsCanonicalGenomeAssemblyAnalyzerN50` |
+| M22 | AssembledReads = Velvet usedReads | OLC 2/3, DBG 2/4, RC 2/2 | `AssembleOLC_AssembledReads_*`, `AssembleDeBruijn_AssembledReads_*`, `AssembleDeBruijn_ReverseComplementOption_CountsOppositeStrandReadAsAssembled`, `CalculateStats_AssembledReads_*` |
+| C5 | Length histogram, bounds strictly increasing | half-open bins; unsorted throws | `CalculateLengthDistribution_BinsAndValidation` |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -215,12 +232,13 @@
 
 ## 6. Assumption Register
 
-**Total assumptions:** 2
+**Total assumptions:** 3
 
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Empty input returns all-zero statistics / Nx=Lx=0 / auN=0 instead of `None`/throw (non-correctness-affecting API choice) | C1, C2, C3 |
-| 2 | `AssemblyStatistics.MedianLength` uses the upper-median convention; not part of the cited N50/L50/Nx/auN contract | (not asserted as a canonical value) |
+| 2 | ~~upper median~~ — resolved: sample median (M20) | M20 |
+| 3 | All-zero lengths give Nx=0, Lx=1 (QUAST); U counted as a valid GC base; IUPAC codes are not gaps | M14, M19 |
 
 ---
 

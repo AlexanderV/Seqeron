@@ -162,3 +162,45 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+
+---
+
+## B10 review (2026-11-25) — sources re-opened and numeric oracle
+
+### Sources opened
+1. **Biopython 1.85 `Bio/Align/AlignInfo.py` `SummaryInfo.dumb_consensus`** — read from the installed
+   biopython-1.85 cp313 wheel (PyPI; 1.88, the pip default here, no longer has the method: deprecated in
+   1.82, removed later). Rule identical to 1.79: `atom_dict` over `c != "-" and c != "."` (exact char
+   comparison, no case folding; `N` counted), `if require_multiple and num_atoms == 1: ambiguous`,
+   `elif len(max_atoms) == 1 and max_size / num_atoms >= threshold: residue`, else ambiguous. No range
+   check on `threshold`. `MultipleSeqAlignment` rejects unequal rows (`ValueError: Sequences must all be
+   the same length`), so ragged rows are only meaningful as trailing-gap padding.
+2. The deprecation message of 1.85 points to `Bio.motifs` `consensus` / `degenerate_consensus` /
+   `counts.calculate_consensus` (EMBOSS-cons-like) — already implemented in the Analysis project as
+   `MotifFinder.GenerateCavenerConsensus` / `GenerateEmbossConsensus` (MOTIF-CONS-001, B05), so not
+   duplicated here.
+3. EMBOSS `cons` semantics as already ported in `MotifFinder.AlignmentConsensus.cs` (embcons.c): reader
+   upper-cases letters; ragged sets padded with trailing gaps (`ajSeqsetFill`); nucleotide no-consensus
+   symbol `N`.
+
+### Oracle
+Script: Biopython 1.85 `dumb_consensus` over `MultipleSeqAlignment` (rows padded with trailing `-`),
+12 hand cases + 3000 random alignments (seed 2026; 1–7 rows × 1–12 columns over `ACGTacgtN-.`;
+threshold ∈ {0, 0.3, 0.5, 0.6, 0.7, 0.75, 1.0}; require_multiple random). C#
+`ComputeConsensus(rows, t, amb, rm, ignoreCase: false)` = Biopython **3012/3012**; and
+`ComputeConsensus(rows, t, amb, rm)` (ignoreCase default) = Biopython on upper-cased rows **3000/3000**.
+
+| Rows | threshold | ambiguous | require_multiple | Biopython 1.85 |
+|---|---|---|---|---|
+| `A-`,`AC` | 0.5 | N | True | `AN` |
+| `A-`,`AC` | 0.5 | N | False | `AC` |
+| `a`,`A` | 0.5 | N | False | `N` |
+| `aa`,`Aa`,`AA` | 0.5 | N | False | `Aa` |
+| `N`,`N`,`A` | 0.5 | X | False | `N` |
+| `NA`,`NC`,`AA` | 0.7 | X | False | `XX` |
+| `ACGT`,`ATGT`,`ATGT` | 0.7 | N | False | `ANGT` |
+| `--A`,`-CA`,`GCA` | 0.5 | N | True | `NCA` |
+| `A`,`C` | 0.0 | N | False | `N` |
+| `A`,`A` | 1.5 | N | False | `N` |
+| `AAT`,`AAC` | −1 | N | False | `AAN` |
+| `ACGTACGT`,`AC-TACG.`,`ACCTA`,`ATGT` | 0.5 | N | True | `ACGTACGN` |

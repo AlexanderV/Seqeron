@@ -5,7 +5,7 @@
 **Algorithm:** Donor (5') Splice Site Detection
 **Status:** ✅ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-11-25 (B11 review: Shapiro & Senapathy 1987 score, U12 /RTATCCTY, MaxEntScan mode)
 
 ---
 
@@ -26,10 +26,11 @@
 1. Donor site has almost invariant GU dinucleotide at intron start — S1, S4
 2. Extended consensus is MAG|GURAGU (positions -3 to +6) — S1
 3. Position 0 (G) and +1 (U) are ~100% conserved — S1
-4. Position -1 (G) ~80% conserved, -2 (A) ~60%, -3 (A/C) ~35% each — S1
+4. Position -1 (G) 78%, -2 (A) 58%, -3 C 37% / A 32% (primate, S1 Table 1)
 5. GC-AG introns are valid (~0.5-1% of U2-type) — S2
 6. U12-type AT-AC introns use AT at donor (~0.3%) — S2
-7. IUPAC consensus binary scoring: match = 1.0, no match = 0.0, score = fraction — S1, S3
+7. S&S score = (t − mint)/(maxt − mint) over the 8-nt subsequence −2..+6 with Table 1 percentages (S1 Methods; worked example AAGTGAGT → 84.3; Table 5 published scores) — reported /100
+9. U12-type 5' ss consensus /RTATCCTY (+1..+8), AT-AC and GT-AG U12 introns — Sharp & Burge 1997, S2, Dietrich et al. 1997
 8. Higher PWM score indicates stronger splice site — S3
 
 ### 1.3 Documented Corner Cases
@@ -51,7 +52,8 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `FindDonorSites(sequence, minScore, includeNonCanonical)` | SpliceSitePredictor | **Canonical** | Deep evidence-based testing |
-| `ScoreDonorSite(context)` | SpliceSitePredictor | **Internal** | Private; tested indirectly via FindDonorSites |
+| `FindDonorSites(sequence, minScore, includeNonCanonical, model, category)` | SpliceSitePredictor | **Canonical** | S&S subtable / MaxEntScan model |
+| `ScoreDonorSiteShapiroSenapathy`, `ScoreDonorSiteMaxEnt`, `ScoreU12DonorSite` | SpliceSitePredictor | **Internal** | Private; tested via FindDonorSites |
 | `ScoreDonorMaxEnt(window)` | SpliceSitePredictor | **Canonical** | Opt-in MaxEntScan score5ss; deep evidence-based testing (Yeo & Burge 2004) |
 
 ---
@@ -61,12 +63,12 @@
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
 | INV-1 | Every returned site has Type == Donor (or U12Donor if non-canonical) | Yes | Algorithm design |
-| INV-2 | Score is in [0, 1] range | Yes | Consensus match fraction: matches / positions scored |
+| INV-2 | Score is in [0, 1] range (S&S and U12; MaxEnt = bits) | Yes | (t − mint)/(maxt − mint); matches/8 |
 | INV-3 | Confidence is in [0, 1] range | Yes | CalculateConfidence clamps |
 | INV-4 | Empty/null input yields no results | Yes | Guard clause |
-| INV-5 | Sequence < 6 chars yields no results | Yes | Guard clause |
+| INV-5 | A candidate whose scored window runs off the sequence / contains non-ACGTU is not reported (< 8 nt → none) | Yes | S1 scores whole 8-nt subsequences |
 | INV-6 | Perfect consensus (CAGGUAAGU) scores ≥ any weaker context | Yes | PWM properties — S1 |
-| INV-7 | GC donor score < equivalent GT donor score | Yes | Position +1 mismatches U consensus — S1, S2 |
+| INV-7 | GC donor score < equivalent GT donor score | Yes | +2 C = 0 % in Table 1 (448/548 vs 1.0) — S1, S2 |
 | INV-8 | Motif string is non-empty for every returned site | Yes | GetMotifContext logic |
 | INV-9 | All sites are at valid positions within sequence bounds | Yes | Loop bounds |
 
@@ -78,16 +80,19 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | CanonicalGT_ConsensusMotif | CAGGUAAGU (perfect consensus) produces a donor site with Score > 0 | ≥1 site with Type=Donor, Score > 0 | S1: GU invariant at +0/+1 |
+| M1 | CanonicalGT_ConsensusMotif | CAGGUAAGU: every scored position has its top primate percentage | 1 site, pos 3, Score 1.0, Motif CAGGUAAGU | S1 Table 1 |
+| M1b | ShapiroSenapathy_ReproducesPublishedTable5Scores | 23 Table 5 subsequences, 6 subtables; worked example AAGTGAGT = 462/548 | score·100 = published (1 dp) | S1 Table 5 / Methods |
 | M2 | NoGU_ReturnsEmpty | AAAAACCCCC has no GU → empty result | Empty collection | Trivially correct |
 | M3 | EmptyInput_ReturnsEmpty | Empty string → empty result | Empty collection | Trivially correct |
-| M4 | ShortSequence_ReturnsEmpty | Sequence < 6 chars → empty result | Empty collection | Implementation guard |
-| M5 | StrongVsWeak_ScoreOrdering | CAGGUAAGU scores higher than UUUGUAAUU | strong.Score > weak.Score | S1, S3: PWM log-odds |
-| M6 | GC_NonCanonical_Detected | CAGGCAAGU with includeNonCanonical=true finds GC donor | ≥1 site found | S2: GC-AG introns valid |
+| M4 | SequenceShorterThanScoredWindow | GUAA, AGGUAAG (7 nt) → empty; AGGUAAGU → pos 2 | Empty / 1 site | S1: 8-nt subsequence |
+| M5 | StrongVsWeak_ScoreOrdering | CAGGUAAGU 1.0 > UUUGUAAUU 356/548 | exact | S1 |
+| M6 | GC_NonCanonical_Detected | CAGGCAAGU with includeNonCanonical=true | 1 Donor, score 448/548 | S1, S2 |
 | M7 | GC_NotDetected_WhenCanonicalOnly | CAGGCAAGU with includeNonCanonical=false → no GT present → empty | Empty or no canonical donor | S2 |
 | M8 | DNA_T_Equivalence | CAGGTAAGT (T) produces same site count as CAGGUAAGU (U) | Same number of sites | Implementation T→U conversion |
 | M9 | LowercaseHandling | cagguaagu lowercase → finds donor site | ≥1 site | Implementation ToUpperInvariant |
-| M10 | MultipleSites_AllDetected | Sequence with 2 separate GT contexts → finds ≥2 | ≥2 sites | Algorithm scans full sequence |
+| M10 | MultipleSites_AllDetected | 3 GUs | positions {3,7,26}, scores {1, 284/548, 1} | S1 |
+| U1 | U12_AT_Donor / U12_GTAG_Donor / U12_PartialMatch | /AUAUCCUU, /GUAUCCUU (also U2 Donor 376/548), /AUAACCAA | U12Donor 1.0, 1.0, 5/8 | Sharp & Burge 1997; Dietrich 1997 |
+| X1 | MaxEntScanMode_* | CAGGUAAGU → 10.858313101356437 bits, conf 0.9994616209198077; GC 3.104161570996358; window −3..+6 must fit | exact | S3 (maxentpy score5) |
 | ME1 | ScoreDonorMaxEnt_Canonical_10.86 | `ScoreDonorMaxEnt("cagGTAAGT")` == 10.86 bits (2 dp) | 10.86 | S3: maxentpy `score5` docstring (canonical reference) |
 | ME2 | ScoreDonorMaxEnt_Canonical_FullPrecision | Full-precision value behind 10.86 | 10.858313 ± 1e-6 | S3: reproduced this session |
 | ME3 | ScoreDonorMaxEnt_Stronger_11.08 | `ScoreDonorMaxEnt("gagGTAAGT")` == 11.08 bits | 11.08 / 11.078494 | S3: maxentpy `score5` docstring |
@@ -112,8 +117,8 @@
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| C1 | U12_AT_Donor | AU donor with includeNonCanonical → detected as U12Donor | U12Donor type site | Minor spliceosome |
-| C2 | GC_Donor_LowerThanGT | GC donor (8/9) scores below GT donor (9/9) — INV-7 | GC score < GT score | Burge et al. (1999) |
+| C1 | U12_AT_Donor | /AUAUCCUU with includeNonCanonical → U12Donor 1.0 | U12Donor | Sharp & Burge 1997 |
+| C2 | GC_Donor_LowerThanGT | GC 448/548 < GT 1.0 — INV-7 | GC score < GT score | S1 |
 
 ---
 
@@ -174,12 +179,9 @@ Consolidation complete. Donor tests removed from `SpliceSitePredictorTests.cs` (
 
 **Total assumptions:** 0
 
-All previous assumptions have been eliminated:
-- ~~A1 (PWM values)~~: Replaced with IUPAC consensus binary weights derived from MAG|GURAGU — Shapiro & Senapathy (1987), Mount (1982), Burge et al. (1999).
-- ~~A2 (Score normalization)~~: Replaced with simple consensus match fraction (matches / positions scored). No ad-hoc formula.
-- ~~A3 (GC donor 0.7 penalty)~~: Removed. GC donors naturally score lower because position +1 (C) mismatches the invariant U consensus.
-
----
+- The binary IUPAC consensus fraction used before 2026-11-25 (unsourced as a score) was replaced by the published
+  Shapiro & Senapathy (1987) score (B11 F23). The U12 score is the /RTATCCTY consensus match fraction (no
+  bundleable trained U12 PWM — see Evidence). Default `minScore` 0.5 = S&S score 50 (caller-chosen threshold).
 
 ## 7. Open Questions / Decisions
 

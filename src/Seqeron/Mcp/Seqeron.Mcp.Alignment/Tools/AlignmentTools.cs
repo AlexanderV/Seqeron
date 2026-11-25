@@ -499,43 +499,45 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "assembly_stats", Title = "Assembly — N50 / Length Stats", ReadOnly = true)]
-    [Description("Computes assembly statistics (N50, longest contig, total length, assembled-reads accounting) for a precomputed list of contigs.")]
+    [Description("Computes assembly statistics for a precomputed list of contigs: N50 (QUAST N50: shortest contig of the fewest longest contigs covering at least 50% of the total length), longest contig, total length, and the read accounting (TotalReads; AssembledReads = reads that lie in the contigs, defaulting to totalReads when not supplied).")]
     public static AssemblyResultDto AssemblyStats(
         [Description("Assembled contig sequences.")] string[] contigs,
-        [Description("Total number of input reads (used to fill TotalReads).")] int totalReads)
+        [Description("Total number of input reads (used to fill TotalReads).")] int totalReads,
+        [Description("Optional number of reads that lie in the contigs, in [0, totalReads] (default: totalReads).")] int? assembledReads = null)
     {
         var r = global::Seqeron.Genomics.Alignment.SequenceAssembler.CalculateStats(
-            contigs ?? Array.Empty<string>(), totalReads);
+            contigs ?? Array.Empty<string>(), totalReads, assembledReads ?? totalReads);
         return ToAssemblyDto(r);
     }
 
     [McpServerTool(Name = "merge_contigs", Title = "Assembly — Merge Contigs by Overlap", ReadOnly = true)]
-    [Description("Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. Invalid overlapLength falls back to plain concatenation.")]
+    [Description("Merges two contigs over a known suffix/prefix overlap: contig1 + contig2 without its first overlapLength bases (overlapLength 0 = concatenation; must be in [0, shorter contig length]). By default contig1's bases are kept in the overlap; resolveOverlapConflicts = true resolves overlap mismatches/Ns with the EMBOSS merger rule (N yields to the other base, else the base from the locally higher-quality contig).")]
     public static MergedContigResult MergeContigs(
         [Description("First contig (suffix donor).")] string contig1,
         [Description("Second contig (prefix donor).")] string contig2,
-        [Description("Length of overlap to collapse.")] int overlapLength)
+        [Description("Length of the suffix/prefix overlap to collapse, in [0, min(|contig1|, |contig2|)].")] int overlapLength,
+        [Description("Resolve mismatches / N in the overlap by the EMBOSS merger rule instead of keeping contig1's bases (default false).")] bool resolveOverlapConflicts = false)
     {
         var s = global::Seqeron.Genomics.Alignment.SequenceAssembler.MergeContigs(
-            contig1 ?? string.Empty, contig2 ?? string.Empty, overlapLength);
+            contig1 ?? string.Empty, contig2 ?? string.Empty, overlapLength, resolveOverlapConflicts);
         return new MergedContigResult(s);
     }
 
     [McpServerTool(Name = "scaffold_contigs", Title = "Assembly — Scaffold by Paired Links", ReadOnly = true)]
-    [Description("Builds scaffolds by joining contigs using paired-end link records, inserting gapCharacter between linked contigs to span the indicated gap size.")]
+    [Description("Orders and orients contigs into scaffolds from paired-end links with the greedy path-merging rule (Huson, Reinert & Myers 2002): links in descending weight; a link is used only if both contig ends it joins are still free and it does not close a cycle. Each link says contig2 follows contig1 (each optionally reverse-complemented) after gapSize characters: a positive gap emits that many gapCharacter; a negative gap collapses the overlap when the -gapSize bases agree (N matches anything), otherwise — and for a zero gap — the AGP unknown gap of 100 is emitted. Unlinked contigs are singleton scaffolds; scaffolds are listed by their lowest contig index.")]
     public static ScaffoldsResult ScaffoldContigs(
         [Description("Contig sequences.")] string[] contigs,
-        [Description("Paired-end links between contigs (by index).")] ContigLinkInput[] links,
+        [Description("Links {contig1, contig2, gapSize, contig1Reversed?, contig2Reversed?, weight?} (indices into contigs; weight ≥ 1, default 1).")] ContigLinkInput[] links,
         [Description("Single-character gap filler (e.g. \"N\").")] string gapCharacter = "N")
     {
         if (string.IsNullOrEmpty(gapCharacter) || gapCharacter.Length != 1)
             throw new ArgumentException("gapCharacter must be exactly one character.", nameof(gapCharacter));
 
-        var srcLinks = new List<(int contig1, int contig2, int gapSize)>(links?.Length ?? 0);
+        var srcLinks = new List<global::Seqeron.Genomics.Alignment.SequenceAssembler.ScaffoldLink>(links?.Length ?? 0);
         if (links != null)
         {
             foreach (var l in links)
-                srcLinks.Add((l.Contig1, l.Contig2, l.GapSize));
+                srcLinks.Add(new(l.Contig1, l.Contig2, l.GapSize, l.Contig1Reversed, l.Contig2Reversed, l.Weight));
         }
 
         var scaffolds = global::Seqeron.Genomics.Alignment.SequenceAssembler.Scaffold(
@@ -548,22 +550,31 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "calculate_coverage", Title = "Assembly — Per-Base Coverage Depth", ReadOnly = true)]
-    [Description("Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an integer array of length reference.Length.")]
+    [Description("Aligns each read end-to-end without gaps at its minimum-Hamming position on the reference (placed when ≥ minOverlap bases match; one placement per read) and returns per-base coverage depth (samtools depth semantics) as an integer array of length reference.Length. Optional: search the reverse-complement strand too, and skip reads whose best score is reached at more than one locus.")]
     public static CoverageResult CalculateCoverage(
         [Description("Reference sequence.")] string reference,
         [Description("Reads to map onto reference.")] string[] reads,
-        [Description("Minimum matching bases required to map a read.")] int minOverlap = 20)
+        [Description("Minimum matching bases required to map a read (≥ 1).")] int minOverlap = 20,
+        [Description("Also align each read's reverse complement (both strands, as Bowtie 2/BWA do by default). Default false (forward strand only).")] bool includeReverseComplement = false,
+        [Description("Skip multi-mapped reads whose best score is reached at more than one locus (Bowtie 2 MAPQ ≤ 1; samtools depth -Q 2). Default false (counted once at the leftmost locus).")] bool excludeMultiMapped = false)
     {
         var arr = global::Seqeron.Genomics.Alignment.SequenceAssembler.CalculateCoverage(
-            reference ?? string.Empty, reads ?? Array.Empty<string>(), minOverlap);
+            reference ?? string.Empty, reads ?? Array.Empty<string>(), minOverlap,
+            includeReverseComplement, excludeMultiMapped);
         return new CoverageResult(arr);
     }
 
     [McpServerTool(Name = "compute_consensus", Title = "Assembly — Column-Majority Consensus", ReadOnly = true)]
-    [Description("Builds a consensus sequence from a list of pre-aligned reads (same length, '-' / 'N' ignored) by majority vote per column. Columns with no informative bases yield 'N'.")]
+    [Description("Builds a consensus from pre-aligned reads of equal length with Biopython SummaryInfo.dumb_consensus semantics: per column the gaps '-' and '.' are skipped (every other character, N included, is a residue); the most frequent residue is emitted if it is unique and its fraction of the non-gap residues is >= threshold, otherwise the ambiguous symbol (ties, sub-threshold and all-gap columns). Case-insensitive by default (upper-case output).")]
     public static ConsensusResult ComputeConsensus(
-        [Description("Pre-aligned reads of identical length.")] string[] alignedReads)
+        [Description("Pre-aligned reads of identical length.")] string[] alignedReads,
+        [Description("Required fraction of the column's non-gap residues (default 0.5 = simple majority; Biopython default 0.7).")] double threshold = 0.5,
+        [Description("Single-character symbol for columns without consensus (default 'N'; Biopython default 'X').")] string ambiguous = "N",
+        [Description("Biopython require_multiple: a column with a single non-gap residue gives the ambiguous symbol (default false).")] bool requireMultiple = false,
+        [Description("Upper-case residues before counting (default true); false compares characters exactly as Biopython does.")] bool ignoreCase = true)
     {
+        if (ambiguous is null || ambiguous.Length != 1)
+            throw new ArgumentException("Ambiguous must be exactly one character", nameof(ambiguous));
         if (alignedReads != null && alignedReads.Length > 1)
         {
             int len = alignedReads[0]?.Length ?? 0;
@@ -577,16 +588,19 @@ public class AlignmentTools
         }
 
         var s = global::Seqeron.Genomics.Alignment.SequenceAssembler.ComputeConsensus(
-            alignedReads ?? Array.Empty<string>());
+            alignedReads ?? Array.Empty<string>(), threshold, ambiguous[0], requireMultiple, ignoreCase);
         return new ConsensusResult(s);
     }
 
-    [McpServerTool(Name = "quality_trim_reads", Title = "Reads — Quality Trim (Phred+33)", ReadOnly = true)]
-    [Description("Trims Phred+33 quality-encoded reads from both ends, dropping bases whose decoded quality is below minQuality. Reads shorter than minLength after trimming are filtered out.")]
+    [McpServerTool(Name = "quality_trim_reads", Title = "Reads — Quality Trim (BWA/cutadapt running sum)", ReadOnly = true)]
+    [Description("Trims low-quality read ends with the BWA/cutadapt running-sum algorithm (cutadapt quality_trim_index): subtract the cutoff from each Phred score and cut each end at the minimum partial sum, so a few good bases among bad ones are tolerated. Both ends use minQuality unless cutoffFront/cutoffBack are given (cutadapt -q 5',3'; a single cutadapt -q C is 3'-only = cutoffFront 0). Reads shorter than minLength after trimming are dropped (cutadapt -m).")]
     public static TrimmedReadsResult QualityTrimReads(
-        [Description("Reads, each with sequence and matching Phred+33 quality string.")] QualityReadInput[] reads,
-        [Description("Minimum acceptable quality score (Phred).")] int minQuality = 20,
-        [Description("Minimum length after trimming for a read to be kept.")] int minLength = 50)
+        [Description("Reads, each with sequence and a quality string of the same length (Phred+phredOffset ASCII).")] QualityReadInput[] reads,
+        [Description("Quality cutoff subtracted from each Phred score at both ends (values < 1 disable trimming).")] int minQuality = 20,
+        [Description("Minimum length after trimming for a read to be kept.")] int minLength = 50,
+        [Description("Optional 5' cutoff overriding minQuality for the 5' end (< 1 leaves the 5' end untrimmed).")] int? cutoffFront = null,
+        [Description("Optional 3' cutoff overriding minQuality for the 3' end (< 1 leaves the 3' end untrimmed).")] int? cutoffBack = null,
+        [Description("ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+, default) or 64 (Illumina 1.3-1.7), as cutadapt --quality-base.")] int phredOffset = 33)
     {
         var input = new List<(string sequence, string quality)>(reads?.Length ?? 0);
         if (reads != null)
@@ -605,8 +619,9 @@ public class AlignmentTools
             }
         }
 
+        // Quality decoding/validation and trimming are the core's (Core QualitySequence + cutadapt port).
         var trimmed = global::Seqeron.Genomics.Alignment.SequenceAssembler.QualityTrimReads(
-            input, minQuality, minLength);
+            input, cutoffFront ?? minQuality, cutoffBack ?? minQuality, minLength, phredOffset);
 
         var arr = new string[trimmed.Count];
         for (int i = 0; i < trimmed.Count; i++)
@@ -614,15 +629,29 @@ public class AlignmentTools
         return new TrimmedReadsResult(arr);
     }
 
-    [McpServerTool(Name = "error_correct_reads", Title = "Reads — k-mer Frequency Error Correction", ReadOnly = true)]
-    [Description("Corrects single-base errors in reads using k-mer frequency: any k-mer occurring fewer than minKmerFrequency times is corrected by substituting its middle base if a higher-frequency k-mer can be obtained.")]
+    [McpServerTool(Name = "error_correct_reads", Title = "Reads — k-mer Spectrum Error Correction (Musket)", ReadOnly = true)]
+    [Description("Corrects substitution errors with the Musket k-mer spectrum corrector (Liu et al. 2013). k-mers with multiplicity >= minKmerFrequency are trusted; bases covered by a trusted k-mer are never changed by the two-sided stage. Default: Musket stage 1 (two-sided conservative correction: one substitution per iteration at the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted; ambiguous positions unchanged), iterated to convergence over a forward-strand spectrum. musket=true runs the full Musket 1.1 corrector (canonical both-strand k-mers, -maxiter 2, -maxerr 4: adds aggressive one-sided correction and voting); countReverseComplement / maxIterations / maxErrorsPerKmer override the chosen preset. Reads are upper-cased; count and lengths are preserved.")]
     public static CorrectedReadsResult ErrorCorrectReads(
         [Description("Input reads.")] string[] reads,
-        [Description("K-mer size used to build the frequency table.")] int kmerSize = 21,
-        [Description("Minimum k-mer frequency considered \"trusted\".")] int minKmerFrequency = 3)
+        [Description("K-mer size used to build the frequency table (>= 1).")] int kmerSize = 21,
+        [Description("Trusted cut-off (>= 1): k-mers with multiplicity >= this value are trusted (Musket -minmulti).")] int minKmerFrequency = 3,
+        [Description("Run the full Musket 1.1 corrector (both strands, -maxiter 2, -maxerr 4) instead of the two-sided stage only.")] bool musket = false,
+        [Description("Optional: count each k-mer together with its reverse complement (canonical k-mers, as Musket).")] bool? countReverseComplement = null,
+        [Description("Optional: Musket -maxiter, correcting iterations per stage (>= 1).")] int? maxIterations = null,
+        [Description("Optional: Musket -maxerr, maximum corrections per k-mer window in the aggressive stage (0 = two-sided stage only).")] int? maxErrorsPerKmer = null)
     {
+        var preset = musket
+            ? global::Seqeron.Genomics.Alignment.SequenceAssembler.ErrorCorrectionOptions.Musket
+            : global::Seqeron.Genomics.Alignment.SequenceAssembler.ErrorCorrectionOptions.TwoSidedForwardStrand;
+        var options = preset with
+        {
+            CountReverseComplement = countReverseComplement ?? preset.CountReverseComplement,
+            MaxIterations = maxIterations ?? preset.MaxIterations,
+            MaxErrorsPerKmer = maxErrorsPerKmer ?? preset.MaxErrorsPerKmer,
+        };
+
         var corrected = global::Seqeron.Genomics.Alignment.SequenceAssembler.ErrorCorrectReads(
-            reads ?? Array.Empty<string>(), kmerSize, minKmerFrequency);
+            reads ?? Array.Empty<string>(), kmerSize, minKmerFrequency, options);
 
         var arr = new string[corrected.Count];
         for (int i = 0; i < corrected.Count; i++)

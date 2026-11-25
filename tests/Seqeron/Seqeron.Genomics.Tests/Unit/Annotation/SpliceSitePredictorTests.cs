@@ -91,21 +91,46 @@ public class SpliceSitePredictorTests
     #region MaxEntScore Tests
 
     [Test]
-    public void CalculateMaxEntScore_DonorSite_ReturnsScore()
+    public void CalculateMaxEntScore_DonorSite_ReturnsMaxEntScanScore5()
     {
+        // Donor branch = MaxEntScan score5 (Yeo & Burge 2004): score5.pl / maxentpy give 10.86 for CAGGTAAGT.
         string donorMotif = "CAGGUAAGU";
         double score = CalculateMaxEntScore(donorMotif, SpliceSiteType.Donor);
 
-        Assert.That(score, Is.Not.EqualTo(0));
+        Assert.That(score, Is.EqualTo(10.858313101356437).Within(1e-12));
+        Assert.That(score, Is.EqualTo(ScoreDonorMaxEnt(donorMotif)));
     }
 
     [Test]
-    public void CalculateMaxEntScore_AcceptorSite_ReturnsScore()
+    public void CalculateMaxEntScore_DonorWrongLengthOrAlphabet_Throws()
     {
-        string acceptorMotif = "UUUUUUUUUUUUUUUCAG";
+        // MaxEntScan score5 is defined only on the 9-nt window over A/C/G/T (maxentpy: "Wrong length of fa!").
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("CAGGUAAG", SpliceSiteType.Donor));
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("CAGGUAAGUA", SpliceSiteType.Donor));
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("CAGGNAAGU", SpliceSiteType.Donor));
+    }
+
+    [Test]
+    public void CalculateMaxEntScore_AcceptorSite_ReturnsMaxEntScanScore3()
+    {
+        // Acceptor branch = MaxEntScan score3 (Yeo & Burge 2004): maxentpy score3('ttccaaacgaacttttgtAGgga')
+        // = 2.8867730651152104, score3.pl prints 2.89. (The old PWM branch returned -26.81 for this window.)
+        string acceptorMotif = "UUCCAAACGAACUUUUGUAGGGA";
         double score = CalculateMaxEntScore(acceptorMotif, SpliceSiteType.Acceptor);
 
-        Assert.That(score, Is.Not.EqualTo(0).Or.EqualTo(0));
+        Assert.That(score, Is.EqualTo(2.8867730651152104));
+        Assert.That(score, Is.EqualTo(ScoreAcceptorMaxEnt(acceptorMotif)));
+    }
+
+    [Test]
+    public void CalculateMaxEntScore_AcceptorWrongLengthOrAlphabet_Throws()
+    {
+        // MaxEntScan score3 is defined only on the 23-nt window over A/C/G/T (maxentpy: "Wrong length of fa!";
+        // score3.pl port: invalid_length / invalid_alphabet).
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("UUUUUUUUUUUUUUUCAG", SpliceSiteType.Acceptor));
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("TTCCAAACGAACTTTTGTAGGGAA", SpliceSiteType.Acceptor));
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("TTCCAAACGAACTTTTGTAGGGN", SpliceSiteType.Acceptor));
+        Assert.That(CalculateMaxEntScore("", SpliceSiteType.Acceptor), Is.EqualTo(0));
     }
 
     [Test]
@@ -123,7 +148,9 @@ public class SpliceSitePredictorTests
         double strongScore = CalculateMaxEntScore(strongDonor, SpliceSiteType.Donor);
         double weakScore = CalculateMaxEntScore(weakDonor, SpliceSiteType.Donor);
 
-        Assert.That(strongScore, Is.GreaterThanOrEqualTo(weakScore));
+        // maxentpy score5: CAGGTAAGT 10.86, AAAGTAAAA 1.18.
+        Assert.That(weakScore, Is.EqualTo(1.1774343078815603).Within(1e-12));
+        Assert.That(strongScore, Is.GreaterThan(weakScore));
     }
 
     #endregion

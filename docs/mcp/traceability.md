@@ -348,7 +348,7 @@
 | frequent_kmers_with_mismatches_and_revcomp | Alignment | ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements | Alignment/ApproximateMatcher.cs#L967 | 2/2 | ✓ | ✓ | Ready |
 | global_align | Alignment | SequenceAligner.GlobalAlign | Alignment/SequenceAligner.cs#L72 | 0/0 | – | – | Build-Ready |
 | local_align | Alignment | SequenceAligner.LocalAlign | Alignment/SequenceAligner.cs#L301 | 0/0 | – | – | Build-Ready |
-| merge_contigs | Alignment | SequenceAssembler.MergeContigs | Alignment/SequenceAssembler.cs#L450 | 0/0 | – | – | Build-Ready |
+| merge_contigs | Alignment | SequenceAssembler.MergeContigs | Alignment/SequenceAssembler.cs#L950 | 0/0 | – | – | Build-Ready |
 | multiple_align | Alignment | SequenceAligner.MultipleAlign | Alignment/SequenceAligner.cs#L644 | 0/0 | – | – | Build-Ready |
 | quality_trim_reads | Alignment | SequenceAssembler.QualityTrimReads | Alignment/SequenceAssembler.cs#L600 | 0/0 | – | – | Build-Ready |
 | scaffold_contigs | Alignment | SequenceAssembler.Scaffold | Alignment/SequenceAssembler.cs#L461 | 0/0 | – | – | Build-Ready |

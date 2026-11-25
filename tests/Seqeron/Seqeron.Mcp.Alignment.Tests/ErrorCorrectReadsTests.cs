@@ -31,4 +31,27 @@ public class ErrorCorrectReadsTests
             Assert.That(r.Corrected[0], Is.EqualTo("ACGTACGT"));
         });
     }
+
+    [Test]
+    public void ErrorCorrectReads_MusketOptions_DelegateToCore()
+    {
+        // Three reverse-strand copies of GATTACAGGCTTC + one forward read with C->G at index 6 (k=3,
+        // cut-off 2): forward-only counting miscorrects index 0; Musket's canonical counting fixes index 6.
+        var reads = new[] { "GAAGCCTGTAATC", "GAAGCCTGTAATC", "GAAGCCTGTAATC", "GATTACGGGCTTC" };
+        var plain = AlignmentTools.ErrorCorrectReads(reads, 3, 2);
+        var musket = AlignmentTools.ErrorCorrectReads(reads, 3, 2, musket: true);
+        var canonical = AlignmentTools.ErrorCorrectReads(reads, 3, 2, countReverseComplement: true);
+        // Two adjacent errors need Musket's aggressive stage with -maxerr >= 2.
+        var twoErrors = new[] { "AAAAAAAA", "AAAAAAAA", "AAAAAAAA", "AACCAAAA" };
+        Assert.Multiple(() =>
+        {
+            Assert.That(plain.Corrected[3], Is.EqualTo("AATTACGGGCTTC"));
+            Assert.That(musket.Corrected[3], Is.EqualTo("GATTACAGGCTTC"));
+            Assert.That(canonical.Corrected[3], Is.EqualTo("GATTACAGGCTTC"));
+            Assert.That(AlignmentTools.ErrorCorrectReads(twoErrors, 4, 2, musket: true).Corrected[3], Is.EqualTo("AAAAAAAA"));
+            Assert.That(AlignmentTools.ErrorCorrectReads(twoErrors, 4, 2, musket: true, maxErrorsPerKmer: 1).Corrected[3], Is.EqualTo("AACCAAAA"));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.ErrorCorrectReads(twoErrors, 4, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.ErrorCorrectReads(twoErrors, 4, 2, maxIterations: 0));
+        });
+    }
 }

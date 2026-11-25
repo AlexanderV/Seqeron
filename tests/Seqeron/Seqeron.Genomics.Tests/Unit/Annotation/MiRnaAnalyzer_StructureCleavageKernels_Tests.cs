@@ -1,6 +1,6 @@
 // MIRNA-PRECURSOR-001 / MIRNA-TARGET-001 / MIRNA-CLEAVAGE-001 — closed-form differential killers for
 // the pure structural/cleavage kernels of MiRnaAnalyzer: the single-hairpin and largest-enclosed-loop
-// dot-bracket parsers, the Turner terminal AU/GU pair predicate, the Drosha/Dicer linear cut geometry,
+// dot-bracket parsers, the Turner terminal AU/GU pair predicate, the Drosha/Dicer fold-based cut geometry,
 // and canonical seed-site finding. These are observable only through fold/score pipelines that
 // re-converge under an internal index mutation, so the parsers/geometry mutants survive. They are
 // asserted against hand-derived expected values (independent of the implementation).
@@ -13,17 +13,18 @@ namespace Seqeron.Genomics.Tests.Unit.Annotation;
 [Category("MIRNA-PRECURSOR-001")]
 public class MiRnaAnalyzer_StructureCleavageKernels_Tests
 {
-    // ── IsTerminalPenaltyPair: A-U / U-A / G-U / U-G are penalised; G-C / C-G / A-A are not ──
+    // ── IsTerminalPenaltyPair (canonical Turner2004Parameters; MiRnaAnalyzer's internal forwarder was removed
+    //    as dead duplication): A-U / U-A / G-U / U-G are penalised; G-C / C-G / A-A are not ──
     [Test]
     public void IsTerminalPenaltyPair_OnlyAuAndGu()
     {
-        Assert.That(MiRnaAnalyzer.IsTerminalPenaltyPair('A', 'U'), Is.True);
-        Assert.That(MiRnaAnalyzer.IsTerminalPenaltyPair('U', 'A'), Is.True);
-        Assert.That(MiRnaAnalyzer.IsTerminalPenaltyPair('G', 'U'), Is.True);
-        Assert.That(MiRnaAnalyzer.IsTerminalPenaltyPair('U', 'G'), Is.True);
-        Assert.That(MiRnaAnalyzer.IsTerminalPenaltyPair('G', 'C'), Is.False);
-        Assert.That(MiRnaAnalyzer.IsTerminalPenaltyPair('C', 'G'), Is.False);
-        Assert.That(MiRnaAnalyzer.IsTerminalPenaltyPair('A', 'A'), Is.False);
+        Assert.That(Seqeron.Genomics.Core.Turner2004Parameters.IsTerminalPenaltyPair('A', 'U'), Is.True);
+        Assert.That(Seqeron.Genomics.Core.Turner2004Parameters.IsTerminalPenaltyPair('U', 'A'), Is.True);
+        Assert.That(Seqeron.Genomics.Core.Turner2004Parameters.IsTerminalPenaltyPair('G', 'U'), Is.True);
+        Assert.That(Seqeron.Genomics.Core.Turner2004Parameters.IsTerminalPenaltyPair('U', 'G'), Is.True);
+        Assert.That(Seqeron.Genomics.Core.Turner2004Parameters.IsTerminalPenaltyPair('G', 'C'), Is.False);
+        Assert.That(Seqeron.Genomics.Core.Turner2004Parameters.IsTerminalPenaltyPair('C', 'G'), Is.False);
+        Assert.That(Seqeron.Genomics.Core.Turner2004Parameters.IsTerminalPenaltyPair('A', 'A'), Is.False);
     }
 
     // ── TryDescribeSingleHairpin ──
@@ -71,39 +72,42 @@ public class MiRnaAnalyzer_StructureCleavageKernels_Tests
         Assert.That(MiRnaAnalyzer.LargestEnclosedLoop("()"), Is.EqualTo(0), "no enclosed unpaired base");
     }
 
-    // ── PredictDroshaDicerCleavage: linear cut geometry (Han 2006 / Park 2011) ──
+    // ── PredictDroshaDicerCleavage: fold-based cut geometry (Han 2006 / Park 2011 / miRDeep2 find_star) ──
+    // Perfect hairpin: 5-nt flank, 35-bp stem, 8-nt loop, 35-bp stem, 25-nt flank (108 nt); pair k = (5+k, 82−k).
+    private static readonly string KernelPri =
+        new string('A', 5) + new string('G', 35) + new string('A', 8) + new string('C', 35) + new string('A', 25);
+    private static readonly string KernelFold =
+        new string('.', 5) + new string('(', 35) + new string('.', 8) + new string(')', 35) + new string('.', 25);
+
     [Test]
-    public void PredictDroshaDicerCleavage_ExactLinearGeometry()
+    public void PredictDroshaDicerCleavage_ExactFoldGeometry()
     {
-        // basalJunction = 5: Drosha 5' cut = 5+11 = 16; mature [16..37] (22 nt); star end = 37+2 = 39;
-        // star start = 39-21 = 18.
-        string seq = new string('A', 60);
-        var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(seq, 5);
+        // junction 5: 12th pair = (16, 71) ⇒ Drosha 5' cut 16, 3' cut 71+2 = 73; 5p [16..37] (22 nt);
+        // 3p start = partner(37−2 = 35) = 82−30 = 52 ⇒ 3p [52..73].
+        var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(KernelPri, 5, KernelFold);
         Assert.That(c, Is.Not.Null);
         Assert.That(c!.Value.DroshaCut5Prime, Is.EqualTo(16));
         Assert.That(c.Value.MatureStart, Is.EqualTo(16));
         Assert.That(c.Value.MatureEnd, Is.EqualTo(37));
-        Assert.That(c.Value.StarEnd, Is.EqualTo(39));
-        Assert.That(c.Value.StarStart, Is.EqualTo(18));
-        Assert.That(c.Value.DroshaCut3Prime, Is.EqualTo(39));
+        Assert.That(c.Value.StarStart, Is.EqualTo(52));
+        Assert.That(c.Value.StarEnd, Is.EqualTo(73));
+        Assert.That(c.Value.DroshaCut3Prime, Is.EqualTo(73));
     }
 
     [Test]
     public void PredictDroshaDicerCleavage_OutOfRangeBasalJunction_Null()
     {
-        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string('A', 60), -1), Is.Null);
-        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string('A', 60), 60), Is.Null);
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(KernelPri, -1, KernelFold), Is.Null);
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(KernelPri, KernelPri.Length, KernelFold), Is.Null);
     }
 
     [Test]
     public void PredictDroshaDicerCleavage_CnncMotifDetection()
     {
-        // CNNC window starts at droshaCut5Prime + {16,17,18} = {32,33,34}; motif = C..C (positions p, p+3).
-        // Place C at 32 and 35 → CNNC at start 32 → detected.
-        var with = new char[60]; Array.Fill(with, 'A'); with[32] = 'C'; with[35] = 'C';
-        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string(with), 5)!.Value.HasCnncMotif, Is.True);
-        // All A → no CNNC.
-        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string('A', 60), 5)!.Value.HasCnncMotif, Is.False);
+        // CNNC window starts at DroshaCut3Prime + {16,17,18} = {89,90,91} (Auyeung 2013, downstream of the 3p cut).
+        var with = KernelPri.ToCharArray(); with[89] = 'C'; with[92] = 'C';
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string(with), 5, KernelFold)!.Value.HasCnncMotif, Is.True);
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(KernelPri, 5, KernelFold)!.Value.HasCnncMotif, Is.False);
     }
 
     // ── FindTargetSites: canonical 8mer seed match at the scan boundary ──

@@ -18,8 +18,9 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     placed twice, so even a link cycle terminates — Scaffolding.md §6.2);
 ///   • no crash on a single contig or on no links (no DivideByZero, no
 ///     IndexOutOfRange / ArgumentOutOfRange);
-///   • no negative gap run — a non-positive estimate emits the AGP unknown-gap
-///     length of 100, never a negative or absurd run (INV-02);
+///   • no negative gap run — a zero estimate, or a negative one whose overlap is
+///     not found, emits the AGP unknown-gap length of 100; an agreeing overlap is
+///     collapsed (INV-02);
 ///   • DETERMINISTIC output under conflicting links — the same input always
 ///     yields the same scaffolds, with the first declared forward link winning on
 ///     ties (§5.2); no order-dependent / random resolution.
@@ -43,10 +44,10 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///            no crash (INV-04, §6.1 "No links").
 ///          – CONFLICTING LINKS: links implying contradictory order/orientation
 ///            (a→b AND a→c, cycles a→b→a, links into an already-placed contig) →
-///            the DOCUMENTED deterministic resolution: the first declared forward
-///            link out of a contig wins, a link to an already-placed contig is
-///            skipped (§5.2, §6.1 "Link to placed contig"); no infinite loop, no
-///            contig placed twice (§6.2).
+///            the DOCUMENTED deterministic resolution (greedy, Huson et al. 2002):
+///            links in descending weight / input order; a link whose end is already
+///            joined, or that would close a cycle, is rejected (§5.2); no infinite
+///            loop, no contig placed twice (§6.2).
 ///          – SINGLE CONTIG: one contig → exactly one trivial scaffold equal to
 ///            that contig, no DivideByZero/crash (§6.1).
 /// — docs/checklists/03_FUZZING.md §Description (BE = Boundary Exploitation:
@@ -57,13 +58,13 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// A link <c>(i, j, g)</c> appends <c>contigs[j]</c> after <c>contigs[i]</c>
 /// preceded by a gap run; the run length is <c>g</c> when <c>g &gt; 0</c> (INV-01)
-/// else the AGP unknown-gap length 100 (INV-02). Following a path concatenates the
+/// else (when g &lt; 0) the −g agreeing overlap is collapsed or, failing that, the
+/// AGP unknown-gap length 100 is used (INV-02). Following a path concatenates the
 /// contigs verbatim in link order separated by gap runs (INV-03, INV-05). Each
 /// contig appears in EXACTLY ONE scaffold (INV-04). Out-of-range / self links are
-/// ignored; a link to an already-placed contig is skipped; the first declared
-/// forward link out of a contig wins on ties (§3.3, §5.2). Contigs not reached by
-/// any followed link each become their own length-1 scaffold, in ascending index
-/// order. Empty contigs → empty result; null contigs/links → ArgumentNullException.
+/// ignored; a link at an already-joined end or closing a cycle is rejected, links
+/// taken in input order (§3.3, §5.2). Unjoined contigs are length-1 scaffolds;
+/// scaffolds are listed by their lowest contig index. Empty contigs → empty result; null contigs/links → ArgumentNullException.
 ///   SequenceAssembler.Scaffold(
 ///       IReadOnlyList&lt;string&gt; contigs,
 ///       IReadOnlyList&lt;(int contig1, int contig2, int gapSize)&gt; links,
@@ -135,8 +136,10 @@ public class AssemblyScaffoldFuzzTests
 
         // The non-gap characters across all scaffolds must equal the total contig characters: no
         // contig dropped (INV-04 lower bound), none duplicated/invented (INV-04 upper bound).
-        totalScaffoldNonGapChars.Should().Be(totalContigChars,
-            "INV-04: the union of scaffolds contains every contig's characters exactly once");
+        // A negative estimate whose overlap agrees collapses −d bases (Jackman et al. 2017; ABySS
+        // MergeContigs), so the scaffolds hold at most the contig characters, never more.
+        totalScaffoldNonGapChars.Should().BeLessThanOrEqualTo(totalContigChars,
+            "INV-04: no contig characters are invented or duplicated");
 
         // Each contig appears in exactly one scaffold as a contiguous verbatim substring.
         foreach (var contig in contigs)
@@ -149,54 +152,61 @@ public class AssemblyScaffoldFuzzTests
     }
 
     /// <summary>
-    /// Independent oracle: replays the DOCUMENTED greedy path-following rule (Scaffolding.md §4.1)
-    /// to predict the exact scaffold strings, without re-using the unit's implementation. The first
-    /// declared forward link out of a contig wins on ties (§5.2); a link to an already-placed contig
-    /// is skipped; non-positive gaps emit 100 gap chars (INV-02).
+    /// Independent oracle (C# transcription of the Python oracle in
+    /// docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md, written without the unit's code): Huson,
+    /// Reinert &amp; Myers (2002) Algorithm 5.1 restricted to end-to-end joins — links in input order
+    /// (all weight 1), a link 3′(c1)→5′(c2) is selected iff both end nodes are free and c1, c2 lie
+    /// on different paths. Each path is read from its terminals; the reading with more forward
+    /// contigs (tie: lowest-index contig forward) is kept — forward-only links → forward reading.
+    /// Gaps: d &gt; 0 → d chars; d &lt; 0 with −d agreeing bases (since the last gap) → collapsed;
+    /// otherwise 100 (AGP unknown gap). Scaffolds are ordered by their lowest contig index.
     /// </summary>
     private static List<string> Oracle(
         IReadOnlyList<string> contigs,
         IReadOnlyList<(int c1, int c2, int g)> links,
         char gapChar)
     {
-        var linkMap = new Dictionary<int, List<(int c1, int c2, int g)>>();
+        int n = contigs.Count;
+        var next = new Dictionary<int, (int to, int g)>();   // 3′ end of key → 5′ end of 'to'
+        var prev = new Dictionary<int, int>();
+        var comp = Enumerable.Range(0, n).ToArray();
+        int Root(int x)
+        {
+            while (comp[x] != x)
+                x = comp[x];
+            return x;
+        }
         foreach (var (c1, c2, g) in links)
         {
-            if (c1 < 0 || c1 >= contigs.Count) continue;
-            if (c2 < 0 || c2 >= contigs.Count) continue;
-            if (c1 == c2) continue;
-            if (!linkMap.TryGetValue(c1, out var bucket))
-                linkMap[c1] = bucket = new List<(int, int, int)>();
-            bucket.Add((c1, c2, g));
+            if (c1 < 0 || c1 >= n || c2 < 0 || c2 >= n || c1 == c2) continue;
+            if (next.ContainsKey(c1) || prev.ContainsKey(c2) || Root(c1) == Root(c2)) continue;
+            next[c1] = (c2, g);
+            prev[c2] = c1;
+            comp[Root(c1)] = Root(c2);
         }
 
-        var scaffolds = new List<string>();
-        var used = new HashSet<int>();
-        for (int i = 0; i < contigs.Count; i++)
+        var result = new SortedDictionary<int, string>();
+        foreach (int head in Enumerable.Range(0, n).Where(c => !prev.ContainsKey(c)))
         {
-            if (used.Contains(i)) continue;
-            var sb = new StringBuilder(contigs[i]);
-            used.Add(i);
-            int current = i;
-            while (linkMap.TryGetValue(current, out var nextLinks))
+            var members = new List<int> { head };
+            var sb = new StringBuilder(contigs[head]);
+            int since = contigs[head].Length;
+            int cur = head;
+            while (next.TryGetValue(cur, out var nx))
             {
-                int nextIndex = -1, gap = 0;
-                foreach (var link in nextLinks)
-                {
-                    if (used.Contains(link.c2)) continue;
-                    nextIndex = link.c2;
-                    gap = link.g;
-                    break;
-                }
-                if (nextIndex < 0) break;
-                sb.Append(gapChar, gap > 0 ? gap : UnknownGapLength);
-                sb.Append(contigs[nextIndex]);
-                used.Add(nextIndex);
-                current = nextIndex;
+                string seq = contigs[nx.to];
+                int ov = nx.g < 0 && nx.g != int.MinValue ? -nx.g : int.MaxValue;
+                if (nx.g > 0) { sb.Append(gapChar, nx.g).Append(seq); since = seq.Length; }
+                else if (nx.g < 0 && ov <= since && ov <= seq.Length
+                         && sb.ToString(sb.Length - ov, ov) == seq.Substring(0, ov))
+                { sb.Append(seq, ov, seq.Length - ov); since += seq.Length - ov; }
+                else { sb.Append(gapChar, UnknownGapLength).Append(seq); since = seq.Length; }
+                members.Add(nx.to);
+                cur = nx.to;
             }
-            scaffolds.Add(sb.ToString());
+            result[members.Min()] = sb.ToString();
         }
-        return scaffolds;
+        return result.Values.ToList();
     }
 
     #endregion
@@ -520,6 +530,56 @@ public class AssemblyScaffoldFuzzTests
 
     #endregion
 
+    #region Oriented links with exact overlaps reconstruct the genome (B10 F17/F18)
+
+    // Fuzz: a random genome cut into overlapping pieces (overlap o ≥ 1), some pieces stored
+    // reverse-complemented, contig order shuffled, links oriented accordingly with gap −o and in
+    // random order → the single scaffold is the genome or its reverse complement (Huson et al. 2002
+    // orientation; Jackman et al. 2017 / ABySS MergeContigs overlap collapse).
+    [Test]
+    [CancelAfter(30_000)]
+    public void Scaffold_OrientedOverlappingPieces_ReconstructGenomeOrItsReverseComplement()
+    {
+        var rng = new Random(146_003);
+        for (int trial = 0; trial < 1000; trial++)
+        {
+            int k = rng.Next(2, 8);
+            var lengths = Enumerable.Range(0, k).Select(_ => rng.Next(4, 12)).ToArray();
+            var overlaps = Enumerable.Range(0, k - 1)
+                .Select(i => rng.Next(1, Math.Min(lengths[i], lengths[i + 1]))).ToList();
+            var starts = new int[k];
+            var ends = new int[k];
+            for (int i = 0; i < k; i++)
+            {
+                starts[i] = i == 0 ? 0 : ends[i - 1] - overlaps[i - 1];
+                ends[i] = starts[i] + lengths[i];
+            }
+            int pos = ends[k - 1];
+            string genome = RandomContig(rng, pos);
+            var flips = Enumerable.Range(0, k).Select(_ => rng.Next(2) == 0).ToArray();
+            var perm = Enumerable.Range(0, k).OrderBy(_ => rng.Next()).ToArray();
+            var contigs = new string[k];
+            for (int i = 0; i < k; i++)
+            {
+                string piece = genome[starts[i]..ends[i]];
+                contigs[perm[i]] = flips[i] ? RevComp(piece) : piece;
+            }
+            var links = Enumerable.Range(0, k - 1)
+                .Select(i => new SequenceAssembler.ScaffoldLink(perm[i], perm[i + 1], -overlaps[i], flips[i], flips[i + 1]))
+                .OrderBy(_ => rng.Next()).ToArray();
+
+            var scaffolds = SequenceAssembler.Scaffold(contigs, links);
+
+            scaffolds.Should().ContainSingle();
+            scaffolds[0].Should().BeOneOf(genome, RevComp(genome));
+        }
+    }
+
+    private static string RevComp(string s) =>
+        new(s.Reverse().Select(c => c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', _ => 'C' }).ToArray());
+
+    #endregion
+
     #region BE — validation and empty input
 
     // Empty contigs → empty result (§3.3, §6.1).
@@ -536,7 +596,7 @@ public class AssemblyScaffoldFuzzTests
     {
         ((Action)(() => SequenceAssembler.Scaffold(null!, Array.Empty<(int, int, int)>())))
             .Should().Throw<ArgumentNullException>("null contigs is the documented validation contract (§3.3)");
-        ((Action)(() => SequenceAssembler.Scaffold(new[] { "ACGT" }, null!)))
+        ((Action)(() => SequenceAssembler.Scaffold(new[] { "ACGT" }, (IReadOnlyList<(int, int, int)>)null!)))
             .Should().Throw<ArgumentNullException>("null links is the documented validation contract (§3.3)");
     }
 

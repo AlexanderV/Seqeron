@@ -36,7 +36,7 @@ Assemble reads with the overlap-layout-consensus approach: detect pairwise suffi
 |-------|------|-------------|
 | `contigs` | array<string> | Assembled contig sequences. |
 | `totalReads` | integer | Number of input reads. |
-| `assembledReads` | integer | Number of reads incorporated. |
+| `assembledReads` | integer | Reads placed (as layout members or contained reads) in a reported contig, i.e. one that passes `minContigLength` (Velvet `usedReads`). |
 | `n50` | number | N50 contig length. |
 | `longestContig` | integer | Longest contig length (bp). |
 | `totalLength` | integer | Total assembled length (bp). |

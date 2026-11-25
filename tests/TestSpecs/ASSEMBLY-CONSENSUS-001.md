@@ -5,7 +5,7 @@
 **Algorithm:** Consensus Computation (column-wise majority/threshold consensus)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25 (B10 review)
 
 ---
 
@@ -44,7 +44,9 @@ Gaps skipped; residue tie → ambiguous; sub-threshold majority → ambiguous; a
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `ComputeConsensus(IReadOnlyList<string> alignedReads, double threshold = 0.5, char ambiguous = 'N')` | SequenceAssembler | Canonical | Column-wise majority/threshold consensus per Biopython `dumb_consensus`. |
+| `ComputeConsensus(IReadOnlyList<string> alignedReads, double threshold = 0.5, char ambiguous = 'N')` | SequenceAssembler | Wrapper | Case-insensitive, `require_multiple=False`; used by AssembleOLC. |
+| `ComputeConsensus(IReadOnlyList<string>, double threshold, char ambiguous, bool requireMultiple, bool ignoreCase = true)` | SequenceAssembler | Canonical | Full Biopython `dumb_consensus`; `ignoreCase: false` = Biopython 1.85 exactly. |
+| MCP `compute_consensus` | AlignmentTools | Wrapper | Delegates; optional threshold/ambiguous/requireMultiple/ignoreCase. |
 
 ---
 
@@ -82,6 +84,20 @@ Gaps skipped; residue tie → ambiguous; sub-threshold majority → ambiguous; a
 |----|-----------|-------------|------------------|-------|
 | S1 | Null input throws | `null` read list | `ArgumentNullException` | Repository contract (sibling methods) |
 | S2 | Lowercase normalized | `acgt`,`ACGT` | `ACGT` | `char.ToUpperInvariant` per existing code |
+
+### 4.2b B10 review additions (2026-11-25)
+
+| ID | Test Case | Expected | Evidence / Test |
+|----|-----------|----------|-----------------|
+| B1 | 11 Biopython 1.85 hand cases (require_multiple, case, N residue, thresholds 0/1.5/−1, ragged) | Biopython output | `ComputeConsensus_MatchesBiopython185DumbConsensus` |
+| B2 | `A-`,`AC` with requireMultiple | `AN` (default `AC`) | `ComputeConsensus_RequireMultiple_SingleResidueColumnIsAmbiguous` |
+| B3 | Case-sensitive mode | `a`,`A` → `N`; `aa`,`Aa`,`AA` → `Aa`; default `AA` | `ComputeConsensus_IgnoreCaseFalse_ComparesCaseSensitively` |
+| B4 | `N` is a residue | `N`,`N`,`A` (amb X) → `N` | `ComputeConsensus_NResidue_IsCountedNotSkipped` |
+| B5 | Null read element | `ArgumentException` | `ComputeConsensus_NullReadElement_ThrowsArgumentException` |
+| B6 | NaN threshold | `ArgumentOutOfRangeException` (both overloads) | `ComputeConsensus_NaNThreshold_Throws` |
+| B7 | MCP options + description | Biopython values; `ambiguous:"XY"`/NaN rejected | `ComputeConsensus_BiopythonOptions_DelegateToCanonicalConsensus` (Mcp.Alignment) |
+
+Oracle: Biopython 1.85 3012/3012 (Evidence §B10 review).
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -183,4 +199,5 @@ Both assumptions are parameter defaults (presentation/configuration), not the de
 
 ## 7. Open Questions / Decisions
 
-1. None. The decision rule (strict `>= threshold`, tie→ambiguous, gap-skipping, all-gap guard, length=longest read) is taken verbatim from Biopython `dumb_consensus`. Only the two defaults are documented assumptions, with every source value reachable via parameters.
+1. (B10) `MotifFinder.GenerateDumbConsensus` (Analysis, B05) re-implements the same rule; cross-batch request to delegate to the 5-arg canonical overload with `ignoreCase: false` after its equal-length check.
+2. The decision rule (strict `>= threshold`, tie→ambiguous, gap-skipping, all-gap guard, length=longest read) is taken verbatim from Biopython `dumb_consensus`. Only the two defaults are documented assumptions, with every source value reachable via parameters.

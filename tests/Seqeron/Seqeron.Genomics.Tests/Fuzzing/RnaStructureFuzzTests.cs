@@ -43,9 +43,10 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///
 ///   (1) PredictStructure(string, minStemLength=3, minLoopSize=3, maxLoopSize=10)
 ///       → SecondaryStructure { Sequence, DotBracket, BasePairs, StemLoops,
-///         Pseudoknots, MinimumFreeEnergy }. A GREEDY stem-loop assembly: it scans
-///         hairpins, scores them by Turner energy, and selects NON-OVERLAPPING
-///         stem-loops (SelectNonOverlapping), then emits base pairs + dot-bracket.
+///         Pseudoknots, MinimumFreeEnergy }. A stem-loop assembly: it scans hairpin
+///         stem-loops and selects the minimum-free-energy set of NON-OVERLAPPING ones
+///         (Zuker exterior-loop recursion over the candidates, RNA-MFE-001), then emits
+///         base pairs + dot-bracket; MinimumFreeEnergy = CalculateFreeEnergy of it (≤ 0).
 ///         (Minimum_Free_Energy.md §5.1, §4.1 step 4.)
 ///
 ///   (2) CalculateMinimumFreeEnergy(string, minLoopSize=3) → double — the Zuker-
@@ -353,33 +354,34 @@ public class RnaStructureFuzzTests
     #region BE — Boundary: all-A·U sequence (positive pairing signal)
 
     /// <summary>
-    /// BE: an all-A·U sequence. A and U are complementary, so "AAAA…UUUU…" CAN form
-    /// A-U pairs — the prediction must surface that pairing signal (a non-trivial
-    /// stem), while still respecting every structural invariant. A long enough block
-    /// of A's followed by U's with a 3-nt minimum loop forms a clean hairpin.
-    /// This is the positive A·U signal called out in the fuzz row.
+    /// BE: all-A·U sequences. A and U are complementary, so a long enough "AAA…UUU…" block forms an A-U
+    /// hairpin; a short one does not, because the A-U stem cannot pay for the hairpin initiation and the
+    /// terminal-AU penalties (the open chain, ΔG = 0, is then more stable). Expected values: ViennaRNA 2.7.2
+    /// RNA.fold (d2, NNDB-precision Turner 2004 file) — AAAAAUUUUUUUUUU '...............' 0.0;
+    /// AAAAAAAAAAAUUUUUUUUUUU '(((((((((....)))))))))' −1.94 (RNA-MFE-001).
     /// </summary>
     [Test]
     public void Predict_AllAUSequence_FormsCanonicalAUPairs()
     {
-        // 5×A + 4-nt loop (AUAU never self-pairs across the loop center) + 5×U:
-        // a poly-A / poly-U stem with an interior loop region.
-        var s = RnaSecondaryStructure.PredictStructure("AAAAAUUUUUUUUUU");
+        // Short A/U block: the only stem-loop candidate, (((((....))))) , has ΔG = +0.98 > 0 (RNA.eval_structure
+        // +0.98 in context) — it must NOT be selected (it was, by the old greedy assembly).
+        var shortAu = RnaSecondaryStructure.PredictStructure("AAAAAUUUUUUUUUU");
+        shortAu.BasePairs.Should().BeEmpty("a +0.98 kcal/mol A-U hairpin is less stable than the open chain");
+        shortAu.MinimumFreeEnergy.Should().Be(0.0);
+        AssertWellFormedStructure(shortAu);
 
-        s.BasePairs.Should().NotBeEmpty("complementary A and U blocks must yield A-U pairs");
+        var s = RnaSecondaryStructure.PredictStructure("AAAAAAAAAAAUUUUUUUUUUU");
+        s.DotBracket.Should().Be("(((((((((....)))))))))", "RNA.fold MFE structure");
+        s.MinimumFreeEnergy.Should().BeApproximately(-1.94, 1e-9, "RNA.fold −1.94");
         s.BasePairs.Should().OnlyContain(
             bp => (bp.Base1 == 'A' && bp.Base2 == 'U') || (bp.Base1 == 'U' && bp.Base2 == 'A'),
             "the only canonical pairs available in an A/U sequence are A-U / U-A");
-        // NOTE: PredictStructure is a GREEDY heuristic; its reported MinimumFreeEnergy is the
-        // sum of stem-loop TotalFreeEnergy and may be ABOVE the true MFE (it can be positive
-        // for a short A-U hairpin once terminal-AU penalties + hairpin initiation dominate) —
-        // INV-01 (≤ 0) holds only for the exact DP CalculateMinimumFreeEnergy, asserted below.
-        double.IsFinite(s.MinimumFreeEnergy).Should().BeTrue("the greedy energy is a finite physical value");
         AssertWellFormedStructure(s);
 
         // Alternating A/U also stays valid and crash-free.
         var alt = RnaSecondaryStructure.PredictStructure("AUAUAUAUAUAU");
         AssertWellFormedStructure(alt);
+        alt.MinimumFreeEnergy.Should().BeLessThanOrEqualTo(0);
         RnaSecondaryStructure.CalculateMinimumFreeEnergy("AUAUAUAUAUAU").Should().BeLessThanOrEqualTo(0);
     }
 

@@ -88,7 +88,7 @@ public class GenomeAssemblyAnalyzerMutationTests
         var dist = AnalyzeGapDistribution(gaps);
         Assert.That(dist.Count, Is.EqualTo(2));
         Assert.That(dist.MeanLength, Is.EqualTo(3.0).Within(Tol));
-        Assert.That(dist.MedianLength, Is.EqualTo(4.0).Within(Tol)); // upper-mid at index count/2
+        Assert.That(dist.MedianLength, Is.EqualTo(3.0).Within(Tol)); // sample median (numpy.median([2, 4]) = 3.0)
         Assert.That(dist.MaxLength, Is.EqualTo(4));
         Assert.That(dist.TypeCounts["Short"], Is.EqualTo(2));
     }
@@ -100,12 +100,17 @@ public class GenomeAssemblyAnalyzerMutationTests
     [Test]
     public void ExtractContigs_SplitsOnNRunsAndFiltersByLength()
     {
-        var contigs = ExtractContigs(new[] { ("s", "AAANNAAAA") }, minContigLength: 3).ToList();
+        // minGapLength 1 = QUAST split_by_ns(Ns_break_threshold=1): every N-run cuts.
+        var contigs = ExtractContigs(new[] { ("s", "AAANNAAAA") }, minContigLength: 3, minGapLength: 1).ToList();
         Assert.That(contigs, Is.EqualTo(new[] { ("s_contig1", "AAA"), ("s_contig2", "AAAA") }));
 
         // Raising the threshold drops the 3-bp contig; the 4-bp contig is renumbered from 1.
-        var filtered = ExtractContigs(new[] { ("s", "AAANNAAAA") }, minContigLength: 4).ToList();
+        var filtered = ExtractContigs(new[] { ("s", "AAANNAAAA") }, minContigLength: 4, minGapLength: 1).ToList();
         Assert.That(filtered, Is.EqualTo(new[] { ("s_contig1", "AAAA") }));
+
+        // Default minGapLength 10 (QUAST Ns_break_threshold): the 2-N run is an ambiguity inside the contig.
+        Assert.That(ExtractContigs(new[] { ("s", "AAANNAAAA") }, minContigLength: 3).ToList(),
+            Is.EqualTo(new[] { ("s_contig1", "AAANNAAAA") }));
     }
 
     [Test]

@@ -215,7 +215,7 @@ Poly-C loops are destabilized due to electrostatic repulsion:
 
 1. **Negative stacking**: All Watson-Crick stacking energies must be negative
 2. **Positive loop initiation**: Hairpin loop initiation is always positive (destabilizing)
-3. **Monotonic loop penalty**: Longer loops have higher initiation penalties (to a point)
+3. **Loop initiation is not monotonic for small loops** (§3.4: n = 6 and 8 are below n = 4); only the n > 9 extrapolation grows with n
 4. **GNRA stability**: GNRA tetraloops are more stable than random tetraloops
 5. **All-C penalty**: Poly-C loops are less stable than equivalent poly-A loops
 
@@ -245,7 +245,9 @@ Poly-C loops are destabilized due to electrostatic repulsion:
 |------|----------|
 | Null input | Return 0 or handle gracefully |
 | Empty string | Return 0 |
-| Invalid bases | Undefined (implementation choice) |
+| Unknown base (N, IUPAC, gap) in a mismatch / dangle position | Maximum over A/C/G/U (ViennaRNA 2.7.2 'N' entries, §8.1) |
+| DNA T, lower case | Read as U / upper case (ViennaRNA `vrna_nucleotide_encode`) |
+| Non-canonical closing pair in a mismatch / dangle / coaxial term | 0 (outside the NN model) |
 
 ---
 
@@ -271,6 +273,7 @@ All parameters verified against NNDB Turner 2004 (rna.urmc.rochester.edu/NNDB/tu
 **Standard conditions:** 37°C (310.15 K) — defined by Turner 2004 (not an assumption).
 **Precision:** 2 decimal places — follows NNDB parameter precision.
 **Unknown stacking pairs:** Contribute 0.0 kcal/mol — non-canonical interactions are outside the NN model scope.
+**Unknown unpaired bases** (mismatch / dangle positions): maximum over A/C/G/U, see §8.1.
 
 ---
 
@@ -282,5 +285,100 @@ All parameters verified against NNDB Turner 2004 (rna.urmc.rochester.edu/NNDB/tu
 4. SantaLucia, J. (1998). PNAS 95(4):1460-5.
 5. NNDB: https://rna.urmc.rochester.edu/NNDB/
 6. Heus, H.A. & Pardi, A. (1991). Science 253(5016):191-194.
-7. Wikipedia - Nucleic acid thermodynamics
-8. Wikipedia - Nucleic acid secondary structure
+7. Wikipedia - Nucleic acid thermodynamics (orientation only; not used for any value)
+8. Wikipedia - Nucleic acid secondary structure (orientation only; not used for any value)
+9. Mathews, D.H. & Turner, D.H. (2002). Biochemistry 41:869-880 (multibranch efn2 parameters).
+10. Mathews, D.H., Sabina, J., Zuker, M. & Turner, D.H. (1999). J. Mol. Biol. 288:911-940 (coaxial stacking).
+11. ViennaRNA 2.7.2 source (PyPI sdist): `params/default.c`, `eval/eval_exterior.c`, `eval/eval_internal.c`; Python `RNA` 2.7.2.
+
+---
+
+## 8. B12 review 2026-11 — remaining energy terms (Stage A + Stage B)
+
+Sources opened: NNDB Turner 2004 pages (rna.urmc.rochester.edu/NNDB/rna_2004/): dangling ends, terminal mismatches,
+bulge loops, coaxial stacking (§8.1–8.4) + `parameter_tables/turner_2004_rnastructure/turner_2004_coax.html`,
+multibranch loops (§9.1–9.3) + `turner_2004_multi_branch` table (a 9.25, b 0.91, c −0.63, strain 3.14);
+`turner_2004_terminal_mismatch_dg.txt`; ViennaRNA 2.7.2 sdist `params/default.c` (`mismatchExt37`, `mismatchM37`,
+`dangle5_37`, `dangle3_37`, `stack37`, `bulge37`, `ML_closing37 = 930`, `ML_intern37 = −90`, `ML_BASE37 = 0`),
+`misc/rna_turner2004.par` (`ML_params 0 0 930 3000 −90 −220`); Ward et al. 2017 NAR 45:8541 (linear model
+9.3 / 0 / −0.9 of Mathews et al. 2004). Oracle: Python `RNA` 2.7.2, default file and the NNDB-precision file
+(RNA-STRUCT-001 Evidence §12.2, file b). Scripts: `en/chk1.py` … `chk4.py` in the B12 scratchpad.
+
+### 8.1 Unknown bases, DNA T, case in terminal mismatches / dangles (F13)
+
+ViennaRNA's default file fills every 'N' row/column (index 0) of `mismatchExt37`, `mismatchM37`, `dangle5_37`,
+`dangle3_37` with the maximum over A/C/G/U (e.g. `mismatchExt37[CG][N][A] = max(−110, −150, −130, −150) = −110`).
+`GetTerminalMismatchEnergy(c5, c3, x, y)` = `mismatchExt37[pair(c3, c5)][y][x]`;
+`GetDanglingEndEnergy(c5, c3, d, 3')` = `dangle3_37[pair(c3, c5)][d]`, 5' = `dangle5_37[pair(c3, c5)][d]`.
+
+| Call | Before | After | ViennaRNA |
+|------|--------|-------|-----------|
+| `GetTerminalMismatchEnergy('C','G','N','N')` | 0 | −0.8 | `mismatchExt37[GC][N][N]` −80 |
+| `GetDanglingEndEnergy('C','G','N', 3')` | 0 | −0.8 | `dangle3_37[GC][N]` −80 |
+| `GetDanglingEndEnergy('A','T','A', 3')` | 0 | −0.8 | `dangle3_37[UA][A]` −80 |
+| `CalculateMinimumFreeEnergy("NGGGAAACCCN")` | −1.12 | −1.92 | `RNA.fold` −1.92 (NNDB-precision file; default file −2.00) |
+
+Systematic check: 6 canonical pairs × 5 × 5 (incl. N) for both mismatch tables, 6 × 5 dangles × 2, each with
+lower-case / T / IUPAC (R, Y, X, '-') variants: 1,950 calls, 0 mismatches. Engine: 404 random RNAs (15–80 nt,
+1/13 N): our MFE structure's energy = `eval_structure` (NNDB-precision file) + NNDB-only terms 404/404; our MFE =
+`RNA.fold` MFE for every sequence whose optimum has no NNDB-only motif. A non-canonical closing pair keeps 0 (ViennaRNA
+scores it only through its "non-standard" pair type 7, not part of the NNDB model).
+
+### 8.2 Bulge special C without the strand; DNA T; size (F14)
+
+NNDB bulge loops: "−0.9 kcal/mol for a bulged C adjacent to at least one paired C". The strand of a 1-nt bulge is not
+derivable from the six arguments (the bulged base sits between pair5_base1/pair3_base1 or between
+pair3_base2/pair5_base2). Before: `bulgeOn5PrimeStrand = null` accepted a C anywhere among the four closing bases
+(`(1,'C','G','C','A','U')` = 0.55, bonus from the C on the opposite strand). After: null applies the bonus only when
+it holds on both strands (least stabilising reading, the ViennaRNA unknown convention) → 1.45 = ViennaRNA
+`eval_int_loop` (no special C); with the strand given the exact NNDB value (true → 1.45, false → 0.55). MCP
+`bulge_loop_energy` gained the optional `bulgeOn5PrimeStrand` parameter. Also: T/lower case read as U
+(`(1,'a','G','C','A','T',side 5')` 3.8 → 1.45; `(2,'A','A','T','G','C')` 2.8 → 3.25); `bulgeSize < 1` now throws
+(was 3.8 / nonsense). Check vs `eval_int_loop` + NNDB special C: 6×6 pairs × n 1–30, 31, 35, 40 × A/C/G/U × both
+strands × side given/null = 19,008 calls, 0 mismatches (n > 30: NNDB extrapolation from n = 6, ≤ 0.04 from
+ViennaRNA's `lxc·ln(n/30)`).
+
+### 8.3 Multibranch loop: two sourced models (F15)
+
+Before: `CalculateMultibranchLoopEnergy(h, u, strain, stack)` = 9.25 + 0.91·(u/h) − 0.63·h — "u/h" is not the NNDB
+average asymmetry (mean |5' − 3' unpaired| per helix, capped at 2.0), and the engines use a different model
+(9.3 / 0 / −0.9), so the public value disagreed with both. After:
+- `(int numHelices, int numUnpaired, …)` = linear Turner 2004 DP model 9.3 + 0·u − 0.9·h (+ stacking) — identical
+  to the engine and to ViennaRNA: `eval_structure_verbose` "Multi loop" 660 (GC-closed 3-way, d0) = 6.6; 570
+  (4-way, 0 or 11 unpaired) = 5.7; d2 250 = 6.6 + three terminal mismatches (−1.1 − 1.5 − 1.5). `hasStrain = true`
+  throws (strain exists only in efn2); `h < 3` / `u < 0` throw.
+- new `(IReadOnlyList<int> unpairedBetweenHelices, double stackingEnergy)` = NNDB efn2: 9.25 + 0.91·min(2, mean
+  asymmetry) − 0.63·h + 3.14 (3-way, < 2 unpaired). NNDB §9.3: 4 helices, asymmetry capped at 2 → 8.55 (NNDB
+  prints 8.6), total with stacking −5.9 → 2.65 (NNDB 2.7); gaps (2,2,2) → 7.36; (3,0,0) → 9.18; (0,0,0) → 10.50;
+  (1,0,0) + stacking −2.0 → 9.11. MCP `multibranch_loop_energy` gained optional `unpairedBetweenHelices`.
+
+### 8.4 Coaxial stacking (F16)
+
+NNDB §8.3 / coax table: mismatch-mediated = terminal mismatch (continuous backbone) − 2.1, plus −0.4 if the
+"mismatch" could form a Watson–Crick pair or −0.2 if a G·U pair. Before, the bonus was chosen by the CLOSING pair
+(always −0.4, or −0.2 for a G·U closing pair): 76/96 pair × mismatch combinations wrong, e.g. NNDB §8.4 example
+A·U + GG mismatch −3.3 → **−2.9** (NNDB −2.9); G·C + AA −3.6 → −3.2. Flush = helical stack (NNDB §8.4 AU→CG −2.24)
+was correct for A/C/G/U; T/lower case now read as RNA (`('a','t','c','g')` 0 → −2.24). Neither function is used by the
+engines (ViennaRNA's default d2 model has no coaxial stacking); they are public/MCP evaluators. Check: 6 pairs × 16
+mismatches (+ case/T/N) and 36 flush combinations vs NNDB / `eval_int_loop` stacks: 256 calls, 0 mismatches.
+
+### 8.5 Turner2004Parameters (F17)
+
+`StackingEnergies` (36), `HairpinLoopInitiation` (3–30), `TerminalMismatchEnergies` (96 = NNDB txt, 96/96),
+`TerminalAuGuPenalty` 0.45 re-verified. `IsTerminalPenaltyPair` was case/T-blind (`('a','t')` false); now
+case-insensitive with T as U. The `TerminalMismatchEnergies` doc claimed use for internal loops (they use
+`Turner2004InteriorLoopTables`) — corrected.
+
+### 8.6 Structure evaluation `CalculateFreeEnergy` (F18)
+
+The checklist canonical `CalculateFreeEnergy(structure)` did not exist (only the internal `EvaluateStructureEnergy`).
+New public `CalculateFreeEnergy(rnaSequence, dotBracket)` (only `( ) .`; unbalanced / wrong length / non-canonical
+pair throw) delegates to the shared evaluator; MCP `rna_structure_energy`. ViennaRNA `eval_structure` (d2,
+NNDB-precision file): GGGAAACCC −1.12, GGGAUAAAUCCC −3.42 (NNDB hairpin example 1), GGGAAACCCAGGGAAACCC
+`(((...))).(((...)))` −4.14, GAGGGAAAACCCAGGGAAAACCCAC 3-way −1.54, NGGGAAACCCN −1.92 — all identical.
+
+### 8.7 Stage verdicts
+
+Stage A: PASS-WITH-NOTES — §4.4 invariant 3 ("monotonic loop penalty") contradicted §3.4 (corrected); "invalid bases:
+undefined" replaced by the ViennaRNA convention; Wikipedia rows kept for orientation only. Stage B: FAIL (fixed) —
+F13–F17 above.

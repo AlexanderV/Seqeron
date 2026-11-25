@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.ToGff3",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L538",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L752",
   "description": "Serialize gene annotations to GFF3 lines (with header).",
   "inputSchema": {
     "type": "object",
@@ -20,10 +20,13 @@
             "geneId": { "type": "string" },
             "start": { "type": "integer", "description": "0-based start (serialized as 1-based)" },
             "end": { "type": "integer" },
-            "strand": { "type": "string", "description": "'+' or '-'" },
+            "strand": { "type": "string", "description": "'+', '-', '.' or '?'" },
             "type": { "type": "string" },
             "product": { "type": "string" },
-            "attributes": { "type": "object" }
+            "attributes": { "type": "object", "description": "Single-valued column-9 attributes (commas are encoded as %2C)" },
+            "source": { "type": ["string", "null"], "description": "Column 2; null/empty -> '.'" },
+            "score": { "type": ["number", "null"], "description": "Column 6; null -> '.'" },
+            "attributeValues": { "type": ["object", "null"], "description": "Multi-valued attributes, tag -> list of values (e.g. Parent -> [m1, m2]), written comma-separated" }
           },
           "required": ["geneId", "start", "end", "strand", "type", "product"]
         }

@@ -5,13 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.FindRepetitiveElements",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L875",
-  "description": "Find tandem and inverted repeats in a DNA sequence.",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1682",
+  "description": "Find exact tandem repeats (maximal runs of a primitive ACGT unit of 1-60 bp, complete copies) and exact inverted repeats (maximal stems, EMBOSS palindrome model: arm >= max(minRepeatLength, 2) and <= 100, loop 0-100) in a DNA sequence.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "dnaSequence": { "type": "string", "description": "DNA sequence to scan", "minLength": 1 },
-      "minRepeatLength": { "type": "integer", "description": "Minimum repeat length (nt)", "default": 10, "minimum": 1 },
+      "minRepeatLength": { "type": "integer", "description": "Minimum tandem-repeat span and minimum inverted-repeat arm length (nt)", "default": 10, "minimum": 1 },
       "minCopies": { "type": "integer", "description": "Minimum number of tandem copies (>= 2)", "default": 2, "minimum": 2 }
     },
     "required": ["dnaSequence"]
@@ -43,6 +43,11 @@
       "name": "Tandem repeat of ATTCG x3",
       "input": { "dnaSequence": "ATTCGATTCGATTCG", "minRepeatLength": 5, "minCopies": 2 },
       "output": { "repeats": [ { "start": 0, "end": 15, "type": "tandem_repeat", "sequence": "ATTCGATTCGATTCG" } ] }
+    },
+    {
+      "name": "Maximal stem only (sub-stems AGG[AT]CCT, GGATCC not reported)",
+      "input": { "dnaSequence": "AGGATCCT", "minRepeatLength": 3, "minCopies": 2 },
+      "output": { "repeats": [ { "start": 0, "end": 8, "type": "inverted_repeat", "sequence": "AGGATCCT" } ] }
     },
     {
       "name": "Inverted repeat (EcoRI palindrome)",

@@ -212,4 +212,109 @@ public class SequenceAssembler_CalculateCoverage_Tests
     }
 
     #endregion
+
+    #region Placement: strands, multi-mapping, validation (samtools depth oracle)
+
+    // Expected arrays below are `samtools depth -a` (pysam 0.24.1) over SAM records produced by an
+    // independent Python placement oracle (Bowtie 2 end-to-end ungapped placement, min Hamming,
+    // leftmost, forward kept on ties; MAPQ 0 for equal-best multi-locus reads, filtered with
+    // `-Q 2` per Bowtie 2 unique.h BowtieMapq2: bestdiff == 0 → MAPQ ≤ 1). Oracle code and the
+    // 2014-case agreement run are recorded in the Evidence file.
+
+    // Bowtie 2 MANUAL "--nofw/--norc ... Default: both strands enabled": a read sequenced from the
+    // reverse strand aligns as its reverse complement and covers the same reference span.
+    [Test]
+    public void CalculateCoverage_ReverseStrandRead_PlacedOnlyWhenBothStrandsSearched()
+    {
+        const string reference = "ACGGTCAATGCC";
+        var reads = new[] { "TTGACC" }; // reverse complement of GGTCAA at [2,8)
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.CalculateCoverage(reference, reads, 6),
+                Is.EqualTo(new int[12]), "forward strand only: no 6-match placement");
+            Assert.That(SequenceAssembler.CalculateCoverage(reference, reads, 6, includeReverseComplement: true),
+                Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0 }));
+            Assert.That(SequenceAssembler.CalculateCoverage(reference, new[] { "ttgacc", "GGTCAA" }, 6, includeReverseComplement: true),
+                Is.EqualTo(new[] { 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0 }), "case-insensitive; both strands stack");
+        });
+    }
+
+    // The reverse-strand placement wins only when strictly better: TTTCC is 2+ mismatches forward
+    // but its reverse complement GGAAA is exact at position 1.
+    [Test]
+    public void CalculateCoverage_ReverseComplementStrictlyBetter_IsChosen()
+    {
+        Assert.That(SequenceAssembler.CalculateCoverage("GGGAAACCC", new[] { "TTTCC" }, 4,
+                includeReverseComplement: true, excludeMultiMapped: true),
+            Is.EqualTo(new[] { 0, 1, 1, 1, 1, 1, 0, 0, 0 }));
+    }
+
+    // Default mode reports one alignment per read (Bowtie 2 "report the best one"); ties at the
+    // leftmost locus. With excludeMultiMapped the equal-best read is dropped (samtools depth -Q 2).
+    [Test]
+    public void CalculateCoverage_MultiMappedRead_CountedOnceOrExcluded()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.CalculateCoverage("ACGTACGTAC", new[] { "ACGTA", "GTACG" }, 5),
+                Is.EqualTo(new[] { 1, 1, 2, 2, 2, 1, 1, 0, 0, 0 }), "ACGTA (loci 0 and 4) counted once, leftmost");
+            Assert.That(SequenceAssembler.CalculateCoverage("ACGTACGTAC", new[] { "ACGTA", "GTACG" }, 5,
+                    includeReverseComplement: false, excludeMultiMapped: true),
+                Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 1, 0, 0, 0 }), "multi-mapped ACGTA skipped");
+            Assert.That(SequenceAssembler.CalculateCoverage("AAAAAAAAAA", new[] { "AAAAA" }, 5),
+                Is.EqualTo(new[] { 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 }));
+            Assert.That(SequenceAssembler.CalculateCoverage("AAAAAAAAAA", new[] { "AAAAA" }, 5, false, true),
+                Is.EqualTo(new int[10]));
+            Assert.That(SequenceAssembler.CalculateCoverage("GATTACAGATTACA", new[] { "GATTAC" }, 6, true, true),
+                Is.EqualTo(new int[14]));
+        });
+    }
+
+    // A reverse-palindromic read (ACGT = revcomp(ACGT)) hits both strands at the same span: one locus.
+    [Test]
+    public void CalculateCoverage_ReversePalindrome_BothStrandsSameSpan_IsUnique()
+    {
+        Assert.That(SequenceAssembler.CalculateCoverage("TTACGTTT", new[] { "ACGT" }, 4,
+                includeReverseComplement: true, excludeMultiMapped: true),
+            Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 0, 0 }));
+    }
+
+    // minOverlap counts matching characters of the ungapped placement (length − Hamming distance).
+    [Test]
+    public void CalculateCoverage_MismatchedRead_PlacedWhenMatchesReachMinOverlap()
+    {
+        const string reference = "CCCCAGGTCTTTT";
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.CalculateCoverage(reference, new[] { "AGCTCT" }, 5),
+                Is.EqualTo(new[] { 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0 }), "5 of 6 match at [4,10)");
+            Assert.That(SequenceAssembler.CalculateCoverage(reference, new[] { "AGCTCT" }, 6),
+                Is.EqualTo(new int[13]), "6 matches required");
+        });
+    }
+
+    // Zero matching characters is not an alignment: minOverlap < 1 is rejected (previously a read with
+    // no matching base was "placed" at position 0 when minOverlap was 0).
+    [TestCase(0)]
+    [TestCase(-3)]
+    public void CalculateCoverage_MinOverlapBelowOne_Throws(int minOverlap)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => SequenceAssembler.CalculateCoverage("AAAA", new[] { "GGGG" }, minOverlap));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => SequenceAssembler.CalculateCoverage("AAAA", new[] { "GGGG" }, minOverlap, true, true));
+        });
+    }
+
+    [Test]
+    public void CalculateCoverage_NullReadElement_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(
+            () => SequenceAssembler.CalculateCoverage("ACGTACGT", new[] { "ACGT", null! }, 4));
+    }
+
+    #endregion
 }

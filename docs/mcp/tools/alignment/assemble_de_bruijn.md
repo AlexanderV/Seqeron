@@ -37,7 +37,7 @@ Assemble reads using a de Bruijn graph: shred reads into their distinct k-mers (
 |-------|------|-------------|
 | `contigs` | array<string> | Assembled contig sequences. |
 | `totalReads` | integer | Number of input reads. |
-| `assembledReads` | integer | Number of reads incorporated (simplified: all reads). |
+| `assembledReads` | integer | Reads with at least one k-mer (either strand with `includeReverseComplement`) in a reported contig (Velvet `usedReads`). |
 | `n50` | number | N50 contig length. |
 | `longestContig` | integer | Longest contig length (bp). |
 | `totalLength` | integer | Total assembled length (bp). |

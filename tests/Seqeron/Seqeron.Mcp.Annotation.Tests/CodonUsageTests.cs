@@ -17,7 +17,7 @@ public class CodonUsageTests
     [Test]
     public void CodonUsage_CountsInFrameCodons()
     {
-        // GetCodonUsage(string) counts in-frame ACGT triplets: ATG, ATG, AAA, TAA.
+        // GetCodonUsage(string) counts in-frame unambiguous triplets: ATG, ATG, AAA, TAA.
         var result = AnnotationTools.CodonUsage("ATGATGAAATAA");
 
         Assert.Multiple(() =>
@@ -40,6 +40,15 @@ public class CodonUsageTests
             Assert.That(result.Usage["ATG"], Is.EqualTo(1));
             Assert.That(result.Usage.Values.Sum(), Is.EqualTo(1));
         });
+    }
+
+    [Test]
+    public void CodonUsage_RnaInput_UReadAsT_AmbiguousTripletSkipped()
+    {
+        // Delegates to Translator.CountCodons: AUG → ATG (CodonW ident_codon), NNN skipped, frame kept.
+        var result = AnnotationTools.CodonUsage("AUGNNNAAA");
+
+        Assert.That(result.Usage, Is.EquivalentTo(new Dictionary<string, int> { ["ATG"] = 1, ["AAA"] = 1 }));
     }
 
     [Test]

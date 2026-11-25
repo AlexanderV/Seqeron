@@ -140,10 +140,12 @@
 
 - **CTX-PCT-001 (MUST):** `ComputeBranchLengthScore` on the worked tree: Bls({A,B})=3.0, Bls({A,C})=7.0, Bls({A,B,C,D})=12.0, Bls({A})=0.0 (`Within(1e-9)`; hand-derived from the minimal connecting-subtree definition).
 - **CTX-PCT-002 (MUST):** empty species set → Bls 0; null species / null tree → `ArgumentNullException`.
-- **CTX-PCT-003 (MUST):** `PctFromBranchLength(3.0, {0,1,1,0}) == 0.952574126822433` (`Within(1e-12)`) = `1/(1+e^-3)`.
-- **CTX-PCT-004 (MUST):** negative logistic output truncated to 0 (`{-0.5,0.3,1,5}`, Bls=0 → raw ≈ -0.498 → 0).
-- **CTX-PCT-005 (MUST):** 8mer + `Conservation` (worked tree, {A,B}, sigmoid {0,1,1,0}) → `BranchLengthScore==3.0`; `Pct==0.952574126822433`; `PctContribution == -0.103×(Pct/0.816) == -0.120239136106263` (`Within(1e-9)`); `PCT` drops from `OmittedFeatures`; `ContextScorePartial` includes the PCT term.
-- **CTX-PCT-006 (MUST):** 7mer-m8 + `Conservation` ({A,C}, Bls=7.0) → `Pct==0.999088948805599`; `PctContribution == -0.048×(Pct/0.364) == -0.131747993249090` — verifies the per-site-type PCT parameters.
+- **CTX-PCT-003 (MUST):** `PctFromBranchLength(3.0, {0,1,1,0}) == 0.9526` = `sprintf("%.4f", 1/(1+e^-3))` (perl run of `targetscan_70_BL_PCT.pl`: 3.0000 ⇒ 0.9526; B13 F20).
+- **CTX-PCT-004 (MUST):** negative logistic output truncated to 0 (`{-0.5,0.3,1,5}`, Bls=1 → raw ≈ -0.4945 → 0).
+- **CTX-PCT-005 (MUST):** 8mer + `Conservation` (worked tree, {A,B}, sigmoid {0,1,1,0}) → `BranchLengthScore==3.0`; `Pct==0.9526`; `PctContribution == -0.103×(0.9526/0.816) == -0.12024240196078431`; `PCT` drops from `OmittedFeatures`; `ContextScorePartial` includes the PCT term.
+- **CTX-PCT-006 (MUST):** 7mer-m8 + `Conservation` ({A,C}, Bls=7.0) → `Pct==0.9991`; `PctContribution == -0.048×(0.9991/0.364) == -0.13174945054945056` — verifies the per-site-type PCT parameters.
+- **CTX-PCT-007 (MUST):** 7mer-A1 ({A,B}) → `Pct==0.9526`, contribution `-0.1018369710467706`; 6mer → `Pct==0`, contribution 0 (`getPCT`: 6mer ⇒ "0.0"; B13 F19), PCT not listed as omitted.
+- **CTX-PCT-008/009/010:** see `tests/TestSpecs/MIRNA-PCT-001.md` (PCT-specific spec; TargetScan parity).
 
 ### CTX-TA-001..008: TA_3UTR computed from a 3'UTR set (new capability) — `ComputeTa3Utr` / `CountSeedSites3Utr`
 
@@ -289,7 +291,7 @@ These are intentional engineering simplifications that do not deviate from the b
 
 | # | Area | Simplification | External Source Reference | Impact |
 |---|------|---------------|--------------------------|--------|
-| 1 | Energy calculation | Simplified stacking/wobble/mismatch model vs Turner nearest-neighbor thermodynamic parameters | Turner & Mathews (2010) | Approximate ΔG values; does not affect site type classification |
+| 1 | Energy calculation | Resolved (MIRNA-PAIR-001 F11, 2026-11-25): TargetSite.FreeEnergy is the full NNDB Turner 2004 energy of the fixed-register duplex (ViennaRNA eval cross-checked) | Turner & Mathews (2010) | Does not affect site type classification or Score |
 | 2 | Alignment | Positional (parallel index) alignment vs true antiparallel structural alignment | Bartel (2009) | Duplex display is schematic; does not affect seed match detection |
 | 3 | Default context scoring | Default `Score` = minimal context adjustment vs full TargetScan context++ model. An **opt-in** `ScoreTargetSiteContextPlusPlus` provides the source-fitted context++ with every miRNA+3'UTR-derivable feature (Intercept, Local_AU, sRNA1/8, Site8, **3P_score, Min_dist, Len_3UTR, Off6m**) plus the data-blocked features (`SPS, TA_3UTR, Len_ORF, ORF8m`) when supplied via `ContextPlusPlusInputs`, all with verbatim Agarwal_2015_parameters.txt coefficients and `targetscan_70_context_scores.pl` formulas. | Grimson (2007), Agarwal (2015) eLife 4:e05005 | Default `Score` unchanged; opt-in CS is a **partial** context++ — `SA` is now **computed** from the Turner-2004 McCaskill partition function (`RnaSecondaryStructure.CalculateRegionUnpairedProbability`; omitted only when the 14-nt window does not fit), so the residual is `PCT` (multi-species conservation) plus `SPS/TA_3UTR/Len_ORF/ORF8m` unless supplied; all reported in `OmittedFeatures`. |
 | 4 | Score normalization | Base scores normalized to [0,1] from Grimson (2007) absolute weights | Grimson (2007) | Proportional ratios preserved exactly |

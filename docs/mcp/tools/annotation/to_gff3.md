@@ -14,16 +14,21 @@ Serialize gene annotations to GFF3 lines (with header).
 
 ## Description
 
-Serializes gene annotations into GFF3 text. The first line is the `##gff-version 3` directive,
-followed by one tab-delimited 9-column line per annotation: `seqId`, source (`.` when undefined),
-type, **1-based** start (`Start + 1`), end, score (`.` when undefined), strand, phase (computed for
-`CDS` features, `.` otherwise), and a column-9 attribute string `ID=…;product=…` plus any extra
-attributes (the bulky `translation` attribute is skipped, and reserved characters are percent-encoded
-per GFF3 v1.26). This is the inverse of [`parse_gff3`](parse_gff3.md).
+Serializes gene annotations into GFF3 text (Sequence Ontology GFF3 spec v1.26). The first line is the
+`##gff-version 3` directive, followed by one tab-delimited 9-column line per annotation: `seqId`,
+source (`.` when undefined), type, **1-based** start (`Start + 1`; an empty interval `[s, s)` becomes the
+spec's zero-length feature `s..s`), end, score (`.` when undefined), strand, phase (accumulated 5'→3'
+over the `CDS` segments sharing a `geneId`, `.` for other types), and column 9: `ID=geneId`,
+`product=…`, then `attributes` (except `translation`) and `attributeValues` (written comma-separated);
+`ID`/`product` are never repeated from the dictionaries and empty values are omitted. Percent-encoding
+follows the spec: tab, newline, CR, `%` and control characters everywhere; `; = & ,` in column-9 tags
+and values; every seqid character outside `[a-zA-Z0-9.:^*$@!+_?-|]`. A strand other than `+ - . ?`, a
+negative start, an end before the start or the interval `[0, 0)` is rejected. This is the inverse of
+[`parse_gff3`](parse_gff3.md).
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L538](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L538)
+- Source: [GenomeAnnotator.cs#L752](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L752)
 
 ## Input Schema
 

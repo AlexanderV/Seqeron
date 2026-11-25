@@ -19,10 +19,17 @@ public class MaxentScoreTests
     [Test]
     public void MaxentScore_Binding_InvokesSuccessfully()
     {
-        // SpliceSitePredictor.CalculateMaxEntScore for a Donor sums log2(weight + 0.01) over the 9-mer PWM.
-        // For a perfect CAGGUAAGU (every position weight 1.0): score = 9 * log2(1.01).
+        // Donor = MaxEntScan score5 (Yeo & Burge 2004): maxentpy score5('CAGGTAAGT') = 10.858313101356437
+        // (score5.pl prints 10.86).
         var result = AnnotationTools.MaxentScore("CAGGUAAGU", "Donor");
-        Assert.That(result.Score, Is.EqualTo(9.0 * Math.Log2(1.01)).Within(1e-9));
+        Assert.That(result.Score, Is.EqualTo(10.858313101356437).Within(1e-12));
+    }
+
+    [Test]
+    public void MaxentScore_DonorNot9Nt_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => AnnotationTools.MaxentScore("CAGGUAAGUA", "Donor"));
+        Assert.Throws<ArgumentException>(() => AnnotationTools.MaxentScore("CAGGNAAGU", "Donor"));
     }
 
     [Test]
@@ -30,8 +37,27 @@ public class MaxentScoreTests
     {
         // A donor breaking the invariant positions scores far lower than the perfect consensus.
         var perfect = AnnotationTools.MaxentScore("CAGGUAAGU", "Donor").Score;
-        var broken = AnnotationTools.MaxentScore("GGGGUAAGU", "Donor").Score;
+        var broken = AnnotationTools.MaxentScore("CAGGCAAGU", "Donor").Score; // GC donor: 3.10 (maxentpy)
+        Assert.That(broken, Is.EqualTo(3.104161570996358).Within(1e-12));
         Assert.That(broken, Is.LessThan(perfect));
+    }
+
+    [Test]
+    public void MaxentScore_Acceptor_IsMaxEntScanScore3()
+    {
+        // Acceptor = MaxEntScan score3 (Yeo & Burge 2004): maxentpy score3('ttccaaacgaacttttgtAGgga')
+        // = 2.8867730651152104 (score3.pl prints 2.89); delegates to SpliceSitePredictor.ScoreAcceptorMaxEnt.
+        var result = AnnotationTools.MaxentScore("TTCCAAACGAACTTTTGTAGGGA", "Acceptor");
+        Assert.That(result.Score, Is.EqualTo(2.8867730651152104));
+        Assert.That(AnnotationTools.MaxentScore("tgtctttttctgtgtggcAGtgg", "acceptor").Score,
+            Is.EqualTo(8.190965487162021));
+    }
+
+    [Test]
+    public void MaxentScore_AcceptorNot23NtOrInvalid_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => AnnotationTools.MaxentScore("UUUUUUUUUUUUUUUCAG", "Acceptor"));
+        Assert.Throws<ArgumentException>(() => AnnotationTools.MaxentScore("TTCCAAACGAACTTTTGTAGGGN", "Acceptor"));
     }
 
     [Test]

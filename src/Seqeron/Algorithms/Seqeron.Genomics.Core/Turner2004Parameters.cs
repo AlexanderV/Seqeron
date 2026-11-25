@@ -63,11 +63,13 @@ namespace Seqeron.Genomics.Core
         }.ToFrozenDictionary();
 
         /// <summary>
-        /// Terminal mismatch stacking energies (kcal/mol at 37°C).
-        /// Key = closing5' + firstMismatch(5'side) + lastMismatch(3'side) + closing3'.
-        /// These describe the sequence-dependent stacking of the first non-canonical pair on the
-        /// closing pair, applied to hairpin loops ≥4nt, internal loops, and exterior loops.
-        /// Source: NNDB — tm-parameters.html.
+        /// Terminal mismatch stacking energies (kcal/mol at 37°C), the NNDB Turner 2004 "Terminal
+        /// Mismatches" table (RNAstructure <c>tstack</c>). Key = closing5' + mismatch 3' of closing5' +
+        /// mismatch 5' of closing3' + closing3' (helix end 5'-c5 x-3' / 3'-c3 y-5'). Used for exterior and
+        /// multibranch helix ends (identical, entry for entry, to ViennaRNA 2.7.2 <c>mismatchExt37</c> /
+        /// <c>mismatchM37</c>) and, with the NNDB hairpin bonuses added, for hairpin first mismatches.
+        /// Interior loops use their own tables (<c>Turner2004InteriorLoopTables</c>).
+        /// Source: NNDB rna_2004_terminal_mismatches.html (turner_2004_terminal_mismatch_dg.txt).
         /// </summary>
         public static readonly IReadOnlyDictionary<string, double> TerminalMismatchEnergies = new Dictionary<string, double>
         {
@@ -113,10 +115,20 @@ namespace Seqeron.Genomics.Core
         /// <summary>
         /// Returns <c>true</c> if the base pair (<paramref name="b1"/>, <paramref name="b2"/>)
         /// is AU/UA or GU/UG and therefore incurs the <see cref="TerminalAuGuPenalty"/> at a
-        /// helix terminus. Bases are expected upper-cased with T already read as U.
+        /// helix terminus. Bases are case-insensitive and DNA T is read as U (ViennaRNA
+        /// <c>vrna_nucleotide_encode</c>), so A·T and G·T count as A·U and G·U.
         /// </summary>
-        public static bool IsTerminalPenaltyPair(char b1, char b2) =>
-            (b1 == 'A' && b2 == 'U') || (b1 == 'U' && b2 == 'A') ||
-            (b1 == 'G' && b2 == 'U') || (b1 == 'U' && b2 == 'G');
+        public static bool IsTerminalPenaltyPair(char b1, char b2)
+        {
+            char x = Normalize(b1), y = Normalize(b2);
+            return (x == 'A' && y == 'U') || (x == 'U' && y == 'A') ||
+                   (x == 'G' && y == 'U') || (x == 'U' && y == 'G');
+        }
+
+        private static char Normalize(char b)
+        {
+            char u = char.ToUpperInvariant(b);
+            return u == 'T' ? 'U' : u;
+        }
     }
 }

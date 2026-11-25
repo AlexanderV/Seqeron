@@ -19,7 +19,8 @@ Computes the free energy (kcal/mol at 37 °C) of an RNA bulge loop using the Tur
 
 - **n = 1:** `initiation(1) + stacking(as if no bulge) + special-C bonus − RT·ln(numStates)`.
   The special-C bonus (−0.9) applies when the bulged base is C adjacent to at least
-  one paired C; the degeneracy term applies only when `numStates > 1`.
+  one paired C on its own strand (`bulgeOn5PrimeStrand`); without the strand the bonus is
+  applied only when it holds on both strands. The degeneracy term applies only when `numStates > 1`.
 - **n > 1:** `initiation(n) + terminal AU/GU penalty on each closing pair that is A-U or G-U`.
 
 The result is rounded to two decimals.
@@ -39,6 +40,9 @@ The result is rounded to two decimals.
 | `pair3_base1` | string | Yes | 5' base of the pair on the 3' side of the bulge |
 | `pair3_base2` | string | Yes | 3' base of the pair on the 3' side |
 | `numStates` | integer | No | Equivalent states for degeneracy entropy (n=1 only, default 1) |
+| `bulgeOn5PrimeStrand` | boolean | No | Strand of the bulge: true = between `pair5_base1` and `pair3_base1`, false = between `pair3_base2` and `pair5_base2`; omitted = unknown |
+
+`bulgeSize` must be ≥ 1; bases are case-insensitive and T is read as U.
 
 ## Output Schema
 

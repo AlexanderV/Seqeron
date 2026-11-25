@@ -2,7 +2,9 @@
 // Evidence: docs/Evidence/MIRNA-PAIR-001-Evidence.md
 // TestSpec: tests/TestSpecs/MIRNA-PAIR-001.md
 // Source: Agarwal V et al. (2015) eLife 4:e05005 (A-U/C-G); Crick FHC (1966) J Mol Biol 19(2):548-555 (G-U wobble);
-//         Lewis BP et al. (2005) Cell 120(1):15-20 (reverse-complement seed); NNDB Turner 2004 (stacking sign).
+//         Lewis BP et al. (2005) Cell 120(1):15-20 (reverse-complement seed); NNDB Turner 2004 duplex model
+//         (rna.urmc.rochester.edu/NNDB/rna_2004: helices, dangling ends, terminal mismatches, internal loops);
+//         ViennaRNA 2.8.0 eval_structure cross-check; Biopython 1.88 reverse_complement_rna.
 
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
@@ -142,6 +144,21 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
         Assert.That(GetReverseComplement(""), Is.Empty, "RC of empty sequence is empty");
     }
 
+    // M8b — IUPAC codes complemented, other symbols pass through (canonical GetRnaComplementBase).
+    // Oracle: Biopython 1.88 Bio.Seq.reverse_complement_rna("ACGR") = "YCGU",
+    // reverse_complement_rna("NNRYKMBDHVSW") = "WSBDHVKMRYNN", reverse_complement_rna("acgu-X") = "X-acgu"
+    // (the canonical helper upper-cases recognised bases: "X-ACGU").
+    [Test]
+    public void GetReverseComplement_IupacAndUnknown_MatchesBiopython()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(GetReverseComplement("ACGR"), Is.EqualTo("YCGU"), "R complements to Y (was N before)");
+            Assert.That(GetReverseComplement("NNRYKMBDHVSW"), Is.EqualTo("WSBDHVKMRYNN"));
+            Assert.That(GetReverseComplement("acgu-X"), Is.EqualTo("X-ACGU"), "gap and unknown symbol pass through");
+        });
+    }
+
     // C1 — Double reverse complement restores the RNA sequence (involution). Evidence: INV-04.
     [Test]
     public void GetReverseComplement_DoubleApplication_RestoresRna()
@@ -278,12 +295,13 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
         Assert.That(duplex.Matches, Is.EqualTo(4), "DNA T normalised to U → 4 A-U Watson-Crick matches");
     }
 
-    // S1 — Fully Watson-Crick paired duplex has non-positive (stabilising) free energy.
-    // Evidence: NNDB Turner 2004 nearest-neighbor stacking energies are negative for paired stacks (sign only — see ASSUMPTION 1).
+    // S1 — Fully Watson-Crick self-complementary duplex: exact NNDB Turner 2004 sum.
+    // GCGCGCGC is its own reverse complement, so both strands are identical (NNDB symmetry term applies):
+    // 4.09 (initiation) + 0.43 (symmetry) + 4 × (5'GC/3'CG −3.42) + 3 × (5'CG/3'GC −2.36) = −16.24.
+    // ViennaRNA 2.8 eval_structure of GCGCGCGC&GCGCGCGC "(((((((())))))))" = −16.70 (0.1-rounded stacks, no symmetry term).
     [Test]
-    public void AlignMiRnaToTarget_FullyPairedDuplex_FreeEnergyNonPositive()
+    public void AlignMiRnaToTarget_FullyPairedDuplex_FreeEnergyIsNndbSum()
     {
-        // GCGCGCGC is a palindrome; its reverse complement self-pairs perfectly (8 WC pairs).
         string mirna = "GCGCGCGC";
         string target = GetReverseComplement(mirna);
 
@@ -292,23 +310,296 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
         Assert.Multiple(() =>
         {
             Assert.That(duplex.Matches, Is.EqualTo(8), "Fully Watson-Crick paired duplex (8 pairs)");
-            Assert.That(duplex.FreeEnergy, Is.LessThanOrEqualTo(0.0),
-                "Sum of negative Turner stacking energies must be stabilising (ΔG ≤ 0)");
+            Assert.That(duplex.FreeEnergy, Is.EqualTo(-16.24).Within(1e-9),
+                "NNDB Turner 2004: init 4.09 + symmetry 0.43 + 4×(−3.42) + 3×(−2.36)");
         });
     }
 
-    // S2 — All-mismatch duplex has no paired stacks → free energy is not stabilising (≥ 0).
-    // Evidence: with no consecutive paired positions the stacking sum is 0 (INV-06).
+    // S2 — All-mismatch duplex: no base pair ⇒ no duplex ⇒ ΔG = 0 (ViennaRNA eval of the open structure = 0).
     [Test]
-    public void AlignMiRnaToTarget_AllMismatchDuplex_FreeEnergyNonNegative()
+    public void AlignMiRnaToTarget_AllMismatchDuplex_FreeEnergyZero()
     {
         var duplex = AlignMiRnaToTarget("AAAA", "AAAA");
 
         Assert.Multiple(() =>
         {
             Assert.That(duplex.Mismatches, Is.EqualTo(4), "No pairs form");
-            Assert.That(duplex.FreeEnergy, Is.GreaterThanOrEqualTo(0.0),
-                "No paired stacks → stacking sum 0; duplex is not stabilising");
+            Assert.That(duplex.FreeEnergy, Is.EqualTo(0.0), "No base pair → no duplex → ΔG = 0");
+        });
+    }
+
+    // E1 — NNDB Turner 2004 Watson-Crick helix page, worked example "Self complementary duplex"
+    // 5'AGCGCU3' / 3'UCGCGA5': 4.09 + 2×0.45 + 0.43 − 2.08 − 3.42 − 2.36 − 3.42 − 2.08 = −7.94 kcal/mol.
+    [Test]
+    public void AlignMiRnaToTarget_NndbSelfComplementaryExample_Minus7_94()
+    {
+        var duplex = AlignMiRnaToTarget("AGCGCU", "AGCGCU");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplex.AlignmentString, Is.EqualTo("||||||"));
+            Assert.That(duplex.FreeEnergy, Is.EqualTo(-7.94).Within(1e-9), "NNDB worked example −7.94 kcal/mol");
+        });
+    }
+
+    // E2 — NNDB worked example "Non-self complementary duplex" 5'GCACG3' / 3'CGUGC5':
+    // 4.09 − 3.42 − 2.11 − 2.24 − 2.36 = −6.04 kcal/mol (no AU end, no symmetry term).
+    [Test]
+    public void AlignMiRnaToTarget_NndbNonSelfComplementaryExample_Minus6_04()
+    {
+        var duplex = AlignMiRnaToTarget("GCACG", "CGUGC");
+
+        Assert.That(duplex.FreeEnergy, Is.EqualTo(-6.04).Within(1e-9), "NNDB worked example −6.04 kcal/mol");
+    }
+
+    // E3 — Dangling end: the E2 duplex with a 3'-dangling C on the miRNA (3' of the terminal G·C pair).
+    // NNDB dangling-end page / table: 3' dangling C adjacent to GC = −0.4 → −6.04 − 0.4 = −6.44.
+    // ViennaRNA 2.8 eval_structure GCACGC&CGUGC "(((((.)))))" = −6.40.
+    [Test]
+    public void AlignMiRnaToTarget_ThreePrimeDanglingEnd_NndbValue()
+    {
+        var duplex = AlignMiRnaToTarget("GCACGC", "CGUGC");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplex.AlignmentString, Is.EqualTo("|||||"), "overlap 5; miRNA nt 6 overhangs");
+            Assert.That(duplex.FreeEnergy, Is.EqualTo(-6.44).Within(1e-9), "−6.04 + 3' dangling C on GC (−0.4)");
+        });
+    }
+
+    // E4 — Terminal mismatch: NNDB terminal-mismatch page example extends the E1 helix by a
+    // "UA followed by GA" mismatch (−1.1). Here the two strands differ (AGCGCUG vs AAGCGCU), so the
+    // 0.43 symmetry term of E1 does not apply: −7.94 − 0.43 − 1.1 = −9.47 (NNDB's −9.0 keeps the symmetry term).
+    // ViennaRNA 2.8 eval_structure = −9.40.
+    [Test]
+    public void AlignMiRnaToTarget_TerminalMismatch_NndbValue()
+    {
+        var duplex = AlignMiRnaToTarget("AGCGCUG", "AAGCGCU");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplex.AlignmentString, Is.EqualTo("|||||| "), "G·A at the 3' end of the miRNA does not pair");
+            Assert.That(duplex.FreeEnergy, Is.EqualTo(-9.47).Within(1e-9), "−7.94 − 0.43 + terminal mismatch UA/GA (−1.1)");
+        });
+    }
+
+    // E5 — A short A·U duplex is NOT stabilising: the intermolecular initiation (+4.09) outweighs three
+    // 5'AA/3'UU stacks (−0.93 each) and two terminal AU penalties (+0.45 each): 4.09 − 2.79 + 0.90 = +2.20.
+    // ViennaRNA 2.8 eval_structure AAAA&UUUU "(((())))" = +2.40 (init 4.10, stack −0.90, AU 0.50).
+    // With two extra miRNA nt the 3'-dangling A on the A·U end adds −0.8 (NNDB dangle table) → +1.40 (Vienna +1.60).
+    [Test]
+    public void AlignMiRnaToTarget_ShortAuDuplex_PositiveNndbEnergy()
+    {
+        var duplex = AlignMiRnaToTarget("AAAA", "UUUU");
+        var overhang = AlignMiRnaToTarget("AAAAAA", "UUUU");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplex.FreeEnergy, Is.EqualTo(2.20).Within(1e-9), "4.09 + 3×(−0.93) + 2×0.45");
+            Assert.That(overhang.FreeEnergy, Is.EqualTo(1.40).Within(1e-9), "+2.20 + 3' dangling A on AU (−0.8)");
+        });
+    }
+
+    // E6 — Cross-check against ViennaRNA 2.8.0: fold_compound(miRNA + "&" + target).eval_structure(s), where
+    // s pairs every in-register Watson-Crick/G·U position of the reported alignment (dangles = 2).
+    // Residual = Vienna's 0.1-rounded parameters (stacks, init 4.10, terminal AU 0.50); max |Δ| 0.46 over
+    // 51 fixtures (0.43 of it = NNDB symmetry term on GCGCGCGC·GCGCGCGC, which eval_structure omits), 0.45 on
+    // fixtures with 2×2 loops (was 2.2 before the canonical kernel gained the NNDB int11/int21/int22 tables and
+    // vrna_E_internal rules — B12 RNA-STRUCT-001 F3; MIRNA-PAIR-001 Evidence §Duplex energy).
+    // Exact Seqeron values (NNDB parameters) are locked; Vienna is asserted within 0.35 kcal/mol.
+    // Loop terms of the two generic-loop fixtures (NNDB internal_loop_dg.txt: initiation(8) 2.3, (10) 2.5,
+    // (14) 2.9; AU/GU closure 0.7 per pair; first mismatch GA −1.0, other mismatches 0; each value equals
+    // ViennaRNA eval_int_loop):
+    //   4×4: C·G/U·A 2.3 + 0.7 = 3.0;  G·U/G·U 2.3 + 2×0.7 + GA −1.0 = 2.7 (2.9 before B12: inner-pair
+    //        mismatch read as AG −0.8)  ⇒ total 2.55 → 2.35 (Vienna 2.4).
+    //   5×5/7×7: 7×7 A·U/C·G 2.9 + 0.7 + GA −1.0 = 2.6 (was 2.8, same mismatch orientation fix);
+    //        5×5 G·C/U·G 2.5 + 0.7 = 3.2  ⇒ total 3.00 → 2.80 (Vienna 2.9).
+    [TestCase("UGAGGUAGUAGGUUGUAUAGUU", "AACUAUACAACCUACUACCUCA", -35.90, -35.6, TestName = "Vienna_Let7a_PerfectComplement")]
+    [TestCase("UGAGGUAGUAGGUUGUAUAGUU", "GGGGGCUACCUCA", -11.67, -11.4, TestName = "Vienna_Let7a_SiteWindow_3x3Loop")]
+    [TestCase("UGAGGUAGUAGGUUGUAUAGUU", "CCAACUAUACAGCCUACUACCUCA", -36.09, -35.9, TestName = "Vienna_Let7a_GuAndOverhang")]
+    [TestCase("UAGCUUAUCAGACUGAUGUUGA", "UCAACAUCAGUCUGAUAAGCUA", -35.79, -35.7, TestName = "Vienna_MiR21_PerfectComplement")]
+    [TestCase("AUGCGAUCC", "GCGGAUGGCAU", -10.50, -10.5, TestName = "Vienna_1x1Loop")]
+    [TestCase("UAUCUAUAUAAGCAGGGGA", "UCCCCUGCUAGUAUAGAUA", -26.91, -27.0, TestName = "Vienna_1x1Loop_GU")]
+    [TestCase("GUGUGAAUCG", "CGAUUCAUAC", -11.71, -11.8, TestName = "Vienna_GuInHelix")]
+    [TestCase("CGCAGUAUGCCAAGACU", "GUCGUCCUUGGCCUACUGCGCA", 2.35, 2.4, TestName = "Vienna_4x4Loop")]
+    [TestCase("AGUAUGUCCAACGGCGAGCUUUA", "UGCUAAAGCUCGCCGUUGGACAUACUGUG", 2.80, 2.9, TestName = "Vienna_5x5And7x7Loops")]
+    public void AlignMiRnaToTarget_FreeEnergy_MatchesViennaEval(string mirna, string target, double nndb, double vienna)
+    {
+        var duplex = AlignMiRnaToTarget(mirna, target);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplex.FreeEnergy, Is.EqualTo(nndb).Within(1e-9), "Turner 2004 (NNDB) duplex energy");
+            Assert.That(duplex.FreeEnergy, Is.EqualTo(vienna).Within(0.35), "ViennaRNA 2.8 eval_structure, 0.1-rounding residual");
+        });
+    }
+
+    #endregion
+
+    #region FoldMiRnaDuplex (RNAduplex model)
+
+    // F1 — Perfect complement: the MFE duplex is the full 22-bp helix and its energy equals the
+    // ungapped evaluation (same Turner 2004 structure). ViennaRNA 2.8 RNA.duplexfold: same structure, −35.6.
+    [Test]
+    public void FoldMiRnaDuplex_PerfectComplement_FullHelixSameEnergyAsAlignment()
+    {
+        const string let7a = "UGAGGUAGUAGGUUGUAUAGUU";
+        string target = GetReverseComplement(let7a);
+
+        var fold = FoldMiRnaDuplex(let7a, target);
+
+        Assert.That(fold, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fold!.Value.Structure, Is.EqualTo(new string('(', 22) + "&" + new string(')', 22)));
+            Assert.That(fold.Value.BasePairs, Has.Count.EqualTo(22));
+            Assert.That(fold.Value.BasePairs[0], Is.EqualTo((0, 21)), "miRNA nt 1 pairs the target 3' end");
+            Assert.That(fold.Value.FreeEnergy, Is.EqualTo(AlignMiRnaToTarget(let7a, target).FreeEnergy).Within(1e-9));
+            Assert.That(fold.Value.FreeEnergy, Is.EqualTo(-35.90).Within(1e-9));
+        });
+    }
+
+    // F2 — Bulged target: an extra A in the let-7a site. The ungapped register loses the 3' half
+    // (AlignMiRnaToTarget −11.11), the duplex fold recovers it with a 1-nt bulge.
+    // Ungapped A12 register: loops 2×2 (int22 5′GGUU/3′CACA → +0.5; generic formula before B12 gave +0.8),
+    // 5×5 (2.5 + 2×0.7 + GA −1.0 = 2.9), 1×1 (int11 1.9) ⇒ −11.11 (was −10.81); Vienna eval_structure −11.0.
+    // 1×2 loop fixture: NNDB turner_2004_int21_dg.txt table 5'GXU/3'CYAA, X = G, Y = A → 1.9 (generic formula
+    // before B12 gave 2.4) ⇒ −28.50 (was −28.00); Vienna duplexfold −28.2 (same pairs; int21 also 1.9 —
+    // residual = 0.1-rounded stacks/init/AU).
+    // ViennaRNA 2.8 RNA.duplexfold("UGAGGUAGUAGGUUGUAUAGUU", <target>) = same pairs, −31.8 (no NNDB bulge degeneracy term).
+    [TestCase("AACUAUACAACACUACUACCUCA", "((((((((((((((((((((((&))))))))))).)))))))))))", -32.10, -31.8, -11.11, TestName = "Fold_OneNtBulge_A12")]
+    [TestCase("AACUAUACAACCAUACUACCUCA", "((((((((((((((((((((((&)))))))))))).))))))))))", -32.10, -31.8, -7.13, TestName = "Fold_OneNtBulge_A13")]
+    [TestCase("AACUAUACAAAACUACUACCUCA", "(((((((((((.((((((((((&))))))))))..)))))))))))", -28.50, -28.2, -11.34, TestName = "Fold_1x2InternalLoop")]
+    public void FoldMiRnaDuplex_BulgedSite_RecoversHelixLikeVienna(string target, string structure, double nndb, double vienna, double ungapped)
+    {
+        const string let7a = "UGAGGUAGUAGGUUGUAUAGUU";
+
+        var fold = FoldMiRnaDuplex(let7a, target);
+
+        Assert.That(fold, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fold!.Value.Structure, Is.EqualTo(structure), "same base pairs as ViennaRNA duplexfold");
+            Assert.That(fold.Value.FreeEnergy, Is.EqualTo(nndb).Within(1e-9), "Turner 2004 (NNDB) energy");
+            Assert.That(fold.Value.FreeEnergy, Is.EqualTo(vienna).Within(0.35), "ViennaRNA 2.8 duplexfold");
+            Assert.That(AlignMiRnaToTarget(let7a, target).FreeEnergy, Is.EqualTo(ungapped).Within(1e-9),
+                "the fixed-register ungapped duplex is far less stable");
+        });
+    }
+
+    // F3 — Cross-check against ViennaRNA 2.8.0 RNA.duplexfold on generated fixtures: identical base-pair
+    // set; energies within Vienna's 0.1-kcal parameter rounding. Coordinates are 0-based inclusive.
+    [TestCase("GUGUGAAUCG", "CGAUUCAUAC", "((((((((((&))))))))))", 0, 9, 0, 9, -11.71, -11.8, TestName = "FoldVienna_GuHelix")]
+    [TestCase("AUGCGAUCC", "GCGGAUGGCAU", "((((.((((&)))).))))", 0, 8, 2, 10, -10.50, -10.5, TestName = "FoldVienna_1x1Loop")]
+    [TestCase("CAUUUCUGGAUGGCCA", "GACUGGCCAUUCAGAUAUG", "(((.((((((((((((&)))))))))))).)))", 0, 15, 3, 18, -21.87, -21.9, TestName = "FoldVienna_1x1LoopNearEnd")]
+    [TestCase("AAGCAGGCACGACAGU", "ACUGUCAUGACCGCUUCAC", "((((.((((.((((((&)))))).)).))))))", 0, 15, 0, 15, -14.91, -14.8, TestName = "FoldVienna_Bulges")]
+    [TestCase("CGGGCAUAUG", "GCCUAUGCAGG", "((((&))))", 1, 4, 0, 3, -6.75, -6.7, TestName = "FoldVienna_SubDuplex")]
+    public void FoldMiRnaDuplex_MatchesViennaDuplexfold(string mirna, string target, string structure,
+        int mStart, int mEnd, int tStart, int tEnd, double nndb, double vienna)
+    {
+        var fold = FoldMiRnaDuplex(mirna, target);
+
+        Assert.That(fold, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fold!.Value.Structure, Is.EqualTo(structure));
+            Assert.That((fold.Value.MiRnaStart, fold.Value.MiRnaEnd, fold.Value.TargetStart, fold.Value.TargetEnd),
+                Is.EqualTo((mStart, mEnd, tStart, tEnd)));
+            Assert.That(fold.Value.FreeEnergy, Is.EqualTo(nndb).Within(1e-9));
+            Assert.That(fold.Value.FreeEnergy, Is.EqualTo(vienna).Within(0.35));
+        });
+    }
+
+    // F31 (B13 WP-1) — 1-nt C bulge, strand-specific NNDB special C. NNDB rna_2004_bulge_loops.html §6.1:
+    // ΔG°bulge(n=1) = initiation(1) + special C bulge (−0.9, "a bulged C adjacent to at least one paired C")
+    // + stack of the closing pairs as though there is no bulge − RT·ln(states).
+    // Duplex CGCAGUAUGCCAAGACU·GUCGUCCUUGGCCUACUGCGCA: target C7 is bulged between pairs m13 A·U t8 and
+    // m14 G·C t6; the paired C (t6) is on the bulged (target) strand, the miRNA side (A13, G14) has none.
+    // Bulge = 3.8 + (5'AG/3'UC −2.08) − 0.9 − 0.6163·ln 2 (t6 = C: 2 states) = 0.39. ViennaRNA 2.8
+    // eval_int_loop = 1.70 (3.8 + stack only: eval_internal.c `if (nl == 1) energy += P->stack[..]`, no
+    // special C, no states). Vienna eval_structure of the same structure −22.60; −22.60 − (1.70 − 0.39)
+    // − 0.06 (Vienna 0.1-kcal stacks / init 4.10) = −23.97. Before the fix the strand was not passed and the
+    // kernel's unknown-strand reading (C on both strands) dropped the −0.9 ⇒ −23.07. Swapping the strands
+    // puts the bulge on the miRNA strand: same duplex, same energy.
+    [TestCase("CGCAGUAUGCCAAGACU", "GUCGUCCUUGGCCUACUGCGCA", "(((((((.((((((((&))).))))).)))))))", TestName = "Fold_CBulge_OnTargetStrand")]
+    [TestCase("GUCGUCCUUGGCCUACUGCGCA", "CGCAGUAUGCCAAGACU", "((.((((((.(((((((&))))))).))))))))", TestName = "Fold_CBulge_OnMiRnaStrand")]
+    public void FoldMiRnaDuplex_OneNtCBulge_NndbSpecialCOnBulgedStrand(string mirna, string target, string structure)
+    {
+        var fold = FoldMiRnaDuplex(mirna, target);
+
+        Assert.That(fold, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fold!.Value.Structure, Is.EqualTo(structure));
+            Assert.That(fold.Value.FreeEnergy, Is.EqualTo(-23.97).Within(1e-9), "NNDB: special C −0.9 and −RT ln 2 included");
+            Assert.That(fold.Value.FreeEnergy - (-22.60), Is.EqualTo(0.39 - 1.70).Within(0.07),
+                "differs from ViennaRNA eval_structure only by the NNDB 1-nt bulge terms (+ Vienna rounding)");
+        });
+    }
+
+    // The loop term itself (canonical kernel): the strand decides the special-C bonus.
+    [Test]
+    public void OneNtCBulge_KernelValue_DependsOnBulgedStrand()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateBulgeLoopEnergy(1, 'C', 'A', 'U', 'G', 'C', 2, bulgeOn5PrimeStrand: false),
+                Is.EqualTo(0.39).Within(1e-9), "C bulge on the strand of the paired C (t6)");
+            Assert.That(Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateBulgeLoopEnergy(1, 'C', 'A', 'U', 'G', 'C', 2, bulgeOn5PrimeStrand: true),
+                Is.EqualTo(1.29).Within(1e-9), "C bulge on the A/G strand: no adjacent paired C, no special C");
+        });
+    }
+
+    // F4 — The MFE duplex is never less stable than the fixed-register duplex (whose loops are all ≤ 30 nt
+    // for ≤ 23-nt inputs, so it is one of the structures the recursion minimises over).
+    [TestCase("UGAGGUAGUAGGUUGUAUAGUU", "GGGGGCUACCUCA")]
+    [TestCase("UGAGGUAGUAGGUUGUAUAGUU", "ACUAUACAACGAUACUACCUCAG")]
+    [TestCase("CGCAGUAUGCCAAGACU", "GUCGUCCUUGGCCUACUGCGCA")]
+    [TestCase("AAAAAA", "UUUU")]
+    public void FoldMiRnaDuplex_NeverAboveUngappedDuplex(string mirna, string target)
+    {
+        var align = AlignMiRnaToTarget(mirna, target);
+        var fold = FoldMiRnaDuplex(mirna, target);
+
+        Assert.That(fold, Is.Not.Null);
+        Assert.That(fold!.Value.FreeEnergy, Is.LessThanOrEqualTo(align.FreeEnergy + 1e-9));
+    }
+
+    // F6 — NNDB GU-pair note: 5'GGUC/3'CUGG replaces its three stacks by −4.12 kcal/mol. Duplex
+    // CAGGUCAC·GUGGUCUG (pairs C·G A·U G·C G·U U·G C·G A·U C·G): 4.09 − 2.11 (CA/GU) − 2.08 (AG/UC)
+    // − 4.12 (GGUC special) − 2.11 (CA/GU) − 2.24 (AC/UG) = −8.57, in both the ungapped evaluation and
+    // the duplex fold. ViennaRNA 2.8 has no special GGUC term (duplexfold −6.1, same structure).
+    [Test]
+    public void GgucSpecialStack_AppliedByAlignmentAndFold()
+    {
+        var align = AlignMiRnaToTarget("CAGGUCAC", "GUGGUCUG");
+        var fold = FoldMiRnaDuplex("CAGGUCAC", "GUGGUCUG");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(align.AlignmentString, Is.EqualTo("|||::|||"));
+            Assert.That(align.FreeEnergy, Is.EqualTo(-8.57).Within(1e-9));
+            Assert.That(fold!.Value.Structure, Is.EqualTo("((((((((&))))))))"));
+            Assert.That(fold.Value.FreeEnergy, Is.EqualTo(-8.57).Within(1e-9));
+        });
+    }
+
+    // F5 — maxLoopSize 0 allows only stacked pairs (one contiguous helix): the bulged let-7a site then
+    // keeps only one helix. Null/empty input and inputs without any possible pair give null; a negative
+    // loop bound throws.
+    [Test]
+    public void FoldMiRnaDuplex_LoopBoundAndDegenerateInputs()
+    {
+        var helixOnly = FoldMiRnaDuplex("UGAGGUAGUAGGUUGUAUAGUU", "AACUAUACAACACUACUACCUCA", maxLoopSize: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(helixOnly, Is.Not.Null);
+            Assert.That(helixOnly!.Value.Structure, Does.Not.Contain("."), "no loop of any size is allowed");
+            Assert.That(FoldMiRnaDuplex("", "UUUU"), Is.Null);
+            Assert.That(FoldMiRnaDuplex("AAAA", null!), Is.Null);
+            Assert.That(FoldMiRnaDuplex("AAAA", "AAAA"), Is.Null, "A·A never pairs");
+            Assert.Throws<ArgumentOutOfRangeException>(() => FoldMiRnaDuplex("AAAA", "UUUU", -1));
         });
     }
 

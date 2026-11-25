@@ -25,10 +25,12 @@ public class RnaReverseComplementTests
     }
 
     [Test]
-    public void RnaReverseComplement_DnaTIsComplementedAsU_UnknownBecomesN()
+    public void RnaReverseComplement_DnaTIsComplementedAsU_IupacComplemented()
     {
-        // DNA T is treated like U (complement A); unknown bases map to N.
+        // DNA T is treated like U (complement A). Oracle: Biopython 1.88 Bio.Seq.reverse_complement_rna —
+        // "ACGR" → "YCGU" (IUPAC R complemented to Y, formerly mapped to N); unknown symbols pass through.
         Assert.That(AnnotationTools.RnaReverseComplement("ATGC").ReverseComplement, Is.EqualTo("GCAU"));
-        Assert.That(AnnotationTools.RnaReverseComplement("AXGC").ReverseComplement, Is.EqualTo("GCNU"));
+        Assert.That(AnnotationTools.RnaReverseComplement("ACGR").ReverseComplement, Is.EqualTo("YCGU"));
+        Assert.That(AnnotationTools.RnaReverseComplement("AXGC").ReverseComplement, Is.EqualTo("GCXU"));
     }
 }

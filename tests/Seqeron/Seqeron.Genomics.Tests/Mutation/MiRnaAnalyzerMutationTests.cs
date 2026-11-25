@@ -127,9 +127,11 @@ public class MiRnaAnalyzerMutationTests
     // context. For sequences ≤ 80 nt the context is the whole sequence.
     // ViennaRNA 2.x cross-check (RNA.fold_compound pf with hc_add_up over the site; Z_c/Z):
     //   seq                                              site    Vienna d0   Vienna d2   Seqeron
-    //   GGGGGCUACCUCAGGGGG                               5..12   1.872e-3    1.28e-4     3.225e-4
-    //   GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA               23..30  0.993777    0.976954    0.972098
-    //   AUGCUACCUCAAAAAAAAAAAAAAAAA                      3..10   0.993008    0.970119    0.963046
+    //   GGGGGCUACCUCAGGGGG                               5..12   1.872e-3    1.28e-4     1.282e-4
+    //   GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA               23..30  0.993777    0.976954    0.975759
+    //   AUGCUACCUCAAAAAAAAAAAAAAAAA                      3..10   0.993008    0.970119    0.967387
+    // Seqeron column after B12 RNA-STRUCT-001 F4/F7 (d2 exterior/multiloop dangles, unambiguous McCaskill
+    // decomposition); before: 3.225e-4 / 0.972098 / 0.963046. Residual = Vienna's 0.1-rounded parameters.
     // The superseded pair-density heuristic returned 0 for all three.
 
     [TestCase("GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA", 23, 30, 0.976954)]
@@ -137,15 +139,16 @@ public class MiRnaAnalyzerMutationTests
     public void CalculateSiteAccessibility_UnstructuredSite_MatchesViennaRna(string seq, int s, int e, double vienna)
     {
         double acc = CalculateSiteAccessibility(seq, s, e);
-        Assert.That(acc, Is.EqualTo(vienna).Within(0.01));
+        Assert.That(acc, Is.EqualTo(vienna).Within(0.005));
     }
 
     [Test]
     public void CalculateSiteAccessibility_SiteLockedInHelix_NearZero_MatchesViennaRna()
     {
-        // GGGGG·CUACCUCA·GGGGG: the site's C's pair with the G flanks. Vienna: 1.9e-3 (d0) / 1.3e-4 (d2).
+        // GGGGG·CUACCUCA·GGGGG: the site's C's pair with the G flanks. Vienna: 1.9e-3 (d0) / 1.28e-4 (d2).
         double acc = CalculateSiteAccessibility("GGGGGCUACCUCAGGGGG", 5, 12);
         Assert.That(acc, Is.LessThan(0.002));
+        Assert.That(acc, Is.EqualTo(1.28e-4).Within(1e-5), "ViennaRNA 2.8 d2 Z_c/Z (Seqeron 1.282e-4)");
     }
 
     [Test]

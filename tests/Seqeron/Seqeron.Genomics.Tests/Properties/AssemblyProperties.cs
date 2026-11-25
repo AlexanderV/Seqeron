@@ -136,8 +136,8 @@ public class AssemblyProperties
 
     // ErrorCorrectReads is Musket/Quake two-sided k-mer-spectrum correction (Liu et al. 2013; Kelley
     // et al. 2010): a k-mer is trusted when its multiplicity ≥ cut-off; an untrusted position is
-    // changed to the unique base that makes all covering k-mers trusted. Corrections are single-base
-    // substitutions, so length and read count are preserved.
+    // changed to the unique base that makes its leftmost and rightmost covering k-mers trusted (Musket
+    // stage 1). Corrections are single-base substitutions, so length and read count are preserved.
 
     private static int Hamming(string a, string b)
     {
@@ -450,8 +450,8 @@ public class AssemblyProperties
     #region ASSEMBLY-MERGE-001: P: merged length ≥ longer contig; P: result is a superstring (overlap collapsed once); D: deterministic
 
     // MergeContigs collapses a known suffix/prefix overlap of length l so the shared region appears
-    // once: merged = contig1 + contig2[l:], length |c1|+|c2|−l (Langmead SCS notes). An invalid
-    // overlap (≤ 0 or > min length) falls back to plain concatenation.
+    // once: merged = contig1 + contig2[l:], length |c1|+|c2|−l (Langmead SCS notes). l = 0 is plain
+    // concatenation; l < 0 or l > min length is not an overlap and throws (F-MERGE-1).
 
     private static string RandDna(Random rng, int len)
     {
@@ -482,8 +482,8 @@ public class AssemblyProperties
         }).ToArbitrary();
 
     /// <summary>
-    /// INV-1 (P): The merged length is |c1|+|c2|−l for a valid overlap (else |c1|+|c2|), and is never
-    /// shorter than the longer input contig.
+    /// INV-1 (P): The merged length is |c1|+|c2|−l for a valid overlap 0 ≤ l ≤ min length (an
+    /// out-of-range l throws ArgumentOutOfRangeException), and is never shorter than the longer contig.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property Merge_Length_IsCorrectAndAtLeastLongerContig()
@@ -491,9 +491,16 @@ public class AssemblyProperties
         return Prop.ForAll(MergeArbitrary(), t =>
         {
             var (c1, c2, l) = t;
+            bool validOverlap = l >= 0 && l <= Math.Min(c1.Length, c2.Length);
+            if (!validOverlap)
+            {
+                try { SequenceAssembler.MergeContigs(c1, c2, l); }
+                catch (ArgumentOutOfRangeException) { return true.Label("out-of-range overlap rejected"); }
+                return false.Label($"overlap {l} outside [0, min length] must throw");
+            }
+
             string merged = SequenceAssembler.MergeContigs(c1, c2, l);
-            bool validOverlap = l > 0 && l <= Math.Min(c1.Length, c2.Length);
-            int expected = validOverlap ? c1.Length + c2.Length - l : c1.Length + c2.Length;
+            int expected = c1.Length + c2.Length - l;
             return (merged.Length == expected && merged.Length >= Math.Max(c1.Length, c2.Length))
                 .Label($"merged length {merged.Length} ≠ expected {expected}");
         });
@@ -526,13 +533,14 @@ public class AssemblyProperties
         return Prop.ForAll(MergeArbitrary(), t =>
         {
             var (c1, c2, l) = t;
+            l = Math.Min(l, Math.Min(c1.Length, c2.Length)); // keep the overlap in range
             return (SequenceAssembler.MergeContigs(c1, c2, l) == SequenceAssembler.MergeContigs(c1, c2, l))
                 .Label("MergeContigs must be deterministic");
         });
     }
 
     /// <summary>
-    /// INV-4 (boundary): non-positive and over-long overlaps fall back to concatenation; the
+    /// INV-4 (boundary): overlap 0 concatenates, negative and over-long overlaps throw; the
     /// canonical Langmead trace BAA + AAB at overlap 2 collapses to BAAB.
     /// </summary>
     [Test]
@@ -543,8 +551,10 @@ public class AssemblyProperties
         {
             Assert.That(SequenceAssembler.MergeContigs("BAA", "AAB", 2), Is.EqualTo("BAAB"), "overlap collapsed once");
             Assert.That(SequenceAssembler.MergeContigs("ACGT", "TGCA", 0), Is.EqualTo("ACGTTGCA"), "no overlap → concat");
-            Assert.That(SequenceAssembler.MergeContigs("ACGT", "TGCA", -1), Is.EqualTo("ACGTTGCA"), "negative overlap → concat");
-            Assert.That(SequenceAssembler.MergeContigs("AC", "GT", 5), Is.EqualTo("ACGT"), "overlap > shorter contig → concat");
+            Assert.That(() => SequenceAssembler.MergeContigs("ACGT", "TGCA", -1),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>(), "negative overlap → rejected");
+            Assert.That(() => SequenceAssembler.MergeContigs("AC", "GT", 5),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>(), "overlap > shorter contig → rejected");
         });
     }
 
@@ -662,9 +672,11 @@ public class AssemblyProperties
         }).ToArbitrary();
 
     /// <summary>
-    /// INV-1 (P): Every contig is placed exactly once. Since contigs contain no gap character,
-    /// stripping gap characters from all scaffolds and summing lengths recovers the total contig
-    /// length — no contig is lost or duplicated.
+    /// INV-1 (P): Every contig is placed exactly once. Contigs contain no gap character, so the
+    /// non-gap characters of all scaffolds equal the total contig length minus the collapsed
+    /// overlaps; an overlap is collapsed only for a negative estimate d, by −d bases (Jackman et al.
+    /// 2017; ABySS MergeContigs), so total − Σ(−d over negative links) ≤ stripped ≤ total; every
+    /// contig still occurs verbatim (forward links, agreeing overlap) in some scaffold.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property Scaffold_PlacesEachContigExactlyOnce()
@@ -675,8 +687,10 @@ public class AssemblyProperties
             var scaffolds = SequenceAssembler.Scaffold(contigs, links);
             long stripped = scaffolds.Sum(s => s.Count(ch => ch != 'N'));
             long total = contigs.Sum(c => (long)c.Length);
-            return (stripped == total)
-                .Label($"contig content {stripped} ≠ total {total} (contig lost or duplicated)");
+            long maxCollapsed = links.Where(l => l.Item3 < 0).Sum(l => -(long)l.Item3);
+            bool verbatim = contigs.All(c => scaffolds.Any(s => s.Contains(c)));
+            return (stripped <= total && stripped >= total - maxCollapsed && verbatim)
+                .Label($"contig content {stripped} vs total {total} (collapse ≤ {maxCollapsed}); verbatim={verbatim}");
         });
     }
 

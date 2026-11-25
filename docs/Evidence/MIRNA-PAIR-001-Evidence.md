@@ -73,13 +73,27 @@
 ### NNDB — Turner 2004 RNA folding parameters (Mathews/Turner)
 
 **URL:** https://rna.urmc.rochester.edu/NNDB/turner04/index.html (and rna_2004_watson_crick_helices.html)
-**Accessed:** 2026-06-13 (WebSearch; direct WebFetch of NNDB pages returned 404/blocked — see Assumptions)
+**Accessed:** 2026-06-13 (WebSearch); pages and parameter table opened directly 2026-11-25 (rna_2004/* URLs below)
 **Authority rank:** 1/3 (primary thermodynamic database; Xia et al. 1998 / Turner 2004)
 
 **Key Extracted Points:**
 
-1. **Nearest-neighbor model:** RNA duplex/helix folding free energy is computed by summing nearest-neighbor stacking free energies over consecutive base pairs, plus initiation and terminal-AU/GU penalties (Xia et al. 1998; Turner 2004). The 21 distinct base-pair stacks are firmly grounded in experimental melting data (search result "Analysis of RNA nearest neighbor parameters…", rnajournal.cshlp.org/content/24/11/1568.full).
-2. **Sign:** all Watson-Crick nearest-neighbor stacking free energies at 37 °C are negative (stabilising). The numeric stacking table used by the implementation is the same NNDB Turner 2004 set already cited in `MiRnaAnalyzer.StackingEnergies` (committed in a prior unit). Exact per-stack values were NOT independently re-retrieved this session (NNDB pages 404 to the fetcher) — see ASSUMPTION 1.
+1. **Nearest-neighbor model (opened 2026-11-25, rna.urmc.rochester.edu/NNDB/rna_2004/rna_2004_watson_crick_helices.html §1.1):** "ΔG°37 Watson-Crick-Franklin = ΔG°37 intermolecular initiation + ΔG°37 AU end penalty (per AU end) + ΔG°37 symmetry (self-complementary duplexes) + Σ[ΔG°37 stacking]". Worked examples: self-complementary 5′AGCGCU3′ = 4.09 + 2×0.45 + 0.43 − 2.08 − 3.42 − 2.36 − 3.42 − 2.08 = −7.94; non-self-complementary 5′GCACG3′/3′CGUGC5′ = 4.09 − 3.42 − 2.11 − 2.24 − 2.36 = −6.04.
+2. **Dangling ends (…/rna_2004_dangling_ends.html, table turner_2004_dangle_dg.txt):** "if a helix end is extended on both the 5′ and 3′ strands, then a terminal mismatch exists (not the sum of 5′ and 3′ dangling ends)"; example 3′ dangling C on GC −0.4, 5′ dangling A on GC −0.2. Table layout: 3′ dangle X sits 3′ of the top (5′→3′) base; 5′ dangle X sits 5′ of the bottom base — the key is (top base, X, bottom base).
+3. **Terminal mismatches (…/rna_2004_terminal_mismatches.html):** example "UA followed by GA" = −1.1 added to the −7.94 helix → −9.0.
+4. **Exterior loops (…/rna_2004_exterior_loops.html):** stabilised by terminal mismatches, dangling ends and coaxial stacks; a nucleotide participates in only one.
+
+### ViennaRNA 2.8.0 (reference implementation, Python `import RNA`)
+
+- `RNA.fold_compound(m + "&" + t).eval_structure(s)` (dangles = 2) evaluates the duplex structure of `AlignMiRnaToTarget`; `RNA.duplexfold(m, t)` is the MFE duplex (`RNAduplex`) reproduced by `FoldMiRnaDuplex`. Parameter file rna_turner2004: DuplexInit 4.10, terminal AU 0.50, 0.1-kcal-rounded stacks; no symmetry term in eval; no bulge degeneracy / special-C bonus.
+- Cross-check (scratch fixtures, 11 hand-picked + 40 generated mutated complements): `AlignMiRnaToTarget` vs `eval_structure` max |Δ| 0.46 kcal/mol over all 51 (0.43 of it is the NNDB symmetry term on `GCGCGCGC`·`GCGCGCGC`, which `eval_structure` omits); 0.45 on the fixtures with 2×2 loops. Before B12 RNA-STRUCT-001 F3 (NNDB int11/int21/int22 tables + `vrna_E_internal` rules in the canonical kernel, commit 0409ca9) the 2×2-loop fixtures deviated by up to 2.2. `FoldMiRnaDuplex` vs `duplexfold`: identical pair set 49/50 (was 48/50; the other is a near-degenerate alternative, |Δ| 0.2), |Δ| ≤ 0.46 except one 1-nt C-bulge (1.37: NNDB special-C bonus + degeneracy, absent in Vienna).
+- 1-nt C bulge re-check after B12 RNA-ENERGY-001 F14 (commit 8e059fe; B13 F31, 2026-11-25): F14 made `CalculateBulgeLoopEnergy(..., bulgeOn5PrimeStrand: null)` apply the special-C bonus only when a paired C flanks the bulge on both strands. `FoldMiRnaDuplex`/`EvaluateDuplexEnergy` did not pass the strand, so the C-bulge fixture `CGCAGUAUGCCAAGACU`·`GUCGUCCUUGGCCUACUGCGCA` (target C7 bulged between m13 A·U t8 and m14 G·C t6) moved −23.97 → −23.07. NNDB `rna_2004_bulge_loops.html` §6.1 (opened): ΔG(n=1) = initiation + special C bulge ("a bulged C adjacent to at least one paired C") + stack as though no bulge − RT ln(states); worked example 3 C states −0.616×1.099. Hand value 3.8 − 2.08 − 0.9 − 0.6163·ln 2 = 0.39; ViennaRNA 2.8 `eval_int_loop` 1.70 (`eval_internal.c` v2.7.2: `if (nl == 1) energy += P->stack[type][type_2]`, no special C / states). With the strand passed (n1 > 0 ⇒ miRNA strand) the fold is −23.97 in both strand orders; Vienna `eval_structure` of the same structure −22.60 = −23.97 + 1.31 (bulge terms) + 0.06 (rounding). The 1.37 `duplexfold` outlier is therefore the sourced NNDB term, not an error.
+- Re-lock after B12 (2026-11-25): every internal loop of the affected fixtures equals ViennaRNA 2.8 `eval_int_loop` and the NNDB hand value (`turner_2004_internal_loop_dg.txt`: initiation(8) 2.3, (10) 2.5, (14) 2.9, AU/GU closure 0.7, first mismatch GA −1.0; `turner_2004_int21_dg.txt` 5′GGU/3′CAAA = 1.9; int22 5′GGUU/3′CACA = 0.5). `Vienna_4x4Loop` 2.55 → 2.35 (Vienna 2.4), `Vienna_5x5And7x7Loops` 3.00 → 2.80 (2.9), let-7a 1-nt-bulge site ungapped −10.81 → −11.11 (−11.0), `Fold_1x2InternalLoop` −28.00 → −28.50 (duplexfold −28.2). Old values used the pre-B12 generic formula for 1×2/2×2 loops and read the inner-pair first mismatch in the wrong orientation.
+- Dangle orientation confirmed numerically: hairpin CGCGAAAGCGA (3′ A on the C·G closing pair) exterior term Vienna −1.1 = NNDB key "GAC" (3′ dangle sits on G).
+
+### Biopython 1.88 — `Bio.Seq.reverse_complement_rna`
+
+- "ACGR" → "YCGU"; "NNRYKMBDHVSW" → "WSBDHVKMRYNN"; "acgu-X" → "X-acgu" (case kept; Seqeron upper-cases recognised codes). Oracle for `GetReverseComplement` (canonical `SequenceExtensions.GetRnaComplementBase`).
 
 ---
 
@@ -152,7 +166,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: Turner 2004 stacking numeric values not re-retrieved this session** — The exact per-stack free-energy values reused by the duplex free-energy estimate (`StackingEnergies`) come from the NNDB Turner 2004 set already committed in a prior unit; the NNDB pages returned 404 to the web fetcher this session, so the individual numbers could not be independently re-opened now. Consequence: tests for `AlignMiRnaToTarget` assert only base-pairing structure (matches/mismatches/wobbles, alignment symbols, orientation) and the **sign** invariant of the free energy (ΔG ≤ 0 for a fully paired duplex, ≥ 0 sign behaviour for an all-mismatch duplex), NOT exact kcal/mol values. The free-energy magnitude is documented as "Intentionally simplified".
+None. (The former ASSUMPTION 1 — Turner values not re-opened, sign-only tests — is retired: the NNDB pages were opened on 2026-11-25 and the energies are locked to NNDB worked examples and ViennaRNA 2.8.0.)
 
 ---
 
@@ -165,7 +179,8 @@
 5. **MUST Test:** `AlignMiRnaToTarget` G:U duplex → counted as wobbles not matches — Evidence: Crick (1966); PMC4870184.
 6. **MUST Test:** `AlignMiRnaToTarget` non-pairing duplex → all mismatches — Evidence: A pairs only with U.
 7. **MUST Test:** `AlignMiRnaToTarget` empty input → empty duplex (defensive) — Evidence: implementation contract (no source defines behaviour for empty).
-8. **SHOULD Test:** free energy of a fully paired duplex is ≤ 0 (stabilising); all-mismatch duplex not stabilising — Rationale: NNDB Turner stacking energies are negative for paired stacks.
+8. **MUST Test:** duplex free energy equals the NNDB Turner 2004 sum (worked examples −7.94, −6.04; dangle −6.44; terminal mismatch −9.47; AAAA·UUUU +2.20) and ViennaRNA eval within rounding; no pair ⇒ 0.
+10. **MUST Test:** `FoldMiRnaDuplex` reproduces ViennaRNA `duplexfold` base pairs and energy (bulged let-7a sites).
 9. **COULD Test:** DNA input (T) normalised to RNA (U) before pairing — Rationale: implementation normalises T→U.
 
 ---
@@ -178,9 +193,12 @@
 4. Crick FHC (1966). Codon–anticodon pairing: the wobble hypothesis. J. Mol. Biol. 19(2):548–555 — via Wikipedia "Wobble base pair". https://en.wikipedia.org/wiki/Wobble_base_pair
 5. Lewis BP, Burge CB, Bartel DP (2005). Conserved seed pairing, often flanked by adenosines, indicates that thousands of human genes are microRNA targets. Cell 120(1):15–20. https://pubmed.ncbi.nlm.nih.gov/15652477/
 6. Turner DH, Mathews DH (2010). NNDB: the nearest neighbor parameter database. Nucleic Acids Res. 38:D280–D282; Turner 2004 parameters at https://rna.urmc.rochester.edu/NNDB/turner04/index.html (Xia et al. 1998, Biochemistry 37:14719–14735).
+7. Lorenz R, Bernhart SH, Höner zu Siederdissen C, Tafer H, Flamm C, Stadler PF, Hofacker IL (2011). ViennaRNA Package 2.0. Algorithms Mol. Biol. 6:26 — ViennaRNA 2.8.0 Python bindings.
+8. Cock PJA et al. (2009). Biopython. Bioinformatics 25:1422–1423 — Biopython 1.88 `Bio.Seq.reverse_complement_rna`.
 
 ---
 
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-25** (B13 review F11–F14): full NNDB Turner 2004 duplex energy (NNDB pages opened), ViennaRNA 2.8.0 cross-check, `FoldMiRnaDuplex` (RNAduplex model), IUPAC reverse complement (Biopython oracle); ASSUMPTION 1 retired.

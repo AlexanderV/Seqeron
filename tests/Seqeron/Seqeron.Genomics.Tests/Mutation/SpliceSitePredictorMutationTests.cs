@@ -27,25 +27,27 @@ public class SpliceSitePredictorMutationTests
 
     #region Independent PWM oracles (documented formulas)
 
-    // Donor binary consensus, offsets -3..+5 (1.0 = matches consensus base set).
-    private static readonly (int Off, string Ones)[] DonorCols =
+    // Donor: Shapiro & Senapathy (1987) NAR 15:7155, Table 1 primate 5' ss percentages
+    // [A,C,G,U] for positions -2,-1,+1..+6 (the scored 8-nt subsequence), transcribed
+    // independently; score = (t - mint) / (maxt - mint) (Methods, p. 7157-7158).
+    private static readonly int[][] DonorPrimate =
     {
-        (-3, "AC"), (-2, "A"), (-1, "G"), (0, "G"), (1, "U"), (2, "AG"), (3, "A"), (4, "G"), (5, "U")
+        new[] { 58, 13, 15, 15 }, new[] { 10, 4, 78, 8 }, new[] { 0, 0, 100, 0 }, new[] { 0, 0, 0, 100 },
+        new[] { 57, 2, 39, 2 }, new[] { 71, 8, 12, 9 }, new[] { 5, 6, 84, 5 }, new[] { 16, 15, 22, 47 }
     };
 
+    // pos = index of the G of GU (+1); scored window pos-2 .. pos+5.
     private static double ExpectedDonorScore(string seq, int pos)
     {
-        double score = 0; int count = 0;
-        foreach (var (off, ones) in DonorCols)
+        int t = 0, lo = 0, hi = 0;
+        for (int k = 0; k < 8; k++)
         {
-            int p = pos + off;
-            if (p >= 0 && p < seq.Length)
-            {
-                char b = seq[p];
-                if (BaseIdx(b) >= 0) { score += ones.Contains(b) ? 1.0 : 0.0; count++; }
-            }
+            int[] row = DonorPrimate[k];
+            t += row[BaseIdx(seq[pos - 2 + k])];
+            lo += row.Min();
+            hi += row.Max();
         }
-        return count > 0 ? score / count : 0;
+        return (double)(t - lo) / (hi - lo);
     }
 
     // Acceptor PWM rows [A,C,G,U], offsets relative to the splice site (= position+2).
@@ -116,7 +118,7 @@ public class SpliceSitePredictorMutationTests
     [Test]
     public void FindDonorSites_PerfectConsensus_ScoreIsExactlyOne()
     {
-        // MAG|GURAGU consensus, GU at index 3, full -3..+5 context ⇒ 9/9 = 1.0.
+        // Primate S&S: every scored position -2..+6 carries its highest percentage ⇒ 1.0.
         const string seq = "CAGGUAAGU";
         var sites = FindDonorSites(seq, minScore: 1.0).ToList();
 
@@ -129,10 +131,10 @@ public class SpliceSitePredictorMutationTests
     [Test]
     public void FindDonorSites_OneMismatch_ScoreIsExactFraction()
     {
-        // +3 position A→C breaks one consensus column ⇒ 8/9.
+        // +4 A→C: t = 595 - 71 + 8 = 532 ⇒ (532 - 47) / (595 - 47) = 485/548 (S&S 1987).
         const string seq = "CAGGUACGU";
         var site = FindDonorSites(seq, minScore: 0.5).Single();
-        Assert.That(site.Score, Is.EqualTo(8.0 / 9.0).Within(Tol));
+        Assert.That(site.Score, Is.EqualTo(485.0 / 548.0).Within(Tol));
         Assert.That(site.Score, Is.EqualTo(ExpectedDonorScore(Rna(seq), 3)).Within(Tol));
     }
 
@@ -205,13 +207,13 @@ public class SpliceSitePredictorMutationTests
 
     #endregion
 
-    #region U12 minor-spliceosome donor — AUAUCC consensus (matches/6)
+    #region U12 minor-spliceosome donor — /RUAUCCUY consensus (matches/8)
 
     [Test]
     public void FindDonorSites_U12_PerfectConsensus_ScoreIsExactlyOne()
     {
-        // U12 donor AU… scored by literal match to AUAUCC ⇒ 6/6 = 1.0.
-        const string seq = "AUAUCCAAAA";
+        // U12 donor scored against /RUAUCCUY (+1..+8; Sharp & Burge 1997) ⇒ 8/8 = 1.0.
+        const string seq = "AUAUCCUUAA";
         var site = FindDonorSites(seq, minScore: 1.0, includeNonCanonical: true)
             .Single(s => s.Type == SpliceSiteType.U12Donor);
         Assert.That(site.Score, Is.EqualTo(1.0).Within(Tol));   // kills U12 score>minScore boundary
@@ -219,13 +221,13 @@ public class SpliceSitePredictorMutationTests
     }
 
     [Test]
-    public void FindDonorSites_U12_OneMismatch_ScoreIsFiveSixths()
+    public void FindDonorSites_U12_OneMismatch_ScoreIsSevenEighths()
     {
-        // Last consensus position C→G ⇒ 5 matches / 6. A '!=' mismatch-count mutant gives 1/6.
-        const string seq = "AUAUCGAAAA";
+        // +6 C→G ⇒ 7 matches / 8. A '!=' mismatch-count mutant gives 1/8.
+        const string seq = "AUAUCGUCAA";
         var site = FindDonorSites(seq, minScore: 0.5, includeNonCanonical: true)
             .Single(s => s.Type == SpliceSiteType.U12Donor);
-        Assert.That(site.Score, Is.EqualTo(5.0 / 6.0).Within(Tol));
+        Assert.That(site.Score, Is.EqualTo(7.0 / 8.0).Within(Tol));
     }
 
     #endregion
@@ -260,48 +262,31 @@ public class SpliceSitePredictorMutationTests
     #region CalculateMaxEntScore — log-odds, donor vs acceptor branch
 
     [Test]
-    public void CalculateMaxEntScore_DonorConsensus_ExactLogOddsSum()
+    public void CalculateMaxEntScore_DonorConsensus_IsMaxEntScanScore5()
     {
-        // Each of the 9 donor columns matches ⇒ score = 9 * log2(1 + 0.01).
+        // Donor branch delegates to MaxEntScan score5: CAGGTAAGT -> 10.858313101356437 (maxentpy; score5.pl 10.86).
         const string motif = "CAGGUAAGU";
-        double expected = 9 * Math.Log2(1.0 + 0.01);
         Assert.That(CalculateMaxEntScore(motif, SpliceSiteType.Donor),
-            Is.EqualTo(expected).Within(Tol));
+            Is.EqualTo(10.858313101356437).Within(1e-12));
     }
 
     [Test]
-    public void CalculateMaxEntScore_DonorOffConsensus_DiffersFromConsensus()
+    public void CalculateMaxEntScore_DonorOffConsensus_ExactScore5()
     {
-        // A non-consensus base contributes log2(0 + 0.01) ≪ log2(1.01): pins the +0.01 term.
-        const string consensus = "CAGGUAAGU";
-        const string broken = "CACGUAAGU"; // -1 column G→C (mismatch)
-        double good = CalculateMaxEntScore(consensus, SpliceSiteType.Donor);
-        double bad = CalculateMaxEntScore(broken, SpliceSiteType.Donor);
-        double delta = Math.Log2(1.01) - Math.Log2(0.01); // one column flips 1→0
-        Assert.That(good - bad, Is.EqualTo(delta).Within(1e-6));
+        // -1 column G->C: maxentpy score5('CACGTAAGT') = 10.155128271120882 (score5.pl 10.16).
+        const string broken = "CACGUAAGU";
+        Assert.That(CalculateMaxEntScore(broken, SpliceSiteType.Donor),
+            Is.EqualTo(10.155128271120882).Within(1e-12));
     }
 
     [Test]
-    public void CalculateMaxEntScore_AcceptorBranch_IsNonzeroAndTyped()
+    public void CalculateMaxEntScore_AcceptorBranch_IsMaxEntScanScore3()
     {
-        // Acceptor branch must run (kills the type-equality mutant that would return 0)
-        // and produce the documented log-odds sum over the 8 acceptor columns.
-        // 18-nt acceptor motif (offsets -15..0 over indices 0..17 hitting cols at 0,5,10..15).
-        const string motif = "UUUUUUUUUUCUUCAGG"; // len 17
-        string rna = Rna(motif);
-        double expected = 0;
-        for (int i = 0; i < rna.Length; i++)
-        {
-            int off = i - 15;
-            if (AcceptorPwm.TryGetValue(off, out var w))
-            {
-                int bi = BaseIdx(rna[i]);
-                if (bi >= 0) expected += Math.Log2(w[bi] + 0.01);
-            }
-        }
-        Assert.That(CalculateMaxEntScore(motif, SpliceSiteType.Acceptor),
-            Is.EqualTo(expected).Within(Tol));
-        Assert.That(expected, Is.Not.EqualTo(0.0)); // ensures the acceptor branch truly executed
+        // Acceptor branch must run (kills the type-equality mutant that would return 0) and return
+        // MaxEntScan score3: maxentpy score3('tgtctttttctgtgtggcAGtgg') = 8.190965487162021 (score3.pl 8.19);
+        // Math.Log2 instead of ln/ln2 gives 8.19096548716202 (1 ulp off), so exact equality also pins F22.
+        const string motif = "UGUCUUUUUCUGUGUGGCAGUGG";
+        Assert.That(CalculateMaxEntScore(motif, SpliceSiteType.Acceptor), Is.EqualTo(8.190965487162021));
     }
 
     [Test]
@@ -423,23 +408,29 @@ public class SpliceSitePredictorMutationTests
     #region Length guards & non-canonical / branch score boundaries
 
     [Test]
-    public void FindDonorSites_MinimumLengthSix_FindsConsensusAtStart()
+    public void FindDonorSites_MinimumWindow_EightNt_ScoredAtBothEdges()
     {
-        // length == 6 is the smallest scannable sequence (guard is strict '< 6').
-        // GU at index 0 with consensus tail ⇒ 6 in-bounds columns all match ⇒ 1.0.
-        var sites = FindDonorSites("GUAAGU", minScore: 0.5).ToList();
-        Assert.That(sites, Has.Count.EqualTo(1));        // kills sequence.Length <= 6 guard
+        // The S&S subsequence -2..+6 is 8 nt: GU at index 2 of an 8-nt sequence is the only
+        // fully scorable placement (kills start<0 / end>=Length off-by-one mutants).
+        var sites = FindDonorSites("AGGUAAGU", minScore: 0.5).ToList();
+        Assert.That(sites, Has.Count.EqualTo(1));
+        Assert.That(sites[0].Position, Is.EqualTo(2));
         Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(Tol));
+        // One nt short at either edge ⇒ the window runs off the sequence ⇒ not scored.
+        Assert.That(FindDonorSites("GGUAAGU", minScore: 0.0), Is.Empty);
+        Assert.That(FindDonorSites("AGGUAAG", minScore: 0.0), Is.Empty);
     }
 
     [Test]
     public void FindDonorSites_GcNonCanonical_ScoreEqualToMinScore_IsIncluded()
     {
-        // GC donor: +1 column (U) mismatches ⇒ 8/9. minScore == score ⇒ '>=' keeps, '>' drops.
+        // GC donor: +2 C has 0 % (vs 100 % U) ⇒ t = 495 ⇒ 448/548. minScore == score ⇒ '>=' keeps.
         const string seq = "CAGGCAAGU";
-        var sites = FindDonorSites(seq, minScore: 8.0 / 9.0, includeNonCanonical: true).ToList();
+        double exact = ExpectedDonorScore(Rna(seq), 3);
+        var sites = FindDonorSites(seq, minScore: exact, includeNonCanonical: true)
+            .Where(s => s.Type == SpliceSiteType.Donor).ToList();
         Assert.That(sites, Has.Count.EqualTo(1));
-        Assert.That(sites[0].Score, Is.EqualTo(8.0 / 9.0).Within(Tol));
+        Assert.That(sites[0].Score, Is.EqualTo(448.0 / 548.0).Within(Tol));
     }
 
     [Test]
@@ -474,9 +465,9 @@ public class SpliceSitePredictorMutationTests
     [Test]
     public void FindDonorSites_U12_DonorAtEnd_MotifBoundIsInclusive()
     {
-        // AU donor at position 0 with position+6 == length: the inclusive 'position+6 <= length'
-        // keeps the 6-mer motif; a strict '<' mutant yields an empty motif ⇒ score 0 ⇒ no site.
-        var sites = FindDonorSites("AUAUCC", minScore: 0.5, includeNonCanonical: true)
+        // AU donor at position 0 with position+8 == length: the inclusive 'position+8 <= length'
+        // keeps the 8-nt window; a strict '<' mutant drops the site.
+        var sites = FindDonorSites("AUAUCCUU", minScore: 0.5, includeNonCanonical: true)
             .Where(s => s.Type == SpliceSiteType.U12Donor).ToList();
         Assert.That(sites, Has.Count.EqualTo(1));
         Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(Tol));

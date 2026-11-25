@@ -66,6 +66,48 @@
 1. **Nx (verbatim):** "Contigs no shorter than Nx covers x% of the assembly," x in 0..100.
 2. **auN formula (verbatim):** "auN = ∑_i L_i · (L_i / ∑_j L_j) = ∑_i L_i² / ∑_j L_j." auN is the area under the Nx curve; it is more stable than the discrete N50.
 
+### B10 review (2026-11-25) — sources opened and reference numbers
+
+Fetched with a neutral User-Agent from raw.githubusercontent.com (ablab/quast master; dzerbino/velvet master):
+
+- **QUAST `quast_libs/N50.py`** — `NG50_and_LG50` (asserts `0 ≤ percentage ≤ 100`; returns `(None, None)` for an
+  empty list or an unreached reference length), `N50_and_L50`, `au_metric`.
+- **QUAST `quast_libs/basic_stats.py` `GC_content`** — `contig_ACGT_len = len(seq) − seq.count("N")`,
+  `contig_GC_len = count("G") + count("C")`, assembly `total_GC = Σ GC · 100 / Σ ACGT` (pooled). `# N's` = `seq.count('N')`.
+- **QUAST `quast_libs/qutils.py` `correct_seq`** — upper-cases and maps IUPAC M,K,R,Y,W,S,V,B,H,D → N, rejects any other
+  non-ACGTN character. Hence GC% = (G+C)/(A+C+G+T) with N and ambiguity codes in neither count.
+  `split_by_ns(seq, …, Ns_break_threshold=1)`: gaps = runs of N (scaffold splitting).
+- **Velvet `src/graphStats.c` `usedReads`/`logFinalStats`** — "Final graph has … using %ld/%ld reads": a read is used when
+  it has a marker on a node of length ≥ the minimum contig length (twin node included).
+
+**QUAST oracle table** (verbatim `N50.py` imported and run with `python3 -I`; script in the B10 scratchpad):
+
+| lengths | x | QUAST (Nx, Lx) | auN |
+|---|---|---|---|
+| {4,3,2} | 50 / 90 | (3,2) / (2,3) | 3.2222222222222223 |
+| {2,1,1,1} | 50 / 90 | (1,2) / (1,4) | 1.4 |
+| {5,5,5,5} | 50 / 90 | (5,2) / (5,4) | 5.0 |
+| {10..1} (total 55, odd) | 0 / 50 / 90 / 100 | (10,1) / (7,4) / (3,8) / (1,10) | 7.0 |
+| Assembly B | 90 / 100 | (20,6) / (5,8) | 55.16393442622951 |
+| {3,0,0} | 100 | (3,1) | 3.0 |
+| {0,0} | 50 | (0,1) | None |
+| {} | any | (None, None) | None |
+| {2e9,2e9,1} | 50 / 100 | (2e9,2) / (1,3) | 1999999999.5 |
+| {14,10,5} | 50 | (10,2) | — |
+| A, reference 400 (NG) | 50 / 90 | (50,3) / (None,None) | auNG 41.75 |
+| A, reference 1000 | 50 | (None,None) | — |
+| {4,3,2}, reference 7 | 50 / 90 | (4,1) / (3,2) | — |
+
+GC oracle (QUAST `correct_seq` + `GC_content` port): ["ACGTRYSW"] → 50.0 %; ["GGCCnnAT","acgtNNNN"] → 60.0 %;
+["GCGCRRRR"] → 100.0 %; ["ATATATAT","GGGG"] → 33.33 %. Median: numpy/statistics.median({4,3,2,1}) = 2.5.
+
+**Defects found:** (1) `SequenceAssembler.CalculateStats` N50 used `total/2` integer halving and an `int` total:
+{4,3,2} → 4 (QUAST 3), {2,1,1,1} → 2 (QUAST 1), {14,10,5} → 14 (QUAST 10); totals > 2³¹ wrapped. (2) GC denominator
+counted every non-N character (IUPAC, '-'): "ACGTRYSW" → 0.25 (QUAST 0.50). (3) MedianLength = upper median
+({4,3,2,1} → 3, sample median 2.5). (4) `AssembledReads = totalReads` unsourced. (5) Core `CalculateNx` accepted
+x ∉ [0,100] and unsorted lengths silently; an unreached NG reference returned the smallest contig instead of
+"undefined". (6) `CalculateLengthDistribution` mis-binned unsorted bounds.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -125,7 +167,8 @@
 ## Assumptions
 
 1. **ASSUMPTION: Empty-input return value (non-correctness-affecting).** Authoritative sources (QUAST) return `None` for an empty contig set; the repository returns the all-zero `AssemblyStatistics` and `Nx=Lx=0` / `auN=0`. This is an API-shape choice (no valid N50 exists for an empty assembly); it does not change any defined N50/L50/auN value and is documented in the algorithm doc §6.1.
-2. **ASSUMPTION: Median convention in `CalculateStatistics.MedianLength`.** The N50 sources do not define an assembly "median contig length"; the repository reports the upper median (`lengths[count/2]` over the descending-sorted list). This field is auxiliary and outside the cited N50/L50/Nx/auN contract; the canonical statistics (N50, L50, N90, L90, largest, smallest, totals, GC, gaps) are source-backed. Tested as implemented behavior, flagged as not source-derived.
+2. ~~Median convention~~ (resolved 2026-11-25): `MedianLength` is now the sample median via `StatisticsHelper.Median` (numpy/R `median`).
+3. **Deviation (documented):** U counts as a valid base in GC (QUAST rejects non-ACGTN input); IUPAC codes are bases, not gaps (QUAST converts them to N before `split_by_ns`).
 
 ---
 
@@ -155,3 +198,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation (ASSEMBLY-STATS-001).
+- **2026-11-25**: B10 review — QUAST `basic_stats.py`/`qutils.py`, Velvet `graphStats.c` opened; QUAST oracle table; single canonical Nx core; GC/median/AssembledReads fixes.

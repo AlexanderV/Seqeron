@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RnaSecondaryStructure.CalculateMismatchCoaxialStacking",
   "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L992",
-  "description": "Mismatch-mediated coaxial stacking energy (kcal/mol): terminal mismatch + base (-2.1) + Watson-Crick/G-U closing-pair bonus.",
+  "description": "Mismatch-mediated coaxial stacking energy (kcal/mol, NNDB Turner 2004): terminal mismatch - 2.1, plus -0.4 / -0.2 when the mismatch could form a Watson-Crick / G-U pair.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -26,7 +26,8 @@
     { "code": 1001, "message": "Expected a single character (length-1 string)" }
   ],
   "examples": [
-    { "name": "GC closing, AA mismatch", "input": { "closingBase5": "G", "closingBase3": "C", "mismatch5": "A", "mismatch3": "A" }, "output": { "energy": -3.6 } },
-    { "name": "GU closing, AA mismatch", "input": { "closingBase5": "G", "closingBase3": "U", "mismatch5": "A", "mismatch3": "A" }, "output": { "energy": -2.6 } }
+    { "name": "GC closing, AA mismatch", "input": { "closingBase5": "G", "closingBase3": "C", "mismatch5": "A", "mismatch3": "A" }, "output": { "energy": -3.2 } },
+    { "name": "GU closing, AA mismatch", "input": { "closingBase5": "G", "closingBase3": "U", "mismatch5": "A", "mismatch3": "A" }, "output": { "energy": -2.4 } },
+    { "name": "NNDB example: AU + GG mismatch", "input": { "closingBase5": "A", "closingBase3": "U", "mismatch5": "G", "mismatch3": "G" }, "output": { "energy": -2.9 } }
   ]
 }

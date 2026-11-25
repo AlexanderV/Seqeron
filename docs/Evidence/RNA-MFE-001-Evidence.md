@@ -53,7 +53,7 @@
 1. **Matrices:** the algorithm computes, for all subsequences, **C(i,j)** = the minimum free energy of the substructure *closed* (enclosed) by base pair (i,j), plus multiloop fragment matrices (M / M1) and an exterior-loop matrix F.
 2. **C(i,j) decomposition (verbatim sense):** "a structure enclosed in a base pair is either a hairpin loop, delimited by an interior loop, or branches in a multiloop" — i.e. C(i,j) = min(hairpin, interior/bulge over an inner pair, multiloop).
 3. **Multiloop structure:** the multiloop fragment is composed of a part with one or more components (M) and a part with exactly one component (M1).
-4. **Complexity:** the **standard (linear/affine multiloop) Turner model runs in O(n³) time and O(n²) space**; the logarithmic multiloop model raises this to O(n⁴)/O(n³). Seqeron implements the standard affine multiloop model → O(n³)/O(n²).
+4. **Complexity:** the **standard (linear/affine multiloop) Turner model runs in O(n³) time and O(n²) space**; the logarithmic multiloop model raises this to O(n⁴)/O(n³). Seqeron implements the standard linear multiloop model a + b·unpaired + c·branches with the Turner 2004 DP values a = 9.3, b = 0, c = −0.9 (ViennaRNA 2.7.2 `params/default.c`: `ML_closing37 = 930`, `ML_BASE37 = 0`, `ML_intern37 = −90`; Mathews et al. 2004) → O(n³)/O(n²).
 
 ### NNDB — Turner 2004 Hairpin Loop worked Example 1 (full stem-loop ΔG)
 
@@ -105,7 +105,7 @@
 
 1. **Stacking ΔG°37 (kcal/mol):** AA/UU −0.93; AU/UA −1.10; UA/AU −1.33; CU/GA −2.08; CA/GU −2.11; GU/CA −2.24; GA/CU −2.35; CG/GC −2.36; GG/CC −3.26; GC/CG −3.42.
 2. **Per AU end penalty:** +0.45 kcal/mol applied at each helix end terminating in A-U/U-A (and per GU end).
-3. **Hairpin initiation (kcal/mol):** size 3→5.4, 4→5.6, 5→5.7, 6→5.4, 7→6.0, 8→5.5, 9→6.4; n>9 by ΔG(9)+1.75·R·T·ln(n/9).
+3. **Hairpin initiation (kcal/mol):** size 3→5.4, 4→5.6, 5→5.7, 6→5.4, 7→6.0, 8→5.5, 9→6.4; 10–30 from NNDB `loop.txt` (six entries 0.1 below the rounded formula, RNA-HAIRPIN-001); n>30 by ΔG(9)+1.75·R·T·ln(n/9).
 4. **Primary parameter source:** Mathews DH, Disney MD, Childs JL, Schroeder SJ, Zuker M, Turner DH (2004) PNAS 101:7287–7292.
 
 ---
@@ -121,7 +121,7 @@
 
 ### From Ward et al. (2017)
 
-5. **Multiloop model choice is correctness-affecting:** the affine (linear) multiloop model `a + b·branches + c·unpaired` gives O(n³); a logarithmic model changes both the optimum and the complexity. Seqeron uses the affine model; the value of `c` (per-unpaired cost) is set to 0 in the DP (documented assumption below).
+5. **Multiloop model choice is correctness-affecting:** the affine (linear) multiloop model `a + b·unpaired + c·branches` gives O(n³); a logarithmic model changes both the optimum and the complexity. Seqeron uses the linear model with the sourced Turner 2004 DP values a = 9.3, b = 0 (per unpaired), c = −0.9 (per branch, closing pair included) — ViennaRNA 2.7.2 `default.c`; b = 0 is the published value, not a simplification.
 
 ---
 
@@ -178,7 +178,7 @@ Constructed sequence: 5'-`CACA` + `GAAAG` (5-nt loop, first=last=G) + `UGUG`-3' 
 |-----------|-----------|
 | INV-01 | MFE ≤ 0 for every input (the empty structure with ΔG = 0 is always available; the optimum cannot be positive). |
 | INV-02 | Adding nucleotides cannot raise the optimum: `MFE(s)` ≤ `MFE(prefix of s)` — extending the sequence only adds folding options (monotonic non-increase under suffix extension). |
-| INV-03 | The two MFE engines agree on the affine model: the optimized DP and the classic O(n³) baseline return identical scores under the simplified (pair-energy) model where comparable — covered by the benchmark's equality assertion across all lengths. |
+| INV-03 | The MFE is deterministic (repeated evaluation gives the identical value and structure). The internal classic baseline uses a different per-pair model and is NOT expected to match (corrected 2026-11-25; the earlier "two engines agree" claim was false). |
 
 ---
 
@@ -186,8 +186,52 @@ Constructed sequence: 5'-`CACA` + `GAAAG` (5-nt loop, first=last=G) + `UGUG`-3' 
 
 <!-- Behaviour not directly confirmed by an authoritative worked example. -->
 
-1. **ASSUMPTION: multiloop per-unpaired cost c = 0** — The Seqeron DP uses the affine multiloop model `a + c·helices` with the per-unpaired-nucleotide term set to 0 (`ML_unpaired = 0`). The affine model and offset `a = 9.25`, helix term `c = −0.63` are from NNDB Turner 2004 multibranch parameters; setting the unpaired-base coefficient to 0 is a documented simplification of the same affine family (Ward et al. 2017 confirm the affine model is the standard O(n³) choice). This does not affect any of the cited single-hairpin worked examples (no multiloop present) but could shift the optimum for sequences that fold into multiloops. Marked as a simplification, not an invented constant.
+1. ~~ASSUMPTION: multiloop per-unpaired cost c = 0, a = 9.25, helix term −0.63~~ — **withdrawn (2026-11-25)**: this described the pre-RNA-STRUCT-001 model. The DP now uses the sourced linear multiloop model **a = 9.3, b = 0 per unpaired nucleotide, c = −0.9 per branch** (closing pair included), ViennaRNA 2.7.2 `params/default.c` `ML_closing37 = 930`, `ML_BASE37 = 0`, `ML_intern37 = −90` (Turner 2004 DP set, Mathews et al. 2004; Ward et al. 2017 for the model family; also `rna_turner2004.par` `# ML_params` 0 0 930 3000 −90 −220 and `RNA.param(RNA.md())` MLclosing/MLbase/MLintern = 930/0/−90). The NNDB efn2 values 9.25 / 0.91·asymmetry / −0.63 + strain are not decomposable by the O(n³) DP and are used only by `CalculateMultibranchLoopEnergy(IReadOnlyList<int>, …)` (RNA-ENERGY-001 F15). Multiloop folds are cross-checked against `RNA.fold` (below).
 2. **ASSUMPTION: rounding** — NNDB tabulates final ΔG°37 to one decimal; the implementation rounds to two decimals (`Math.Round(.., 2)`). Tests assert the exact two-decimal arithmetic sum of the cited per-term parameters with `.Within(1e-9)`, and additionally that `Math.Round(mfe, 1)` equals the one-decimal NNDB total, so the choice changes no source-defined parameter.
+
+---
+
+## Review 2026-11-25 (B12, Stage A + Stage B vs ViennaRNA 2.7.2)
+
+**Oracle:** Python `RNA` 2.7.2, `fold_compound(seq, md).mfe()` / `eval_structure` with `md = RNA.md()` (`dangles = 2`, `noLP = 0`,
+`min_loop_size` as tested); parameter files (a) default, (b) NNDB-precision (Evidence RNA-STRUCT-001 §12.2), loaded with
+`RNA.params_load` and passed through an explicit `md` (gotcha in RNA-HAIRPIN-001 Evidence); sanity check GGGAAAACCC `(((....)))` = −2.02 (b).
+For each sequence: (i) ours = RNA.fold MFE, (ii) identical structure, (iii) scalar = traceback energy = `CalculateFreeEnergy(our structure)`,
+(iv) model match `RNA.eval_structure(our structure)` + NNDB-only terms (special GU closure, all-C, GGUC 3-stack, n = 1 bulge
+degeneracy/special C, hairpin > 30 rounding) = ours, (v) optimality ours ≤ `CalculateFreeEnergy(RNA.fold structure)`.
+
+| Set (random ACGU, `random.Random(seed)`) | file | (i) exact | (ii) same structure | (iii) | (iv) | (v) |
+|---|---|---|---|---|---|---|
+| 300 × 20–200 nt, no repeated neighbours, seed 20261126 | b | 300 | 299 (1 tie) | 300 | 300 | 300 |
+| 200 × 20–200, no rep., seed 1 | b | 200 | 200 | 200 | 200 | 200 |
+| 300 × 20–200, unrestricted, seed 20261128 | b | 202 (rest: NNDB-only terms) | 239 | 300 | 300 | 300 |
+| 150, minLoopSize 4, seed 5 | b | 87 (NNDB-only terms) | 106 | 150 | 150 | 150 |
+| 150, minLoopSize 6, no rep., seed 6 | b | 150 | 150 | 150 | 150 | 150 |
+| 150, minLoopSize 0, no rep., seed 7 | b | 150 | 149 (tie) | 150 | 150 | 150 |
+| 150 over ACGUN, seed 8 | b | 138 | 141 | 150 | 150 | 150 |
+| 20 × 400–800 nt, no rep., seed 9 | b | 20 | 20 | 20 | 20 | 20 |
+| 300 × 20–200, no rep., seed 20261127 | a | 14 (max/mean \|Δ\| 0.84/0.146: parameter rounding) | 253 | 300 | — | 300 |
+| 300 × 20–200, unrestricted, seed 20261128 | a | 9 (max/mean 2.59/0.365) | 213 | 300 | — | 300 |
+
+Contracts (all = `RNA.fold`, file b): empty → 0 (ViennaRNA rejects ""); lower case / T / N / IUPAC / `-` / `.` / X: same MFE and structure
+(e.g. GGGNNNNCCC −1.42, GGG-AAA-CCC −1.32, GGGXAAAACCC −1.92); `md.min_loop_size` 0–2 behave as 3 in ViennaRNA too (hairpins < 3 are INF),
+4/5/6/8 forbid shorter hairpins exactly as ours (GGGGAAACCCC: ml4 −4.22, ml5 −2.32); MAXLOOP 30: a 30-nt bulge forms (−12.07), 31-nt does not
+(−8.46); lonely pairs allowed (61/300 MFE structures contain one, 299/300 identical to RNA.fold, `noLP = 0`); G·U helix ends via terminal
+GU penalty + d2 mismatch (ACGUCGAUGCAGAUAU −0.96); ties: deterministic traceback, valid structure, eval = MFE (GUGCGCGAUAGCUGAGAUACUAU −1.52).
+
+**Performance** (Release, this container, random ACGU): n = 200 / 500 / 1000 / 2000 → 0.33 / 0.82 / 3.6 / 17.7 s (Debug: 0.6 / 3.4 / 15.3 / 71 s);
+ViennaRNA `RNA.fold` 0.03 / 0.26 / 1.07 / 4.6 s. Growth ×4.4–4.7 per doubling = the O(n²·MAXLOOP²) interior term with the O(n³) multiloop
+split still sub-dominant; not pathological (≈ 3× RNAfold). Memory: two n×n double matrices (n = 1000: 16 MB).
+
+**PredictStructure (Stage B finding).** It is not the MFE: it assembles `FindStemLoops` candidates (perfect stems ≥ minStemLength, loops
+minLoopSize..maxLoopSize). Before: greedy by isolated stem-loop energy, accepting positive-energy stem-loops, and `MinimumFreeEnergy` = sum of
+isolated energies (no exterior d2 terms). 304 random 20–200-nt sequences: `MinimumFreeEnergy` = eval of its own structure 1/304; eval > 0 in
+51; ACAAAUACACAGGUUAAU `...(((......)))...` reported +2.91 (RNA.eval_structure +1.91; RNA.fold: open chain 0); GGGAAACCCAGGGAAACCC reported
+−2.24 vs eval/RNA.fold −4.14. Fix: Zuker–Stiegler exterior-loop recursion W(j) over the candidates with in-context energies (under d2 the exterior
+term depends on the sequence only, so disjoint stem-loops add) — exact optimum over every candidate combination (brute force on 60 sequences,
+test R10); energy = `CalculateFreeEnergy` of the returned structure (304/304), never > 0, ≥ MFE. A heuristic stem-loop assembly is kept as a
+separate contract (stem/loop bounds, `StemLoops` output) and documented as not the MFE fold; the MFE structure was not exposed via MCP — added
+`rna_mfe_structure` (→ `PredictStructureMfe`).
 
 ---
 
@@ -220,3 +264,4 @@ Constructed sequence: 5'-`CACA` + `GAAAG` (5-nt loop, first=last=G) + `UGUG`-3' 
 ## Change History
 
 - **2026-06-14**: Initial documentation (RNA-MFE-001).
+- **2026-11-25**: B12 review — multiloop assumption withdrawn (sourced 9.3/0/−0.9), INV-03 corrected, hairpin initiation 10–30 from loop.txt, ViennaRNA contract/edge-case cross-check, performance, PredictStructure exterior-DP fix, MCP `rna_mfe_structure`.

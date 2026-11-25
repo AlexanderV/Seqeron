@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rna_mfe_structure",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.PredictStructureMfe",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs",
+  "description": "Minimum-free-energy secondary structure (Zuker DP traceback, Turner 2004, dangles d2; ViennaRNA RNAfold counterpart): dot-bracket, base pairs and MFE (kcal/mol, equals minimum_free_energy).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rnaSequence": { "type": "string", "description": "RNA sequence (T read as U, case-insensitive; other characters never pair)", "minLength": 1 },
+      "minLoopSize": { "type": "integer", "description": "Minimum hairpin loop size (default 3; values <3 are clamped, as ViennaRNA md.min_loop_size)", "default": 3 }
+    },
+    "required": ["rnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Upper-cased sequence, T read as U" },
+      "dotBracket": { "type": "string" },
+      "basePairs": { "type": "array" },
+      "minimumFreeEnergy": { "type": "number", "description": "kcal/mol" }
+    },
+    "required": ["sequence", "dotBracket", "basePairs", "minimumFreeEnergy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    { "name": "Hairpin", "input": { "rnaSequence": "GGGAAAACCC" }, "output": { "dotBracket": "(((....)))", "minimumFreeEnergy": -2.02 } },
+    { "name": "Two hairpins", "input": { "rnaSequence": "GAGGGAAAACCCAGGGAAAACCCAC" }, "output": { "dotBracket": "..(((....))).(((....)))..", "minimumFreeEnergy": -7.04 } }
+  ]
+}

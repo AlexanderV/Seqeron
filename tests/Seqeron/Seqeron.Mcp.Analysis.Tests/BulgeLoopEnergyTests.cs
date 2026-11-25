@@ -37,6 +37,14 @@ public class BulgeLoopEnergyTests
             // n=2 both AU/GU ends: init(2)=2.8 + 0.45 + 0.45 = 3.7.
             Assert.That(AnalysisTools.BulgeLoopEnergy(2, "A", "A", "U", "G", "U").Energy,
                 Is.EqualTo(3.7).Within(0.01));
+            // NNDB special C needs a paired C adjacent on the bulge's strand: outer G·C, inner A·U.
+            Assert.That(AnalysisTools.BulgeLoopEnergy(1, "C", "G", "C", "A", "U", bulgeOn5PrimeStrand: true).Energy,
+                Is.EqualTo(1.45).Within(1e-9));
+            Assert.That(AnalysisTools.BulgeLoopEnergy(1, "C", "G", "C", "A", "U", bulgeOn5PrimeStrand: false).Energy,
+                Is.EqualTo(0.55).Within(1e-9));
+            // Strand omitted: the bonus needs a paired C on both strands → 3.8 − 2.35.
+            Assert.That(AnalysisTools.BulgeLoopEnergy(1, "C", "G", "C", "A", "U").Energy,
+                Is.EqualTo(1.45).Within(1e-9));
         });
     }
 }

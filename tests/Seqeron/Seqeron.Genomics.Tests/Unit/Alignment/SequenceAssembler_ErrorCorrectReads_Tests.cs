@@ -313,4 +313,183 @@ public class SequenceAssembler_ErrorCorrectReads_Tests
     }
 
     #endregion
+
+    #region Musket 1.1 port (B10 review 2026-11: F31-F35)
+
+    // F31 — Musket two-sided rule probes only the LEFTMOST and RIGHTMOST k-mer covering position i
+    //       (paper: "evaluates both the leftmost and the rightmost k-mers that cover position i";
+    //       musket-1.1 paracorrect.cpp paraCorrectCoreTwoSides). k=3, cut-off 2, reads TCTCT, TCGCT:
+    //       forward spectrum TCT=2 (trusted), CTC/TCG/CGC/GCT=1. In TCGCT no base is trusted; index 2
+    //       (G): leftmost TCG@0 -> {T: TCT}, rightmost GCT@2 -> {T: TCT}; intersection {T} -> G->T.
+    //       The middle k-mer CGC->CTC stays untrusted (1); the former "all covering k-mers" rule
+    //       rejected this correction.
+    [Test]
+    public void ErrorCorrectReads_TwoSidedRule_ProbesOnlyLeftmostAndRightmostKmers()
+    {
+        IReadOnlyList<string> result =
+            SequenceAssembler.ErrorCorrectReads(new[] { "TCTCT", "TCGCT" }, kmerSize: 3, minKmerFrequency: 2);
+
+        Assert.That(result, Is.EqualTo(new[] { "TCTCT", "TCTCT" }));
+    }
+
+    // F32 — Musket counts canonical k-mers (main.cpp: rep = min(km, twin)). Three reverse-strand copies
+    //       of GATTACAGGCTTC plus one forward read with C->G at index 6. Forward-only spectrum: the read's
+    //       genomic k-mers are never seen on the forward strand, while AAT (from ...GTAATC) is, so the
+    //       untrusted GAT at index 0 is "corrected" to AAT (false correction) and the real error stays.
+    //       Canonical spectrum: every genomic k-mer is trusted (3), index 6 has the unique fix A.
+    [Test]
+    public void ErrorCorrectReads_ReverseStrandReads_CanonicalSpectrumCorrects_ForwardSpectrumMiscorrects()
+    {
+        const string reverseCopy = "GAAGCCTGTAATC"; // reverse complement of GATTACAGGCTTC
+        var reads = new[] { reverseCopy, reverseCopy, reverseCopy, "GATTACGGGCTTC" };
+
+        IReadOnlyList<string> forward = SequenceAssembler.ErrorCorrectReads(reads, 3, 2);
+        IReadOnlyList<string> canonical = SequenceAssembler.ErrorCorrectReads(reads, 3, 2,
+            SequenceAssembler.ErrorCorrectionOptions.TwoSidedForwardStrand with { CountReverseComplement = true });
+        IReadOnlyList<string> musket = SequenceAssembler.ErrorCorrectReads(reads, 3, 2,
+            SequenceAssembler.ErrorCorrectionOptions.Musket);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward[3], Is.EqualTo("AATTACGGGCTTC"), "forward-only spectrum (documented)");
+            Assert.That(canonical[3], Is.EqualTo("GATTACAGGCTTC"), "canonical spectrum corrects index 6");
+            Assert.That(musket[3], Is.EqualTo("GATTACAGGCTTC"), "Musket preset");
+            Assert.That(musket.Take(3), Is.All.EqualTo(reverseCopy), "trusted reads unchanged");
+        });
+    }
+
+    // F33 — Musket stage 2 (aggressive one-sided correction, -maxerr). M4 data: two adjacent errors in one
+    //       k-mer are beyond the two-sided stage, but the right extension of the trusted run AAAA@4
+    //       leftwards fixes C@3 then C@2 (each the unique trusted alternative A). Two corrections within k
+    //       bases need -maxerr >= 2 (musket paraCorrectCore numCorrectionsPerKmer > maxErrorPerKmer).
+    [TestCase(0, "AACCAAAA")]
+    [TestCase(1, "AACCAAAA")]
+    [TestCase(2, "AAAAAAAA")]
+    [TestCase(4, "AAAAAAAA")]
+    public void ErrorCorrectReads_AggressiveStage_TwoErrorsInOneKmer_NeedMaxErrorsTwo(int maxErrors, string expected)
+    {
+        var reads = new[] { "AAAAAAAA", "AAAAAAAA", "AAAAAAAA", "AACCAAAA" };
+
+        IReadOnlyList<string> result = SequenceAssembler.ErrorCorrectReads(reads, 4, 2,
+            SequenceAssembler.ErrorCorrectionOptions.Musket with { MaxErrorsPerKmer = maxErrors });
+
+        Assert.That(result[3], Is.EqualTo(expected));
+    }
+
+    // Musket -maxiter: stage 1 applies ONE substitution per iteration (paraCorrectCoreTwoSides returns at
+    // the first unique correction). Read with errors at 3 (G->T) and 14 (C->A), k=4, forward, cut-off 2.
+    [TestCase(1, "ACGGTCATTGCAGTACAT")]
+    [TestCase(2, "ACGGTCATTGCAGTCCAT")]
+    public void ErrorCorrectReads_TwoSidedStage_OneCorrectionPerIteration(int iterations, string expected)
+    {
+        const string genome = "ACGGTCATTGCAGTCCAT";
+        var reads = new[] { genome, genome, genome, "ACGTTCATTGCAGTACAT" };
+
+        IReadOnlyList<string> result = SequenceAssembler.ErrorCorrectReads(reads, 4, 2,
+            SequenceAssembler.ErrorCorrectionOptions.TwoSidedForwardStrand with { MaxIterations = iterations });
+
+        Assert.That(result[3], Is.EqualTo(expected));
+    }
+
+    // Musket stage 3 (voteErroneousRead + fixErroneousBase, minVote 3): read 0 carries two adjacent errors
+    // that stages 1-2 leave; voting fixes them. Oracle: Python transcription of musket-1.1 (Evidence).
+    [Test]
+    public void ErrorCorrectReads_VotingStage_FixesWhatOneSidedStageLeaves()
+    {
+        var reads = new[] { "ACAATCTTCA", "ACAATTGTCA", "ACTATTGTCA" };
+
+        IReadOnlyList<string> result = SequenceAssembler.ErrorCorrectReads(reads, 3, 2,
+            SequenceAssembler.ErrorCorrectionOptions.Musket);
+
+        Assert.That(result, Is.All.EqualTo("ACAATTGTCA"));
+    }
+
+    // Deviation (b) from musket-1.1: predecessor() look-ahead tests the k-mers that really precede the
+    // corrected k-mer. k=3, canonical, cut-off 2, reads CGCGT, ACCGT: left extension of CGT@2 meets CCG@1
+    // with two trusted alternatives G (GCG=2) and A (ACG=2); the preceding k-mers AGC / AAC are untrusted,
+    // so neither is accepted and ACCGT stays. musket-1.1 calls predecessor(seq, ipos-1, ..), sees an
+    // empty prefix, accepts G and then C@0 (-> CGCGT).
+    [Test]
+    public void ErrorCorrectReads_AggressiveStage_LookAheadUsesTruePrecedingKmers()
+    {
+        IReadOnlyList<string> result = SequenceAssembler.ErrorCorrectReads(new[] { "CGCGT", "ACCGT" }, 3, 2,
+            SequenceAssembler.ErrorCorrectionOptions.Musket);
+
+        Assert.That(result, Is.EqualTo(new[] { "CGCGT", "ACCGT" }));
+    }
+
+    // Oracle table: Python line-by-line transcription of musket-1.1 ParaCorrect (paracorrect.cpp,
+    // voting.cpp) with deviations (a)/(b); random 30-bp genomes, 8 reads of 15 bp from both strands with
+    // 0-2 substitutions, k=5, cut-off 2 (seed 2026). Musket = canonical, -maxiter 2, -maxerr 4;
+    // Default = three-argument overload (two-sided stage to convergence, forward strand).
+    [TestCase("Musket", "TACCCGGCATATCTT,CCTCTATCCAGCAAA,GACCTCTACCCAGGA,TGCTGGGTAGAGGTC,CAAAGATATGCTGGG,CTTTCAAAGATATGC,CTTTCAAAGACTTGC,AAAGATATTCTGGGT", "TACCCAGCATATCTT,CCTCTACCCAGCAAA,GACCTCTACCCAGCA,TGCTGGGTAGAGGTC,CAAAGATATGCTGGG,CTTTCAAAGATATGC,CTTTCAAAGATATGC,AAAGATATGCTGGGT")]
+    [TestCase("Musket", "CATGCGTTTTAGGTA,AGACATACCTAAAAC,AAACGCAAGTTCCGA,CCTAAAACGCAAGTT,CTAGCGTTTTAGGTA,TGTGTTTTAGGGATG,ACCTAAAACGCAAGT,ATACCTAAAACGCAA", "CTTGCGTTTTAGGTA,AGACATACCTAAAAC,AAACGCAAGTTCCGA,CCTAAAACGCAAGTT,CTTGCGTTTTAGGTA,TGCGTTTTAGGTATG,ACCTAAAACGCAAGT,ATACCTAAAACGCAA")]
+    [TestCase("Musket", "CACCTAAGCATACCT,AAGGTATGCATAGGT,CACCTAAGCATACCT,GCATACCTTCTGTTT,GCATACCTTTTGTTT,ACCTAAGCATACCTT,CCAGCTAAGCCTACC,AGCATACCTTCTGTT", "CACCTAAGCATACCT,AAGGTATGCATAGGT,CACCTAAGCATACCT,GCATACCTTCTGTTT,GCATACCTTCTGTTT,ACCTAAGCATACCTT,CCACCTAAGCATACC,AGCATACCTTCTGTT")]
+    [TestCase("Musket", "GTTCCCTGCGGCAAC,GTGGTTCCCTGTGCA,CACAGGGAACAAACT,CCGGTGCCAACTTGG,CAAGTTGGCACAGGG,GTTGGCACAAGGAAC,CAGGTAGTTCCCTGT,CCCTCGGCCAACTTG", "GTTCCCTGTGCCAAC,GTGGTTCCCTGTGCC,CACAGGGAACAAACT,CCTGTGCCAACTTGG,CAAGTTGGCACAGGG,GTTGGCACAGGGAAC,CAGGTAGTTCCCTGT,CCCTGTGCCAACTTG")]
+    [TestCase("Musket", "GCGTGCACTGAGCCC,GTGCAATGAGACCCG,CGCTTTGGAGTGCAA,TTGCAAGCCAAAGAT,CGGGGCTCATTGCAC,ACGCCAAAGAGGTCC,TTGGCCTGTAATGAG,GGGCCTCTTTGGCGT", "GAGTGCAATGAGCCC,GTGCAATGAGCCCCG,CTCTTTGGAGTGCAA,TTGCAAGCCAAAGAG,CGGGGCTCATTGCAC,ACGCCAAAGAGGTCC,TTGGCCTGCAATGAG,AGGCCTCTTTGGCGT")]
+    [TestCase("Musket", "AACGCTCCGATCAAG,TTGACCGGAGCGTTG,AGGTCCTTGCTCGGA,AAGTACCGGGGGTGT,ACGCTCCCATCAAGT,CCCCAGGTACTTGAT,CTCCGATCAAATACT,AGGTACTTGATCGGA", "AACGCTCCGATCAAG,TTGATCGGAGCGTTG,AGGTACTTGATCGGA,AAGTACCGGTGGTGT,ACGCTCCGATCAAGT,CCCCAGGTACTTGAT,CTCCGATCAAGTACT,AGGTACTTGATCGGA")]
+    [TestCase("Default", "GCAAGGCCGGCTCCT,GGTCCCCCAAGGCCG,CATGGCCGGCTCCAC,TGGGGGACCGACGGA,CTTGGAGGACCGACG,TCGGTCCCCCAAGGC,CCAAGGCCGGCTCCA,GCTCTGGGGGACCGA", "CCAAGGCCGGCTCCA,GGTCCCCCAAGGCCG,CAAGGCCGGCTCCAC,TGGGGGACCGACGGA,CTTGGAGGACCGACG,TCGGTCCCCCAAGGC,CCAAGGCCGGCTCCA,GCTCTGGGGGACCGA")]
+    [TestCase("Default", "ACAAAGCACCTCAAC,TACCAATCACTTCTA,TTGCGTTACCAACCA,GTGCTTGGGAACGCA,ACGTTACCAAGCACC,TGCTTGTTACCGCAA,CACCTCTACGGGTAT,CGTTACCAAGCACCT", "ACCAAGCACCTCAAC,TACCAATCACTTCTA,TTGCGTTACCAAGCA,GTGCTTGGGAACGCA,ACGTTACCAAGCACC,TGCTTGTTACCGCAA,CACCTCTACGGGTAT,CGTTACCAAGCACCT")]
+    public void ErrorCorrectReads_MatchesMusketTranscriptionOracle(string mode, string input, string expected)
+    {
+        string[] reads = input.Split(',');
+
+        IReadOnlyList<string> result = mode == "Musket"
+            ? SequenceAssembler.ErrorCorrectReads(reads, 5, 2, SequenceAssembler.ErrorCorrectionOptions.Musket)
+            : SequenceAssembler.ErrorCorrectReads(reads, 5, 2);
+
+        Assert.That(result, Is.EqualTo(expected.Split(',')));
+    }
+
+    // F34 — validation: a cut-off below 1 makes every (even absent) k-mer "trusted"; null read elements.
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void ErrorCorrectReads_MinKmerFrequencyBelowOne_Throws(int cutoff)
+    {
+        Assert.That(() => SequenceAssembler.ErrorCorrectReads(new[] { "ACGT" }, 2, cutoff),
+            NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
+
+    [Test]
+    public void ErrorCorrectReads_NullReadElement_ThrowsArgumentException()
+    {
+        Assert.That(() => SequenceAssembler.ErrorCorrectReads(new[] { "ACGT", null! }, 2, 2),
+            NUnit.Framework.Throws.ArgumentException.With.Property("ParamName").EqualTo("reads"));
+    }
+
+    [Test]
+    public void ErrorCorrectReads_InvalidOptions_Throw()
+    {
+        var reads = new[] { "ACGT" };
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => SequenceAssembler.ErrorCorrectReads(reads, 2, 2, null!),
+                NUnit.Framework.Throws.ArgumentNullException);
+            Assert.That(() => SequenceAssembler.ErrorCorrectReads(reads, 2, 2,
+                    SequenceAssembler.ErrorCorrectionOptions.Musket with { MaxIterations = 0 }),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceAssembler.ErrorCorrectReads(reads, 2, 2,
+                    SequenceAssembler.ErrorCorrectionOptions.Musket with { MaxErrorsPerKmer = -1 }),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    // Musket presets and an explicit default instance agree (Musket 1.1 defaults: both strands,
+    // -maxiter 2, -maxerr 4).
+    [Test]
+    public void ErrorCorrectionOptions_Presets_MatchMusketDefaults()
+    {
+        var musket = SequenceAssembler.ErrorCorrectionOptions.Musket;
+        var twoSided = SequenceAssembler.ErrorCorrectionOptions.TwoSidedForwardStrand;
+        Assert.Multiple(() =>
+        {
+            Assert.That(musket, Is.EqualTo(new SequenceAssembler.ErrorCorrectionOptions()));
+            Assert.That((musket.CountReverseComplement, musket.MaxIterations, musket.MaxErrorsPerKmer),
+                Is.EqualTo((true, 2, 4)));
+            Assert.That((twoSided.CountReverseComplement, twoSided.MaxIterations, twoSided.MaxErrorsPerKmer),
+                Is.EqualTo((false, int.MaxValue, 0)));
+        });
+    }
+
+    #endregion
 }

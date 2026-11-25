@@ -916,11 +916,13 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void AssessHairpinByMfe_RealMiRBase_HsaLet7a1_DetectedByMfeFold()
     {
-        // Folded by the engine: single hairpin, apical loop 4 nt, 32 stem base pairs,
-        // ΔG° = −34.31 kcal/mol. GC% = 34/80 = 42.5; AMFE = 100·34.31/80 = 42.887500;
+        // Folded by the engine: single hairpin, apical loop 4 nt, 33 stem base pairs,
+        // ΔG° = −34.31 kcal/mol. The structure is identical to ViennaRNA 2.7.2 RNA.fold (d2) —
+        // (((((.(((((((((((((((((((((.....(((...((((....)))).))))))))))))))))))))))))))))) —
+        // and its energy with the NNDB-precision Turner 2004 parameters is −34.31 (RNA-STRUCT-001 Evidence). GC% = 34/80 = 42.5; AMFE = 100·34.31/80 = 42.887500;
         // MFEI = 42.887500/42.5 = 1.009118.
         const double expectedDg = -34.31;
-        const int expectedStemBp = 32;
+        const int expectedStemBp = 33;
         const int expectedLoopSize = 4;
         const double expectedMfei = 1.009118;
 
@@ -938,7 +940,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
             Assert.That(a.FreeEnergy, Is.EqualTo(engineDg).Within(1e-9),
                 "MFE-fold ΔG° must agree with CalculateMinimumFreeEnergy.");
             Assert.That(a.StemBasePairs, Is.EqualTo(expectedStemBp),
-                "Stem base pairs counted from the real MFE structure = 32.");
+                "Stem base pairs counted from the real MFE structure = 33.");
             Assert.That(a.TerminalLoopSize, Is.EqualTo(expectedLoopSize),
                 "Single terminal loop = 4 nt.");
             Assert.That(a.Mfei, Is.EqualTo(expectedMfei).Within(1e-6),
@@ -982,8 +984,10 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void AssessHairpinByMfe_MultibranchStructure_RejectedDespiteStrongEnergy()
     {
         // 120-nt 5S-rRNA-like sequence folds (engine) to a multibranch structure
-        // (a ')' followed later by '(') with ΔG° = −47.04 kcal/mol — MORE negative than the
-        // accepted ValidHairpin57 (−48.48 is comparable), yet it is NOT a single hairpin.
+        // (a ')' followed later by '(') with ΔG° = −50.57 kcal/mol — comparable to the
+        // accepted ValidHairpin57 (−48.48), yet it is NOT a single hairpin. −50.57 = ViennaRNA 2.7.2
+        // eval_structure (d2, NNDB-precision Turner 2004 parameters) of the engine's structure; RNA.fold's own
+        // optimum (−50.79) closes a CCC hairpin that the NNDB all-C loop penalty (+1.5) excludes here.
         const string fiveSLike =
             "UGCCUGGCGGCCGUAGCGCGGUGGUCCCACCUGACCCCAUGCCGAACUCAGAAGUGAAACG" +
             "CCGUAGCGCCGAUGGUAGUGUGGGGUCUCCCCAUGCGAGAGUAGGGAACUGCCAGGCAU";
@@ -993,8 +997,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(mfe.FreeEnergy, Is.EqualTo(-47.04).Within(1e-9),
-                "Engine ΔG° for the 5S-like sequence is −47.04 kcal/mol (a strong fold).");
+            Assert.That(mfe.FreeEnergy, Is.EqualTo(-50.57).Within(1e-9),
+                "Engine ΔG° for the 5S-like sequence is −50.57 kcal/mol (a strong fold).");
             Assert.That(assessed, Is.Null,
                 "Rejected because the MFE structure is multibranched, not a single dominant hairpin — " +
                 "acceptance is structural, not energy-only.");
@@ -1193,284 +1197,266 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
     #region Drosha/Dicer cleavage-site prediction (Han 2006 / Park 2011)
 
-    // DD1 — Han et al. (2006), Cell 125:887: Drosha cleaves ~11 bp from the basal stem-ssRNA junction.
-    // With basalJunction = 0, the Drosha 5' cut (5' end of the 5p mature) must be at index 0 + 11 = 11.
-    [Test]
-    public void PredictDroshaDicerCleavage_DroshaCut_Is11BpFromBasalJunction()
+    // Oracle data (retrieved 2026-11-25): hairpin + mature coordinates from mirbase.org/hairpin/<MI>,
+    // genomic flanks from the UCSC hg38 REST API (api.genome.ucsc.edu getData/sequence, minus-strand loci
+    // reverse-complemented), structures from ViennaRNA 2.8 RNA.fold (37 °C, Turner 2004), expected cuts from
+    // an independent Python re-implementation of the rules: 11 bp counted on the fold (Han 2006) + 22-nt
+    // Dicer ruler (Park 2011) + the miRDeep2 find_star 2-nt-overhang rule (rajewsky-lab/mirdeep2
+    // src/miRDeep2_core_algorithm.pl). The basal junction passed is the pair 11 bp below the miRBase 5p
+    // start on that fold. Flank = nt of genomic sequence on each side of the miRBase hairpin.
+    // Columns: name, flank, pri, RNAfold structure, junction, 5p[s,e], 3p[s,e] (5' counting), 5p end and
+    // 3p start (3' counting), basal UG, CNNC.
+    private static readonly object[][] RealPriMiRnas =
     {
-        // Arrange — synthetic pri-miRNA: 11-nt lower stem then the miR-21 stem region (≥ 11+22+2 nt).
-        const int basalJunction = 0;
-        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+        new object[] { "hsa-mir-21 MI0000077", 30,
+            "CAUCGUGACAUCUCCAUGGCUGUACCACCUUGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACAUUUUGGUAUCUUUCAUCUGACCAUCCAUAU",
+            "..(((((.......)))))..((((((...((((((((((((((((.(((((.(((((.((((.((...))))))))))).)))))))))))))))))))))...)))))).....................",
+            23, 37, 58, 76, 96, 59, 75, false, false },
+        new object[] { "hsa-let-7a-1 MI0000060", 30,
+            "CACCAUUCACCCUGGAUGUUCUCUUCACUGUGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUAACGUGAUAGAAAAGUCUGCAUCCAGGCGGU",
+            ".......(..((((((((((((..((((..(((((.(((((((((((((((((((((.....(((...((((....)))).)))))))))))))))))))))))))))))..)))).))).......)))))))))..).",
+            20, 36, 57, 85, 106, 57, 85, false, false },
+        new object[] { "hsa-mir-16-1 MI0000070", 30,
+            "CUUUUUAUUCAUAGCUCUUAUGAUAGCAAUGUCAGCAGUGCCUUAGCAGCACGUAAAUAUUGGCGUUAAGAUUCUAAAAUUAUCUCCAGUAUUAACUGUGCUGCUGAAGUAAGGUUGACCAUACUCUACAGUUGUGUUUUAAUGUAUAU",
+            ".........(((((((.....((.......((((((..(((.((((((((((((.((((((((.(.(((..........))).).)))))))).)).)))))))))).)))..)))))).....))...))))))).............",
+            22, 43, 64, 85, 107, 63, 86, true, true },
+        new object[] { "hsa-mir-155 MI0000681", 30,
+            "GAGUGCUGAAGGCUUGCUGUAGGCUGUAUGCUGUUAAUGCUAAUCGUGAUAGGGGUUUUUGCCUCCAACUGACUCCUACAUAUUAGCAUUAACAGUGUAUGAUGCCUGUUACUAGCAUUCACAUG",
+            "((((((((..(((.......((((.(((((((((((((((((((.(((.((((((((.(((....)))..))))))))))))))))))))))))))))))...)))))))..)))))))).....",
+            21, 33, 54, 74, 93, 56, 72, false, false },
+        new object[] { "hsa-mir-30a MI0000088", 20,
+            "UAUAUUGCUGUUGACAGUGAGCGACUGUAAACAUCCUCGACUGGAAGCUGUGAAGCCACAGAUGGGCUUUCAGUCGGAUGUUUGCAGCUGCCUACUGCCUCGGACUUCAAG",
+            ".......(((..(.(((((.(((.((((((((((((..((((((((((((((....))).....))))))))))))))))))))))).))).))))))..)))........",
+            9, 25, 46, 68, 87, 48, 66, true, true },
+    };
 
-        // Act
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, basalJunction);
-
-        // Assert
-        Assert.That(cut, Is.Not.Null, "A well-formed pri-miRNA hairpin must yield a cleavage prediction.");
-        Assert.That(cut!.Value.DroshaCut5Prime, Is.EqualTo(11),
-            "Han (2006): Drosha cuts ~11 bp from the basal junction; junction 0 + 11 = index 11. " +
-            "A wrong distance (e.g. 0 or 22) would land elsewhere.");
-    }
-
-    // DD2 — Park et al. (2011), Nature 475:201: Dicer 5' counting rule fixes the mature at ~22 nt.
-    [Test]
-    public void PredictDroshaDicerCleavage_MatureLength_Is22Nt()
+    // DD1 — 5' counting (default) on real pri-miRNAs with the RNAfold structure. Offsets of the
+    // prediction vs miRBase (hairpin 1-based, 5p start/end | 3p start/end): mir-21 0/−2 | +1/−1;
+    // let-7a-1 +1/0 | −1/0 (miRBase 5p start is unpaired; the Drosha ruler lands on the next paired base);
+    // mir-16-1 0/0 | 0/+1; mir-30a 0/0 | +2/0; mir-155 0/−2 | +2/0. miRBase boundaries are the dominant
+    // read ends (current miRBase lists 23–24-nt 5p isoforms for mir-21, let-7a, mir-155).
+    [TestCaseSource(nameof(RealPriMiRnas))]
+    public void PredictDroshaDicerCleavage_RealPriMiRna_FivePrimeCounting_MatchesOracle(
+        string name, int flank, string pri, string fold, int junction,
+        int m5s, int m5e, int m3s, int m3e, int m5eThree, int m3sThree, bool ug, bool cnnc)
     {
-        // Arrange
-        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
-
-        // Act
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
-
-        // Assert
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, junction, fold)!.Value;
         Assert.Multiple(() =>
         {
-            Assert.That(cut.MatureSequence.Length, Is.EqualTo(22),
-                "Park (2011): the 5' counting rule (∼22 nt) fixes the mature length at 22 nt.");
-            Assert.That(cut.MatureEnd - cut.MatureStart + 1, Is.EqualTo(22),
-                "Mature span [Start,End] inclusive must be 22 nt.");
-            Assert.That(cut.MatureStart, Is.EqualTo(cut.DroshaCut5Prime),
-                "The 5p mature begins at the Drosha 5' cut.");
+            Assert.That((cut.MatureStart, cut.MatureEnd), Is.EqualTo((m5s, m5e)), name + " 5p");
+            Assert.That((cut.StarStart, cut.StarEnd), Is.EqualTo((m3s, m3e)), name + " 3p");
+            Assert.That(cut.DroshaCut5Prime, Is.EqualTo(m5s));
+            Assert.That(cut.DroshaCut3Prime, Is.EqualTo(m3e));
+            Assert.That(cut.MatureSequence, Is.EqualTo(pri.Substring(m5s, 22)), "Park 2011: 22-nt 5p");
+            Assert.That(cut.HasBasalUgMotif, Is.EqualTo(ug), name + " basal UG (−14/−13)");
+            Assert.That(cut.HasCnncMotif, Is.EqualTo(cnnc), name + " CNNC (+16..+18)");
+            Assert.That(cut.Structure, Is.EqualTo(fold));
+            Assert.That(cut.DicerRule, Is.EqualTo(DicerCountingRule.FivePrimeCounting));
         });
     }
 
-    // DD3 — Lee (2003)/Han (2006): each RNase III cut leaves a 2-nt 3' overhang. The 3' (3p) Drosha-
-    // generated end sits 2 nt 3' of the position opposite the 5p mature end.
-    [Test]
-    public void PredictDroshaDicerCleavage_ThreePrimeOverhang_Is2Nt()
+    // DD2 — 3' counting (Park 2011): the 3p product is 22 nt from the Drosha 3' end; the 5p end is the
+    // partner of the 3p start + 2. Offsets vs miRBase (5p end | 3p start): mir-21 −1 | 0; let-7a-1 0 | −1;
+    // mir-16-1 −1 | +1; mir-30a +2 | 0; mir-155 0 | 0.
+    [TestCaseSource(nameof(RealPriMiRnas))]
+    public void PredictDroshaDicerCleavage_RealPriMiRna_ThreePrimeCounting_MatchesOracle(
+        string name, int flank, string pri, string fold, int junction,
+        int m5s, int m5e, int m3s, int m3e, int m5eThree, int m3sThree, bool ug, bool cnnc)
     {
-        // Arrange
-        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
-
-        // Act
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
-
-        // Assert
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, junction, fold, DicerCountingRule.ThreePrimeCounting)!.Value;
         Assert.Multiple(() =>
         {
-            Assert.That(cut.ThreePrimeOverhang, Is.EqualTo(2),
-                "RNase III (Drosha/Dicer) leaves a 2-nt 3' overhang.");
-            Assert.That(cut.DroshaCut3Prime - cut.MatureEnd, Is.EqualTo(2),
-                "The 3p Drosha-generated end is 2 nt 3' of the 5p mature end (the 2-nt overhang).");
-            Assert.That(cut.StarEnd - cut.StarStart + 1, Is.EqualTo(22),
-                "The 3p (miRNA*) span is also ~22 nt.");
+            Assert.That((cut.MatureStart, cut.MatureEnd), Is.EqualTo((m5s, m5eThree)), name + " 5p");
+            Assert.That((cut.StarStart, cut.StarEnd), Is.EqualTo((m3sThree, m3e)), name + " 3p");
+            Assert.That(cut.StarSequence.Length, Is.EqualTo(22), "3' counting: 22-nt 3p");
         });
     }
 
-    // DD4 — miRBase cross-check (hsa-mir-21, MI0000077). With an 11-nt lower stem prepended so the
-    // Drosha +11 ruler lands at the annotated miR-21-5p start, the predicted 5p mature must equal the
-    // miRBase mature hsa-miR-21-5p sequence (MIMAT0000076) exactly. Source: mirbase.org/hairpin/MI0000077.
-    [Test]
-    public void PredictDroshaDicerCleavage_HsaMir21_MatchesMirBaseMature5p()
+    // DD3 — the 2-argument overload folds with the canonical MFE (RNA-STRUCT-001). For these four pri-miRNAs
+    // the canonical fold equals RNAfold 2.8 and the cuts equal DD1. (pri-mir-16-1 is excluded: the canonical
+    // folder returns a different structure whose energy it scores −42.23 kcal/mol where RNAfold's eval gives
+    // −40.80 — an energy-model discrepancy reported to the RNA-structure owner, not a cleavage-rule issue.)
+    private static IEnumerable<object[]> RealPriMiRnasCanonicalFoldAgrees() =>
+        RealPriMiRnas.Where(r => !((string)r[0]).StartsWith("hsa-mir-16-1", StringComparison.Ordinal));
+
+    [TestCaseSource(nameof(RealPriMiRnasCanonicalFoldAgrees))]
+    public void PredictDroshaDicerCleavage_CanonicalFold_AgreesWithRnaFoldCuts(
+        string name, int flank, string pri, string fold, int junction,
+        int m5s, int m5e, int m3s, int m3e, int m5eThree, int m3sThree, bool ug, bool cnnc)
     {
-        // Arrange — 11-nt lower stem + miR-21 stem (5p starts immediately after the lower stem).
-        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
-        const string mirBase5p = "UAGCUUAUCAGACUGAUGUUGA"; // MIMAT0000076, 22 nt
-
-        // Act
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
-
-        // Assert
-        Assert.That(cut.MatureSequence, Is.EqualTo(mirBase5p),
-            "Predicted 5p mature must equal miRBase hsa-miR-21-5p (MIMAT0000076) exactly.");
+        string canonical = Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure(pri).DotBracket;
+        Assert.That(canonical, Is.EqualTo(fold), name + ": canonical MFE equals RNAfold");
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, junction)!.Value;
+        Assert.That((cut.MatureStart, cut.MatureEnd, cut.StarStart, cut.StarEnd), Is.EqualTo((m5s, m5e, m3s, m3e)));
     }
 
-    // DD5 — 3p (miRNA*) span: LINEAR-GEOMETRY model. The published rules locate only the 5p mature
-    // (Han +11, Park +22) and the 2-nt 3' overhang; the method does NOT fold the hairpin, so the 3p
-    // span is placed 2 nt 3' of the 5p mature END in LINEAR sequence coordinates. Coordinates are
-    // hand-derived from the rules (matureEnd=32 ⇒ starEnd=32+2=34, starStart=34-22+1=13) and the 22-nt
-    // overhang relation is asserted independently of the StarSequence substring (no code echo). The
-    // resulting span overlapping the 5p arm — not the real 3' arm — is the documented limitation
-    // verified by DD11.
+    // Synthetic perfect hairpin: 10-nt 5' flank, 35-bp stem, 8-nt loop, 35-bp stem, 25-nt 3' flank (113 nt).
+    // Junction = 10. Pair k (0-based) = (10+k, 87−k).
+    private static string SyntheticPri(char[]? edit = null) => edit is null
+        ? new string('A', 10) + new string('G', 35) + new string('A', 8) + new string('C', 35) + new string('A', 25)
+        : new string(edit);
+    private const string SyntheticFold = ".........." + "(((((((((((((((((((((((((((((((((((" + "........"
+        + ")))))))))))))))))))))))))))))))))))" + ".........................";
+
+    // DD4 — hand-derived geometry on the perfect stem: 12th pair 5' base = 10+11 = 21 (Han 11 bp), its
+    // partner 87−11 = 76, Drosha 3' end 76+2 = 78; 5p [21,42] (Park 22 nt); 3p start = partner(42−2) =
+    // 87−30 = 57 (miRDeep2 find_star) ⇒ 3p [57,78], 22 nt, on the opposite arm.
     [Test]
-    public void PredictDroshaDicerCleavage_StarSpan_IsTwoNtThreePrimeOfMatureInLinearCoords()
+    public void PredictDroshaDicerCleavage_PerfectStem_HandDerivedGeometry()
     {
-        // Arrange
-        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
-
-        // Act
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
-
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 10, SyntheticFold)!.Value;
         Assert.Multiple(() =>
         {
-            Assert.That(cut.MatureStart, Is.EqualTo(11), "matureStart = junction(0)+11 (Han 2006).");
-            Assert.That(cut.MatureEnd, Is.EqualTo(32), "matureEnd = 11+22-1 (Park 2011, 22-nt).");
-            Assert.That(cut.StarEnd, Is.EqualTo(34), "starEnd = matureEnd(32)+2 (RNase III 2-nt 3' overhang).");
-            Assert.That(cut.StarStart, Is.EqualTo(13), "starStart = starEnd(34)-22+1 (22-nt span).");
-            // Independent invariant (not a code echo): the 3p span is the SAME 22 nt, shifted +2 from the 5p.
-            Assert.That(cut.StarEnd - cut.StarStart + 1, Is.EqualTo(22), "3p span length = 22 nt.");
-            Assert.That(cut.StarStart - cut.MatureStart, Is.EqualTo(2),
-                "Linear model: the 3p span is the 5p span shifted 3' by exactly the 2-nt overhang.");
+            Assert.That(cut.DroshaCut5Prime, Is.EqualTo(21));
+            Assert.That(cut.DroshaCut3Prime, Is.EqualTo(78));
+            Assert.That((cut.MatureStart, cut.MatureEnd), Is.EqualTo((21, 42)));
+            Assert.That((cut.StarStart, cut.StarEnd), Is.EqualTo((57, 78)));
+            Assert.That(cut.ThreePrimeOverhang, Is.EqualTo(2));
+            Assert.That(cut.StarSequence, Is.EqualTo(new string('C', 22)), "3p lies on the 3' arm");
+        });
+        var three = MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 10, SyntheticFold, DicerCountingRule.ThreePrimeCounting)!.Value;
+        Assert.That((three.MatureStart, three.MatureEnd, three.StarStart, three.StarEnd), Is.EqualTo((21, 42, 57, 78)),
+            "on a perfect duplex both counting rules give the same 22/22 products");
+    }
+
+    // DD5 — Han's ruler counts base PAIRS: a 1-nt bulge on the 5' arm of the lower stem (after pair 5)
+    // moves the 5p start one nucleotide 3' (12th pair 5' base = 22, not junction+11 = 21; partner 77,
+    // Drosha 3' end 79); a 1-nt bulge on the 3' arm of the lower stem changes neither (12th pair = (21, 76)).
+    [Test]
+    public void PredictDroshaDicerCleavage_LowerStemBulge_CountsBasePairsNotNucleotides()
+    {
+        string fold5 = ".........." + "(((((" + "." + "((((((((((((((((((((((((((((((" + "........"
+            + ")))))))))))))))))))))))))))))))))))" + "........................";
+        string fold3 = ".........." + "(((((((((((((((((((((((((((((((((((" + "........"
+            + "))))))))))))))))))))))))))))))" + "." + ")))))" + "........................";
+        var a = MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 10, fold5)!.Value;
+        var b = MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 10, fold3)!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.DroshaCut5Prime, Is.EqualTo(22), "5'-arm bulge is skipped: 11 bp = 12 nt");
+            Assert.That(a.DroshaCut3Prime, Is.EqualTo(79), "partner(22) = 77, + 2");
+            Assert.That(b.DroshaCut5Prime, Is.EqualTo(21));
+            Assert.That(b.DroshaCut3Prime, Is.EqualTo(78), "partner(21) = 76 + 2");
         });
     }
 
-    // DD6 — T→U normalisation: DNA input yields RNA-alphabet mature/star sequences.
+    // DD6 — miRDeep2 find_star bulge compensation: with pair (40, 57) opened, the 5p anchor matureEnd−2 = 40
+    // is unpaired, so the search moves inward (off = 1 → partner(39) = 58) and compensates (58 − 1 = 57).
     [Test]
-    public void PredictDroshaDicerCleavage_DnaInput_NormalisesToRna()
+    public void PredictDroshaDicerCleavage_UnpairedAnchor_FindStarOffsetCompensated()
     {
-        // Arrange — DNA spelling of the DD1 pri-miRNA.
-        string priDna = "CCCCCCCCCCC" + "TAGCTTATCAGACTGATGTTGACTGTTGAATCTCATGGCAACACCAGTCGATGGGCTGT";
+        char[] f = SyntheticFold.ToCharArray();
+        f[40] = '.'; f[57] = '.'; // open pair (40, 57) — 57 = 87−30
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 10, new string(f))!.Value;
+        Assert.That(cut.StarStart, Is.EqualTo(57));
+    }
 
-        // Act
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(priDna, 0)!.Value;
+    // DD7 — DNA / lower case is normalised (T→U, upper) before folding and indexing.
+    [Test]
+    public void PredictDroshaDicerCleavage_DnaLowerCase_SameAsRna()
+    {
+        string pri = (string)RealPriMiRnas[0][2], fold = (string)RealPriMiRnas[0][3];
+        int j = (int)RealPriMiRnas[0][4];
+        var rna = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, j, fold)!.Value;
+        var dna = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri.Replace('U', 'T').ToLowerInvariant(), j, fold)!.Value;
+        Assert.That(dna, Is.EqualTo(rna));
+        Assert.That(dna.MatureSequence, Does.Not.Contain("T"));
+    }
 
-        // Assert
+    // DD8 — null / empty / junction out of range ⇒ null.
+    [Test]
+    public void PredictDroshaDicerCleavage_NullEmptyOrOutOfRange_ReturnsNull()
+    {
         Assert.Multiple(() =>
         {
-            Assert.That(cut.MatureSequence, Is.EqualTo("UAGCUUAUCAGACUGAUGUUGA"),
-                "T must be read as U; predicted mature is the RNA-alphabet hsa-miR-21-5p.");
-            Assert.That(cut.MatureSequence, Does.Not.Contain("T"), "No T in normalised output.");
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(null!, 0), Is.Null);
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage("", 0), Is.Null);
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), -1, SyntheticFold), Is.Null);
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 113, SyntheticFold), Is.Null);
         });
     }
 
-    // DD7 — null / empty input ⇒ null.
+    // DD9 — the junction must be the 5'-arm base of a pair: an unpaired flank base or a 3'-arm base ⇒ null.
     [Test]
-    public void PredictDroshaDicerCleavage_NullOrEmpty_ReturnsNull()
+    public void PredictDroshaDicerCleavage_JunctionNotFivePrimeOfPair_ReturnsNull()
     {
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 5, SyntheticFold), Is.Null, "unpaired");
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 87, SyntheticFold), Is.Null, "3' arm");
+    }
+
+    // DD10 — fewer than 12 stem pairs above the junction (no room for the 11-bp lower stem) ⇒ null; a
+    // sequence with no stem at all (poly-A folds to all dots) ⇒ null.
+    [Test]
+    public void PredictDroshaDicerCleavage_StemTooShortOrAbsent_ReturnsNull()
+    {
+        // Junction 15 = pair 5: 30 pairs from it ⇒ valid (5p [26,47], 3p [52,73]); junction 35 = pair 25:
+        // only 10 pairs from it ⇒ null.
+        var ok = MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 15, SyntheticFold);
+        Assert.That((ok!.Value.MatureStart, ok.Value.MatureEnd, ok.Value.StarStart, ok.Value.StarEnd), Is.EqualTo((26, 47, 52, 73)),
+            "anchor 45 is in the loop: find_star moves to 44 (off 1), partner 53 − 1 = 52");
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 35, SyntheticFold), Is.Null);
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string('A', 60), 0), Is.Null, "no stem");
+    }
+
+    // DD11 — products not on opposite arms ⇒ null: junction 25 (pair 15) puts the 5p at [36,57], through
+    // the loop (45–52) into the 3' arm; find_star then returns 42 < 57.
+    [Test]
+    public void PredictDroshaDicerCleavage_ProductsOverlap_ReturnsNull()
+        => Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 25, SyntheticFold), Is.Null);
+
+    // DD12 — invalid / length-mismatched structure ⇒ ArgumentException.
+    [Test]
+    public void PredictDroshaDicerCleavage_InvalidStructure_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 10, "((.."));
+        Assert.Throws<ArgumentException>(() => MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 10, SyntheticFold[..^1] + "("));
+    }
+
+    // DD13 — Auyeung 2013 motif positions on the perfect stem (5p cut 21, 3p cut 78): basal UG = U at
+    // 21−14 = 7, G at 8; CNNC starting at +16..+18 downstream of the 3p cut = indices 94..96. A CNNC at
+    // +17 (95, 98) and +18 (96, 99) is detected; +15 (93) and +19 (97) are not. A CNNC 16–18 nt 3' of the
+    // 5p cut (old reference point, indices 37–39 inside the 5p) is not a CNNC flag.
+    [Test]
+    public void PredictDroshaDicerCleavage_AuyeungMotifPositions()
+    {
+        bool Cnnc(int start)
+        {
+            char[] s = SyntheticPri().ToCharArray();
+            s[start] = 'C'; s[start + 3] = 'C';
+            return MiRnaAnalyzer.PredictDroshaDicerCleavage(new string(s), 10, SyntheticFold)!.Value.HasCnncMotif;
+        }
+        char[] ug = SyntheticPri().ToCharArray(); ug[7] = 'U'; ug[8] = 'G';
+        char[] ugOff = SyntheticPri().ToCharArray(); ugOff[6] = 'U'; ugOff[7] = 'G';
         Assert.Multiple(() =>
         {
-            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(null!, 0), Is.Null, "null ⇒ null.");
-            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage("", 0), Is.Null, "empty ⇒ null.");
+            Assert.That(Cnnc(94) && Cnnc(95) && Cnnc(96), Is.True, "+16, +17, +18");
+            Assert.That(Cnnc(93), Is.False, "+15");
+            Assert.That(Cnnc(97), Is.False, "+19");
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(SyntheticPri(), 10, SyntheticFold)!.Value.HasCnncMotif, Is.False);
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string(ug), 10, SyntheticFold)!.Value.HasBasalUgMotif, Is.True);
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string(ugOff), 10, SyntheticFold)!.Value.HasBasalUgMotif, Is.False);
         });
     }
 
-    // DD8 — basal junction out of range ⇒ null.
+    // DD14 — regression for the removed linear model: on hsa-mir-21 the old code put the "star" at
+    // matureEnd+2 on the SAME (5') arm; the fold places it on the 3' arm within 1 nt of miRBase
+    // hsa-miR-21-3p (MIMAT0004494, hairpin 46–68 ⇒ pri 75–97 at flank 30).
     [Test]
-    public void PredictDroshaDicerCleavage_JunctionOutOfRange_ReturnsNull()
+    public void PredictDroshaDicerCleavage_HsaMir21_ThreePrimeArmNotLinearShift()
     {
-        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+        string pri = (string)RealPriMiRnas[0][2];
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 23, (string)RealPriMiRnas[0][3])!.Value;
         Assert.Multiple(() =>
         {
-            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, -1), Is.Null, "negative junction ⇒ null.");
-            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, pri.Length), Is.Null, "junction ≥ length ⇒ null.");
-        });
-    }
-
-    // DD9 — too short to place the predicted cuts (junction+11+22+2 exceeds length) ⇒ null.
-    [Test]
-    public void PredictDroshaDicerCleavage_TooShortForCuts_ReturnsNull()
-    {
-        // 11 + 22 + 2 = 35 nt minimum needed from the junction; give 30 nt.
-        string tooShort = new string('A', 30);
-        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(tooShort, 0), Is.Null,
-            "When junction+11+22+2 exceeds the sequence, no full mature/star can be placed ⇒ null.");
-    }
-
-    // DD10 — CNNC confidence flag (Auyeung 2013): a C-N-N-C placed 16 nt 3' of the Drosha cut is detected.
-    [Test]
-    public void PredictDroshaDicerCleavage_CnncMotif_DetectedWhenPresentDownstream()
-    {
-        // Arrange — Drosha cut at index 11; place a CNNC starting at 11+16 = 27.
-        // Build: 11 (lower stem) + 22 (mature) so that index 27 falls within, then ensure C..C at 27.
-        var sb = new System.Text.StringBuilder(new string('A', 60));
-        // index 27 = 'C', index 30 = 'C' (C-N-N-C with the two N's at 28,29)
-        sb[27] = 'C'; sb[30] = 'C';
-        string withCnnc = sb.ToString();
-
-        var sbNo = new System.Text.StringBuilder(new string('A', 60)); // no C anywhere ⇒ no CNNC
-        string noCnnc = sbNo.ToString();
-
-        // Act
-        var withFlag = MiRnaAnalyzer.PredictDroshaDicerCleavage(withCnnc, 0)!.Value;
-        var withoutFlag = MiRnaAnalyzer.PredictDroshaDicerCleavage(noCnnc, 0)!.Value;
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(withFlag.HasCnncMotif, Is.True,
-                "Auyeung (2013): a CNNC 16 nt 3' of the Drosha cut must set the confidence flag.");
-            Assert.That(withoutFlag.HasCnncMotif, Is.False,
-                "No CNNC downstream ⇒ flag false (optional signal, not required for prediction).");
-        });
-    }
-
-    // DD11 — REAL miRBase precursor cross-check + documented 3p-arm limitation (hsa-mir-21, MI0000077).
-    // The real 72-nt pre-miRNA is the already-Drosha-trimmed Dicer substrate; miRBase places the 5'
-    // ssRNA flank "ugucggg" (7 nt) before the 5p mature, so the basal ssRNA-dsRNA junction sits 11 bp
-    // basal of the annotated 5p 5' end. Modelling the intact pri-miRNA lower stem by prepending an
-    // 11-nt lower stem and passing junction=0 makes the +11 ruler land EXACTLY on miR-21-5p — proving
-    // the Han+Park rules reproduce the real mature 5p. The SAME run also demonstrates the limitation:
-    // the linear "star" does NOT equal the real miR-21-3p (which lives on the 3' arm, across the loop).
-    // Source: mirbase.org/hairpin/MI0000077 — 5p UAGCUUAUCAGACUGAUGUUGA (MIMAT0000076),
-    // 3p CAACACCAGUCGAUGGGCUGU (MIMAT0004494).
-    [Test]
-    public void PredictDroshaDicerCleavage_RealHsaMir21_Reproduces5pButNot3pArm()
-    {
-        // The real precursor, with its 11-bp pri-miRNA lower stem reconstructed (junction=0 ⇒ +11 = 5p start).
-        const string lowerStem = "CCCCCCCCCCC"; // 11-nt modelled lower stem (removed in the trimmed pre-miRNA)
-        string pri = lowerStem + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA";
-        const string real5p = "UAGCUUAUCAGACUGAUGUUGA"; // MIMAT0000076 (22 nt)
-        const string real3p = "CAACACCAGUCGAUGGGCUGU"; // MIMAT0004494 (21 nt, on the 3' arm)
-
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(cut.MatureSequence, Is.EqualTo(real5p),
-                "Han+Park rules reproduce the real miRBase hsa-miR-21-5p (MIMAT0000076) exactly.");
-            // Documented limitation: no hairpin folding ⇒ the linear star is not the real 3' arm 3p.
-            Assert.That(cut.StarSequence, Is.Not.EqualTo(real3p),
-                "Linear-geometry limitation: the predicted star is NOT the real 3' arm hsa-miR-21-3p " +
-                "(MIMAT0004494) — recovering the true 3p arm needs hairpin folding (out of scope).");
-        });
-    }
-
-    // DD12 — No-stem / non-hairpin input: the method does NO folding, so any in-range sequence long
-    // enough for the +11/+22/+2 ruler yields coordinates (it is a measuring rule, not a structure
-    // detector). Pins this semantic so a future "require a hairpin" regression would be caught.
-    [Test]
-    public void PredictDroshaDicerCleavage_NonHairpinSequence_StillReturnsRulerCoordinates()
-    {
-        // A poly-A run has no stem at all, but is long enough (>= 11+22+2 = 35 nt from the junction).
-        string flat = new string('A', 40);
-
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(flat, 0);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(cut, Is.Not.Null,
-                "The ruler rules do not fold/validate a hairpin; an in-range flat sequence yields coordinates.");
-            Assert.That(cut!.Value.DroshaCut5Prime, Is.EqualTo(11), "Drosha cut = junction(0)+11 regardless of structure.");
-            Assert.That(cut.Value.MatureSequence, Is.EqualTo(new string('A', 22)), "22-nt mature read verbatim.");
-        });
-    }
-
-    // DD13 — Non-ACGU / mixed-case / whitespace-free arbitrary symbols are passed through after
-    // upper-casing and T→U (the method does not validate the alphabet). An 'N' (or any non-ACGU symbol)
-    // appears verbatim in the upper-cased output. Pins the no-alphabet-validation contract.
-    [Test]
-    public void PredictDroshaDicerCleavage_NonAcguSymbols_AreUpperCasedAndPassedThrough()
-    {
-        // Lower-case + an ambiguity code 'n' inside the would-be mature window (index 11..32).
-        string seq = "ccccccccccc" + "uagcunaucagacugauguugacuguugaaucucauggcaacaccagucgaugggcugu";
-
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(seq, 0)!.Value;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(cut.MatureSequence, Is.EqualTo("UAGCUNAUCAGACUGAUGUUGA"),
-                "Lower-case is upper-cased and non-ACGU 'N' is passed through verbatim (no alphabet validation).");
-            Assert.That(cut.MatureSequence.Length, Is.EqualTo(22), "Length unchanged by non-ACGU content.");
-        });
-    }
-
-    // DD14 — Exact boundary: the minimum length to place the cuts from a junction is junction+11+22+2 = 35.
-    // 35 nt from junction 0 ⇒ last index used is 34 ⇒ valid; 34 nt ⇒ starEnd(34) out of range ⇒ null.
-    [Test]
-    public void PredictDroshaDicerCleavage_LengthBoundary_35Valid_34Null()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string('A', 35), 0), Is.Not.Null,
-                "35 nt from junction 0 is exactly enough (indices 0..34 used).");
-            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string('A', 34), 0), Is.Null,
-                "34 nt ⇒ starEnd index 34 is out of range ⇒ null.");
+            Assert.That(cut.StarStart, Is.GreaterThan(cut.MatureEnd), "3p on the opposite arm");
+            Assert.That(cut.StarSequence, Is.EqualTo("AACACCAGUCGAUGGGCUGUC"), "miRBase 3p CAACACCAGUCGAUGGGCUGUCU, +1/−1");
+            Assert.That(cut.StarStart - cut.MatureStart, Is.Not.EqualTo(2), "not the old linear +2 shift");
         });
     }
 
     #endregion
 
-    #region Trained natural-vs-background classifier (CL1–CL12)
+    #region Trained natural-vs-background classifier (CL1–CL20)
 
     // ── Real human pre-miRNA precursors from miRBase (public domain) ───────────────────────
     // Retrieved verbatim from mirbase.org/hairpin/<MI>. Same 13 positives + fixed seed used by
@@ -1522,6 +1508,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
                 "%paired = 2·bp/length = 2·32/72 from the MFE structure.");
             Assert.That(f.Value.StemBasePairs, Is.EqualTo(32),
                 "Base-pair count of the MFE structure.");
+            Assert.That(f.Value.BasePairingPropensity, Is.EqualTo(32.0 / 72.0).Within(1e-15),
+                "dP = |bp|/L (Schultes 1999; miPred, Ng & Mishra 2007) = PairedFraction/2.");
             Assert.That(f.Value.Length, Is.EqualTo(72),
                 "hsa-mir-21 precursor length (miRBase MI0000077).");
         });
@@ -1639,6 +1627,8 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         var rng = new Random(TrainSeed);
         var examples = new List<(double prob, int label)>();
 
+        Assert.That(MiRBasePositives, Is.EqualTo(PreMiRnaTrainingPositives),
+            "The test's miRBase strings are the bundled training positives.");
         // Fixed order: each positive, then its K shuffles (identical to the training run).
         foreach (string pos in MiRBasePositives)
         {
@@ -1663,10 +1653,13 @@ public class MiRnaAnalyzer_PreMiRna_Tests
             Assert.That(test.Count, Is.EqualTo(n - nTrain), "Held-out split is the last 30%.");
             Assert.That(test.Any(t => t.label == 1) && test.Any(t => t.label == 0), Is.True,
                 "Held-out split contains both classes (interleaved order guarantees it).");
-            Assert.That(accuracy, Is.GreaterThanOrEqualTo(0.90),
-                "Held-out accuracy exceeds the Bonnet-2004 separability expectation.");
-            Assert.That(auc, Is.GreaterThanOrEqualTo(0.90),
-                "Held-out AUC exceeds 0.90 (real pre-miRNAs well-separated from di-shuffled controls).");
+            // scikit-learn 1.9.1 LogisticRegression(C = 1/(1e-3·45)) on the same 65 feature rows: held-out
+            // accuracy 0.9 (hsa-mir-98 P = 0.4978; one shuffle of hsa-mir-147a P = 0.5001) and
+            // roc_auc_score 0.984375 (63 of 64 positive/negative pairs ordered).
+            Assert.That(accuracy, Is.EqualTo(0.90).Within(1e-12),
+                "Held-out accuracy of the re-derived model (18/20).");
+            Assert.That(auc, Is.EqualTo(63.0 / 64.0).Within(1e-12),
+                "Held-out AUC = 0.984375 (scikit-learn roc_auc_score on the same scores).");
         });
     }
 
@@ -1761,6 +1754,173 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         });
     }
 
+    // CL15 — the bundled model is reproducible from the repository: re-running the documented training
+    // (BuildPreMiRnaTrainingSet → standardise → ridge logistic regression by Newton–Raphson) yields the
+    // bundled constants. Reference: scikit-learn 1.9.1 LogisticRegression(C = 1/(λ·45), solver
+    // newton-cg, tol 1e-14) on the same 45 standardised rows: b0 −4.278229873240855, b = [−0.9994063824008977,
+    // 3.304516383745917, 3.63652043260533, −0.8781055255902053, −0.26063466887427356]; numpy mean/std(ddof 0)
+    // identical to the printed digits. (Pre-fix: the constants were a 20 000-epoch gradient-ascent fit on
+    // features of the pre-B12 folder; 61 of the 65 MFEs have since changed.)
+    [Test]
+    public void TrainPreMiRnaClassifier_ReproducesBundledModel_AndScikitLearn()
+    {
+        var m = TrainPreMiRnaClassifier();
+        double[] skW = { -0.9994063824008977, 3.304516383745917, 3.63652043260533, -0.8781055255902053, -0.26063466887427356 };
+        Assert.Multiple(() =>
+        {
+            Assert.That(m.Bias, Is.EqualTo(LrBias).Within(1e-12), "bias = bundled constant");
+            Assert.That(m.Weights, Is.EqualTo(LrW).Within(1e-12), "weights = bundled constants");
+            Assert.That(m.Mean, Is.EqualTo(LrMean).Within(1e-12), "training mean = bundled constants");
+            Assert.That(m.Std, Is.EqualTo(LrStd).Within(1e-12), "training population std = bundled constants");
+            Assert.That(m.Bias, Is.EqualTo(-4.278229873240855).Within(1e-8), "bias = scikit-learn");
+            Assert.That(m.Weights, Is.EqualTo(skW).Within(1e-8), "weights = scikit-learn");
+        });
+    }
+
+    // CL16 — the fitter returns the maximum-likelihood estimate. Hand-solvable case: x = −1 with y = {0,0,1} and
+    // x = +1 with y = {1,1,0}. The model is saturated, so the MLE reproduces the group frequencies:
+    // σ(b0 − b) = 1/3 and σ(b0 + b) = 2/3 ⇒ b0 = 0, b = ln 2 (λ = 0). With λ > 0 the score equation
+    // mean((y − p)·x) = λ·b holds at the returned b.
+    [Test]
+    public void FitRidgeLogisticRegression_SaturatedCase_EqualsMle()
+    {
+        var x = new[] { new[] { -1.0 }, new[] { -1.0 }, new[] { -1.0 }, new[] { 1.0 }, new[] { 1.0 }, new[] { 1.0 } };
+        var y = new[] { 0, 0, 1, 1, 1, 0 };
+        var (b0, w) = FitRidgeLogisticRegression(x, y, 0.0);
+        var (rb0, rw) = FitRidgeLogisticRegression(x, y, 0.1);
+        double score = 0;
+        for (int i = 0; i < x.Length; i++) score += (y[i] - 1.0 / (1.0 + Math.Exp(-(rb0 + rw[0] * x[i][0])))) * x[i][0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(b0, Is.EqualTo(0.0).Within(1e-12), "symmetric data ⇒ zero intercept");
+            Assert.That(w[0], Is.EqualTo(Math.Log(2.0)).Within(1e-12), "MLE slope = ln 2");
+            Assert.That(score / x.Length, Is.EqualTo(0.1 * rw[0]).Within(1e-12), "ridge score equation");
+            Assert.That(rw[0], Is.LessThan(w[0]), "the penalty shrinks the slope");
+        });
+    }
+
+    // CL17 — DinucleotideShuffle consumes random draws exactly as uShuffle 1.1.2 (ushuffle.c shuffle2: Wilson
+    // arborescence, swap the last-exit edge to the end, permutei, walk). Expected strings: ushuffle.c
+    // compiled with set_randfunc() replaying the listed draws (each transcript fully consumed).
+    [TestCase("AAUAAGAUAGUCA", new[] { 2, 0, 1, 3, 1, 2, 2, 0, 1 }, "AUAAGAAUAGUCA")]
+    [TestCase("acgtacgtnnACGTTTGCAAAGGGCCCNNNNacgt",
+        new[] { 1, 1, 6, 0, 5, 3, 7, 1, 4, 0, 0, 1, 0, 3, 3, 1, 0, 6, 4, 2, 2, 0, 1, 2, 4, 3, 2, 0, 1, 2, 1, 2, 0, 0, 3, 0, 0 },
+        "ACAGGUUACGUGCGCCGGUNAAACCNNNNNACGUU")]
+    [TestCase("UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA",
+        new[] { 12, 13, 15, 8, 2, 7, 0, 14, 6, 12, 11, 12, 6, 11, 10, 0, 5, 7, 5, 4, 2, 2, 0, 1, 13, 16, 7, 14, 14, 11, 7, 3, 5,
+                1, 8, 3, 5, 2, 4, 2, 2, 0, 5, 7, 4, 0, 7, 7, 4, 3, 4, 0, 0, 2, 1, 0, 9, 0, 8, 3, 8, 1, 6, 4, 1, 2, 1, 1, 1 },
+        "UUCAGUGUCUAUACACUUCAGCAUCUGAUGCGGAAUGUCCUGACGGACUUGUGCAUCUGGGACAAGUGGUGA")]
+    public void DinucleotideShuffle_ScriptedDraws_EqualUShuffle(string input, int[] draws, string expected)
+    {
+        var rng = new ScriptedRandom(draws);
+        Assert.Multiple(() =>
+        {
+            Assert.That(DinucleotideShuffle(input, rng), Is.EqualTo(expected), "uShuffle output for the same draws");
+            Assert.That(rng.Remaining, Is.EqualTo(0), "same number of draws as uShuffle");
+        });
+    }
+
+    // CL18 — no silent identity fallback. "A"×500 + "G" + "A"×500 + "C" has 999 valid shuffles (A^i G A^j C,
+    // i + j = 1000, i, j ≥ 1). The former rejection loop needed A's last-exit edge to be the single A→C edge
+    // (p = 1/1000 per draw) and returned the INPUT after 1000 failed draws: 69 of 200 seeds gave the input back.
+    // Uniform sampling returns it with p = 1/999.
+    [Test]
+    public void DinucleotideShuffle_LowAcceptanceGraph_NotReturnedUnshuffled()
+    {
+        string s = new string('A', 500) + "G" + new string('A', 500) + "C";
+        int unchanged = 0;
+        var distinct = new HashSet<string>();
+        for (int seed = 0; seed < 200; seed++)
+        {
+            string t = DinucleotideShuffle(s, new Random(seed));
+            Assert.That(DinucleotideCounts(t), Is.EqualTo(DinucleotideCounts(s)));
+            distinct.Add(t);
+            if (t == s) unchanged++;
+        }
+        Assert.Multiple(() =>
+        {
+            Assert.That(unchanged, Is.LessThanOrEqualTo(3), "P(input) = 1/999 per draw (expected 0.2 of 200)");
+            Assert.That(distinct.Count, Is.GreaterThan(170), "≈ 200 distinct draws out of 999");
+        });
+    }
+
+    // CL19 — uniformity (Altschul & Erickson 1985: every sequence with the same doublet counts and ends is
+    // equally likely). "ACGUGUCAGGAUCC" has exactly 612 such sequences (Python Eulerian-trail enumeration);
+    // 200 000 draws (seed 42) hit all 612 and χ² = 596.49 < χ²(0.999; 611) = 724.75 (scipy).
+    [Test]
+    public void DinucleotideShuffle_IsUniformOverValidSequences()
+    {
+        const string s = "ACGUGUCAGGAUCC";
+        const int draws = 200_000;
+        var counts = new Dictionary<string, int>();
+        var rng = new Random(42);
+        var reference = DinucleotideCounts(s);
+        for (int i = 0; i < draws; i++)
+        {
+            string t = DinucleotideShuffle(s, rng);
+            counts[t] = counts.GetValueOrDefault(t) + 1;
+        }
+        Assert.That(counts.Keys.All(k => k[0] == s[0] && k[^1] == s[^1]
+            && DinucleotideCounts(k).OrderBy(kv => kv.Key).SequenceEqual(reference.OrderBy(kv => kv.Key))), Is.True,
+            "every output preserves ends and doublet counts");
+        double expected = (double)draws / 612;
+        double chi2 = counts.Values.Sum(c => (c - expected) * (c - expected) / expected);
+        Assert.Multiple(() =>
+        {
+            Assert.That(counts.Count, Is.EqualTo(612), "all 612 valid sequences are reachable");
+            Assert.That(chi2, Is.LessThan(724.7478), "χ² below the 0.1 % critical value (df 611)");
+        });
+    }
+
+    // CL20 — randfold (Bonnet et al. 2004; randfold.c dinucleotide mode): P = (1 + #{ΔG°shuffle ≤ ΔG°})/(N + 1).
+    // Reference: the same 199 shuffles (Random(11)) folded by the canonical engine and counted by a Python
+    // transcription of randfold.c's rule: 20 ⇒ 21/200 = 0.105. ViennaRNA 2.8 RNA.fold on the same shuffles:
+    // ΔG° −14.40 (engine −14.45), 22 ⇒ 0.115 (engine-parameter residual of RNA-STRUCT-001).
+    // hsa-mir-21 with 99 shuffles (Random(7)): no shuffle folds as low ⇒ 1/100 (Vienna: also 0 of 99).
+    [Test]
+    public void CalculateRandfoldPValue_CountsAsRandfold()
+    {
+        var r = CalculateRandfoldPValue(
+            "GAUCAGUCAUGACUAGCUAGAUUGACAAGCUUACGAUCAGGACUUAGCAUCGUAGCAUGACUAG", 199, new Random(11))!.Value;
+        var mir21 = CalculateRandfoldPValue(HsaMir21, 99, new Random(7))!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.LowerOrEqualCount, Is.EqualTo(20));
+            Assert.That(r.PValue, Is.EqualTo(21.0 / 200.0).Within(1e-15));
+            Assert.That(r.FreeEnergy, Is.EqualTo(-14.45).Within(1e-9));
+            Assert.That(r.Iterations, Is.EqualTo(199));
+            Assert.That(mir21.PValue, Is.EqualTo(0.01).Within(1e-15), "pre-miRNA: lower MFE than all shuffles");
+            Assert.That(mir21.FreeEnergy, Is.EqualTo(-35.13).Within(1e-9));
+        });
+    }
+
+    [Test]
+    public void CalculateRandfoldPValue_Guards()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateRandfoldPValue(HsaMir21, 0, new Random(1))!.Value.PValue, Is.EqualTo(1.0),
+                "randfold with 0 randomisations: (ct_eq = 1)/(0 + 1) = 1");
+            Assert.That(CalculateRandfoldPValue("", 10, new Random(1)), Is.Null);
+            Assert.That(CalculateRandfoldPValue(null!, 10, new Random(1)), Is.Null);
+            Assert.Throws<ArgumentOutOfRangeException>(() => CalculateRandfoldPValue(HsaMir21, -1, new Random(1)));
+            Assert.Throws<ArgumentNullException>(() => CalculateRandfoldPValue(HsaMir21, 10, null!));
+        });
+    }
+
+    private sealed class ScriptedRandom : Random
+    {
+        private readonly Queue<int> _draws;
+        public ScriptedRandom(IEnumerable<int> draws) => _draws = new Queue<int>(draws);
+        public int Remaining => _draws.Count;
+        public override int Next(int maxValue)
+        {
+            int v = _draws.Dequeue();
+            if (v < 0 || v >= maxValue) throw new InvalidOperationException($"scripted draw {v} not in [0,{maxValue})");
+            return v;
+        }
+    }
+
     private static Dictionary<string, int> DinucleotideCounts(string s)
     {
         var d = new Dictionary<string, int>();
@@ -1821,17 +1981,17 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
     #region ScorePreMiRnaFeatures / ClassifyPreMiRna — exact logistic-model killers (MIRNA-CLASSIFY-001)
 
-    // Published trained logistic-regression coefficients (MiRnaAnalyzer source §"Trained logistic-regression
-    // coefficients"): P(natural) = sigmoid(b0 + Σ b_j·(x_j − mean_j)/std_j) over the 5 model features
+    // Bundled logistic-regression model (MiRnaAnalyzer §"Trained logistic-regression model"; re-derived by
+    // TrainPreMiRnaClassifier and by scikit-learn 1.9.1, see CL15): P(natural) = sigmoid(b0 + Σ b_j·(x_j − mean_j)/std_j) over the 5 model features
     // [FreeEnergy, Amfe, Mfei, GcContent, PairedFraction]. Re-stated here as an INDEPENDENT oracle so the
     // production standardisation / weighting / bias / sigmoid are pinned exactly (not characterised).
-    private const double LrBias = -4.340788257901692;
+    private const double LrBias = -4.278229873244336;
     private static readonly double[] LrW =
-        { -0.6299061497891402, 2.4689410267337104, 2.5770103435217253, -0.3315361036977469, 2.42751798356881 };
+        { -0.9994063824017212, 3.3045163837473233, 3.636520432606299, -0.8781055255888673, -0.260634668873017 };
     private static readonly double[] LrMean =
-        { -22.988666666666667, 29.297338207740115, 0.6157639504286563, 0.477134229110014, 0.6153156920227864 };
+        { -22.93488888888889, 29.25596144559518, 0.6119707188599345, 0.477134229110014, 0.6329947414221273 };
     private static readonly double[] LrStd =
-        { 8.373410721510746, 10.37385177977526, 0.2084972456212268, 0.061249038538481466, 0.10661272255434924 };
+        { 8.568968205027105, 10.686847007183342, 0.20989563586718338, 0.061249038538481494, 0.10670275339810077 };
 
     private static PreMiRnaFeatures FeaturesFromModelInputs(double fe, double amfe, double mfei, double gc, double paired)
         => new(FreeEnergy: fe, Amfe: amfe, Mfei: mfei, GcContent: gc, PairedFraction: paired,

@@ -15,8 +15,11 @@ Mismatch-mediated coaxial stacking energy.
 ## Description
 
 Returns the **mismatch-mediated coaxial stacking energy** (kcal/mol): a terminal
-mismatch term plus a base contribution of −2.1 plus a closing-pair bonus (−0.4 for
-Watson-Crick, −0.2 for G-U), per the Turner 2004 coaxial-stacking model.
+mismatch term (the stack with the continuous backbone) plus −2.1 (the stack with the
+discontinuous backbone), plus −0.4 when the "mismatch" (`mismatch5`, `mismatch3`) could form a
+Watson-Crick pair or −0.2 when it could form a G-U pair — no bonus otherwise (NNDB Turner 2004
+"Coaxial Stacking" §8.3 and parameter table). Bases are case-insensitive, T is read as U, an
+unknown mismatch base takes the maximum over A/C/G/U, and a non-canonical closing pair returns 0.
 
 ## Core Documentation Reference
 
@@ -57,17 +60,17 @@ Watson-Crick, −0.2 for G-U), per the Turner 2004 coaxial-stacking model.
 
 **Response:**
 ```json
-{ "energy": -3.6 }
+{ "energy": -3.2 }
 ```
-tm(GAAC) −1.1 + base −2.1 + WC bonus −0.4 = −3.6.
+tm(GAAC) −1.1 + base −2.1 = −3.2 (an A·A mismatch cannot pair: no bonus).
 
 ### Example 2: GU closing, AA mismatch
 
 **Response:**
 ```json
-{ "energy": -2.6 }
+{ "energy": -2.4 }
 ```
-tm(GAAU) −0.3 + base −2.1 + GU bonus −0.2 = −2.6.
+tm(GAAU) −0.3 + base −2.1 = −2.4 (the bonus depends on the mismatch, not on the G·U closing pair). NNDB §8.4 example: A·U followed by a GG mismatch = −0.8 − 2.1 = −2.9.
 
 ## Performance
 

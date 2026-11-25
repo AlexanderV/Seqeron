@@ -544,7 +544,7 @@ public class MiRnaMetamorphicTests
     {
         // A realistic feature vector; only the MFEI varies. (Last three fields are unused by the model.)
         MiRnaAnalyzer.PreMiRnaFeatures WithMfei(double mfei) =>
-            new(FreeEnergy: -30.0, Amfe: 45.0, Mfei: mfei, GcContent: 50.0, PairedFraction: 0.70,
+            new(FreeEnergy: -30.0, Amfe: 45.0, Mfei: mfei, GcContent: 0.50, PairedFraction: 0.70,
                 StemBasePairs: 22, LoopSize: 10, Length: 72);
 
         double previous = double.NegativeInfinity;
@@ -672,72 +672,65 @@ public class MiRnaMetamorphicTests
     //  MIRNA-CLEAVAGE-001 — Drosha/Dicer cleavage-site prediction (MiRNA)
     // ═══════════════════════════════════════════════════════════════════
     //
-    // Theory (Han et al. 2006 Cell 125:887; Park et al. 2011 Nature 475:201;
+    // Theory (Han et al. 2006 Cell 125:887; Park et al. 2011 Nature 475:201; miRDeep2 find_star;
     //   tests/TestSpecs/MIRNA-CLEAVAGE-001.md):
-    //   PredictDroshaDicerCleavage applies the published "ruler" rules: Drosha cuts ~11 bp from the
-    //   basal ssRNA–dsRNA junction (so the 5p mature starts at basalJunction + 11), and Dicer's
-    //   5'-counting rule fixes the 22-nt mature length. Two metamorphic relations (checklist row 255):
+    //   PredictDroshaDicerCleavage counts 11 base pairs up the folded stem from the basal junction
+    //   (Han 2006), takes the 22-nt 5p product (Park 2011 5' counting) and places the 3p product on the
+    //   opposite arm with 2-nt 3' overhangs. Two metamorphic relations (checklist row 255):
     //
-    //   • INV (hsa-miR-21-5p mature reproduced exactly): on the pri-miR-21 hairpin with the correct
-    //     basal junction the predicted 5p mature equals the annotated hsa-miR-21-5p sequence.
-    //   • MON (shifting the basal stem shifts the Drosha site consistently): the Drosha cut is a
-    //     constant 11 bp from the basal junction, so moving the junction by Δ (and prepending a Δ-nt
-    //     basal flank) shifts the cut and the whole mature span by exactly Δ while reproducing the
-    //     same mature sequence.
+    //   • INV (hsa-miR-21-5p 5' end reproduced): on the real pri-miR-21 (miRBase MI0000077 ± 30 nt hg38
+    //     flank, RNAfold 2.8 structure) with the basal junction 11 bp below the annotated 5p start, the 5p
+    //     product is the 22-nt miRBase hsa-miR-21-5p and the 3p product lies on the 3' arm.
+    //   • MON (shifting the basal flank shifts every cut consistently): prepending Δ unpaired nt (and Δ
+    //     dots to the structure) and moving the junction by Δ shifts every coordinate by exactly Δ and
+    //     leaves both product sequences unchanged.
     //
     // API under test: MiRnaAnalyzer.PredictDroshaDicerCleavage (DroshaDicerCleavage).
 
     #region MIRNA-CLEAVAGE-001 — Drosha/Dicer cleavage prediction
 
-    // pri-miR-21: an 11-nt basal ssRNA flank + the miR-21 stem; basal junction at index 0.
+    // pri-miR-21: miRBase MI0000077 hairpin with 30 nt of hg38 flank on each side; RNAfold 2.8 MFE structure.
     private const string PriMir21 =
-        "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+        "CAUCGUGACAUCUCCAUGGCUGUACCACCUUGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACAUUUUGGUAUCUUUCAUCUGACCAUCCAUAU";
+    private const string PriMir21Fold =
+        "..(((((.......)))))..((((((...((((((((((((((((.(((((.(((((.((((.((...))))))))))).)))))))))))))))))))))...)))))).....................";
+    private const int PriMir21Junction = 23;
 
-    // Annotated hsa-miR-21-5p mature (miRBase MIMAT0000076), 22 nt.
+    // hsa-miR-21-5p 22-nt form (miRBase MIMAT0000076; the current entry lists a 24-nt read isoform 8–31).
     private const string HsaMiR21_5p = "UAGCUUAUCAGACUGAUGUUGA";
 
     [Test]
-    [Description("INV: on pri-miR-21 with the correct basal junction, the +11 Drosha ruler and 22-nt Dicer rule reproduce the annotated hsa-miR-21-5p mature exactly.")]
+    [Description("INV: on the real pri-miR-21 with the basal junction 11 bp below the annotated 5p start, the 5p product is hsa-miR-21-5p and the 3p product lies on the opposite arm.")]
     public void Cleavage_PriMir21_ReproducesMiR21MatureExactly()
     {
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, basalJunction: 0);
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, PriMir21Junction, PriMir21Fold);
 
-        cut.Should().NotBeNull(because: "the pri-miR-21 hairpin admits the predicted cuts");
+        cut.Should().NotBeNull(because: "the pri-miR-21 stem has ≥ 12 pairs above the junction");
         cut!.Value.MatureSequence.Should().Be(HsaMiR21_5p,
-            because: "the +11 Drosha ruler + 22-nt Dicer rule reproduce hsa-miR-21-5p exactly");
-        cut.Value.DroshaCut5Prime.Should().Be(11, because: "Drosha cuts 11 bp from the basal junction at index 0");
-        cut.Value.MatureStart.Should().Be(11);
-        cut.Value.MatureEnd.Should().Be(11 + 22 - 1, because: "the Dicer 5'-counting rule fixes a 22-nt mature");
+            because: "11 bp up the folded stem + the 22-nt Dicer rule reproduce hsa-miR-21-5p");
+        cut.Value.DroshaCut5Prime.Should().Be(37);
+        cut.Value.MatureEnd.Should().Be(37 + 22 - 1, because: "the Dicer 5'-counting rule fixes a 22-nt 5p");
+        cut.Value.StarStart.Should().BeGreaterThan(cut.Value.MatureEnd, because: "the 3p product is on the 3' arm");
     }
 
     [Test]
-    [Description("MON: the Drosha cut is a constant 11 bp from the basal junction, so moving the junction by Δ (with a Δ-nt basal flank prepended) shifts the cut and mature span by exactly Δ and reproduces the same mature sequence.")]
+    [Description("MON: prepending a Δ-nt unpaired basal flank and moving the junction by Δ shifts every cut by exactly Δ and keeps both products.")]
     public void Cleavage_ShiftingBasalStem_ShiftsDroshaSiteConsistently()
     {
-        var baseCut = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, 0)!.Value;
+        var baseCut = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, PriMir21Junction, PriMir21Fold)!.Value;
 
-        // (a) Ruler consistency: the cut is always 11 bp from the basal junction.
-        foreach (int j in new[] { 0, 5, 11, 20 })
-        {
-            var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, j);
-            if (c is null) continue;
-            (c.Value.DroshaCut5Prime - j).Should().Be(11,
-                because: $"Drosha cuts a constant 11 bp from the basal junction (j={j})");
-            c.Value.MatureStart.Should().Be(j + 11, because: "the 5p mature starts at the Drosha cut");
-        }
-
-        // (b) Consistent shift: prepend a Δ-nt basal flank and move the junction by Δ → same mature, coords +Δ.
         foreach (int delta in new[] { 3, 7, 15 })
         {
             string shifted = new string('A', delta) + PriMir21;
-            var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(shifted, delta)!.Value;
+            string shiftedFold = new string('.', delta) + PriMir21Fold;
+            var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(shifted, PriMir21Junction + delta, shiftedFold)!.Value;
 
-            c.MatureSequence.Should().Be(baseCut.MatureSequence,
-                because: $"shifting the basal stem by {delta} and the junction by {delta} reproduces the same mature");
-            c.DroshaCut5Prime.Should().Be(baseCut.DroshaCut5Prime + delta,
-                because: $"the Drosha cut shifts by exactly {delta}");
-            c.MatureStart.Should().Be(baseCut.MatureStart + delta);
+            c.MatureSequence.Should().Be(baseCut.MatureSequence, because: $"Δ={delta} keeps the 5p product");
+            c.StarSequence.Should().Be(baseCut.StarSequence, because: $"Δ={delta} keeps the 3p product");
+            c.DroshaCut5Prime.Should().Be(baseCut.DroshaCut5Prime + delta);
+            c.DroshaCut3Prime.Should().Be(baseCut.DroshaCut3Prime + delta);
             c.MatureEnd.Should().Be(baseCut.MatureEnd + delta);
+            c.StarStart.Should().Be(baseCut.StarStart + delta);
         }
     }
 

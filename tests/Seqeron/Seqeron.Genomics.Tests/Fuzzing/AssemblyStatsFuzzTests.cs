@@ -101,7 +101,9 @@ public class AssemblyStatsFuzzTests
     {
         var sorted = lengths.OrderByDescending(l => l).ToList();
         long total = sorted.Sum(l => (long)l);
-        if (sorted.Count == 0 || total == 0)
+        // QUAST NG50_and_LG50 returns None only for an empty list; an all-zero list stops at the
+        // first contig (s = 0 <= limit = 0) -> (0, 1).
+        if (sorted.Count == 0)
             return (0, 0, 0);
 
         long cumulative = 0;
@@ -273,8 +275,8 @@ public class AssemblyStatsFuzzTests
         GenomeAssemblyAnalyzer.CalculateN50(Array.Empty<int>()).Should().Be(0);
     }
 
-    // All-zero-length contigs make total = 0; the total==0 guard must avoid divide-by-zero in the
-    // ≥x% comparison and return Nx=Lx=0 (§6.1).
+    // All-zero-length contigs make total = 0; there is no division, and the inclusive test
+    // 0·100 ≥ 0·x stops at the first contig exactly as QUAST N50_and_L50([0,0,0]) = (0, 1).
     [Test]
     public void Nx_AllZeroLengthContigs_TotalZero_ReturnsZero()
     {
@@ -282,8 +284,8 @@ public class AssemblyStatsFuzzTests
 
         var nx = GenomeAssemblyAnalyzer.CalculateNx(lengths, N50ThresholdPercent);
 
-        nx.Nx.Should().Be(0, "total 0 → guarded Nx=Lx=0, no division by zero (§6.1)");
-        nx.Lx.Should().Be(0);
+        nx.Nx.Should().Be(0, "total 0 → Nx = 0 (QUAST N50([0,0,0]) = 0)");
+        nx.Lx.Should().Be(1, "QUAST L50([0,0,0]) = 1: the first contig already meets the cutoff 0");
         GenomeAssemblyAnalyzer.CalculateAuN(lengths).Should().Be(0, "auN guards total==0 → 0");
     }
 

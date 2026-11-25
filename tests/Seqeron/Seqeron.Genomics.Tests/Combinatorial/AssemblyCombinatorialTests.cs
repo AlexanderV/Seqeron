@@ -296,7 +296,8 @@ public class AssemblyCombinatorialTests
     {
         SequenceAssembler.MergeContigs("ACGTAC", "ACGGGG", 3).Should().Be("ACGTACGGG", "valid overlap 3 → c1 + c2[3:]");
         SequenceAssembler.MergeContigs("ACGTAC", "ACGGGG", 0).Should().Be("ACGTACACGGGG", "overlap 0 → concatenate");
-        SequenceAssembler.MergeContigs("ACG", "TTTTTT", 5).Should().Be("ACGTTTTTT", "overlap > shorter contig → concatenate");
+        ((Action)(() => SequenceAssembler.MergeContigs("ACG", "TTTTTT", 5))).Should()
+            .Throw<ArgumentOutOfRangeException>("overlap > shorter contig is not an overlap (F-MERGE-1)");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

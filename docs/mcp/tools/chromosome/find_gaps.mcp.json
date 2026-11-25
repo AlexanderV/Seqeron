@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.FindGaps",
   "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L341",
-  "description": "Find gaps (N-runs) in assembled sequences; returns position, length and length-class type.",
+  "description": "Find gaps (maximal N/n runs) in assembled sequences; returns 0-based start, inclusive end, length and a length class (Short <10, Medium <100, Long <1000, else Scaffold; not an AGP gap type). Default minGapLength 1 reports every N-run; 10 is the NCBI assembly-gap convention.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -20,7 +20,7 @@
     "properties": {
       "items": {
         "type": "array",
-        "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer", "description": "Inclusive." }, "length": { "type": "integer" }, "gapType": { "type": "string" } }, "required": ["sequenceId", "start", "end", "length", "gapType"] }
+        "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer", "description": "0-based." }, "end": { "type": "integer", "description": "0-based, inclusive." }, "length": { "type": "integer" }, "gapType": { "type": "string" } }, "required": ["sequenceId", "start", "end", "length", "gapType"] }
       }
     },
     "required": ["items"]

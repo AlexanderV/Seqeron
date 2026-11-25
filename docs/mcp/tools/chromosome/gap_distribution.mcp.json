@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.AnalyzeGapDistribution",
   "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L388",
-  "description": "Summarize a list of gaps: count, mean/median/max length, and counts by gap-length type.",
+  "description": "Summarize a list of gaps: count, mean, sample median (mean of the two central values for an even count), max length, and counts by gap-length type.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -29,6 +29,6 @@
     { "code": 1001, "message": "Gaps cannot be null" }
   ],
   "examples": [
-    { "name": "Two gaps", "input": { "gaps": "[{len 5, Short}, {len 100, Long}]" }, "output": { "count": 2, "meanLength": 52.5, "medianLength": 100, "maxLength": 100, "typeCounts": { "Short": 1, "Long": 1 } } }
+    { "name": "Two gaps", "input": { "gaps": "[{len 5, Short}, {len 100, Long}]" }, "output": { "count": 2, "meanLength": 52.5, "medianLength": 52.5, "maxLength": 100, "typeCounts": { "Short": 1, "Long": 1 } } }
   ]
 }

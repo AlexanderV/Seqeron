@@ -14,14 +14,17 @@ Turner 2004 internal-loop free energy.
 
 ## Description
 
-Computes the **internal-loop free energy** (kcal/mol) under the Turner 2004 model. When
-both sides have exactly one unpaired base (`n1 = n2 = 1`) the 1×1 `int11` lookup table
-is used; otherwise the energy is size initiation + asymmetry penalty + terminal
-mismatches at the two closing pairs.
+Computes the **internal-loop free energy** (kcal/mol) under the Turner 2004 model, exactly as
+ViennaRNA 2.7.2 `vrna_E_internal`: 1×1, 1×2/2×1 and 2×2 loops are read from the Turner 2004
+`int11` / `int21` / `int22` lookup tables (NNDB); 1×n loops (n ≥ 3), 2×3 loops and all other
+loops use initiation + min(3.0, 0.6·|n1−n2|) + the size-class first-mismatch terms of both
+closing pairs (AU/GU closure +0.7 included). `n1 = n2 = 0` returns the stacking energy and a
+loop with one empty side is scored as a bulge. Bases are case-insensitive, `T` is read as `U`,
+any other character is the unknown base `N`.
 
 ## Core Documentation Reference
 
-- Source: [RnaSecondaryStructure.cs#L759](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L759)
+- Source: [RnaSecondaryStructure.cs#L719](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L719)
 
 ## Input Schema
 
@@ -45,6 +48,7 @@ mismatches at the two closing pairs.
 | Code | Message |
 |------|---------|
 | 1001 | Expected a single character (length-1 string) |
+| 1001 | `n1` or `n2` is negative |
 
 ## Examples
 

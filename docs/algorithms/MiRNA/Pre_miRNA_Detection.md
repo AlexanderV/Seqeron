@@ -80,24 +80,35 @@ folder's negative $\Delta G^\circ$.
 
 #### 2.2.2 Opt-in Drosha/Dicer cleavage-site prediction (default unchanged)
 
-`PredictDroshaDicerCleavage(sequence, basalJunction)` predicts the excision coordinates of a
-pri-/pre-miRNA hairpin from the PUBLISHED measuring ("ruler") rules — it does **not** use a trained
+`PredictDroshaDicerCleavage(sequence, basalJunction[, dotBracket, dicerRule])` predicts the excision
+coordinates of a pri-miRNA hairpin by applying the PUBLISHED measuring rules to its folded stem (the
+caller's structure, e.g. RNAfold output, or the canonical MFE fold) — it does **not** use a trained
 classifier:
 
 - **Drosha (basal-junction ruler):** Drosha cleaves $\sim 11$ bp ($\approx$ one helical turn) from the
-  basal ssRNA–dsRNA junction [9]. The 5' cut is the 5' end of the 5p mature:
-  $\text{DroshaCut5'} = \text{basalJunction} + 11$.
-- **Dicer (5'-counting ruler):** Dicer cleaves $\sim 22$ nt from the Drosha-generated 5' end (the 5'
-  counting rule) [10], fixing the mature length at $22$ nt:
-  $\text{mature} = [\text{DroshaCut5'},\ \text{DroshaCut5'} + 21]$.
-- **2-nt 3' overhang:** each RNase III cut (Drosha, Dicer) leaves a 2-nt 3' overhang [9][11]; the 3p
-  (miRNA\*) span is the same $\sim 22$ nt with its Drosha-generated 3' end 2 nt 3' of the 5p mature end.
-- **CNNC motif (optional confidence):** a C-N-N-C 16–18 nt 3' of the Drosha cut [12] sets
-  `HasCnncMotif`; it is reported, not required.
+  basal ssRNA–dsRNA junction [9] ("an 11 bp basal stem was preferred" for all four pri-miRNAs selected in [12]). The count is in **base pairs** of the unbranched
+  stem starting at the junction pair (bulged nucleotides are skipped): the 5' end of the pre-miRNA is the
+  5' base of the 12th pair, its 3' end is that base's partner $+2$ (2-nt 3' overhang [9][11]).
+- **Dicer:** 5' counting (default) — the 5p product is $22$ nt from the Drosha 5' end [10]; 3' counting —
+  the 3p product is $22$ nt from the Drosha 3' end [10]. The opposite product end follows the 2-nt
+  3'-overhang pairing rule of miRDeep2 `find_star` [17] (start = partner(end − 2), compensated for bulged
+  anchors; end = partner(start) + 2) — the same rule Auyeung et al. used to infer Microprocessor sites
+  from RNAfold structures [12].
+- **Motifs (confidence flags, not required) [12]:** positions are numbered from the Drosha sites
+  (negative = upstream of the 5p cut, positive = downstream of the 3p cut). `HasBasalUgMotif` = U at −14
+  and G at −13; `HasCnncMotif` = a C-N-N-C starting at +16..+18. The apical UGU/GUG motif is not flagged:
+  the paper gives only "enrichment in this region of the loop" (window in Fig. S7F; P22–P24 in Fig. 7A vs
+  UGUG at P24–P27 for mir-30a, which RNAfold pairs in the apical stem), so there is no reproducible rule.
+- Gu et al. 2012 "loop counting" is a precision condition (Dicer cuts accurately when the cut is 2 nt from
+  a loop/bulge), not a rule that places a cut; it is not a counting option.
 
-Cross-checked against miRBase hsa-miR-21-5p (MIMAT0000076, `UAGCUUAUCAGACUGAUGUUGA`): feeding a
-pri-miRNA whose 11-bp lower stem places the $+11$ Drosha cut at the annotated 5p start reproduces the
-miRBase mature exactly.
+Cross-check (miRBase hairpins + hg38 flanks from UCSC, RNAfold 2.8 structure, junction = the pair 11 bp
+below the annotated 5p start; offsets predicted − annotated, 5p start/end | 3p start/end, 5' counting):
+hsa-mir-21 0/−2 | +1/−1; hsa-let-7a-1 +1/0 | −1/0; hsa-mir-16-1 0/0 | 0/+1; hsa-mir-30a 0/0 | +2/0;
+hsa-mir-155 0/−2 | +2/0. miRBase ends are read-defined (several 5p entries are 23–24-nt isoforms). The
+11-bp ruler itself: the lower stem of the folded pri-miRNA (from the annotated 5p start down to the first
+long single-stranded segment) is 8–13 bp, i.e. ~11 bp as published. The basal UG and CNNC flags are set
+for mir-16-1 and mir-30a, the two of these five that Auyeung et al. name as CNNC examples.
 
 ### 2.3 Modeling Assumptions
 
@@ -185,11 +196,12 @@ The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninter
 - `MiRnaAnalyzer.FindPreMiRnaHairpinsByMfe(string, int, int, double, int)`: Opt-in precursor scan that folds each candidate window with the RNA-STRUCT-001 MFE engine.
 - `MiRnaAnalyzer.AssessHairpinByMfe(string, double, int)`: Opt-in single-candidate assessment from the real MFE structure (single hairpin + stem≥16 + loop 3–25 + MFEI≥0.85).
 - `MiRnaAnalyzer.CalculateMfeIndex(double, int, double)`: MFEI = AMFE/(G+C)%, AMFE = 100·|ΔG°|/length (Zhang 2006).
-- `MiRnaAnalyzer.PredictDroshaDicerCleavage(string, int)`: Opt-in cleavage-site prediction — Drosha cut (~11 bp from the basal junction), Dicer cut / 22-nt mature length, mature (5p) + star (3p) spans, 2-nt 3' overhang, optional CNNC flag (Han 2006 / Park 2011 / Auyeung 2013).
-- `MiRnaAnalyzer.ExtractPreMiRnaFeatures(string, int)`: Opt-in extraction of the published structure/sequence features (MFE, AMFE, MFEI, GC, %paired, stem bp, loop, length) from the real MFE structure (RNA-STRUCT-001).
+- `MiRnaAnalyzer.PredictDroshaDicerCleavage(string, int[, string?, DicerCountingRule])`: Opt-in cleavage-site prediction on the folded stem — Drosha cut (11 bp from the basal junction), Dicer cut (22 nt, 5' or 3' counting), 5p + 3p products on opposite arms with 2-nt 3' overhangs, basal UG and CNNC flags (Han 2006 / Park 2011 / miRDeep2 find_star / Auyeung 2013).
+- `MiRnaAnalyzer.ExtractPreMiRnaFeatures(string, int)`: Opt-in extraction of the published structure/sequence features (MFE, AMFE, MFEI, GC, %paired = 2·dP, dP = |bp|/L [16], stem bp, loop, length) from the real MFE structure (RNA-STRUCT-001).
 - `MiRnaAnalyzer.ClassifyPreMiRna(string, double, int)`: Opt-in **trained** logistic-regression natural-vs-background classifier; returns the features, P(natural), and the boolean call.
 - `MiRnaAnalyzer.ScorePreMiRnaFeatures(PreMiRnaFeatures)`: Opt-in evaluation of the bundled trained model on a feature vector.
-- `MiRnaAnalyzer.DinucleotideShuffle(string, Random)`: Altschul-Erickson (1985) dinucleotide-preserving shuffle — the background-set generator (Bonnet 2004 convention).
+- `MiRnaAnalyzer.DinucleotideShuffle(string, Random)`: Altschul-Erickson (1985) dinucleotide-preserving shuffle (uniform over all sequences with the same doublet counts and ends), last-exit arborescence drawn by Wilson's walk as in uShuffle (Jiang et al. 2008) [15]; draw-for-draw identical to `ushuffle.c` — the background-set generator (Bonnet 2004 / randfold `-d` convention).
+- `MiRnaAnalyzer.CalculateRandfoldPValue(string, int, Random, int)`: Opt-in randfold test (Bonnet 2004 [6]; `randfold.c` counting): P = (1 + #{shuffle ΔG° ≤ ΔG°})/(N + 1) over N dinucleotide shuffles.
 
 ### 5.2 Current Behavior
 
@@ -206,15 +218,19 @@ The implementation searches candidates exhaustively rather than folding the full
   validated Zuker–Stiegler engine (RNA-STRUCT-001) [3][6] and applies the Ambros (2003) ≥16-bp
   stem [2], Bartel (2004) 3–25-nt loop [1], and Zhang (2006) MFEI ≥ 0.85 [7] criteria to the actual
   MFE structure — tolerant of internal bulges/loops and detecting natural miRBase precursors.
-- **Opt-in:** Drosha/Dicer cleavage-site prediction (`PredictDroshaDicerCleavage`) using the published
-  measuring rules verbatim — Drosha ~11 bp from the basal junction [9], Dicer ~22 nt 5'-counting [10],
-  the RNase III 2-nt 3' overhang [9][11], and the Auyeung (2013) CNNC confidence motif [12].
+- **Opt-in:** Drosha/Dicer cleavage-site prediction (`PredictDroshaDicerCleavage`) applying the published
+  measuring rules to the folded stem — Drosha 11 bp (pairs) from the basal junction [9][12], Dicer ~22 nt
+  5'- or 3'-counting [10], the RNase III 2-nt 3' overhang on the opposite arm [9][11][17], and the
+  Auyeung (2013) basal UG and CNNC confidence motifs [12].
 - **Opt-in:** a **trained** structure/sequence-feature natural-vs-background classifier
   (`ClassifyPreMiRna`). Logistic regression [13] over published features — MFE [6], AMFE/MFEI [7],
-  GC%, and %paired (base-pairing propensity) [8] — fit by batch gradient ascent on the log-likelihood,
-  with bundled coefficients. Positives: public-domain miRBase precursors [5]; negatives:
-  Altschul-Erickson (1985) dinucleotide-preserving shuffles [14] of the positives — the standard
-  pre-miRNA-classifier background convention [6][8]. Held-out accuracy = AUC = 1.0 on a fixed-seed
+  GC%, and %paired (= 2·dP, base-pairing propensity [16]) — ridge-penalised maximum likelihood (λ = 1e-3)
+  solved by Newton–Raphson/IRLS [13] (= scikit-learn `LogisticRegression(C = 1/(λ·45))`), with bundled
+  coefficients that the internal `TrainPreMiRnaClassifier` re-derives from the repository (a unit test
+  checks it). Positives: 13 public-domain miRBase precursors [5]; negatives: 4 Altschul-Erickson
+  dinucleotide shuffles [14][15] per positive (Random(20060101)) — the standard pre-miRNA-classifier
+  background convention [6][8]. Held-out (last 20 of 65): accuracy 0.90, AUC 0.984375. Default
+  threshold 0.5 = minimum-error cutoff under the training prior (1 : 4).
   70/30 split. **No GPL miRDeep2 code or weights are used** (its published method was consulted only).
 
 **Intentionally simplified:**
@@ -300,12 +316,13 @@ var detected = MiRnaAnalyzer.AssessHairpinByMfe(
 // detected.FreeEnergy == -35.13, detected.StemBasePairs == 32, detected.Mfei ≈ 1.0037
 
 // Opt-in: predict Drosha/Dicer cleavage coordinates from the published measuring rules.
-// Pri-miRNA = 11-nt lower stem + miR-21 stem region; junction at index 0.
+// pri-miR-21 = miRBase MI0000077 with 30 nt of hg38 flank each side; RNAfold 2.8 structure; junction 23.
 var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(
-    "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU", 0)!.Value;
-// cut.DroshaCut5Prime == 11 (junction + 11 bp, Han 2006)
-// cut.MatureSequence == "UAGCUUAUCAGACUGAUGUUGA" (22 nt; == miRBase hsa-miR-21-5p)
-// cut.ThreePrimeOverhang == 2 (RNase III 2-nt 3' overhang)
+    "CAUCGUGACAUCUCCAUGGCUGUACCACCUUGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACAUUUUGGUAUCUUUCAUCUGACCAUCCAUAU", 23,
+    "..(((((.......)))))..((((((...((((((((((((((((.(((((.(((((.((((.((...))))))))))).)))))))))))))))))))))...)))))).....................")!.Value;
+// cut.DroshaCut5Prime == 37 (5' base of the 12th stem pair, Han 2006); cut.DroshaCut3Prime == 96 (partner 94 + 2)
+// cut.MatureSequence == "UAGCUUAUCAGACUGAUGUUGA" (22 nt, Park 2011; miRBase hsa-miR-21-5p)
+// cut.StarStart..StarEnd == 76..96 (3' arm; miRBase hsa-miR-21-3p = 75..97)
 
 // Opt-in: trained structure/sequence-feature natural-vs-background classifier.
 var call = MiRnaAnalyzer.ClassifyPreMiRna(
@@ -342,5 +359,8 @@ var bg = MiRnaAnalyzer.ClassifyPreMiRna(
 10. Park JE, Heo I, Tian Y, Simanshu DK, Chang H, Jee D, Patel DJ, Kim VN. 2011. Dicer recognizes the 5' end of RNA for efficient and accurate processing. Nature. 475(7355):201-205. doi:10.1038/nature10198. ("the cleavage site determined mainly by the distance (∼22 nucleotides) from the 5' end (5' counting rule).")
 11. Lee Y, Ahn C, Han J, Choi H, Kim J, Yim J, Lee J, Provost P, Rådmark O, Kim S, Kim VN. 2003. The nuclear RNase III Drosha initiates microRNA processing. Nature. 425(6956):415-419. doi:10.1038/nature01957. (RNase III staggered cleavage leaves a 2-nt 3' overhang.)
 12. Auyeung VC, Ulitsky I, McGeary SE, Bartel DP. 2013. Beyond secondary structure: primary-sequence determinants license pri-miRNA hairpins for processing. Cell. 152(4):844-858. doi:10.1016/j.cell.2013.01.031. (Basal UG, apical UGU(G), and CNNC motifs; CNNC positioned 16-18 nt from the Drosha cut.)
-13. Hastie T, Tibshirani R, Friedman J. 2009. The Elements of Statistical Learning, 2nd ed., §4.4.1 (logistic regression; sigmoid link; log-likelihood maximised by gradient ascent). doi:10.1007/978-0-387-84858-7. Also: Batuwita R, Palade V. 2009. microPred: effective classification of pre-miRNAs for human miRNA gene prediction. Bioinformatics. 25(8):989-995. doi:10.1093/bioinformatics/btp107 (MFE/MFEI + base-pair-composition / %paired structural feature family) and Xue C, Li F, He T, Liu GP, Li Y, Zhang X. 2005. Classification of real and pseudo microRNA precursors using local structure-sequence features and support vector machine. BMC Bioinformatics. 6:310. doi:10.1186/1471-2105-6-310.
+13. Hastie T, Tibshirani R, Friedman J. 2009. The Elements of Statistical Learning, 2nd ed., §4.4.1 (logistic regression; sigmoid link; log-likelihood maximised by Newton–Raphson / IRLS, eqs. 4.21–4.28). doi:10.1007/978-0-387-84858-7. Also: Batuwita R, Palade V. 2009. microPred: effective classification of pre-miRNAs for human miRNA gene prediction. Bioinformatics. 25(8):989-995. doi:10.1093/bioinformatics/btp107 (MFE/MFEI + base-pair-composition / %paired structural feature family) and Xue C, Li F, He T, Liu GP, Li Y, Zhang X. 2005. Classification of real and pseudo microRNA precursors using local structure-sequence features and support vector machine. BMC Bioinformatics. 6:310. doi:10.1186/1471-2105-6-310.
 14. Altschul SF, Erickson BW. 1985. Significance of nucleotide sequence alignments: a method for random sequence permutation that preserves dinucleotide and codon usage. Molecular Biology and Evolution. 2(6):526-538. (Eulerian-walk dinucleotide-preserving shuffle; implemented as the background-set generator. See also Jiang M, et al. 2008. uShuffle. BMC Bioinformatics. 9:192. doi:10.1186/1471-2105-9-192.)
+15. Jiang M, Anderson J, Gillespie J, Mayne M. 2008. uShuffle: a useful tool for shuffling biological sequences while preserving the k-let counts. BMC Bioinformatics. 9:192. (source `ushuffle.c` 1.1.2, `shuffle2`: Wilson random arborescence.)
+16. Ng KLS, Mishra SK. 2007. De novo SVM classification of precursor microRNAs from genomic pseudo hairpins using global and intrinsic folding measures. Bioinformatics. 23(11):1321-1330. (dP = |bp|/L, Schultes et al. 1999.)
+17. Friedländer MR, Chen W, Adamidi C, Maaskola J, Einspanier R, Knespel S, Rajewsky N. 2008. Discovering microRNAs from deep sequencing data using miRDeep. Nat Biotechnol. 26(4):407-415. doi:10.1038/nbt1394. (`find_star` in rajewsky-lab/mirdeep2 `src/miRDeep2_core_algorithm.pl`: star from mature via base-pair partners with a 2-nt 3' overhang.)

@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Seqeron.Genomics.Annotation;
+using Seqeron.Genomics.Infrastructure;
 
 [TestFixture]
 public class GenomeAnnotator_FindRepetitiveElements_Tests
@@ -232,6 +233,113 @@ public class GenomeAnnotator_FindRepetitiveElements_Tests
         return n;
     }
 
+    // F14 — a maximal run is reported once at its left end (Kolpakov & Kucherov 1999; MISA/pytrf): the
+    //       rotation TATATA inside CATATATA is the same run. Oracle: independent Python maximal-run scan.
+    [Test]
+    public void FindRepetitiveElements_RunRotation_ReportedOnceAtLeftEnd()
+    {
+        var tandem = GenomeAnnotator.FindRepetitiveElements("CATATATA", minRepeatLength: 4, minCopies: 2)
+            .Where(e => e.type == "tandem_repeat").ToList();
+
+        Assert.That(tandem, Is.EqualTo(new[] { (1, 7, "tandem_repeat", "ATATAT") }),
+            "One period-2 run [1,8): reported at its left end with its 3 complete copies; TATATA [2,8) is a rotation.");
+    }
+
+    // F14/F15 — only A/C/G/T form a tandem unit (MISA [acgt], pytrf) or a stem pair (EMBOSS einverted):
+    //           an assembly gap is not a repeat. Old code: tandem NNNNNNNN + six N "inverted repeats".
+    [Test]
+    public void FindRepetitiveElements_RunOfN_NoTandemNoInvertedRepeat()
+    {
+        Assert.That(GenomeAnnotator.FindRepetitiveElements("NNNNNNNN", minRepeatLength: 3, minCopies: 2), Is.Empty);
+    }
+
+    // F15 — maximal stems only (EMBOSS palindrome -nummismatches 0 -overlap Y): AGGATCCT is one arm-4 stem;
+    //       the old scan reported the sub-stems AGG[AT]CCT and GGATCC instead.
+    [Test]
+    public void FindRepetitiveElements_PalindromeWithSubStems_OnlyMaximalStemReported()
+    {
+        var inverted = GenomeAnnotator.FindRepetitiveElements("AGGATCCT", minRepeatLength: 3, minCopies: 2)
+            .Where(e => e.type == "inverted_repeat").ToList();
+
+        Assert.That(inverted, Is.EqualTo(new[] { (0, 8, "inverted_repeat", "AGGATCCT") }));
+    }
+
+    // F15 — loop up to 100 nt (EMBOSS palindrome -gaplimit / IUPACpal -g defaults = 100); the old cap was 50.
+    [Test]
+    public void FindRepetitiveElements_LoopOf80_ReportedWithinEmbossGapLimit()
+    {
+        const string arm = "GATTACAGGCTT";
+        string loop = string.Concat(Enumerable.Repeat("A", 80));
+        string seq = arm + loop + ReverseComplement(arm);
+
+        var inverted = GenomeAnnotator.FindRepetitiveElements(seq, minRepeatLength: 12, minCopies: 2)
+            .Where(e => e.type == "inverted_repeat").ToList();
+
+        Assert.That(inverted, Is.EqualTo(new[] { (0, 104, "inverted_repeat", arm + "[" + loop + "]" + ReverseComplement(arm)) }));
+    }
+
+    // F15 — arm cap 100 with EMBOSS -maxpallen semantics: a 110-bp stem is not reported and not split into
+    //       ≤ 100-bp pieces (EMBOSS palindrome -minpallen 10 -maxpallen 100: no hit; the old scan reported
+    //       100-bp truncations); with minRepeatLength 110 the cap is raised to 110 and the stem is reported
+    //       (EMBOSS -minpallen 110 -maxpallen 110: [0,224)).
+    [Test]
+    public void FindRepetitiveElements_StemLongerThan100_NotReportedNotSplit()
+    {
+        const string arm = "TCTTGATGAAACTATCGGGGATTGCCGTTCCTCATGGCCGCCGCAGCATTCCTTGGAGTTAGTAAATCCAAACCCAGAACAAACAAGCAAGAAATAGCTTTGTCGCCTTG";
+        string seq = arm + "CCCC" + ReverseComplement(arm);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(GenomeAnnotator.FindRepetitiveElements(seq, minRepeatLength: 10, minCopies: 2)
+                .Where(e => e.type == "inverted_repeat"), Is.Empty);
+            Assert.That(GenomeAnnotator.FindRepetitiveElements(seq, minRepeatLength: 110, minCopies: 2)
+                .Where(e => e.type == "inverted_repeat").ToList(),
+                Is.EqualTo(new[] { (0, 224, "inverted_repeat", arm + "[CCCC]" + ReverseComplement(arm)) }));
+        });
+    }
+
+    // Oracle-locked fixture: tandem runs = independent Python maximal-run oracle; inverted repeats = EMBOSS 6.6.0
+    // palindrome -minpallen 4 -maxpallen 100 -gaplimit 100 -nummismatches 0 -overlap Y (= brute-force maximal stems).
+    [Test]
+    public void FindRepetitiveElements_MixedFixture_MatchesMaximalRunAndEmbossPalindromeOracles()
+    {
+        const string seq = "GGATCCAAACACACACTTGAATTCAAGTTCATCATCATCGNNNNNNTTACGAAAAAACGTAA";
+
+        var all = GenomeAnnotator.FindRepetitiveElements(seq, minRepeatLength: 4, minCopies: 2).ToList();
+
+        Assert.That(all, Is.EqualTo(new[]
+        {
+            (51, 57, "tandem_repeat", "AAAAAA"),
+            (8, 16, "tandem_repeat", "ACACACAC"),
+            (28, 37, "tandem_repeat", "TCATCATCA"),
+            (14, 28, "inverted_repeat", "ACTTGAATTCAAGT"),
+            (17, 31, "inverted_repeat", "TGAA[TTCAAG]TTCA"),
+            (46, 62, "inverted_repeat", "TTACG[AAAAAA]CGTAA"),
+        }));
+    }
+
+    // Rule 3 — the tandem class is exactly RepeatFinder.FindMicrosatellites(seq, 1, 60, minCopies) filtered by span,
+    //          the inverted class exactly RepeatFinder.FindInvertedRepeats(seq, max(m,2), 100, 0, maxArm 100).
+    [Test]
+    public void FindRepetitiveElements_RandomSequences_EqualCanonicalRepeatFinderResults()
+    {
+        var rng = new Random(20261125);
+        for (int iter = 0; iter < 40; iter++)
+        {
+            string seq = new string(Enumerable.Range(0, rng.Next(20, 300)).Select(_ => "ACGTN"[rng.Next(iter % 3 == 0 ? 5 : 4)]).ToArray());
+            int m = rng.Next(1, 9), c = rng.Next(2, 4);
+            var expected = Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(seq, 1, 60, c)
+                .Where(r => r.TotalLength >= m)
+                .Select(r => (r.Position, r.Position + r.TotalLength, "tandem_repeat", seq.Substring(r.Position, r.TotalLength)))
+                .Concat(Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(seq, Math.Max(m, 2), 100, 0, 0, Math.Max(100, Math.Max(m, 2)))
+                    .Select(r => (r.LeftArmStart, r.RightArmStart + r.ArmLength, "inverted_repeat",
+                        r.LoopLength == 0 ? r.LeftArm + r.RightArm : r.LeftArm + "[" + r.Loop + "]" + r.RightArm)))
+                .ToList();
+
+            Assert.That(GenomeAnnotator.FindRepetitiveElements(seq, m, c).ToList(), Is.EqualTo(expected), $"iter {iter}");
+        }
+    }
+
     #endregion
 
     #region ClassifyRepeat
@@ -344,6 +452,70 @@ public class GenomeAnnotator_FindRepetitiveElements_Tests
 
         Assert.That(cls, Is.EqualTo("Simple_repeat"),
             "An empty query has no library occurrence; the documented fallback is Simple_repeat.");
+    }
+
+    // F16 — RepeatMasker screens both strands ("+" / "C" orientation): a query holding the reverse complement
+    //       of a library element is that element's class. Old code: "Unknown".
+    [Test]
+    public void ClassifyRepeat_QueryContainsReverseComplementOfElement_ReturnsLibraryClass()
+    {
+        var db = new Dictionary<string, string> { ["GGCCGGGCGCGGTGGCTCAC"] = "SINE/Alu" };
+
+        string cls = GenomeAnnotator.ClassifyRepeat("TT" + ReverseComplement("GGCCGGGCGCGGTGGCTCAC") + "AA", db);
+
+        Assert.That(cls, Is.EqualTo("SINE/Alu"));
+    }
+
+    // F16 — the simple-repeat fallback needs a primitive A/C/G/T motif (MISA [acgt]): a run of N is Unknown
+    //       (old: Simple_repeat); ATATAT is (AT)n; ATATA (trailing partial copy) is not ≥ 2 complete copies of the
+    //       whole query and stays Unknown under the complete-copies convention.
+    [TestCase("NNNNNNNN", "Unknown")]
+    [TestCase("atatat", "Simple_repeat")]
+    [TestCase("ACGTTACGTT", "Simple_repeat")]
+    [TestCase("ACGTTTAACGTTTA", "Unknown")]
+    [TestCase("ATATA", "Unknown")]
+    [TestCase("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "Simple_repeat")]
+    public void ClassifyRepeat_SimpleRepeatFallback_PrimitiveAcgtMotifUpToSixBp(string query, string expected)
+    {
+        Assert.That(GenomeAnnotator.ClassifyRepeat(query, new Dictionary<string, string>()), Is.EqualTo(expected));
+    }
+
+    // F17 — scored homology (RepeatMasker / cross_match model: Smith-Waterman-Gotoh, both strands, best score ≥ cutoff).
+    //       Biopython 1.88 PairwiseAligner(local, match 1, mismatch -2, open -7, extend -3) scores the mutated Alu
+    //       (1 substitution + 1 deletion) 11 vs Alu and 3 vs the telomeric satellite, on both strands.
+    [TestCase("TTGGCCGGACGCGGTGCTCACAA", 11, "SINE/Alu")]
+    [TestCase("TTGTGAGCACCGCGTCCGGCCAA", 11, "SINE/Alu")]
+    [TestCase("TTGGCCGGACGCGGTGCTCACAA", 12, "Unknown")]
+    [TestCase("TTAGGGTTAGGACC", 11, "Satellite")]
+    public void ClassifyRepeat_SmithWatermanGotoh_BestScoreAtOrAboveCutoff(string query, int minScore, string expected)
+    {
+        var db = new Dictionary<string, string>
+        {
+            ["GGCCGGGCGCGGTGGCTCAC"] = "SINE/Alu",
+            ["TTAGGGTTAGGG"] = "Satellite",
+        };
+
+        string cls = GenomeAnnotator.ClassifyRepeat(query, db, new ScoringMatrix(1, -2, -4, -3), minScore);
+
+        Assert.That(cls, Is.EqualTo(expected));
+    }
+
+    // F17 — argument contract; an exact 4-bp element scores 4 × 2 = 8 (cutoff 8 → class, 9 → fallback).
+    [Test]
+    public void ClassifyRepeat_SmithWatermanGotoh_ArgumentContract()
+    {
+        var db = new Dictionary<string, string> { ["ACGT"] = "DNA" };
+        var sc = new ScoringMatrix(2, -3, -5, -2);
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => GenomeAnnotator.ClassifyRepeat(null!, db, sc, 10));
+            Assert.Throws<ArgumentNullException>(() => GenomeAnnotator.ClassifyRepeat("ACGT", null!, sc, 10));
+            Assert.Throws<ArgumentNullException>(() => GenomeAnnotator.ClassifyRepeat("ACGT", db, null!, 10));
+            Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAnnotator.ClassifyRepeat("ACGT", db, sc, 0));
+            Assert.That(GenomeAnnotator.ClassifyRepeat("", db, sc, 1), Is.EqualTo("Simple_repeat"));
+            Assert.That(GenomeAnnotator.ClassifyRepeat("TTACGTTT", db, sc, 8), Is.EqualTo("DNA"), "exact ACGT scores 8");
+            Assert.That(GenomeAnnotator.ClassifyRepeat("TTACGTTT", db, sc, 9), Is.EqualTo("Unknown"));
+        });
     }
 
     // S4 — null arguments throw (input contract).

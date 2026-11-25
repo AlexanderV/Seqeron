@@ -5,12 +5,12 @@
 | Algorithm Group | RNA Structure |
 | Test Unit ID | RNA-STEMLOOP-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete (perfect-stem enumeration + opt-in bulge/internal-loop stems) |
+| Last Reviewed | 2026-11-25 (B12 RNA-STEMLOOP-001) |
 
 ## 1. Overview
 
-Stem-loop detection scans a single RNA sequence for hairpin-like motifs formed by a paired stem flanking an unpaired loop. These motifs are a fundamental secondary-structure pattern and provide the candidate structures used elsewhere in the repository's RNA prediction code. The implementation performs an exhaustive local scan over loop starts and loop sizes, extends stems while pairing remains valid, and returns every candidate meeting the configured minimum stem length. It is therefore a motif detector, not a global structure optimizer.
+Stem-loop detection scans a single RNA sequence for hairpin motifs formed by a paired stem closing an unpaired terminal loop. It enumerates every hairpin loop of the allowed size closed by a canonical pair and reports the stem that closes it: by default a perfect helix grown outward while the next pair can form; optionally (`maxInternalLoopSize > 0`) the minimum-free-energy *unbranched* stem, which may contain bulges and internal loops. Every candidate is scored as an isolated structure with the same Turner 2004 loop functions as the MFE folder (ViennaRNA `eval_structure` counterpart). It is a motif enumerator, not a global structure optimizer.
 
 ## 2. Scientific / Formal Basis
 
@@ -20,15 +20,18 @@ Stem-loops consist of a paired stem and a terminal loop. In RNA, standard admiss
 
 ### 2.2 Core Model
 
-The repository's detector treats a stem-loop as a candidate loop interval surrounded by antiparallel complementary sequence. For each candidate loop, the algorithm extends outward from the loop boundaries while base pairing remains valid. Once extension stops, the candidate is retained only if the resulting stem length is at least the configured minimum.
+A stem-loop is a hairpin loop L = [p+1 .. q−1] (|L| in [minLoopSize, maxLoopSize], (p,q) a canonical pair) plus the chain of nested pairs closing it.
 
-The resulting `TotalFreeEnergy` is:
+* **Perfect stem** (`maxInternalLoopSize = 0`, default): the NNDB *helix* — consecutive stacked pairs (p,q), (p−1,q+1), … grown outward while the next outer pair can form (Wikipedia *Stem-loop*: complementary regions "base-pair to form a double helix that ends in an unpaired loop"). Dropped if shorter than `minStemLength`.
+* **Unbranched stem** (`maxInternalLoopSize = M > 0`): the minimum-free-energy chain of pairs from any outer pair (i,j) down to (p,q) whose consecutive pairs enclose only degree-2 loops (stack, bulge, internal loop) with n1 + n2 ≤ M — Zuker & Stiegler's V(i,j) recursion without the multiloop branch, ViennaRNA MAXLOOP semantics. Computed once per sequence by an "outside" DP
 
 $$
-\Delta G_{total} = \Delta G_{stem} + \Delta G_{hairpin}
+G(k,l) = \min\Big\{\,\mathrm{AU/GU}(k,l),\ \min_{(i,j)} G(i,j) + I(i,j;k,l),\ G(k-3,l+3) + \mathrm{GGUC}\Big\}
 $$
 
-where `ΔG_stem` is computed from stacked base pairs and `ΔG_hairpin` from the hairpin-loop energy helper.
+  (I = the shared `InteriorTerm`: Turner 2004 stacks, bulges, int11/int21/int22 and generic internal loops); the stem of hairpin (p,q) is the argmin chain of G(p,q) (the hairpin term is fixed by (p,q)). Dropped if it has fewer than `minStemLength` pairs.
+
+`TotalFreeEnergy` is the free energy of the motif as an isolated structure — the sub-sequence [Start..End] with its own dot-bracket — evaluated by the shared structure evaluator (`EvaluateStructureEnergy`, the ViennaRNA `eval_structure` counterpart): stacks, bulge/internal loops, hairpin loop (`HairpinTerm`) and the terminal AU/GU penalty of both helix ends (no dangles: the motif has no neighbours). For a perfect stem this is the NNDB worked-example sum ΔG = ΔG(helix) + ΔG(hairpin loop), with `Stem.FreeEnergy` = `CalculateStemEnergy` (stacks + per-end AU/GU penalty), except for the four A-U-closed special hexaloops whose measured value already contains the closure penalty (ViennaRNA `vrna_E_hairpin` returns `Hexaloop_E`). For an unbranched stem `Stem.FreeEnergy` = total − hairpin-loop term.
 
 ### 2.3 Modeling Assumptions (Optional)
 
@@ -45,6 +48,8 @@ where `ΔG_stem` is computed from stacked base pairs and `ΔG_hairpin` from the 
 | INV-02 | Returned stem-loops satisfy `Stem.Length >= minStemLength` | Candidates shorter than the threshold are discarded |
 | INV-03 | Returned loop type is always `Hairpin` | The constructor uses `LoopType.Hairpin` for this API |
 | INV-04 | `DotBracketNotation.Length = End - Start + 1` | The dot-bracket helper allocates exactly the detected span length |
+| INV-05 | `TotalFreeEnergy = EvaluateStructureEnergy(seq[Start..End], DotBracketNotation)` | The total is computed by the shared evaluator |
+| INV-06 | With `maxInternalLoopSize = M > 0`, `TotalFreeEnergy` ≤ the energy of any other unbranched stem closing the same hairpin loop | Outside DP minimum (exact; checked vs ViennaRNA loop functions) |
 
 ## 3. Contract
 
@@ -56,7 +61,8 @@ where `ΔG_stem` is computed from stacked base pairs and `ΔG_hairpin` from the 
 | `minStemLength` | `int` | `3` | Minimum number of paired bases in a returned stem | Candidates below this threshold are rejected |
 | `minLoopSize` | `int` | `3` | Minimum hairpin loop size | Values below `3` are clamped to `3` |
 | `maxLoopSize` | `int` | `10` | Maximum scanned loop size | Restricts candidate enumeration |
-| `allowWobble` | `bool` | `true` | Whether `G-U` / `U-G` wobble pairs are allowed during stem extension | When `false`, wobble pairs stop extension |
+| `allowWobble` | `bool` | `true` | Whether `G-U` / `U-G` wobble pairs may be stem pairs | When `false`, wobble pairs stop extension / are excluded from chains |
+| `maxInternalLoopSize` | `int` | `0` | 0 = perfect stems; M > 0 = MFE unbranched stems with bulges/internal loops of ≤ M unpaired nt | Negative → `ArgumentOutOfRangeException` |
 
 ### 3.2 Output / Return Value
 
@@ -71,7 +77,7 @@ where `ΔG_stem` is computed from stacked base pairs and `ΔG_hairpin` from the 
 
 ### 3.3 Preconditions and Validation
 
-The input sequence is uppercased internally. If `minLoopSize < 3`, it is clamped to `3`. When the sequence is empty or shorter than `minStemLength * 2 + minLoopSize`, the method yields no candidates. Stem extension stops at the first invalid base pair, or at the first wobble pair when `allowWobble` is `false`.
+The input sequence is uppercased internally and DNA `T` is read as `U`; any other symbol (N, IUPAC codes, gaps) never pairs (ViennaRNA default pair set) and, as a hairpin first-mismatch base, takes ViennaRNA's `N` value (maximum over A/C/G/U of the mismatch table). If `minLoopSize < 3`, it is clamped to `3` (NNDB: hairpin loops < 3 nt are prohibited). When the sequence is empty or shorter than `minStemLength * 2 + minLoopSize`, the method yields no candidates. Stem extension stops at the first invalid base pair, or at the first wobble pair when `allowWobble` is `false`.
 
 ## 4. Algorithm
 
@@ -80,19 +86,20 @@ The input sequence is uppercased internally. If `minLoopSize < 3`, it is clamped
 1. Clamp `minLoopSize` to `3` and reject too-short sequences.
 2. Enumerate loop-start positions across the sequence.
 3. Enumerate loop sizes between `minLoopSize` and `maxLoopSize` for each start.
-4. Extend the stem outward from the candidate loop boundaries while pairing remains valid.
-5. Discard candidates whose stem length is below `minStemLength`.
-6. Build `Stem`, `Loop`, `TotalFreeEnergy`, and local dot-bracket notation for each accepted candidate.
+4. Perfect stems: extend the helix outward while the next pair can form. Unbranched stems: trace the argmin chain of the outside DP G(p,q) (filled once, O(n²·M²)).
+5. Discard candidates whose stem has fewer than `minStemLength` pairs.
+6. Build `Stem`, `Loop`, local dot-bracket and `TotalFreeEnergy` = `EvaluateStructureEnergy(motif, dot-bracket)`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-Base-pair extension uses `GetBasePairType`, so canonical pairs and optionally wobble pairs are accepted. Accepted base pairs are reversed before the result is built so that they are ordered from 5' to 3'. Stem energy comes from `CalculateStemEnergy`, and loop energy comes from `CalculateHairpinLoopEnergy`, including the special `G-U` closure detection path used by the source.
+Pairs come from the shared `PairLookup` table (`CanPair`/`GetBasePairType`). Base pairs are listed outermost (5') first. All energies come from the shared Turner 2004 functions of the MFE engine (`HairpinTerm`, `InteriorTerm`, GGUC/CUGG three-stack, AU/GU end penalty); nothing is re-implemented.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `FindStemLoops` | `O(n^2 * L)` | `O(k)` | `n` = sequence length, `L` = scanned loop-size range, `k` = number of returned stem-loops |
+| `FindStemLoops` (perfect) | `O(n · L · s)` | `O(k)` | `n` = length, `L` = loop-size range, `s` = motif span (extension + evaluation), `k` = results |
+| `FindStemLoops` (`M > 0`) | `O(n² · M²)` | `O(n²)` | one outside DP per call, then `O(s)` per candidate |
 
 ## 5. Implementation Notes
 
@@ -111,14 +118,15 @@ The detector returns all candidates that satisfy the local constraints; it does 
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- Minimum hairpin-loop size of three nucleotides.
-- Watson-Crick and optional wobble pairing for stem extension.
-- Hairpin free-energy scoring through Turner 2004-based helpers.
+- Minimum hairpin-loop size of three nucleotides (NNDB).
+- ViennaRNA default pair set (A·U, G·C, G·U; T ≡ U), optional wobble.
+- Turner 2004 energies identical to ViennaRNA 2.7.2 `eval_structure` on the isolated motif (NNDB-precision parameters), plus the sourced NNDB-only terms (special GU closure, all-C loops, GGUC/CUGG three-stack, 1-nt bulge degeneracy / special C) — 156,286 perfect-stem candidates and 35,155 unbranched-stem optima checked, 0 mismatches (Evidence §11).
+- Stems with bulges and internal loops (opt-in) as the MFE unbranched chain (Zuker–Stiegler V without multiloops).
 
-**Intentionally simplified:**
+**Design scope (not a simplification):**
 
-- The method returns every qualifying candidate instead of choosing a globally optimal or non-overlapping subset; **consequence:** callers may need a downstream selection step.
-- Only hairpin stem-loops are modeled directly; **consequence:** internal-loop and whole-structure reasoning is left to other APIs.
+- Every hairpin loop yields one candidate and overlapping candidates are all returned (enumeration, by definition); a non-overlapping / globally optimal set is the job of `CalculateMfeStructure` / `PredictStructureMfe`.
+- A stem never contains a multiloop (it would no longer be a single stem-loop).
 
 **Not implemented:**
 
@@ -136,7 +144,7 @@ The detector returns all candidates that satisfy the local constraints; it does 
 
 ### 6.2 Limitations
 
-This API is restricted to local hairpin-like motifs. It does not optimize over the whole sequence, does not incorporate pseudoknots during sequence scanning, and still depends on simplified downstream interpretation when many overlapping candidates are returned.
+This API is restricted to single hairpin motifs (no multiloops, no pseudoknots). Energies of isolated motifs exclude exterior dangles. Hairpin loops > 30 nt use the NNDB Jacobson–Stockmayer formula 6.4 + 1.75·RT·ln(n/9) unrounded; ViennaRNA truncates `lxc·ln(n/30)` to integer dcal/mol, so such loops can differ from `RNA.eval_structure` by ≤ 0.01 kcal/mol. The unbranched mode needs O(n²) memory.
 
 ## 7. Examples and Related Material
 
@@ -151,3 +159,6 @@ This API is restricted to local hairpin-like motifs. It does not optimize over t
 4. Woese, C. R., S. Winker, and R. R. Gutell. 1990. Architecture of ribosomal RNA: constraints on the sequence of tetra-loops. Proceedings of the National Academy of Sciences 87(21):8467-8471.
 5. Heus, H. A., and A. Pardi. 1991. Structural features that give rise to the unusual stability of RNA hairpins containing GNRA loops. Science 253(5016):191-194.
 6. Svoboda, P., and A. Cara. 2006. Hairpin RNA: A secondary structure of primary importance. Cellular and Molecular Life Sciences 63(7):901-908.
+7. Turner, D. H., and D. H. Mathews. NNDB: Turner 2004 hairpin loops (incl. worked examples §5.3) and special hairpin loops. https://rna.urmc.rochester.edu/NNDB/turner04/hairpin.html
+8. Zuker, M., and P. Stiegler. 1981. Optimal computer folding of large RNA sequences using thermodynamics and auxiliary information. Nucleic Acids Research 9(1):133-148.
+9. Lorenz, R., et al. 2011. ViennaRNA Package 2.0. Algorithms for Molecular Biology 6:26 (version 2.7.2 source: `eval/eval_hairpin.c`, `params/default.c`, `sequences/alphabet.c`).

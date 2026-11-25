@@ -138,7 +138,9 @@ public class GenomeAnnotator_CalculateCodingPotential_Tests
         double score = GenomeAnnotator.CalculateCodingPotential("GATGAAAAA", coding, noncoding);
 
         // GATGAA and GAAAAA are absent from both tables → skipped; ATGAAA is out of frame → never seen.
-        Assert.That(score, Is.EqualTo(0.0).Within(1e-10),
+        // Nothing scored → kmer_ratio returns -1 (CPAT FrameKmer.py, run: kmer_ratio('GATGAAAAA', ...) = -1);
+        // had ATGAAA been scored the result would be ln(100) = 4.605.
+        Assert.That(score, Is.EqualTo(-1.0),
             "Only frame-0 hexamers (step 3) are scored; the out-of-frame ATGAAA is ignored.");
     }
 
@@ -192,17 +194,42 @@ public class GenomeAnnotator_CalculateCodingPotential_Tests
             "stepSize <= 0 must throw.");
     }
 
-    // M15 — No scorable hexamer (all hexamers absent from tables) → 0 (port choice; ASSUMPTION-1).
+    // M15 — No scorable hexamer (all hexamers absent from tables) → −1, the CPAT kmer_ratio value
+    //       (`try: return sum/frame0_count  except: return -1`; CPAT 3.0.5 FrameKmer.py). Confirmed by
+    //       running kmer_ratio itself: 59/11 000 oracle sequences hit this branch, all −1 in both (F11).
     [Test]
-    public void CalculateCodingPotential_NoScorableHexamer_ReturnsZero()
+    public void CalculateCodingPotential_NoScorableHexamer_ReturnsMinusOne()
     {
         var coding = new Dictionary<string, double> { ["GGGGGG"] = 5 };
         var noncoding = new Dictionary<string, double> { ["GGGGGG"] = 5 };
 
         double score = GenomeAnnotator.CalculateCodingPotential("ATGAAACCC", coding, noncoding);
 
-        Assert.That(score, Is.EqualTo(0.0).Within(1e-10),
-            "When no in-frame hexamer is in the tables, the score is 0 (no information).");
+        Assert.That(score, Is.EqualTo(-1.0),
+            "When no in-frame hexamer is in the tables, CPAT kmer_ratio returns -1 (caught ZeroDivisionError).");
+    }
+
+    // M16 — Only both-zero hexamers: each is skipped (not counted) → count 0 → −1 (kmer_ratio).
+    [Test]
+    public void CalculateCodingPotential_OnlyBothZeroHexamers_ReturnsMinusOne()
+    {
+        var t = new Dictionary<string, double> { ["ATGAAA"] = 0, ["AAACCC"] = 0 };
+
+        Assert.That(GenomeAnnotator.CalculateCodingPotential("ATGAAACCC", t, t), Is.EqualTo(-1.0));
+    }
+
+    // M17 — All-N sequence long enough for a word: N-words are absent from CPAT tables → −1,
+    //       while a too-short sequence stays 0 (the two distinct reference sentinels).
+    [Test]
+    public void CalculateCodingPotential_AllNSequence_ReturnsMinusOne_TooShortReturnsZero()
+    {
+        var t = new Dictionary<string, double> { ["ATGAAA"] = 3 };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(GenomeAnnotator.CalculateCodingPotential("NNNNNNNNN", t, t), Is.EqualTo(-1.0));
+            Assert.That(GenomeAnnotator.CalculateCodingPotential("NNNNN", t, t), Is.EqualTo(0.0));
+        });
     }
 
     // S1 — Case-insensitivity: lowercase input gives the same score as uppercase.

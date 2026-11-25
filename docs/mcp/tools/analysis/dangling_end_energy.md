@@ -16,9 +16,10 @@ Turner 2004 dangling-end stacking energy for an RNA helix end.
 
 Returns the 5' or 3' dangling-end stacking energy (kcal/mol at 37 °C) for a single unpaired
 base stacked on the end of an RNA helix, using the NNDB Turner 2004 dangling-end tables. The
-lookup key is `closingBase5 + danglingBase + closingBase3`; the 3' or 5' table is chosen by the
-`is3Prime` flag. Combinations absent from the table (e.g. a non-canonical closing pair) return
-`0.0`.
+helix end is `5'-closingBase5-3' / 3'-closingBase3-5'`: a 3' dangle sits 3' of `closingBase5`, a
+5' dangle 5' of `closingBase3` (= ViennaRNA 2.7.2 `dangle3_37` / `dangle5_37`). Bases are
+case-insensitive and T is read as U; an unknown dangling base (N, IUPAC, gap) takes the maximum
+over A/C/G/U (ViennaRNA's 'N' column); a non-canonical closing pair returns `0.0`.
 
 ## Core Documentation Reference
 

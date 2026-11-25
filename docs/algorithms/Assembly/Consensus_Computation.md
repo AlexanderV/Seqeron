@@ -6,7 +6,7 @@
 | Test Unit ID | ASSEMBLY-CONSENSUS-001 |
 | Related Projects | Seqeron.Genomics.Alignment |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-11-25 (B10 review: require_multiple, case option, validation; Biopython 1.85 oracle 3012/3012) |
 
 ## 1. Overview
 
@@ -56,8 +56,10 @@ So a residue `x` is committed iff it is the **unique** maximum-count residue **a
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `alignedReads` | `IReadOnlyList<string>` | required | Pre-aligned reads (columns must correspond); ragged lengths allowed | Not null |
-| `threshold` | `double` | `0.5` | Minimum column frequency (max count / non-gap count) to commit a residue | 0–1; pass 0.7 to reproduce Biopython default |
+| `threshold` | `double` | `0.5` | Minimum column frequency (max count / non-gap count) to commit a residue | Not NaN; any other value accepted as in Biopython (≤ 0 commits every unique maximum, > 1 commits nothing); pass 0.7 to reproduce Biopython default |
 | `ambiguous` | `char` | `'N'` | Symbol emitted when a column has no committed residue | Any char |
+| `requireMultiple` | `bool` | `false` | Biopython `require_multiple`: a column with exactly one non-gap residue emits `ambiguous` | 5-arg overload only |
+| `ignoreCase` | `bool` | `true` | Upper-case residues before tallying (EMBOSS reader); `false` compares exactly as Biopython | 5-arg overload only |
 
 ### 3.2 Output / Return Value
 
@@ -67,7 +69,7 @@ So a residue `x` is committed iff it is the **unique** maximum-count residue **a
 
 ### 3.3 Preconditions and Validation
 
-`alignedReads` null → `ArgumentNullException`. Empty list → empty string. Reads need not be equal length; columns past a shorter read contribute nothing from that read (INV-01). Residues are normalized with `char.ToUpperInvariant`; `-` and `.` are treated as gaps and skipped. The comparison is `≥ threshold` (inclusive), per the source [1].
+`alignedReads` null → `ArgumentNullException`; a null read → `ArgumentException`; NaN `threshold` → `ArgumentOutOfRangeException`. Empty list → empty string. Reads need not be equal length; a shorter read is treated as padded with trailing gaps (EMBOSS `ajSeqsetFill`; Biopython `IndexError → continue`), so an assembly layout with leading `-` padding is resolved column by column. By default residues are normalized with `char.ToUpperInvariant` (`ignoreCase: false` reproduces Biopython's exact comparison); only `-` and `.` are gaps — `N`, `X` and every other character are residues and vote [1]. The comparison is `≥ threshold` (inclusive), per the source [1].
 
 ## 4. Algorithm
 
@@ -98,7 +100,10 @@ So a residue `x` is committed iff it is the **unique** maximum-count residue **a
 
 **Implementation location:** [SequenceAssembler.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs)
 
-- `SequenceAssembler.ComputeConsensus(IReadOnlyList<string>, double, char)`: column-wise majority/threshold consensus.
+- `SequenceAssembler.ComputeConsensus(IReadOnlyList<string>, double, char)`: column-wise majority/threshold consensus (case-insensitive, no `require_multiple`); used by `AssembleOLC`.
+- `SequenceAssembler.ComputeConsensus(IReadOnlyList<string>, double, char, bool requireMultiple, bool ignoreCase = true)`: canonical full Biopython `dumb_consensus(threshold, ambiguous, require_multiple)`; with `ignoreCase: false` it is character-identical to Biopython 1.85 (3012/3012 cases, Evidence).
+- MCP `compute_consensus` (Alignment server) delegates with optional `threshold`, `ambiguous`, `requireMultiple`, `ignoreCase`.
+- Related (other semantics, Analysis project): `MotifFinder.GenerateCavenerConsensus` (IUPAC degenerate, Cavener 1987 / Biopython `degenerate_consensus`), `MotifFinder.GenerateEmbossConsensus` (EMBOSS `cons` matrix plurality), `MotifFinder.GenerateDecipherConsensus`. `MotifFinder.GenerateDumbConsensus` re-implements this same rule (equal-length rows, case-sensitive) — cross-batch request to delegate here.
 
 ### 5.2 Current Behavior
 
@@ -111,6 +116,7 @@ Single linear pass per column tallying into a `Dictionary<char,int>`. The maximu
 - Commit predicate `unique-max ∧ frequency ≥ threshold`, else ambiguous [1].
 - Gap characters `-`/`.` excluded from the tally [1].
 - Tie for the maximum count → ambiguous symbol [1].
+- `require_multiple` (single-residue column → ambiguous), opt-in [1].
 - Consensus length = longest read / alignment length [1].
 - All-gap / empty column → ambiguous, no division by zero [1].
 
@@ -121,15 +127,16 @@ Single linear pass per column tallying into a `Dictionary<char,int>`. The maximu
 
 **Not implemented:**
 
-- Sequence weighting and scoring-matrix-based scoring (EMBOSS `cons` style); **users should rely on:** dedicated MSA scoring tools; this method implements the unweighted plurality/majority rule only.
-- `require_multiple` Biopython flag (force ambiguous when only one read covers a column); **users should rely on:** filtering low-coverage columns upstream.
+- Sequence weighting and scoring-matrix-based scoring (EMBOSS `cons` style); **users should rely on:** `MotifFinder.GenerateEmbossConsensus` (Analysis); this method implements the unweighted Biopython rule only.
+- IUPAC degenerate codes for mixed columns; **users should rely on:** `MotifFinder.GenerateCavenerConsensus` (Cavener 1987 / Biopython `degenerate_consensus`, equal-length ACGT rows) or `GenerateDecipherConsensus`.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Default threshold 0.5 vs Biopython 0.7 | Assumption | Default vote strictness; all values reachable | accepted | ASM/parameter; M9 verifies 0.7 |
-| 2 | Default ambiguous 'N' vs 'X' | Assumption | Emitted symbol for no-consensus columns | accepted | DNA IUPAC; configurable |
+| 2 | Default ambiguous 'N' vs 'X' | Assumption | Emitted symbol for no-consensus columns | accepted | EMBOSS `cons` nucleotide no-consensus symbol; configurable |
+| 3 | Default case folding vs Biopython exact comparison | Deviation (sourced) | `a`/`A` vote together, output upper-case | accepted | EMBOSS reader upper-cases; `ignoreCase: false` = Biopython |
 
 ## 6. Edge Cases and Limitations
 
@@ -139,6 +146,10 @@ Single linear pass per column tallying into a `Dictionary<char,int>`. The maximu
 |------|-------------------|-----------|
 | Empty read list | `""` | No columns |
 | Null read list | `ArgumentNullException` | Repository contract |
+| Null read element | `ArgumentException` | Repository contract |
+| NaN threshold | `ArgumentOutOfRangeException` | Every comparison would be false (silent all-ambiguous) |
+| `requireMultiple` and one non-gap residue in a column | `ambiguous` | Biopython `require_multiple` [1] |
+| `N` in a column | counted as a residue | Only `-`/`.` are gaps [1] |
 | All-gap column | `ambiguous` | INV-05 [1] |
 | Tie for max count | `ambiguous` | INV-03 [1] |
 | Sub-threshold majority | `ambiguous` | INV-02 [1] |
@@ -146,7 +157,7 @@ Single linear pass per column tallying into a `Dictionary<char,int>`. The maximu
 
 ### 6.2 Limitations
 
-Requires reads that are already aligned column-for-column; it does not perform alignment. It is an unweighted plurality rule (no per-sequence weights, no scoring matrix). It does not emit blended IUPAC degeneracy codes for ties (a single ambiguity symbol is used), and it does not implement `require_multiple`.
+Requires reads that are already aligned column-for-column; it does not perform alignment. It is an unweighted plurality rule (no per-sequence weights, no scoring matrix). It does not emit blended IUPAC degeneracy codes for ties (a single ambiguity symbol is used; see `MotifFinder.GenerateCavenerConsensus`).
 
 ## 7. Examples and Related Material
 

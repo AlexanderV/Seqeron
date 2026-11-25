@@ -155,9 +155,9 @@ Single-isoform: `utrLength = AIR_end` (UTR length); `log10(utrLength)`, then min
 
 **Implementation.** `ComputeTa3Utr(MiRna, IEnumerable<3'UTR>)` (with `CountSeedSites3Utr` exposing the raw `N`) counts, in each 3'UTR, every occurrence of the 6mer core (reverse complement of miRNA positions 2-7) that additionally has the position-8 match (7mer-m8 / 8mer) and/or an A opposite miRNA position 1 (7mer-A1 / 8mer) — exactly the three Garcia site types — and returns `log10` of the total (0 when the count is 0; log10(0) is undefined and TargetScan never emits a no-site seed). Site definitions match `FindTargetSites`. The result feeds `ScoreTargetSiteContextPlusPlus` via `ContextPlusPlusInputs.Ta`, which applies the bundled per-site-type Agarwal TA coefficient + min-max scaling. **Hand-derived cross-check** (encoded in CTX-TA-002): for hsa-let-7a-5p (seed `GAGGUAG`, 6mer core `UACCUC`, pos8 base `C`) over the five UTRs `GGCUACCUCAGG` (8mer), `GGCUACCUCGGG` (7mer-m8), `GGGUACCUCAGG` (7mer-A1), `GGGUACCUCGGG` (bare 6mer, excluded), `CUACCUCACUACCUCG` (8mer + 7mer-m8) ⇒ N = 1+1+1+0+2 = 5 ⇒ TA = log10(5) = 0.698970004336019, reproduced exactly by `ComputeTa3Utr`.
 
-### Still caller-supplied (data-blocked) features — SPS / Len_ORF / ORF8m / PCT sigmoid params
+### Still caller-supplied (data-blocked) features — SPS / Len_ORF / ORF8m (PCT sigmoid params: bundled since 2026-11-25)
 
-These cannot be derived from a 3'UTR set alone: **SPS** is a lookup in the Garcia et al. (2011) `TA_SPS_by_seed_region.txt` table (4096 seed regions; not a closed-form formula), **Len_ORF** needs the transcript ORF length, **ORF8m** needs a precomputed ORF 8mer count, and the **PCT per-family sigmoid parameters** `b0..b3` live in TargetScan's compiled, citation-required tables (Friedman 2009 does not publish them as numbers). The implementation accepts each as an OPTIONAL caller-supplied value and applies the exact `getAgarwalContribution` math (SPS/Len_ORF min-max scaled — Len_ORF after `log10`; ORF8m used raw); when not supplied they stay residual.
+These cannot be derived from a 3'UTR set alone: **SPS** is a lookup in the Garcia et al. (2011) `TA_SPS_by_seed_region.txt` table (4096 seed regions; not a closed-form formula), **Len_ORF** needs the transcript ORF length, **ORF8m** needs a precomputed ORF 8mer count, and the **PCT per-family sigmoid parameters** `b0..b3` live in TargetScan's BL/PCT kit tables (Friedman 2009 does not publish them as numbers) — **update 2026-11-25 (B13 WP-2, F32):** those tables are now bundled (see the PCT section). The implementation accepts each as an OPTIONAL caller-supplied value and applies the exact `getAgarwalContribution` math (SPS/Len_ORF min-max scaled — Len_ORF after `log10`; ORF8m used raw); when not supplied they stay residual.
 
 ### SA — structural accessibility (now computed via the Turner-2004 McCaskill partition function)
 
@@ -231,9 +231,9 @@ $SA_contribution = getAgarwalContribution($siteType, "SA", $log10_plfold);
 
 **Bls = total branch length of the minimal subtree of the phylogenetic tree connecting the species in which the seed match is perfectly aligned** (Friedman 2009). An edge belongs to that connecting subtree iff at least one conserved species lies on each side of the edge. A single conserved species (or none) ⇒ Bls = 0 (consistent with the perl's `branchLength == 0 ⇒ PCT 0`).
 
-### PCT formula (parameterised; parameters caller-supplied)
+### PCT formula (parameterised; parameters bundled from the TargetScan 7.0 kit, caller rows override)
 
-`PCT(Bls) = b0 + b1 / (1 + e^(−b2·Bls + b3))`, truncated at 0. **Licence/sourcing note:** Friedman 2009 publishes the Bls definition and `PCT = E[(S−B)/S]` but does **not** publish the fitted `b0..b3` as numbers; those live in TargetScan's compiled, citation-required `*_PCT_parameters.txt` tables (per miRNA family). Per the stop-rule, the `b0..b3` are therefore **caller-supplied** (`PctSigmoidParameters`) — not bundled, not invented. Only the published **equation** and the Agarwal **PCT coefficient** (a permissive scientific-fact constant, like the other context++ coefficients) are bundled.
+`PCT(Bls) = b0 + b1 / (1 + e^(−b2·Bls + b3))`, truncated at 0. **Licence/sourcing note:** Friedman 2009 publishes the Bls definition and `PCT = E[(S−B)/S]` but does **not** publish the fitted `b0..b3` as numbers; those live in TargetScan's compiled, citation-required `*_PCT_parameters.txt` tables (per miRNA family). Per the stop-rule, the `b0..b3` were first **caller-supplied** (`PctSigmoidParameters`) — not invented. **Update 2026-11-25 (B13 WP-2, F32):** the tables are downloadable in TargetScan's BL/PCT kit (`targetscan_70_BL_PCT.zip`, `PCT_parameters/{8mer,7mer_m8,7mer_1a}_PCT_parameters.txt`, 111 seed families each) and the TargetScan FAQ allows reuse for research with a TargetScan citation; they are now bundled verbatim (`MiRnaAnalyzer.TargetScanPctParameters.cs`, generated, SHA-256 of the sources in its header), keyed by the 7-nt seed region as `targetscan_70_BL_PCT.pl` keys them (`TryGetTargetScanPctParameters`), and used when no caller row is given. With them the library reproduces all 161 PCT values of the kit's `targetscan_70_output.BL_PCT.txt`.
 
 ### Worked examples (hand-derived; used as exact test expectations)
 
@@ -264,12 +264,12 @@ Sources actually opened this session:
 - ViennaRNA 2.x (`import RNA`): `fold_compound.pf()` with `hc_add_up` over the site ⇒ Z_c/Z, dangles 0 and 2.
 
 Defects & reference numbers:
-1. **Duplex register** (FindTargetSites/CreateTargetSite): window was `mrna[Start .. Start+L−1]` (downstream), so miRNA nt 1 was aligned to the last base of that window. let-7a vs `GGGGGCUACCUCAGGGGG`: old window `CUACCUCAGGGGG`, seed reported unpaired; fixed window `GGGGGCUACCUCA`, alignment `||||||||:   :` (nt 1–8 paired), Score 0.97 (1.0 − 3×0.01), FreeEnergy −17.96.
+1. **Duplex register** (FindTargetSites/CreateTargetSite): window was `mrna[Start .. Start+L−1]` (downstream), so miRNA nt 1 was aligned to the last base of that window. let-7a vs `GGGGGCUACCUCAGGGGG`: old window `CUACCUCAGGGGG`, seed reported unpaired; fixed window `GGGGGCUACCUCA`, alignment `||||||||:   :` (nt 1–8 paired), Score 0.97 (1.0 − 3×0.01), FreeEnergy −17.96 (stacking-only sum at the time; since MIRNA-PAIR-001 F11 the full Turner 2004 duplex energy: −11.67, ViennaRNA 2.8 eval_structure −11.4).
 2. **AnalyzeTargetContext**: +0.3 bonus for mid-sequence sites (inverse of Grimson), unweighted AU count including the site, 15 %-of-length start threshold. Fixed to TargetScan weighted local AU, 15-nt stop-codon rule, end-proximity positional term (weights declared unfitted).
 3. **CalculateSiteAccessibility**: Watson-Crick pair-density heuristic returned 0 for every test sequence (incl. sites ViennaRNA puts at 97–99 % unpaired). Now McCaskill Z_open/Z via `RnaSecondaryStructure.CalculateRegionUnpairedProbability` (W = 80 local context):
 
 | Sequence | Site | Vienna d0 | Vienna d2 | Seqeron | Old heuristic |
 |---|---|---|---|---|---|
-| GGGGGCUACCUCAGGGGG | 5..12 | 1.872e-3 | 1.28e-4 | 3.225e-4 | 0 |
-| GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA | 23..30 | 0.993777 | 0.976954 | 0.972098 | 0 |
-| AUGCUACCUCAAAAAAAAAAAAAAAAA | 3..10 | 0.993008 | 0.970119 | 0.963046 | 0 |
+| GGGGGCUACCUCAGGGGG | 5..12 | 1.872e-3 | 1.28e-4 | 1.282e-4 (3.225e-4 before B12 F4/F7) | 0 |
+| GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA | 23..30 | 0.993777 | 0.976954 | 0.975759 (0.972098) | 0 |
+| AUGCUACCUCAAAAAAAAAAAAAAAAA | 3..10 | 0.993008 | 0.970119 | 0.967387 (0.963046) | 0 |

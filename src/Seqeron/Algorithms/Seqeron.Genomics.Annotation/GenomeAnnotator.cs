@@ -32,6 +32,14 @@ public static class GenomeAnnotator
     /// (Sequence Ontology GFF3 Spec v1.26). <see langword="null"/> means undefined and is
     /// serialised as the "." placeholder.
     /// </param>
+    /// <param name="AttributeValues">
+    /// Optional multi-valued GFF3 column-9 attributes ("Multiple attributes of the same type are
+    /// indicated by separating the values with the comma ',' character, as in
+    /// <c>Parent=AF2312,AB2812,abc-3</c>" — GFF3 Spec v1.26). Each value is percent-encoded on its
+    /// own and the values are joined with a literal comma, so a value that itself contains a comma
+    /// stays one value. A tag present here replaces the same tag in <paramref name="Attributes"/>
+    /// (whose values are always written as one value, with commas encoded as <c>%2C</c>).
+    /// </param>
     public readonly record struct GeneAnnotation(
         string GeneId,
         int Start,
@@ -41,11 +49,26 @@ public static class GenomeAnnotator
         string Product,
         IReadOnlyDictionary<string, string> Attributes,
         string Source = UndefinedFieldPlaceholder,
-        double? Score = null);
+        double? Score = null,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? AttributeValues = null);
 
     /// <summary>
-    /// Represents a genomic feature.
+    /// Represents a genomic feature parsed from one GFF3 feature line. <see cref="Start"/> and
+    /// <see cref="End"/> stay in GFF3 space (1-based, inclusive).
     /// </summary>
+    /// <param name="Attributes">
+    /// Column 9 as tag → percent-decoded value text. For a multi-valued tag the decoded values are
+    /// joined with ',' (so <c>Note=a%2Cb</c> and <c>Note=a,b</c> both read "a,b" here); use
+    /// <paramref name="AttributeValues"/> to tell them apart.
+    /// </param>
+    /// <param name="Seqid">Column 1 (landmark ID), percent-decoded.</param>
+    /// <param name="Source">Column 2 (source), percent-decoded; "." when undefined.</param>
+    /// <param name="AttributeValues">
+    /// Column 9 as tag → list of values: the raw value is split on the unescaped ',' separator and
+    /// each value is percent-decoded separately (GFF3 Spec v1.26, column 9), e.g.
+    /// <c>Parent=mRNA00001,mRNA00002</c> → ["mRNA00001", "mRNA00002"] and <c>Note=a%2Cb</c> → ["a,b"].
+    /// Always set by <see cref="ParseGff3"/>.
+    /// </param>
     public readonly record struct GenomicFeature(
         string FeatureId,
         string Type,
@@ -54,7 +77,10 @@ public static class GenomeAnnotator
         char Strand,
         double? Score,
         int? Phase,
-        IReadOnlyDictionary<string, string> Attributes);
+        IReadOnlyDictionary<string, string> Attributes,
+        string Seqid = UndefinedFieldPlaceholder,
+        string Source = UndefinedFieldPlaceholder,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? AttributeValues = null);
 
     /// <summary>
     /// Initiation codons recognised by <see cref="FindOrfs"/>: ATG, GTG and TTG — the
@@ -508,85 +534,174 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Parses a GFF3 format annotation file.
+    /// Parses the feature lines of a GFF3 document (Sequence Ontology GFF3 Spec v1.26).
+    /// <para>
+    /// Line handling: blank lines and <c>#</c> comment / <c>##</c> directive lines are skipped; a
+    /// trailing CR (CRLF line ending) is not part of the last column; the annotation section ends
+    /// at the <c>##FASTA</c> directive or at a line beginning with <c>&gt;</c> ("a GFF line that
+    /// begins with the character &gt; creates an implied ##FASTA directive"), and nothing after it
+    /// is read as a feature.
+    /// </para>
+    /// <para>
+    /// A feature line is accepted only when it satisfies the column rules of the spec — the same
+    /// rules GenomeTools <c>gt gff3validator</c> enforces — and is otherwise skipped (one malformed
+    /// line never aborts the parse and does not consume a <c>feature_n</c> number):
+    /// exactly nine tab-separated columns; start and end positive integers with start ≤ end;
+    /// score "." or a floating-point number; strand one of <c>+ - . ?</c>; phase "." or one of
+    /// <c>0 1 2</c>; column 9 "." or ';'-separated tag=value pairs with non-empty tag and value and
+    /// no tag repeated. A CDS line with phase "." is accepted (the spec
+    /// requires a phase for CDS, but <c>gt gff3validator</c> accepts it too).
+    /// </para>
+    /// <para>
+    /// Decoding: columns 1–3 and every tag and value are RFC 3986 percent-decoded. Column 9 is
+    /// split on ';' into tag=value pairs (the first '=' separates tag from value; surrounding
+    /// whitespace of a tag is dropped, value text is kept verbatim — "unescaped spaces are allowed
+    /// within fields"), and each value list is split on the unescaped ',' before decoding, so
+    /// <c>Parent=a,b</c> is two values and <c>Note=a%2Cb</c> is one. Coordinates stay in GFF3
+    /// space (1-based, inclusive).
+    /// </para>
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="lines"/> is null.</exception>
     public static IEnumerable<GenomicFeature> ParseGff3(IEnumerable<string> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        return ParseGff3Lines(lines);
+    }
+
+    private static IEnumerable<GenomicFeature> ParseGff3Lines(IEnumerable<string> lines)
     {
         int featureCount = 0;
 
-        foreach (string line in lines)
+        foreach (string rawLine in lines)
         {
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+            if (rawLine is null)
                 continue;
 
-            string[] parts = line.Split('\t');
-            if (parts.Length < 9)
+            string line = rawLine.EndsWith('\r') ? rawLine[..^1] : rawLine;
+            if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            // Malformed-but-9-column lines are skipped, not thrown — mirroring the
-            // "skip malformed line" discipline already applied for the <9-column case and
-            // the sibling GffParser.ParseLine. A non-numeric start/end/score/phase or an
-            // empty (present-but-blank) strand column is a malformed data line, not a
-            // parse-fatal crash: tolerant TryParse keeps the lightweight reader caller-safe
-            // (no uncaught FormatException, no IndexOutOfRange on an empty strand field).
-            if (!int.TryParse(parts[3], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int start))
-                continue;
-            if (!int.TryParse(parts[4], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int end))
+            // End of the annotation section: explicit ##FASTA or the implied one ('>' line).
+            if (line[0] == '>' || line.TrimEnd() == Gff3FastaDirective)
+                yield break;
+
+            if (line[0] == '#')
                 continue;
 
-            double? score = null;
-            if (parts[5] != ".")
-            {
-                if (!double.TryParse(parts[5], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double parsedScore))
-                    continue;
-                score = parsedScore;
-            }
-
-            char strand = parts[6].Length > 0 ? parts[6][0] : '.';
-
-            int? phase = null;
-            if (parts[7] != ".")
-            {
-                if (!int.TryParse(parts[7], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int parsedPhase))
-                    continue;
-                phase = parsedPhase;
-            }
+            if (!TryParseGff3FeatureLine(line, featureCount + 1, out var feature))
+                continue;
 
             featureCount++;
-
-            var attributes = ParseGff3Attributes(parts[8]);
-
-            string featureId = attributes.GetValueOrDefault("ID", $"feature_{featureCount}");
-
-            yield return new GenomicFeature(
-                FeatureId: featureId,
-                Type: parts[2],
-                Start: start,
-                End: end,
-                Strand: strand,
-                Score: score,
-                Phase: phase,
-                Attributes: attributes);
+            yield return feature;
         }
     }
 
-    private static Dictionary<string, string> ParseGff3Attributes(string attributeString)
+    private const int Gff3ColumnCount = 9;
+    private const string Gff3FastaDirective = "##FASTA";
+    private const string Gff3StrandSymbols = "+-.?";
+
+    private static bool TryParseGff3FeatureLine(string line, int featureNumber, out GenomicFeature feature)
     {
-        var attributes = new Dictionary<string, string>();
+        feature = default;
 
-        foreach (string attr in attributeString.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        string[] parts = line.Split('\t');
+        if (parts.Length != Gff3ColumnCount)
+            return false;
+
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+
+        // Columns 4/5: "positive 1-based integer coordinates … Start is always less than or equal to end".
+        if (!int.TryParse(parts[3], System.Globalization.NumberStyles.None, invariant, out int start) ||
+            !int.TryParse(parts[4], System.Globalization.NumberStyles.None, invariant, out int end) ||
+            start < 1 || end < start)
+            return false;
+
+        double? score = null;
+        if (parts[5] != UndefinedFieldPlaceholder)
         {
-            int eqPos = attr.IndexOf('=');
-            if (eqPos > 0)
-            {
-                string key = attr.Substring(0, eqPos).Trim();
-                string value = Uri.UnescapeDataString(attr.Substring(eqPos + 1).Trim());
-                attributes[key] = value;
-            }
+            if (!double.TryParse(parts[5], System.Globalization.NumberStyles.Float, invariant, out double parsedScore))
+                return false;
+            score = parsedScore;
         }
 
-        return attributes;
+        // Column 7: one of '+', '-', '.', '?'.
+        if (parts[6].Length != 1 || !Gff3StrandSymbols.Contains(parts[6][0]))
+            return false;
+        char strand = parts[6][0];
+
+        // Column 8: "The phase is one of the integers 0, 1, or 2" ('.' when undefined).
+        int? phase = null;
+        if (parts[7] != UndefinedFieldPlaceholder)
+        {
+            if (parts[7].Length != 1 || parts[7][0] < '0' || parts[7][0] > '2')
+                return false;
+            phase = parts[7][0] - '0';
+        }
+
+        if (!TryParseGff3Attributes(parts[8], out var attributeValues))
+            return false;
+
+        var attributes = new Dictionary<string, string>(attributeValues.Count, StringComparer.Ordinal);
+        foreach (var (tag, values) in attributeValues)
+            attributes[tag] = string.Join(',', values);
+
+        feature = new GenomicFeature(
+            FeatureId: attributes.GetValueOrDefault("ID", $"feature_{featureNumber}"),
+            Type: DecodeGff3(parts[2]),
+            Start: start,
+            End: end,
+            Strand: strand,
+            Score: score,
+            Phase: phase,
+            Attributes: attributes,
+            Seqid: DecodeGff3(parts[0]),
+            Source: DecodeGff3(parts[1]),
+            AttributeValues: attributeValues);
+        return true;
     }
+
+    /// <summary>
+    /// Splits GFF3 column 9 into tag → decoded value list. Returns false — as
+    /// <c>gt gff3validator</c> does — for a token that is not tag=value, an empty tag or value, or
+    /// a tag that occurs twice (multiple values of one tag must be comma-separated in a single
+    /// tag=value pair).
+    /// </summary>
+    private static bool TryParseGff3Attributes(
+        string column,
+        out Dictionary<string, IReadOnlyList<string>> attributeValues)
+    {
+        attributeValues = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        if (column == UndefinedFieldPlaceholder)
+            return true;
+
+        foreach (string pair in column.Split(';'))
+        {
+            // Empty tokens come from a trailing ';' or "; " separators and carry nothing.
+            if (string.IsNullOrWhiteSpace(pair))
+                continue;
+
+            // Every token must be tag=value with a non-empty tag and value.
+            int eqPos = pair.IndexOf('=');
+            if (eqPos < 0 || eqPos == pair.Length - 1)
+                return false;
+
+            string tag = DecodeGff3(pair[..eqPos].Trim());
+            if (tag.Length == 0)
+                return false;
+
+            string[] values = pair[(eqPos + 1)..].Split(',');
+            for (int i = 0; i < values.Length; i++)
+                values[i] = DecodeGff3(values[i]);
+
+            if (!attributeValues.TryAdd(tag, values))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>RFC 3986 percent-decoding of one GFF3 field (GFF3 Spec v1.26, "Description of the Format").</summary>
+    private static string DecodeGff3(string value) => Uri.UnescapeDataString(value);
 
     /// <summary>
     /// The GFF3 undefined-field placeholder: "Undefined fields are replaced with the '.' character"
@@ -595,7 +710,14 @@ public static class GenomeAnnotator
     private const string UndefinedFieldPlaceholder = ".";
 
     /// <summary>
-    /// Exports annotations in GFF3 format.
+    /// Exports annotations in GFF3 format: the <c>##gff-version 3</c> directive, then one
+    /// nine-column feature line per annotation, in input order.
+    /// <para>
+    /// Coordinates: the internal 0-based half-open [Start, End) becomes 1-based inclusive
+    /// start = Start + 1, end = End. An empty interval [s, s) (s ≥ 1) is written as the spec's
+    /// zero-length feature start = end = s ("the implied site is to the right of the indicated
+    /// base").
+    /// </para>
     /// <para>
     /// Column 2 (source) and column 6 (score) carry the feature's real values when present and
     /// fall back to the "." undefined-field placeholder otherwise. Column 8 (phase) is computed
@@ -604,16 +726,35 @@ public static class GenomeAnnotator
     /// segments of a transcript (grouped by <see cref="GeneAnnotation.GeneId"/>); non-CDS
     /// features emit ".".
     /// </para>
-    /// Source: Sequence Ontology GFF3 Spec v1.26 — columns 2/6/8 definitions; "The phase is
-    /// REQUIRED for all CDS features."
-    /// Encoding: GFF3-specific (only tab, newline, CR, %, control chars, ;, =, &amp;, , in column 9).
-    /// Source: GFF3 Spec v1.26 — "no other characters may be encoded."
+    /// <para>
+    /// Column 9: <c>ID</c> = <see cref="GeneAnnotation.GeneId"/> and <c>product</c> =
+    /// <see cref="GeneAnnotation.Product"/> first (these two tags are taken only from those
+    /// properties, never repeated from the dictionaries), then <see cref="GeneAnnotation.Attributes"/>
+    /// (except <c>translation</c>) and <see cref="GeneAnnotation.AttributeValues"/>; a tag with an
+    /// empty value is omitted, and "." is written when no tag remains.
+    /// </para>
+    /// <para>
+    /// Encoding (GFF3 Spec v1.26): tab, newline, CR, '%' and control characters are
+    /// percent-encoded in every column, "no other characters may be encoded"; in column 9 tags and
+    /// values also encode ';', '=', '&amp;' and ','; column 1 (seqid) encodes every character
+    /// outside <c>[a-zA-Z0-9.:^*$@!+_?-|]</c> (UTF-8 bytes), so it never contains whitespace or
+    /// begins with '&gt;'.
+    /// </para>
+    /// Source: Sequence Ontology GFF3 Spec v1.26 — column definitions; "The phase is REQUIRED for
+    /// all CDS features."
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="annotations"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="seqId"/> is null or empty, or an annotation has an empty type, a strand
+    /// outside <c>+ - . ?</c>, a negative start, an end before its start, or the empty interval
+    /// [0, 0) (no base to the left of position 1).
+    /// </exception>
     public static IEnumerable<string> ToGff3(
         IEnumerable<GeneAnnotation> annotations,
         string seqId = "seq1")
     {
-        yield return "##gff-version 3";
+        ArgumentNullException.ThrowIfNull(annotations);
+        ArgumentException.ThrowIfNullOrEmpty(seqId);
 
         // Phase is a per-transcript cumulative quantity, so we must know the order of a
         // transcript's CDS segments before we can emit any of its rows. Materialise once and
@@ -621,22 +762,38 @@ public static class GenomeAnnotator
         // emission order (and thus output line order) is preserved exactly.
         var annotationList = annotations as IReadOnlyList<GeneAnnotation> ?? annotations.ToList();
         var cdsPhases = ComputeCdsPhases(annotationList);
+        string seqidColumn = EncodeGff3Seqid(seqId);
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
 
+        var output = new List<string>(annotationList.Count + 1) { "##gff-version 3" };
         for (int i = 0; i < annotationList.Count; i++)
         {
             var ann = annotationList[i];
-            string attributes = FormatGff3Attributes(ann.Attributes, ann.GeneId, ann.Product);
+            if (string.IsNullOrEmpty(ann.Type))
+                throw new ArgumentException($"Annotation {i} has no feature type (GFF3 column 3).", nameof(annotations));
+            if (!Gff3StrandSymbols.Contains(ann.Strand))
+                throw new ArgumentException($"Annotation {i} has strand '{ann.Strand}'; GFF3 column 7 allows only '+', '-', '.', '?'.", nameof(annotations));
+            if (ann.Start < 0 || ann.End < ann.Start || (ann.End == ann.Start && ann.Start == 0))
+                throw new ArgumentException($"Annotation {i} has the interval [{ann.Start}, {ann.End}), which has no GFF3 representation (positive 1-based start ≤ end).", nameof(annotations));
 
-            string source = string.IsNullOrEmpty(ann.Source) ? UndefinedFieldPlaceholder : ann.Source;
+            int gffStart = ann.End == ann.Start ? ann.Start : ann.Start + 1;
+
+            string source = string.IsNullOrEmpty(ann.Source) ? UndefinedFieldPlaceholder : EncodeGff3Text(ann.Source, encodeAttributeReserved: false);
             string score = ann.Score.HasValue
-                ? ann.Score.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                ? ann.Score.Value.ToString(invariant)
                 : UndefinedFieldPlaceholder;
             string phase = cdsPhases.TryGetValue(i, out int p)
-                ? p.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                ? p.ToString(invariant)
                 : UndefinedFieldPlaceholder;
+            string type = EncodeGff3Text(ann.Type, encodeAttributeReserved: false);
 
-            yield return $"{seqId}\t{source}\t{ann.Type}\t{ann.Start + 1}\t{ann.End}\t{score}\t{ann.Strand}\t{phase}\t{attributes}";
+            output.Add(string.Join('\t',
+                seqidColumn, source, type,
+                gffStart.ToString(invariant), ann.End.ToString(invariant),
+                score, ann.Strand.ToString(), phase, FormatGff3Attributes(ann)));
         }
+
+        return output;
     }
 
     /// <summary>
@@ -698,58 +855,97 @@ public static class GenomeAnnotator
         return phases;
     }
 
-    private static string FormatGff3Attributes(
-        IReadOnlyDictionary<string, string> attributes,
-        string id,
-        string product)
+    private static string FormatGff3Attributes(GeneAnnotation ann)
     {
-        var sb = new StringBuilder();
-        sb.Append($"ID={EncodeGff3Value(id)}");
-        sb.Append($";product={EncodeGff3Value(product)}");
+        var pairs = new List<string>();
 
-        foreach (var kvp in attributes)
+        void Add(string tag, IEnumerable<string?> values)
         {
-            if (kvp.Key != "translation") // Skip large translation
+            var encoded = values
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Select(v => EncodeGff3Text(v!, encodeAttributeReserved: true))
+                .ToList();
+            if (tag.Length > 0 && encoded.Count > 0)
+                pairs.Add($"{EncodeGff3Text(tag, encodeAttributeReserved: true)}={string.Join(',', encoded)}");
+        }
+
+        static bool IsReservedOrSkipped(string tag) =>
+            tag is "ID" or "product" or "translation"; // ID/product come from GeneId/Product; translation is too large
+
+        Add("ID", new[] { ann.GeneId });
+        Add("product", new[] { ann.Product });
+
+        var multi = ann.AttributeValues;
+        if (ann.Attributes is not null)
+        {
+            foreach (var (tag, value) in ann.Attributes)
             {
-                sb.Append($";{kvp.Key}={EncodeGff3Value(kvp.Value)}");
+                if (!IsReservedOrSkipped(tag) && (multi is null || !multi.ContainsKey(tag)))
+                    Add(tag, new[] { value });
             }
         }
 
-        return sb.ToString();
+        if (multi is not null)
+        {
+            foreach (var (tag, values) in multi)
+            {
+                if (!IsReservedOrSkipped(tag) && values is not null)
+                    Add(tag, values);
+            }
+        }
+
+        return pairs.Count == 0 ? UndefinedFieldPlaceholder : string.Join(';', pairs);
     }
 
     /// <summary>
-    /// Encodes a value for GFF3 column 9 (attributes) per the GFF3 Specification v1.26.
-    /// Only encodes characters required by the spec; "no other characters may be encoded."
-    /// Source: GFF3 Spec — tab (%09), newline (%0A), CR (%0D), percent (%25), control chars,
-    /// plus column 9 reserved: semicolon (%3B), equals (%3D), ampersand (%26), comma (%2C).
-    /// Spaces are explicitly allowed unencoded: "unescaped spaces are allowed within fields."
+    /// Percent-encodes a GFF3 field per the GFF3 Specification v1.26: tab (%09), newline (%0A),
+    /// CR (%0D), percent (%25) and control characters (%00–%1F, %7F) everywhere; with
+    /// <paramref name="encodeAttributeReserved"/> also the column-9 reserved characters
+    /// ';' (%3B), '=' (%3D), '&amp;' (%26), ',' (%2C). "No other characters may be encoded" —
+    /// in particular spaces stay literal ("unescaped spaces are allowed within fields").
     /// </summary>
-    private static string EncodeGff3Value(string value)
+    private static string EncodeGff3Text(string value, bool encodeAttributeReserved)
     {
         var sb = new StringBuilder(value.Length);
         foreach (char c in value)
         {
-            switch (c)
-            {
-                case '\t': sb.Append("%09"); break;
-                case '\n': sb.Append("%0A"); break;
-                case '\r': sb.Append("%0D"); break;
-                case '%': sb.Append("%25"); break;
-                case ';': sb.Append("%3B"); break;
-                case '=': sb.Append("%3D"); break;
-                case '&': sb.Append("%26"); break;
-                case ',': sb.Append("%2C"); break;
-                default:
-                    if (c < 0x20 || c == 0x7F)
-                        sb.Append($"%{(int)c:X2}");
-                    else
-                        sb.Append(c);
-                    break;
-            }
+            bool encode = c < 0x20 || c == 0x7F || c == '%'
+                || (encodeAttributeReserved && c is ';' or '=' or '&' or ',');
+            if (encode)
+                sb.Append('%').Append(((int)c).ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+            else
+                sb.Append(c);
         }
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Encodes GFF3 column 1: "IDs may contain any characters, but must escape any characters not
+    /// in the set [a-zA-Z0-9.:^*$@!+_?-|]. In particular, IDs may not contain unescaped whitespace
+    /// and must not begin with an unescaped '&gt;'" (GFF3 Spec v1.26). Characters outside the set
+    /// are written as the percent-encoded bytes of their UTF-8 form (RFC 3986 §2.1).
+    /// </summary>
+    private static string EncodeGff3Seqid(string seqId)
+    {
+        var sb = new StringBuilder(seqId.Length);
+        Span<byte> utf8 = stackalloc byte[4];
+        foreach (Rune rune in seqId.EnumerateRunes())
+        {
+            if (rune.IsAscii && IsGff3SeqidChar((char)rune.Value))
+            {
+                sb.Append((char)rune.Value);
+                continue;
+            }
+
+            int count = rune.EncodeToUtf8(utf8);
+            for (int i = 0; i < count; i++)
+                sb.Append('%').Append(utf8[i].ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+        }
+        return sb.ToString();
+    }
+
+    private static bool IsGff3SeqidChar(char c) =>
+        char.IsAsciiLetterOrDigit(c) || ".:^*$@!+_?-|".Contains(c);
 
     /// <summary>
     /// Finds bacterial σ70 promoter boxes: the −35 and −10 hexamers of every −35/−10 pair returned by the canonical
@@ -833,6 +1029,13 @@ public static class GenomeAnnotator
     private const int HexamerStepSize = 3;
 
     /// <summary>
+    /// Hexamer score returned when no in-frame hexamer is scorable: CPAT
+    /// <c>FrameKmer.kmer_ratio</c> catches the division by a zero count and
+    /// returns −1 (CPAT 3.0.5, liguowang/cpat <c>src/cpmodule/FrameKmer.py</c>).
+    /// </summary>
+    private const double NoScorableHexamerScore = -1.0;
+
+    /// <summary>
     /// Calculates the coding potential of a DNA sequence using the CPAT hexamer
     /// usage-bias log-likelihood score (Wang et al. 2013).
     /// </summary>
@@ -851,8 +1054,10 @@ public static class GenomeAnnotator
     /// <returns>
     /// The mean per-hexamer log-likelihood ratio. Positive values indicate a
     /// coding sequence, negative values a non-coding sequence. Returns 0 when the
-    /// sequence is shorter than <paramref name="wordSize"/> or when no scorable
-    /// hexamer is found.
+    /// sequence is shorter than <paramref name="wordSize"/>, and −1 when the
+    /// sequence is long enough but no in-frame hexamer is scorable (every word is
+    /// missing from a table or has both frequencies 0) — both exactly as the CPAT
+    /// reference <c>kmer_ratio</c>.
     /// </returns>
     /// <remarks>
     /// Implements <c>FrameKmer.kmer_ratio</c> (frame 0) from the CPAT reference
@@ -910,37 +1115,567 @@ public static class GenomeAnnotator
             scoredHexamers++;
         }
 
-        if (scoredHexamers == 0) return 0;
+        // kmer_ratio: `try: return sum/frame0_count  except: return -1` — when no hexamer
+        // was scored (ZeroDivisionError) the reference returns -1, and CPAT feeds that -1
+        // into its logistic model as the Hexamer feature (CPAT 3.0.5 cpmodule/FrameKmer.py).
+        if (scoredHexamers == 0) return NoScorableHexamerScore;
 
         return sumOfLogRatio / scoredHexamers;
     }
+
+    #region Fickett TESTCODE (Fickett 1982)
+
+    /// <summary>
+    /// Which Fickett TESTCODE look-up tables (and composition convention) to use.
+    /// </summary>
+    public enum FickettTableSet
+    {
+        /// <summary>
+        /// The published Fickett (1982) tables as distributed with EMBOSS <c>tcode</c>
+        /// (<c>Etcode.dat</c>, "Fickett TESTCODE data, NAR 10(17) 5303-5318"): ten position
+        /// thresholds 1.9…1.1, 0.0 and ten content thresholds 0.33…0.19, 0.17, 0.00. Base
+        /// composition is counted over A/C/G/T only, as <c>tcode_slide</c> does.
+        /// </summary>
+        Fickett1982,
+
+        /// <summary>
+        /// The table set of CPAT 3.0.5 <c>cpmodule/fickett.py</c> (<c>fickett_value</c>): identical
+        /// probabilities and weights, but the content thresholds omit 0.19
+        /// (0.33…0.21, 0.17, 0), base fractions are divided by the full sequence length, and
+        /// sequences shorter than 2 nt score 0. CPAT's prebuilt logistic models were trained on
+        /// this feature, so <see cref="PredictCodingProbability"/> uses it.
+        /// </summary>
+        Cpat,
+    }
+
+    /// <summary>Fickett (1982) three-way call for a TESTCODE value.</summary>
+    public enum FickettCodingCall
+    {
+        /// <summary>TESTCODE &lt; 0.74 — predicted non-coding.</summary>
+        NonCoding,
+
+        /// <summary>0.74 ≤ TESTCODE &lt; 0.95 — no opinion.</summary>
+        NoOpinion,
+
+        /// <summary>TESTCODE ≥ 0.95 — predicted coding.</summary>
+        Coding,
+    }
+
+    /// <summary>One EMBOSS <c>tcode</c> window: half-open 0-based [Start, End), its TESTCODE and call.</summary>
+    public readonly record struct FickettWindow(int Start, int End, double Score, FickettCodingCall Call);
+
+    // Fickett (1982) position-parameter thresholds (max/(min+1) of the per-phase counts),
+    // highest first; identical in EMBOSS Etcode.dat and CPAT fickett.py `position_para`.
+    private static readonly double[] FickettPositionThresholds =
+        { 1.9, 1.8, 1.7, 1.6, 1.5, 1.4, 1.3, 1.2, 1.1, 0.0 };
+
+    // Fickett (1982) composition-parameter thresholds (EMBOSS Etcode.dat "Content parameter values").
+    private static readonly double[] FickettContentThresholds1982 =
+        { 0.33, 0.31, 0.29, 0.27, 0.25, 0.23, 0.21, 0.19, 0.17, 0.0 };
+
+    // CPAT 3.0.5 fickett.py `content_para`: the 1982 list without 0.19 (9 entries).
+    private static readonly double[] FickettContentThresholdsCpat =
+        { 0.33, 0.31, 0.29, 0.27, 0.25, 0.23, 0.21, 0.17, 0.0 };
+
+    // Probability that a region whose parameter falls in each threshold bin is coding,
+    // indexed [base A,C,G,T][bin] (Etcode.dat ≡ CPAT position_prob / content_prob).
+    private static readonly double[][] FickettPositionProbabilities =
+    {
+        new[] { 0.94, 0.68, 0.84, 0.93, 0.58, 0.68, 0.45, 0.34, 0.20, 0.22 },
+        new[] { 0.80, 0.70, 0.70, 0.81, 0.66, 0.48, 0.51, 0.33, 0.30, 0.23 },
+        new[] { 0.90, 0.88, 0.74, 0.64, 0.53, 0.48, 0.27, 0.16, 0.08, 0.08 },
+        new[] { 0.97, 0.97, 0.91, 0.68, 0.69, 0.44, 0.54, 0.20, 0.09, 0.09 },
+    };
+
+    private static readonly double[][] FickettContentProbabilities =
+    {
+        new[] { 0.28, 0.49, 0.44, 0.55, 0.62, 0.49, 0.67, 0.65, 0.81, 0.21 },
+        new[] { 0.82, 0.64, 0.51, 0.64, 0.59, 0.59, 0.43, 0.44, 0.39, 0.31 },
+        new[] { 0.40, 0.54, 0.47, 0.64, 0.64, 0.73, 0.41, 0.41, 0.33, 0.29 },
+        new[] { 0.28, 0.24, 0.39, 0.40, 0.55, 0.75, 0.56, 0.69, 0.51, 0.58 },
+    };
+
+    // Per-base weights (A,C,G,T) for the position and composition terms.
+    private static readonly double[] FickettPositionWeights = { 0.26, 0.18, 0.31, 0.33 };
+    private static readonly double[] FickettContentWeights = { 0.11, 0.12, 0.15, 0.14 };
+
+    // Fickett (1982) decision limits, as applied by EMBOSS tcode_report.
+    private const double FickettNonCodingLimit = 0.74;
+    private const double FickettCodingLimit = 0.95;
+
+    // EMBOSS tcode.acd: window default 200 (minimum 200), step default 3 (minimum 1).
+    private const int FickettMinimumWindow = 200;
+    private const int FickettDefaultStep = 3;
+
+    // CPAT fickett_value: `if len(dna) < 2: return 0`.
+    private const int CpatFickettMinimumLength = 2;
+
+    private const string FickettBases = "ACGT";
+
+    // Probabilities × weights are products of two-decimal values: exact to 4 decimals.
+    private const int FickettScoreDecimals = 4;
+
+    /// <summary>
+    /// Computes the Fickett (1982) TESTCODE statistic of a whole sequence with the published
+    /// tables (<see cref="FickettTableSet.Fickett1982"/>).
+    /// </summary>
+    /// <param name="sequence">DNA sequence (case-insensitive).</param>
+    /// <returns>The TESTCODE value (≥ 0.95 coding, &lt; 0.74 non-coding; see <see cref="ClassifyFickettScore"/>).</returns>
+    public static double CalculateFickettScore(string sequence)
+        => CalculateFickettScore(sequence, FickettTableSet.Fickett1982);
+
+    /// <summary>
+    /// Computes the Fickett TESTCODE statistic of a whole sequence.
+    /// </summary>
+    /// <remarks>
+    /// For each base b the position parameter is <c>max(b₁,b₂,b₃)/(min(b₁,b₂,b₃)+1)</c> over the
+    /// counts of b in codon phases 1–3, and the content parameter is the fraction of b. Each
+    /// parameter is mapped to the first threshold bin it reaches (value ≥ threshold), the bin's
+    /// coding probability is multiplied by the base's weight, and the eight products are summed
+    /// (Fickett 1982, NAR 10(17):5303; EMBOSS <c>tcode_slide</c>; CPAT <c>fickett_value</c>).
+    /// <see cref="FickettTableSet.Fickett1982"/> counts composition over A/C/G/T (EMBOSS) and
+    /// returns 0 for a sequence with no A/C/G/T (no composition information).
+    /// <see cref="FickettTableSet.Cpat"/> reproduces CPAT verbatim (see the enum member).
+    /// </remarks>
+    /// <param name="sequence">DNA sequence (case-insensitive).</param>
+    /// <param name="tables">Table set / convention.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tables"/> is not a defined value.</exception>
+    public static double CalculateFickettScore(string sequence, FickettTableSet tables)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return tables switch
+        {
+            FickettTableSet.Fickett1982 => FickettScore(sequence.AsSpan(), FickettContentThresholds1982, cpatConvention: false),
+            FickettTableSet.Cpat => FickettScore(sequence.AsSpan(), FickettContentThresholdsCpat, cpatConvention: true),
+            _ => throw new ArgumentOutOfRangeException(nameof(tables), tables, "Unknown Fickett table set."),
+        };
+    }
+
+    /// <summary>
+    /// Fickett (1982) decision for a TESTCODE value: &lt; 0.74 non-coding, ≥ 0.95 coding,
+    /// otherwise no opinion (EMBOSS <c>tcode_report</c>).
+    /// </summary>
+    public static FickettCodingCall ClassifyFickettScore(double score)
+    {
+        if (score < FickettNonCodingLimit) return FickettCodingCall.NonCoding;
+        if (score >= FickettCodingLimit) return FickettCodingCall.Coding;
+        return FickettCodingCall.NoOpinion;
+    }
+
+    /// <summary>
+    /// Slides a window along the sequence and reports the Fickett (1982) TESTCODE of each
+    /// window, as EMBOSS <c>tcode</c>: windows start at 0, 0+step, … while
+    /// <c>start + window &lt; length</c> (EMBOSS's strict loop bound, so the window that would end
+    /// exactly at the sequence end is not scored), using the <see cref="FickettTableSet.Fickett1982"/> tables.
+    /// </summary>
+    /// <param name="sequence">DNA sequence (case-insensitive).</param>
+    /// <param name="windowSize">Window length; at least 200 (EMBOSS / Fickett minimum).</param>
+    /// <param name="stepSize">Window step (default 3, minimum 1).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">window &lt; 200 or step &lt; 1.</exception>
+    public static IReadOnlyList<FickettWindow> ScanFickettScore(
+        string sequence,
+        int windowSize = FickettMinimumWindow,
+        int stepSize = FickettDefaultStep)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, FickettMinimumWindow);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stepSize);
+
+        var windows = new List<FickettWindow>();
+        for (int pos = 0; pos + windowSize < sequence.Length; pos += stepSize)
+        {
+            double score = FickettScore(sequence.AsSpan(pos, windowSize), FickettContentThresholds1982, cpatConvention: false);
+            windows.Add(new FickettWindow(pos, pos + windowSize, score, ClassifyFickettScore(score)));
+        }
+
+        return windows;
+    }
+
+    private static double FickettScore(ReadOnlySpan<char> sequence, double[] contentThresholds, bool cpatConvention)
+    {
+        if (cpatConvention && sequence.Length < CpatFickettMinimumLength) return 0;
+
+        // counts[phase, base]
+        Span<int> counts = stackalloc int[3 * 4];
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            int b = FickettBases.IndexOf(char.ToUpperInvariant(sequence[i]));
+            if (b >= 0) counts[(i % 3) * 4 + b]++;
+        }
+
+        int acgt = 0;
+        for (int k = 0; k < counts.Length; k++) acgt += counts[k];
+        if (!cpatConvention && acgt == 0) return 0;
+
+        // CPAT divides by len(dna) (all characters); EMBOSS by the A/C/G/T total.
+        double denominator = cpatConvention ? sequence.Length : acgt;
+
+        Span<double> contentTerms = stackalloc double[4];
+        Span<double> positionTerms = stackalloc double[4];
+        for (int b = 0; b < 4; b++)
+        {
+            int c0 = counts[b], c1 = counts[4 + b], c2 = counts[8 + b];
+            double content = (c0 + c1 + c2) / denominator;
+            double position = Math.Max(c0, Math.Max(c1, c2)) / (Math.Min(c0, Math.Min(c1, c2)) + 1.0);
+
+            contentTerms[b] = FickettContentProbabilities[b][FickettBin(content, contentThresholds)] * FickettContentWeights[b];
+            positionTerms[b] = FickettPositionProbabilities[b][FickettBin(position, FickettPositionThresholds)] * FickettPositionWeights[b];
+        }
+
+        // Summation order of the references (bit-exact): EMBOSS testcode = p1..p4 (position)
+        // + p5..p8 (content); CPAT adds the four content terms first, then the position terms.
+        Span<double> first = cpatConvention ? contentTerms : positionTerms;
+        Span<double> second = cpatConvention ? positionTerms : contentTerms;
+        double score = 0;
+        for (int b = 0; b < 4; b++) score += first[b];
+        for (int b = 0; b < 4; b++) score += second[b];
+
+        // Every probability and weight has two decimals, so the exact TESTCODE is a multiple of
+        // 1e-4. The published statistic is returned as that exact value (nearest double), so the
+        // 0.74 / 0.95 decision limits are applied without floating-point summation noise. The CPAT
+        // feature keeps CPAT's raw float sum (bit-exact with fickett_value).
+        return cpatConvention ? score : Math.Round(score, FickettScoreDecimals);
+    }
+
+    // First bin whose threshold the value reaches (EMBOSS tcode_index / CPAT look_up_*_prob).
+    private static int FickettBin(double value, double[] thresholds)
+    {
+        for (int i = 0; i < thresholds.Length; i++)
+            if (value >= thresholds[i]) return i;
+        return thresholds.Length - 1; // unreachable for value ≥ 0 (last threshold is 0)
+    }
+
+    #endregion
+
+    #region CPAT coding probability (Wang et al. 2013)
+
+    /// <summary>
+    /// A CPAT model: in-frame hexamer frequency tables plus the logistic-regression
+    /// coefficients of <c>Label ~ mRNA + ORF + Fickett + Hexamer</c> (CPAT <c>make_logitModel</c>)
+    /// and the coding-probability cutoff.
+    /// </summary>
+    /// <remarks>
+    /// CPAT's prebuilt Human/Mouse/Fly/Zebrafish tables and models are distributed under the GNU
+    /// GPL (CPAT <c>LICENSE.txt</c>) and are therefore not bundled with this MIT library; load
+    /// them with <see cref="ParseHexamerTable"/> and the coefficients printed by
+    /// <c>coef(mylogit)</c> (the Human values are listed in the ANNOT-CODING-001 Evidence).
+    /// </remarks>
+    public sealed class CpatModel
+    {
+        /// <summary>Creates a model.</summary>
+        /// <exception cref="ArgumentNullException">A table is null.</exception>
+        /// <exception cref="ArgumentException">A coefficient or the cutoff is not finite, or the cutoff is outside [0, 1].</exception>
+        public CpatModel(
+            IReadOnlyDictionary<string, double> codingHexamerFrequencies,
+            IReadOnlyDictionary<string, double> noncodingHexamerFrequencies,
+            double intercept,
+            double mrnaLengthCoefficient,
+            double orfLengthCoefficient,
+            double fickettCoefficient,
+            double hexamerCoefficient,
+            double codingProbabilityCutoff)
+        {
+            ArgumentNullException.ThrowIfNull(codingHexamerFrequencies);
+            ArgumentNullException.ThrowIfNull(noncodingHexamerFrequencies);
+            foreach (double v in new[] { intercept, mrnaLengthCoefficient, orfLengthCoefficient, fickettCoefficient, hexamerCoefficient })
+                if (!double.IsFinite(v)) throw new ArgumentException("Logistic coefficients must be finite.");
+            if (!double.IsFinite(codingProbabilityCutoff) || codingProbabilityCutoff < 0 || codingProbabilityCutoff > 1)
+                throw new ArgumentException("Coding-probability cutoff must lie in [0, 1].", nameof(codingProbabilityCutoff));
+
+            CodingHexamerFrequencies = codingHexamerFrequencies;
+            NoncodingHexamerFrequencies = noncodingHexamerFrequencies;
+            Intercept = intercept;
+            MrnaLengthCoefficient = mrnaLengthCoefficient;
+            OrfLengthCoefficient = orfLengthCoefficient;
+            FickettCoefficient = fickettCoefficient;
+            HexamerCoefficient = hexamerCoefficient;
+            CodingProbabilityCutoff = codingProbabilityCutoff;
+        }
+
+        /// <summary>In-frame hexamer frequencies of the coding training set.</summary>
+        public IReadOnlyDictionary<string, double> CodingHexamerFrequencies { get; }
+
+        /// <summary>In-frame hexamer frequencies of the non-coding training set.</summary>
+        public IReadOnlyDictionary<string, double> NoncodingHexamerFrequencies { get; }
+
+        /// <summary>Logistic intercept.</summary>
+        public double Intercept { get; }
+
+        /// <summary>Coefficient of the transcript (mRNA) length.</summary>
+        public double MrnaLengthCoefficient { get; }
+
+        /// <summary>Coefficient of the ORF length (nt, stop codon included).</summary>
+        public double OrfLengthCoefficient { get; }
+
+        /// <summary>Coefficient of the Fickett TESTCODE (CPAT table set).</summary>
+        public double FickettCoefficient { get; }
+
+        /// <summary>Coefficient of the hexamer score.</summary>
+        public double HexamerCoefficient { get; }
+
+        /// <summary>Coding probability at or above which a transcript is called coding (CPAT TG-ROC cutoff).</summary>
+        public double CodingProbabilityCutoff { get; }
+
+        /// <summary>
+        /// Logistic response <c>1/(1+e^−η)</c>, η = intercept + Σ coefficient·feature — R
+        /// <c>predict(mylogit, newdata, type="response")</c> as called by CPAT <c>coding_prediction</c>.
+        /// </summary>
+        public double PredictProbability(int mrnaLength, int orfLength, double fickettScore, double hexamerScore)
+        {
+            double eta = Intercept
+                + MrnaLengthCoefficient * mrnaLength
+                + OrfLengthCoefficient * orfLength
+                + FickettCoefficient * fickettScore
+                + HexamerCoefficient * hexamerScore;
+            return 1.0 / (1.0 + Math.Exp(-eta));
+        }
+
+        /// <summary>
+        /// Parses a CPAT hexamer table (<c>make_hexamer_tab</c> output / <c>*_Hexamer.tsv</c>):
+        /// whitespace-separated <c>hexamer coding noncoding</c> rows, the header row whose first
+        /// field is <c>hexamer</c> skipped, as CPAT's reader. Blank lines are skipped.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="lines"/> is null.</exception>
+        /// <exception cref="FormatException">A row has fewer than three fields or a non-numeric frequency.</exception>
+        public static (IReadOnlyDictionary<string, double> Coding, IReadOnlyDictionary<string, double> Noncoding)
+            ParseHexamerTable(IEnumerable<string> lines)
+        {
+            ArgumentNullException.ThrowIfNull(lines);
+            var coding = new Dictionary<string, double>(StringComparer.Ordinal);
+            var noncoding = new Dictionary<string, double>(StringComparer.Ordinal);
+            foreach (string raw in lines)
+            {
+                string[] fields = raw.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (fields.Length == 0 || fields[0] == "hexamer") continue;
+                if (fields.Length < 3)
+                    throw new FormatException($"CPAT hexamer row needs 'hexamer coding noncoding': '{raw}'.");
+                coding[fields[0]] = double.Parse(fields[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
+                noncoding[fields[0]] = double.Parse(fields[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            return (coding, noncoding);
+        }
+    }
+
+    /// <summary>CPAT ORF-search options (defaults = CPAT 3.0.5 command-line defaults).</summary>
+    public sealed record CpatOptions
+    {
+        /// <summary>Start codons (<c>--start</c>, default ATG). Empty: any non-stop codon opens an ORF.</summary>
+        public IReadOnlyList<string> StartCodons { get; init; } = new[] { "ATG" };
+
+        /// <summary>Stop codons (<c>--stop</c>, default TAG, TAA, TGA).</summary>
+        public IReadOnlyList<string> StopCodons { get; init; } = new[] { "TAG", "TAA", "TGA" };
+
+        /// <summary>An ORF is kept when its length in nt (stop included) is strictly greater than this (<c>--min-orf</c>, default 75).</summary>
+        public int MinOrfLength { get; init; } = 75;
+
+        /// <summary>Number of longest ORF candidates scored (<c>--top-orf</c>, default 5).</summary>
+        public int TopOrfCount { get; init; } = 5;
+
+        /// <summary>Also search the reverse complement (<c>--antisense</c>, default false).</summary>
+        public bool SearchAntisense { get; init; }
+    }
+
+    /// <summary>
+    /// One scored CPAT ORF candidate. Coordinates follow CPAT's <c>ORF_info</c> output: 1-based on the
+    /// input transcript; for '+' <c>Start</c> ≤ <c>End</c>, for '−' <c>Start</c> &gt; <c>End</c>
+    /// (CPAT reports the antisense ORF from its 5' end). <c>Frame</c> is 1–3 on the searched strand.
+    /// </summary>
+    public sealed record CpatOrfPrediction(
+        char Strand,
+        int Frame,
+        int Start,
+        int End,
+        int OrfLength,
+        string OrfSequence,
+        int MrnaLength,
+        double FickettScore,
+        double HexamerScore,
+        double CodingProbability,
+        bool IsCoding);
+
+    /// <summary>
+    /// CPAT (Wang et al. 2013, CPAT 3.0.5): finds ORF candidates, scores each with ORF length,
+    /// transcript length, Fickett TESTCODE (<see cref="FickettTableSet.Cpat"/>) and the hexamer
+    /// score (<see cref="CalculateCodingPotential"/>), and returns their logistic coding probabilities.
+    /// </summary>
+    /// <remarks>
+    /// ORF search is CPAT <c>ORFFinder</c>: per frame (0,1,2 of the sense strand, then of the reverse
+    /// complement when <see cref="CpatOptions.SearchAntisense"/>), codons are read left to right; a start
+    /// codon opens an ORF that runs to and includes the next in-frame stop codon, or to the last complete
+    /// codon when none follows; scanning resumes after it, so nested starts are not separate ORFs. ORFs
+    /// longer than <see cref="CpatOptions.MinOrfLength"/> nt are ranked by length (stable, sense frames
+    /// first) and the top <see cref="CpatOptions.TopOrfCount"/> are scored. This differs from
+    /// <see cref="FindOrfs"/> (every nested ATG/GTG/TTG start, stop-terminated ORFs only), so it is a
+    /// separate scanner. CPAT: Wang L et al. (2013) NAR 41(6):e74, https://doi.org/10.1093/nar/gkt006.
+    /// </remarks>
+    /// <param name="transcript">Transcript DNA sequence (case-insensitive; use T, not U).</param>
+    /// <param name="model">Hexamer tables + logistic model.</param>
+    /// <param name="options">ORF-search options (CPAT defaults when null).</param>
+    /// <returns>The scored candidates in CPAT order (longest first); empty when no ORF qualifies.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="transcript"/> or <paramref name="model"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">MinOrfLength &lt; 0 or TopOrfCount &lt; 1.</exception>
+    public static IReadOnlyList<CpatOrfPrediction> PredictCodingProbability(
+        string transcript,
+        CpatModel model,
+        CpatOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+        ArgumentNullException.ThrowIfNull(model);
+        options ??= new CpatOptions();
+        ArgumentNullException.ThrowIfNull(options.StartCodons);
+        ArgumentNullException.ThrowIfNull(options.StopCodons);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.MinOrfLength);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.TopOrfCount);
+
+        string seq = transcript.ToUpperInvariant();
+        var starts = new HashSet<string>(options.StartCodons.Select(c => c.ToUpperInvariant()), StringComparer.Ordinal);
+        var stops = new HashSet<string>(options.StopCodons.Select(c => c.ToUpperInvariant()), StringComparer.Ordinal);
+
+        var candidates = new List<(char Strand, int Frame, int Start, int End, string Sequence)>();
+        for (int frame = 0; frame < 3; frame++)
+            FindCpatOrfsInFrame(seq, frame, '+', starts, stops, options.MinOrfLength, candidates);
+        if (options.SearchAntisense)
+        {
+            string reverse = DnaSequence.GetReverseComplementString(seq);
+            for (int frame = 0; frame < 3; frame++)
+                FindCpatOrfsInFrame(reverse, frame, '-', starts, stops, options.MinOrfLength, candidates);
+        }
+
+        int mrnaLength = seq.Length;
+        var predictions = new List<CpatOrfPrediction>();
+        // Python sorted(..., key=length, reverse=True) is stable: OrderByDescending is too.
+        foreach (var orf in candidates.OrderByDescending(o => o.Sequence.Length).Take(options.TopOrfCount))
+        {
+            double fickett = CalculateFickettScore(orf.Sequence, FickettTableSet.Cpat);
+            double hexamer = CalculateCodingPotential(orf.Sequence, model.CodingHexamerFrequencies, model.NoncodingHexamerFrequencies);
+            int orfLength = orf.Sequence.Length;
+            double probability = model.PredictProbability(mrnaLength, orfLength, fickett, hexamer);
+
+            // CPAT reports 1-based coordinates: '+' → (start+1, end); '−' → (L − start, L − end + 1).
+            (int start, int end) = orf.Strand == '+'
+                ? (orf.Start + 1, orf.End)
+                : (mrnaLength - orf.Start, mrnaLength - orf.End + 1);
+
+            predictions.Add(new CpatOrfPrediction(
+                orf.Strand, orf.Frame, start, end, orfLength, orf.Sequence, mrnaLength,
+                fickett, hexamer, probability, probability >= model.CodingProbabilityCutoff));
+        }
+
+        return predictions;
+    }
+
+    /// <summary>
+    /// CPAT best ORF of a transcript (<c>ORF_prob.best.tsv</c>): among the scored candidates the
+    /// one with the highest coding probability (CPAT <c>--best-orf p</c>, default) or the longest
+    /// (<c>--best-orf l</c>); ties keep the earlier candidate. Null when no ORF qualifies.
+    /// </summary>
+    public static CpatOrfPrediction? PredictBestCodingOrf(
+        string transcript,
+        CpatModel model,
+        CpatOptions? options = null,
+        bool selectByLength = false)
+    {
+        CpatOrfPrediction? best = null;
+        foreach (var candidate in PredictCodingProbability(transcript, model, options))
+        {
+            if (best is null
+                || (selectByLength ? candidate.OrfLength > best.OrfLength : candidate.CodingProbability > best.CodingProbability))
+                best = candidate;
+        }
+
+        return best;
+    }
+
+    // CPAT find_orfs.ORFFinder.run_one for one frame of one strand.
+    private static void FindCpatOrfsInFrame(
+        string seq,
+        int frame,
+        char strand,
+        HashSet<string> starts,
+        HashSet<string> stops,
+        int minOrfLength,
+        List<(char Strand, int Frame, int Start, int End, string Sequence)> result)
+    {
+        int i = frame;
+        while (i + CodonLength <= seq.Length)
+        {
+            string codon = seq.Substring(i, CodonLength);
+            int orfStart = i;
+            i += CodonLength;
+
+            bool opens = starts.Count > 0 ? starts.Contains(codon) : !stops.Contains(codon);
+            if (!opens) continue;
+
+            // Read to the next stop (inclusive) or to the last complete codon.
+            int lastCodon = orfStart;
+            while (i + CodonLength <= seq.Length)
+            {
+                lastCodon = i;
+                bool isStop = stops.Contains(seq.Substring(i, CodonLength));
+                i += CodonLength;
+                if (isStop) break;
+            }
+
+            int orfEnd = lastCodon + CodonLength;
+            if (orfEnd - orfStart > minOrfLength)
+                result.Add((strand, frame + 1, orfStart, orfEnd, seq.Substring(orfStart, orfEnd - orfStart)));
+        }
+    }
+
+    #endregion
 
     // Tandem-repeat unit upper bound. Microsatellite (STR) motifs are 1-6 bp and
     // minisatellite (VNTR) motifs 10-60 bp per Wikipedia "Tandem repeat" (cites
     // Duitama et al. 2014, Nucleic Acids Res 42(9):5728-5741). 60 bp covers both.
     private const int MaxTandemUnitLength = 60;
 
-    // Inverted-repeat arm upper bound (each arm of the WGW^R stem). Bounded for
-    // tractability of the O(n^2) scan; arms beyond this are not reported.
+    // Inverted-repeat arm upper bound: EMBOSS palindrome -maxpallen default (palindrome.acd) and
+    // IUPACpal -M max_len default (Hampson et al. 2021, README) are both 100. Semantics are those of
+    // EMBOSS -maxpallen: a longer stem is not reported and is not split into shorter pieces.
     private const int MaxInvertedArmLength = 100;
 
-    // Default maximum gap (loop/spacer length |G|) between inverted-repeat arms.
-    // The IUPACpal definition allows |G| >= 0 (Hampson et al. 2021); the cited
-    // hairpin/stem-loop literature uses loops up to ~50 nt, matching the repo's
-    // RepeatFinder default loop bound.
-    private const int DefaultMaxInvertedGap = 50;
+    // Maximum gap (loop/spacer |G|) between inverted-repeat arms: EMBOSS palindrome -gaplimit default
+    // (palindrome.acd) and IUPACpal -g max_gap default (README) are both 100; |G| >= 0 (WGW^R, Hampson 2021).
+    private const int DefaultMaxInvertedGap = 100;
+
+    // Shortest stem RepeatFinder.FindInvertedRepeats accepts (minArmLength >= 2).
+    private const int MinInvertedArmLength = 2;
 
     /// <summary>
-    /// Finds repetitive elements in a DNA sequence: tandem repeats (head-to-tail
-    /// consecutive copies of a primitive motif) and inverted repeats (a sequence
-    /// followed downstream by its reverse complement, form WGW^R).
+    /// Finds repetitive elements in a DNA sequence: exact tandem repeats (head-to-tail
+    /// consecutive copies of a primitive motif) and exact inverted repeats (a sequence
+    /// followed downstream by its reverse complement, form WGW̄ᴿ).
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Tandem repeats</b> are the maximal perfect runs of every period p = 1..60 (Kolpakov &amp; Kucherov 1999;
+    /// the MISA / pytrf convention) computed by the canonical
+    /// <see cref="Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(string,int,int,int)"/>: each run is
+    /// reported once, at its left end, with its primitive A/C/G/T unit and its complete copies only
+    /// (<c>end − start = copies·p</c>, copies ≥ <paramref name="minCopies"/>, span ≥ <paramref name="minRepeatLength"/>);
+    /// rotations of a run, non-primitive units and runs of N are not reported. Runs of different periods may overlap.
+    /// </para>
+    /// <para>
+    /// <b>Inverted repeats</b> are the maximal exact stems of
+    /// <see cref="Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(string,int,int,int,int,int,bool)"/>
+    /// with arm ≥ max(<paramref name="minRepeatLength"/>, 2), arm ≤ max(100, that minimum), loop 0..100 — the result
+    /// set of EMBOSS <c>palindrome -minpallen m -maxpallen 100 -gaplimit 100 -nummismatches 0 -overlap Y</c>
+    /// (the EMBOSS and IUPACpal default limits). Only A/C/G/T pair (A·T, C·G); sub-stems inside a longer stem are not
+    /// reported. For inverted repeats <paramref name="minRepeatLength"/> is the minimum <b>arm</b> length.
+    /// </para>
+    /// <para>Tandem repeats come first (by period, then start), then inverted repeats (by left-arm start, then
+    /// right-arm start).</para>
+    /// </remarks>
     /// <param name="dnaSequence">DNA sequence to scan (case-insensitive).</param>
-    /// <param name="minRepeatLength">Minimum total span (bp) of a reported element.</param>
+    /// <param name="minRepeatLength">Minimum total span (bp) of a tandem repeat and minimum arm length of an inverted repeat.</param>
     /// <param name="minCopies">Minimum number of adjacent copies for a tandem repeat (>= 2).</param>
     /// <returns>
     /// Tuples of (start, end, type, sequence) where start is 0-based inclusive,
-    /// end is exclusive, and type is "tandem_repeat" or "inverted_repeat".
+    /// end is exclusive, and type is "tandem_repeat" or "inverted_repeat". The inverted-repeat sequence is
+    /// <c>leftArm + rightArm</c> (loop 0) or <c>leftArm[loop]rightArm</c>.
     /// </returns>
     /// <exception cref="ArgumentNullException">dnaSequence is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">minRepeatLength &lt; 1 or minCopies &lt; 2.</exception>
@@ -950,7 +1685,7 @@ public static class GenomeAnnotator
         int minCopies = 2)
     {
         ArgumentNullException.ThrowIfNull(dnaSequence);
-        // A tandem repeat requires "two or more" adjacent copies (Wikipedia: Tandem repeat).
+        // A tandem repeat requires "two or more" adjacent copies (Benson 1999).
         ArgumentOutOfRangeException.ThrowIfLessThan(minCopies, 2);
         ArgumentOutOfRangeException.ThrowIfLessThan(minRepeatLength, 1);
 
@@ -967,133 +1702,38 @@ public static class GenomeAnnotator
 
         string sequence = dnaSequence.ToUpperInvariant();
 
-        foreach (var repeat in FindTandemRepeats(sequence, minRepeatLength, minCopies))
-            yield return repeat;
-
-        foreach (var repeat in FindInvertedRepeats(sequence, minRepeatLength, DefaultMaxInvertedGap))
-            yield return repeat;
-    }
-
-    private static IEnumerable<(int start, int end, string type, string sequence)> FindTandemRepeats(
-        string sequence,
-        int minLength,
-        int minCopies)
-    {
-        // Span de-duplication: a single maximal tandem array can be discovered from
-        // several start/unit-length combinations (e.g. AAAAAA via unit "A" or "AA").
-        // We report each maximal array once, using its primitive (shortest) period.
-        var reported = new HashSet<(int Start, int End)>();
-
-        for (int unitLen = 1; unitLen <= sequence.Length / minCopies && unitLen <= MaxTandemUnitLength; unitLen++)
+        foreach (var run in Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(
+                     sequence, 1, MaxTandemUnitLength, minCopies))
         {
-            int lastStart = sequence.Length - unitLen * minCopies;
-            for (int start = 0; start <= lastStart; start++)
-            {
-                string unit = sequence.Substring(start, unitLen);
-
-                // Only consider primitive units: a unit that is itself a tandem array
-                // of a shorter period (e.g. "AA" = "A"x2) double-counts. Skip it so the
-                // primitive period is the one reported (Wikipedia: non-primitive corner case).
-                if (!IsPrimitive(unit))
-                    continue;
-
-                int copies = 1;
-                int pos = start + unitLen;
-                while (pos + unitLen <= sequence.Length &&
-                       string.CompareOrdinal(sequence, pos, sequence, start, unitLen) == 0)
-                {
-                    copies++;
-                    pos += unitLen;
-                }
-
-                if (copies < minCopies)
-                    continue;
-
-                int end = start + unitLen * copies;
-                if (end - start < minLength)
-                    continue;
-
-                // Only report a left-maximal array: if the previous unit-length block
-                // equals the unit, this array was already counted from an earlier start.
-                if (start - unitLen >= 0 &&
-                    string.CompareOrdinal(sequence, start - unitLen, sequence, start, unitLen) == 0)
-                    continue;
-
-                if (reported.Add((start, end)))
-                {
-                    string repeatSeq = sequence.Substring(start, end - start);
-                    yield return (start, end, "tandem_repeat", repeatSeq);
-                }
-            }
+            if (run.TotalLength < minRepeatLength)
+                continue;
+            yield return (run.Position, run.Position + run.TotalLength, "tandem_repeat",
+                sequence.Substring(run.Position, run.TotalLength));
         }
-    }
 
-    /// <summary>
-    /// Returns true if <paramref name="unit"/> is primitive (not itself a tandem
-    /// repeat of a shorter period). "ATAT" is not primitive ("AT"x2); "AT" is.
-    /// </summary>
-    private static bool IsPrimitive(string unit)
-    {
-        int n = unit.Length;
-        for (int period = 1; period <= n / 2; period++)
+        int minArm = Math.Max(minRepeatLength, MinInvertedArmLength);
+        foreach (var stem in Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(
+                     sequence, minArm, DefaultMaxInvertedGap, minLoopLength: 0,
+                     maxArmLength: Math.Max(MaxInvertedArmLength, minArm)))
         {
-            if (n % period != 0) continue;
-            bool isRepeat = true;
-            for (int i = period; i < n; i++)
-            {
-                if (unit[i] != unit[i % period]) { isRepeat = false; break; }
-            }
-            if (isRepeat) return false;
-        }
-        return true;
-    }
-
-    private static IEnumerable<(int start, int end, string type, string sequence)> FindInvertedRepeats(
-        string sequence,
-        int minArmLength,
-        int maxGap)
-    {
-        // Inverted repeat = left arm W followed by gap G (|G|>=0) then right arm W^R
-        // (reverse complement of W). Per Hampson et al. (2021): form WGW^R.
-        var reported = new HashSet<(int Start, int End)>();
-
-        for (int i = 0; i + minArmLength * 2 <= sequence.Length; i++)
-        {
-            int maxLen = Math.Min(MaxInvertedArmLength, (sequence.Length - i) / 2);
-            for (int len = minArmLength; len <= maxLen; len++)
-            {
-                string arm1 = sequence.Substring(i, len);
-                string arm1RevComp = DnaSequence.GetReverseComplementString(arm1);
-
-                // Right arm must start after the left arm plus a gap of 0..maxGap.
-                int firstRight = i + len;
-                int lastRight = Math.Min(sequence.Length - len, firstRight + maxGap);
-                for (int j = firstRight; j <= lastRight; j++)
-                {
-                    if (string.CompareOrdinal(sequence, j, arm1RevComp, 0, len) != 0)
-                        continue;
-
-                    int end = j + len;
-                    if (!reported.Add((i, end)))
-                        continue;
-
-                    string gap = sequence.Substring(firstRight, j - firstRight);
-                    string arm2 = sequence.Substring(j, len);
-                    string composite = gap.Length == 0 ? arm1 + arm2 : arm1 + "[" + gap + "]" + arm2;
-                    yield return (i, end, "inverted_repeat", composite);
-                }
-            }
+            string composite = stem.LoopLength == 0
+                ? stem.LeftArm + stem.RightArm
+                : stem.LeftArm + "[" + stem.Loop + "]" + stem.RightArm;
+            yield return (stem.LeftArmStart, stem.RightArmStart + stem.ArmLength, "inverted_repeat", composite);
         }
     }
 
     /// <summary>
     /// Classifies a repeat sequence against a repeat-element library, mirroring the
     /// RepeatMasker convention of screening the query for occurrences of known
-    /// library elements and assigning the class of the best (longest) match. Matching
-    /// here is exact substring containment of a library element within the query
-    /// (the query is a region harbouring the known repeat); when no library entry
-    /// matches, the query falls back to a simple-repeat class by primitive motif
-    /// size (STR 1-6 bp) or "Unknown".
+    /// library elements on <b>both strands</b> (RepeatMasker reports matches in "+" or
+    /// "C" = complement orientation) and assigning the class of the best (longest) match.
+    /// Matching is exact containment of a library element, or of its reverse complement,
+    /// within the query; for scored (Smith-Waterman-Gotoh) homology use
+    /// <see cref="ClassifyRepeat(string, IReadOnlyDictionary{string, string}, ScoringMatrix, int)"/>.
+    /// When no library entry matches, the query falls back to "Simple_repeat" when it is a
+    /// perfect tandem repeat (≥ 2 complete copies, whole query) of a primitive A/C/G/T motif
+    /// of 1-6 bp, else "Unknown".
     /// </summary>
     /// <param name="sequence">Repeat sequence to classify (case-insensitive).</param>
     /// <param name="repeatDb">
@@ -1112,84 +1752,122 @@ public static class GenomeAnnotator
 
         string query = sequence.ToUpperInvariant();
 
-        // Best library match: prefer the longest known element that occurs within the
-        // query — approximates RepeatMasker's model of screening a query sequence for
-        // occurrences of known repeat elements and reporting the best match. Matching
-        // is one-directional (element ⊆ query): a query that merely is a *substring of*
-        // a longer consensus is not a meaningful match (e.g. a single base "A" must not
-        // be classified as a SINE just because an Alu consensus happens to contain an A).
+        // Best library match: the longest known element that occurs within the query on either
+        // strand. Matching is one-directional (element ⊆ query): a query that merely is a
+        // *substring of* a longer consensus is not an occurrence of that element.
         string? bestClass = null;
         int bestLen = -1;
         foreach (var entry in repeatDb)
         {
             string element = entry.Key.ToUpperInvariant();
-            if (element.Length == 0) continue;
-            bool matches = query.Contains(element, StringComparison.Ordinal);
-            if (matches && element.Length > bestLen)
+            if (element.Length == 0 || element.Length <= bestLen) continue;
+            if (query.Contains(element, StringComparison.Ordinal) ||
+                query.Contains(DnaSequence.GetReverseComplementString(element), StringComparison.Ordinal))
             {
                 bestLen = element.Length;
                 bestClass = entry.Value;
             }
         }
 
-        if (bestClass is not null)
-            return bestClass;
+        return bestClass ?? SimpleRepeatOrUnknown(query);
+    }
 
-        // No library match: if the query is a tandem repeat of a short primitive
-        // motif (1-6 bp), it is a simple repeat (microsatellite); otherwise Unknown.
-        return IsSimpleRepeat(query) ? SimpleRepeatClass : UnknownClass;
+    /// <summary>
+    /// Classifies a repeat sequence by scored homology to a repeat-element library — the RepeatMasker /
+    /// cross_match model: Smith-Waterman-Gotoh local alignment of the query against every library element on
+    /// both strands ("+" and "C"), keeping the best-scoring match whose score reaches
+    /// <paramref name="minScore"/> (RepeatMasker <c>-cutoff</c>). Alignment is the canonical
+    /// <see cref="Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(string, string, ScoringMatrix?)"/>
+    /// (gap of length k scores <c>GapOpen + k·GapExtend</c>). Ties on score go to the longer element, then to the
+    /// first in enumeration order. Without a match the fallback is the same as
+    /// <see cref="ClassifyRepeat(string, IReadOnlyDictionary{string, string})"/> (Simple_repeat / Unknown).
+    /// </summary>
+    /// <remarks>
+    /// RepeatMasker's own nucleotide matrices (GC-dependent, transition/transversion-specific) and its
+    /// complexity-adjusted score are not reproduced: <see cref="ScoringMatrix"/> is a match/mismatch scheme, and the
+    /// scoring scheme and cutoff are the caller's choice (no default is implied).
+    /// </remarks>
+    /// <param name="sequence">Repeat sequence to classify (case-insensitive).</param>
+    /// <param name="repeatDb">Library: element sequence → class label.</param>
+    /// <param name="scoring">Match / mismatch / affine gap scores.</param>
+    /// <param name="minScore">Minimum local-alignment score for a library match (≥ 1).</param>
+    /// <returns>The class label of the best-scoring library entry, or a fallback class.</returns>
+    /// <exception cref="ArgumentNullException">sequence, repeatDb or scoring is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">minScore &lt; 1.</exception>
+    public static string ClassifyRepeat(
+        string sequence,
+        IReadOnlyDictionary<string, string> repeatDb,
+        ScoringMatrix scoring,
+        int minScore)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(repeatDb);
+        ArgumentNullException.ThrowIfNull(scoring);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minScore, 1);
+
+        if (sequence.Length == 0)
+            return SimpleRepeatClass;
+
+        string query = sequence.ToUpperInvariant();
+
+        string? bestClass = null;
+        int bestScore = minScore - 1;
+        int bestLen = -1;
+        foreach (var entry in repeatDb)
+        {
+            string element = entry.Key.ToUpperInvariant();
+            if (element.Length == 0) continue;
+            int score = Math.Max(
+                Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(query, element, scoring).Score,
+                Seqeron.Genomics.Alignment.SequenceAligner.LocalAlignAffine(
+                    query, DnaSequence.GetReverseComplementString(element), scoring).Score);
+            if (score > bestScore || (score == bestScore && bestClass is not null && element.Length > bestLen))
+            {
+                bestScore = score;
+                bestLen = element.Length;
+                bestClass = entry.Value;
+            }
+        }
+
+        return bestClass ?? SimpleRepeatOrUnknown(query);
     }
 
     // RepeatMasker output class labels (Smit/Hubley/Green; Repbase Update).
     private const string SimpleRepeatClass = "Simple_repeat";
     private const string UnknownClass = "Unknown";
 
-    // STR/microsatellite motifs are 1-6 bp (Wikipedia: Tandem repeat).
+    // STR/microsatellite motifs are 1-6 bp (Tóth et al. 2000).
     private const int MaxSimpleRepeatMotif = 6;
 
     /// <summary>
-    /// True if <paramref name="query"/> is a perfect tandem repeat of a primitive
-    /// motif of length 1-6 bp (a microsatellite / simple repeat).
+    /// "Simple_repeat" when the whole (upper-case) query is one perfect run of ≥ 2 complete copies of a primitive
+    /// A/C/G/T motif of 1-6 bp (canonical <see cref="Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(string,int,int,int)"/>),
+    /// else "Unknown".
     /// </summary>
-    private static bool IsSimpleRepeat(string query)
-    {
-        int n = query.Length;
-        for (int period = 1; period <= MaxSimpleRepeatMotif && period <= n / 2; period++)
-        {
-            if (n % period != 0) continue;
-            bool isRepeat = true;
-            for (int i = period; i < n; i++)
-            {
-                if (query[i] != query[i % period]) { isRepeat = false; break; }
-            }
-            if (isRepeat) return true;
-        }
-        return false;
-    }
+    private static string SimpleRepeatOrUnknown(string query) =>
+        Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(query, 1, MaxSimpleRepeatMotif, 2)
+            .Any(run => run.Position == 0 && run.TotalLength == query.Length)
+            ? SimpleRepeatClass
+            : UnknownClass;
 
     /// <summary>
-    /// Calculates codon usage statistics for a sequence.
+    /// Counts the complete, unambiguous in-frame codons of a coding sequence (frame 0, non-overlapping
+    /// triplets). Delegates to the canonical counter <see cref="Translator.CountCodons(string?, int)"/>:
+    /// case-insensitive DNA or RNA (U read as T, CodonW <c>ident_codon</c>), keys in upper-case DNA
+    /// spelling, triplets containing any other symbol (N, IUPAC codes, gaps) skipped without shifting the
+    /// frame, a trailing partial triplet ignored (EMBOSS <c>ajCodSetTripletsS</c>).
     /// </summary>
+    /// <param name="dnaSequence">Coding DNA or RNA sequence.</param>
+    /// <returns>Codon (upper-case DNA) → occurrence count; codons that do not occur are absent.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="dnaSequence"/> is null.</exception>
     public static IReadOnlyDictionary<string, int> GetCodonUsage(string dnaSequence)
     {
-        var usage = new Dictionary<string, int>();
-        string seq = dnaSequence.ToUpperInvariant();
-
-        for (int i = 0; i <= seq.Length - 3; i += 3)
-        {
-            string codon = seq.Substring(i, 3);
-            if (codon.All(c => "ACGT".Contains(c)))
-            {
-                usage[codon] = usage.GetValueOrDefault(codon, 0) + 1;
-            }
-        }
-
-        return usage;
+        ArgumentNullException.ThrowIfNull(dnaSequence);
+        return Translator.CountCodons(dnaSequence);
     }
 
-    // RSCU is defined only over sense codons; codons encoding this character in the
-    // genetic-code table are stop codons and are excluded (CodonU uses forward_table,
-    // i.e. sense codons only — SouradiptoC/CodonU internal_comp.py `rscu`).
+    // RSCU is reported over sense codons only; the termination family ('*' in the genetic-code
+    // table) is dropped (CodonU `rscu` iterates Biopython forward_table; codonbias ignore_stop=True).
     private const char StopCodonSymbol = '*';
 
     // A codon is exactly three nucleotides.
@@ -1197,21 +1875,23 @@ public static class GenomeAnnotator
 
     /// <summary>
     /// Computes the Relative Synonymous Codon Usage (RSCU) over a set of coding
-    /// (DNA) sequences using the Standard genetic code (NCBI translation table 1).
+    /// sequences using the Standard genetic code (NCBI translation table 1).
     /// </summary>
     /// <remarks>
-    /// RSCU for codon <c>j</c> of amino acid <c>i</c> is
-    /// <c>RSCU = n_i · x_(i,j) / Σ_j x_(i,j)</c>, where <c>n_i</c> is the number of
-    /// synonymous codons for amino acid <c>i</c> and <c>x_(i,j)</c> is the observed
-    /// count of codon <c>j</c> (Sharp &amp; Li 1986, NAR 14(19):7737–7749). An RSCU of
+    /// RSCU for codon <c>j</c> of amino acid <c>i</c> is the observed count divided by the count
+    /// expected under uniform synonymous usage, <c>RSCU = x_(i,j) / ((1/n_i) Σ_j x_(i,j)) = n_i · x_(i,j) / Σ_j x_(i,j)</c>,
+    /// where <c>n_i</c> is the number of synonymous codons for amino acid <c>i</c> (Sharp, Tuohy &amp;
+    /// Mosurski 1986, Nucleic Acids Res. 14(13):5125–5143; CodonW <c>rscu_usage_out</c>). An RSCU of
     /// 1.0 indicates no codon bias; values above 1 indicate a preferred codon.
-    /// Codon counts are pooled across all input sequences before the RSCU is computed.
-    /// Stop codons are excluded; an unobserved synonymous family yields RSCU 0.0 for
-    /// each of its codons (the CAI 0.5 pseudocount is intentionally not applied).
+    /// Codon counts are pooled across all input sequences before the RSCU is computed (CodonW
+    /// <c>-totals</c>, CodonU <c>rscu</c>). Stop codons are excluded; an unobserved synonymous family
+    /// yields RSCU 0.0 for each of its codons (CodonW prints 0.000; the CAI 0.5 pseudocount is not applied).
+    /// Computed by the canonical <c>CodonUsageAnalyzer.CalculateRscu(counts, code)</c> (MolTools).
     /// </remarks>
-    /// <param name="codingSequences">The coding (CDS) DNA sequences. Read in frame
-    /// from position 0 in steps of three; a partial trailing codon is ignored. Only
-    /// codons over the alphabet A/C/G/T are counted.</param>
+    /// <param name="codingSequences">The coding (CDS) sequences, DNA or RNA, case-insensitive. Each is read
+    /// in frame from position 0 in steps of three as by <see cref="GetCodonUsage(string)"/> (U read as T,
+    /// triplets with other symbols skipped without shifting the frame, partial trailing codon ignored);
+    /// null or empty elements are skipped.</param>
     /// <returns>A dictionary from each sense codon (uppercase DNA) to its RSCU value.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="codingSequences"/> is null.</exception>
     public static IReadOnlyDictionary<string, double> GetCodonUsage(IEnumerable<string> codingSequences)
@@ -1219,14 +1899,20 @@ public static class GenomeAnnotator
 
     /// <summary>
     /// Computes the Relative Synonymous Codon Usage (RSCU) over a set of coding
-    /// (DNA) sequences using the supplied genetic code.
+    /// sequences using the supplied genetic code ("RSCU values are genetic code dependent", CodonW).
     /// </summary>
-    /// <param name="codingSequences">The coding (CDS) DNA sequences (see the
-    /// Standard-code overload for framing and alphabet rules).</param>
+    /// <remarks>
+    /// Synonymous families are the amino-acid groups of <see cref="GeneticCode.CodonTable"/>; codons that
+    /// are context-dependent stops in NCBI tables 27/28/31 belong to the amino acid they encode
+    /// (Biopython <c>forward_table</c>). See <see cref="GetCodonUsage(IEnumerable{string})"/>.
+    /// </remarks>
+    /// <param name="codingSequences">The coding (CDS) sequences (see the Standard-code overload for
+    /// framing and alphabet rules).</param>
     /// <param name="code">The genetic code defining synonymous codon families.</param>
     /// <returns>A dictionary from each sense codon (uppercase DNA) to its RSCU value.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="codingSequences"/> or
     /// <paramref name="code"/> is null.</exception>
+    /// <exception cref="OverflowException">The pooled count of one codon exceeds <see cref="int.MaxValue"/>.</exception>
     public static IReadOnlyDictionary<string, double> GetCodonUsage(
         IEnumerable<string> codingSequences,
         GeneticCode code)
@@ -1234,53 +1920,21 @@ public static class GenomeAnnotator
         ArgumentNullException.ThrowIfNull(codingSequences);
         ArgumentNullException.ThrowIfNull(code);
 
-        // Pool observed counts across all coding sequences (CodonU pools the whole
-        // reference set before computing RSCU).
-        var counts = new Dictionary<string, long>();
+        // Pool observed counts across all coding sequences (canonical Core codon counter).
+        var counts = new Dictionary<string, int>();
         foreach (string sequence in codingSequences)
         {
-            if (string.IsNullOrEmpty(sequence)) continue;
-            string seq = sequence.ToUpperInvariant();
-            for (int i = 0; i <= seq.Length - CodonLength; i += CodonLength)
-            {
-                string codon = seq.Substring(i, CodonLength);
-                if (codon.All(c => "ACGT".Contains(c)))
-                {
-                    counts[codon] = counts.GetValueOrDefault(codon, 0) + 1;
-                }
-            }
+            foreach (var (codon, count) in Translator.CountCodons(sequence))
+                counts[codon] = checked(counts.GetValueOrDefault(codon) + count);
         }
 
-        // Group sense codons by the amino acid they encode (the synonymous families).
-        // GeneticCode.CodonTable is keyed by RNA codons, so convert DNA T -> U.
-        var familyByAminoAcid = new Dictionary<char, List<string>>();
-        foreach (KeyValuePair<string, char> entry in code.CodonTable)
+        // Canonical RSCU (n·x/Σx over the code's synonymous families, 0 for an absent family),
+        // restricted to the sense codons.
+        var rscu = Seqeron.Genomics.MolTools.CodonUsageAnalyzer.CalculateRscu(counts, code);
+        foreach (var (codonRna, aminoAcid) in code.CodonTable)
         {
-            if (entry.Value == StopCodonSymbol) continue; // sense codons only
-            string dnaCodon = entry.Key.Replace('U', 'T');
-            if (!familyByAminoAcid.TryGetValue(entry.Value, out List<string>? family))
-            {
-                family = new List<string>();
-                familyByAminoAcid[entry.Value] = family;
-            }
-            family.Add(dnaCodon);
-        }
-
-        var rscu = new Dictionary<string, double>();
-        foreach (List<string> family in familyByAminoAcid.Values)
-        {
-            int nI = family.Count; // number of synonymous codons for this amino acid
-            long familyTotal = 0;
-            foreach (string codon in family)
-                familyTotal += counts.GetValueOrDefault(codon, 0);
-
-            foreach (string codon in family)
-            {
-                long x = counts.GetValueOrDefault(codon, 0);
-                // RSCU = n_i * x / Σ(synonymous counts); an unobserved family (total 0)
-                // yields 0.0 for every member (no preferred codon).
-                rscu[codon] = familyTotal == 0 ? 0.0 : (double)nI * x / familyTotal;
-            }
+            if (aminoAcid == StopCodonSymbol)
+                rscu.Remove(codonRna.Replace('U', 'T'));
         }
 
         return rscu;

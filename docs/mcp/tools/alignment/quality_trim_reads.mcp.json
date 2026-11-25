@@ -5,24 +5,37 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAssembler.QualityTrimReads",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L950",
-  "description": "Trim Phred+33 quality-encoded reads from both ends with the BWA/cutadapt running-sum method, dropping reads shorter than minLength after trimming.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L1634",
+  "description": "Trim low-quality read ends with the BWA/cutadapt running-sum algorithm (cutadapt quality_trim_index), with optional separate 5'/3' cutoffs and Phred+33/Phred+64 decoding, dropping reads shorter than minLength after trimming.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "reads": {
         "type": "array",
-        "description": "Reads, each an object with sequence and matching Phred+33 quality string of equal length."
+        "description": "Reads, each an object with sequence and a quality string of equal length (Phred+phredOffset ASCII)."
       },
       "minQuality": {
         "type": "integer",
-        "description": "Quality cutoff subtracted from each Phred score (values < 1 disable trimming).",
+        "description": "Quality cutoff subtracted from each Phred score at both ends (values < 1 disable trimming).",
         "default": 20
       },
       "minLength": {
         "type": "integer",
         "description": "Minimum length after trimming for a read to be kept.",
         "default": 50
+      },
+      "cutoffFront": {
+        "type": "integer",
+        "description": "Optional 5' cutoff overriding minQuality for the 5' end (< 1 leaves the 5' end untrimmed; cutadapt -q 5',3')."
+      },
+      "cutoffBack": {
+        "type": "integer",
+        "description": "Optional 3' cutoff overriding minQuality for the 3' end (< 1 leaves the 3' end untrimmed)."
+      },
+      "phredOffset": {
+        "type": "integer",
+        "description": "ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+) or 64 (Illumina 1.3-1.7), as cutadapt --quality-base.",
+        "default": 33
       }
     },
     "required": [
@@ -49,6 +62,10 @@
     {
       "code": 1012,
       "message": "read is null"
+    },
+    {
+      "code": 1013,
+      "message": "quality character outside [phredOffset, '~'] or phredOffset outside [33, 126]"
     }
   ],
   "examples": [
@@ -84,6 +101,25 @@
       },
       "output": {
         "trimmed": []
+      }
+    },
+    {
+      "name": "cutadapt worked example in Phred+64",
+      "input": {
+        "reads": [
+          {
+            "sequence": "ACGTACGTAC",
+            "quality": "jhZ[GFJCAB"
+          }
+        ],
+        "minQuality": 10,
+        "minLength": 1,
+        "phredOffset": 64
+      },
+      "output": {
+        "trimmed": [
+          "ACGT"
+        ]
       }
     }
   ]

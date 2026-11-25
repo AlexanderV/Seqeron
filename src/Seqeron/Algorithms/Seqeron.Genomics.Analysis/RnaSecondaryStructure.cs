@@ -206,7 +206,8 @@ public static class RnaSecondaryStructure
     };
 
     // Terminal mismatch stacking energies (kcal/mol at 37°C) — see Turner2004Parameters.
-    // Applied to hairpin loops ≥4nt, internal loops (other sizes), and exterior loops.
+    // Applied to exterior / multibranch helix ends and (plus the NNDB bonuses) hairpin loops ≥ 4 nt;
+    // interior loops use Turner2004InteriorLoopTables.
     private static readonly IReadOnlyDictionary<string, double> TerminalMismatchEnergies =
         Turner2004Parameters.TerminalMismatchEnergies;
 
@@ -229,10 +230,10 @@ public static class RnaSecondaryStructure
     // followed by CG (5'GGUC/3'CUGG), the total for 3 stacks = -4.12 replaces individual sum.
     private const double SpecialGGUC_CUGG_3Stack = -4.12;
 
-    // Internal loop initiation energies (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/loop.txt (INTERNAL column)
-    // For n>6 (experimentally determined up to 6): init(6) + 1.08·ln(n/6)
-    // For n>30: extrapolation from size 6.
+    // Internal loop initiation energies (kcal/mol at 37°C), sizes 4..30.
+    // Source: NNDB Turner 2004 turner_2004_internal_loop_dg.txt (n = 4, 5, 6) and the NNDB extrapolation
+    // ΔG°init(n>6) = ΔG°init(6) + 1.08·ln(n/6), rounded as tabulated by ViennaRNA 2.7.2 (default.c
+    // internal_loop37 — identical values). For n > 30 the NNDB extrapolation is evaluated directly.
     private static readonly Dictionary<int, double> InternalLoopInitiation = new()
     {
         {  4, 1.1 }, {  5, 2.0 }, {  6, 2.0 }, {  7, 2.1 }, {  8, 2.3 },
@@ -243,85 +244,15 @@ public static class RnaSecondaryStructure
         { 29, 3.7 }, { 30, 3.7 }
     };
 
-    // Internal loop parameters (kcal/mol)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/internal-parameters.html
+    // Internal loop asymmetry (Ninio) term: min(MaxAsymmetry, 0.6·|n1−n2|) kcal/mol.
+    // Source: NNDB turner_2004_internal_loop_dg.txt ("Asymmetry 0.6"); the 3.0 kcal/mol cap is
+    // ViennaRNA 2.7.2 default.c MAX_NINIO = 300 / ninio37 = 60 (vrna_E_internal: MIN2(MAX_NINIO, |n1-n2|·ninio)).
     private const double InternalLoop_AsymmetryPenalty = 0.6;
-    private const double InternalLoop_AU_GU_Closure = 0.7;
+    private const double InternalLoop_MaxAsymmetry = 3.0;
 
-    // Internal loop mismatch parameters for 2×3 loops (orientation-dependent)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/internal-parameters.html
-    // In 2×3 context, R=purine(A,G), Y=pyrimidine(C,U). Orientation of closing pair matters.
-    private const double IL_2x3_RA_YG = 0.0;
-    private const double IL_2x3_YA_RG = -0.5;
-    private const double IL_2x3_RG_YA = -1.2;
-    private const double IL_2x3_YG_RA = -1.1;
-    private const double IL_2x3_GG = -0.8;
-    private const double IL_2x3_UU = -0.4;
-
-    // Internal loop mismatch parameters for other sizes (not 1×1, 1×2, 2×2, 2×3, 1×(n-1))
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/internal-parameters.html
-    private const double IL_Other_AG = -0.8;
-    private const double IL_Other_GA = -1.0;
-    private const double IL_Other_GG = -1.2;
-    private const double IL_Other_UU = -0.7;
-
-    // 1×1 internal loop free energies (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/int11.txt
-    // Indexed by [pair1_index, pair2_index, mismatch_X_index, mismatch_Y_index]
-    // Pair indices: 0=AU, 1=CG, 2=GC, 3=UA, 4=GU, 5=UG
-    // Base indices: 0=A, 1=C, 2=G, 3=U
-    // NOTE: Values already include AU/GU closure penalties.
-    private static readonly double[,,,] Int11Energies =
-    {
-        {   // pair1=AU
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.5 } },
-            { { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 0.8 } },
-            { { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 0.8 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.2 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.6 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.2 } },
-        },
-        {   // pair1=CG
-            { { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 1.2 } },
-            { { 0.9, -0.4, 0.5, 0.5 }, { 0.3, 0.5, 0.5, 0.6 }, { -0.1, 0.5, -2.2, 0.5 }, { 0.5, 0.0, 0.5, -0.1 } },
-            { { 0.9, 0.5, 0.5, 0.5 }, { 0.5, 0.5, 0.5, 0.5 }, { 0.5, 0.5, -1.4, 0.5 }, { 0.5, 0.5, 0.5, 0.4 } },
-            { { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 0.8 } },
-            { { 2.2, 1.3, 1.2, 1.2 }, { 1.2, 1.7, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 1.1 } },
-            { { 0.6, 0.5, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { -0.2, 1.2, -1.4, 1.2 }, { 1.2, 1.0, 1.2, 1.1 } },
-        },
-        {   // pair1=GC
-            { { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 1.2 } },
-            { { 0.8, 0.5, 0.5, 0.5 }, { 0.5, 0.5, 0.5, 0.5 }, { 0.5, 0.5, -2.3, 0.5 }, { 0.5, 0.5, 0.5, -0.6 } },
-            { { 0.9, 0.3, -0.1, 0.5 }, { -0.4, 0.5, 0.5, 0.0 }, { 0.5, 0.5, -2.2, 0.5 }, { 0.5, 0.6, 0.5, -0.1 } },
-            { { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 0.8 } },
-            { { 1.6, 1.2, 1.0, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 0.7 } },
-            { { 1.9, 1.2, 1.5, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 1.5 } },
-        },
-        {   // pair1=UA
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.7 } },
-            { { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 1.2 } },
-            { { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 1.2 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.5 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.9 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.6 } },
-        },
-        {   // pair1=GU
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.6 } },
-            { { 1.9, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.5, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 1.5 } },
-            { { 0.6, 1.2, -0.2, 1.2 }, { 0.5, 1.2, 1.2, 1.0 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 1.1 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.2 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.6 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.2 } },
-        },
-        {   // pair1=UG
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.9 } },
-            { { 1.6, 1.2, 1.2, 1.2 }, { 1.2, 1.2, 1.2, 1.2 }, { 1.0, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 0.7 } },
-            { { 2.2, 1.2, 1.2, 1.2 }, { 1.3, 1.7, 1.2, 1.2 }, { 1.2, 1.2, -1.4, 1.2 }, { 1.2, 1.2, 1.2, 1.1 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.6 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.9 } },
-            { { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, 1.9, 1.9 }, { 1.9, 1.9, -0.7, 1.9 }, { 1.9, 1.9, 1.9, 1.6 } },
-        },
-    };
+    // 1×1, 1×2, 2×2 lookup tables and the 1×n / 2×3 / generic first-mismatch tables (AU/GU closure folded
+    // in) live in the generated Seqeron.Genomics.Core.Turner2004InteriorLoopTables (ViennaRNA energy_par
+    // layout; NNDB-verified — see RNA-STRUCT-001 Evidence).
 
     // Bulge loop initiation energies (kcal/mol at 37°C)
     // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/loop.txt (BULGE column)
@@ -342,8 +273,8 @@ public static class RnaSecondaryStructure
     private const double BulgeSpecialC_Bonus = -0.9;
 
     // 3' dangling end energies (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/de-parameters.html
-    // Key = closing5' + danglingBase + closing3'. Dangling base is 3' to the closing pair.
+    // Source: NNDB rna_2004_dangling_ends.html (= ViennaRNA 2.7.2 dangle3_37).
+    // Key = closing5' + danglingBase + closing3': the dangling base is 3' of closing5'.
     private static readonly Dictionary<string, double> DanglingEnd3 = new()
     {
         // Closing A-U
@@ -361,8 +292,8 @@ public static class RnaSecondaryStructure
     };
 
     // 5' dangling end energies (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/de-parameters.html
-    // Key = closing5' + danglingBase + closing3'. Dangling base is 5' to the closing pair.
+    // Source: NNDB rna_2004_dangling_ends.html (= ViennaRNA 2.7.2 dangle5_37).
+    // Key = closing5' + danglingBase + closing3': the dangling base is 5' of closing3'.
     private static readonly Dictionary<string, double> DanglingEnd5 = new()
     {
         // Closing A-U
@@ -379,18 +310,22 @@ public static class RnaSecondaryStructure
         { "UAG", -0.3 }, { "UCG", -0.3 }, { "UGG", -0.4 }, { "UUG", -0.2 },
     };
 
-    // Multibranch loop parameters (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/mb-parameters.html
-    // ΔG° = a + b×avg_asymmetry + c×num_helices + strain
+    // Multibranch loop initiation, NNDB Turner 2004 (efn2) model (kcal/mol at 37°C).
+    // Source: NNDB rna_2004_multibranch_loops.html §9.1 + parameter table turner_2004_multi_branch:
+    // ΔG°init = a + b×[average asymmetry] + c×[number of branching helices] + ΔG°strain,
+    // average asymmetry = min[2.0, mean |unpaired 5' side − unpaired 3' side| over the helices];
+    // strain only for three-way loops with fewer than two unpaired nucleotides.
     private const double MultibranchLoop_Offset = 9.25;     // a
     private const double MultibranchLoop_Asymmetry = 0.91;  // b
     private const double MultibranchLoop_Helix = -0.63;     // c
     private const double MultibranchLoop_Strain = 3.14;     // 3-way with <2 unpaired
+    private const double MultibranchLoop_MaxAsymmetry = 2.0;
 
     // Coaxial stacking parameters (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/coax.html
-    // Flush coaxial: use WC/GU stacking as if no backbone break.
-    // Mismatch-mediated: terminal mismatch + base constant + WC/GU bonus.
+    // Source: NNDB rna_2004_coaxial_stacking.html §8.2–8.3 + table turner_2004_coax:
+    // flush: the helical stack as if there were no backbone break; mismatch-mediated: terminal mismatch
+    // (continuous backbone) + −2.1 (discontinuous backbone) + −0.4 / −0.2 when the "mismatch" could form a
+    // Watson–Crick / G·U pair.
     private const double CoaxialMismatch_Base = -2.1;
     private const double CoaxialMismatch_WC_Bonus = -0.4;
     private const double CoaxialMismatch_GU_Bonus = -0.2;
@@ -459,15 +394,56 @@ public static class RnaSecondaryStructure
     #region Stem-Loop Finding
 
     /// <summary>
-    /// Finds all potential stem-loop structures in an RNA sequence.
-    /// Case-insensitive; DNA T is read as U (reported bases and loop sequences use U).
+    /// Enumerates hairpin stem-loops: for every hairpin loop [loopStart, loopEnd] of
+    /// <paramref name="minLoopSize"/>..<paramref name="maxLoopSize"/> nucleotides closed by a canonical pair,
+    /// the stem that closes it (see <paramref name="maxInternalLoopSize"/>). Overlapping candidates are all
+    /// returned, ordered by loop start, then loop size. Case-insensitive; DNA T is read as U (reported bases
+    /// and loop sequences use U); any other character never pairs (ViennaRNA default pair set).
     /// </summary>
+    /// <remarks>
+    /// <para><b>Perfect stems</b> (<paramref name="maxInternalLoopSize"/> = 0, the default): the stem is one
+    /// helix — consecutively stacked canonical pairs (NNDB "helix") — grown outward from the loop-closing
+    /// pair while the next outer pair can form; candidates whose helix is shorter than
+    /// <paramref name="minStemLength"/> are dropped.</para>
+    /// <para><b>Stems with bulges and internal loops</b> (<paramref name="maxInternalLoopSize"/> &gt; 0): the
+    /// stem is the minimum-free-energy <i>unbranched</i> chain of pairs closing the hairpin loop, i.e. the
+    /// Zuker–Stiegler (1981) V(i,j) recursion restricted to degree-2 loops — stacks, bulges and internal loops
+    /// with at most <paramref name="maxInternalLoopSize"/> unpaired nucleotides (ViennaRNA MAXLOOP semantics,
+    /// default 30 there) — scored with the same Turner 2004 loop functions as the MFE folder, over every outer
+    /// closing pair; the optimum is then dropped if it has fewer than <paramref name="minStemLength"/> pairs.</para>
+    /// <para><see cref="StemLoop.TotalFreeEnergy"/> is the free energy of the stem-loop as an isolated
+    /// structure (its own sub-sequence <c>[Start..End]</c> and <see cref="StemLoop.DotBracketNotation"/>), the
+    /// counterpart of ViennaRNA <c>eval_structure</c> on that sub-sequence: stacks, bulge/internal loops,
+    /// hairpin loop and the terminal AU/GU penalties of both helix ends (no dangles: the motif has no
+    /// neighbours). For a perfect stem it equals <see cref="Stem.FreeEnergy"/>
+    /// (<see cref="CalculateStemEnergy"/>, NNDB helix incl. both AU/GU ends) + <see cref="CalculateHairpinLoopEnergy"/>,
+    /// except for the four A-U-closed special hexaloops, whose measured loop value already contains the
+    /// closure penalty (ViennaRNA <c>vrna_E_hairpin</c> returns <c>Hexaloop_E</c>). For a stem with
+    /// bulges/internal loops <see cref="Stem.FreeEnergy"/> = total − hairpin-loop term.</para>
+    /// </remarks>
+    /// <param name="rnaSequence">RNA/DNA sequence; null or empty yields nothing.</param>
+    /// <param name="minStemLength">Minimum number of base pairs in a reported stem (default 3).</param>
+    /// <param name="minLoopSize">Minimum hairpin-loop size; values below 3 are raised to 3 (NNDB: hairpin loops
+    /// with fewer than 3 nucleotides are prohibited).</param>
+    /// <param name="maxLoopSize">Maximum hairpin-loop size (default 10).</param>
+    /// <param name="allowWobble">Whether G·U pairs may be part of a stem (default true).</param>
+    /// <param name="maxInternalLoopSize">0 (default) = perfect stems only; &gt; 0 = stems may contain bulges and
+    /// internal loops with up to this many unpaired nucleotides each (n1 + n2).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxInternalLoopSize"/> is negative.</exception>
     public static IEnumerable<StemLoop> FindStemLoops(
         string rnaSequence,
         int minStemLength = 3,
         int minLoopSize = 3,
         int maxLoopSize = 10,
-        bool allowWobble = true)
+        bool allowWobble = true,
+        int maxInternalLoopSize = 0)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxInternalLoopSize);
+        return FindStemLoopsIterator(rnaSequence, minStemLength, minLoopSize, maxLoopSize, allowWobble, maxInternalLoopSize);
+    }
+
+    private static IEnumerable<StemLoop> FindStemLoopsIterator(
+        string rnaSequence, int minStemLength, int minLoopSize, int maxLoopSize, bool allowWobble, int maxInternalLoopSize)
     {
         // NNDB Turner 2004: "The nearest neighbor rules prohibit hairpin loops
         // with fewer than 3 nucleotides."
@@ -482,6 +458,10 @@ public static class RnaSecondaryStructure
         // A/C/G/U-keyed, so T-containing pairs must be scored as their U equivalents.
         string upper = rnaSequence.ToUpperInvariant().Replace('T', 'U');
 
+        int[]? chainPredecessor = maxInternalLoopSize > 0
+            ? FillUnbranchedStemDp(upper, minLoopSize, allowWobble, maxInternalLoopSize)
+            : null;
+
         // Scan for potential hairpin loops
         for (int loopStart = minStemLength; loopStart <= upper.Length - minStemLength - minLoopSize; loopStart++)
         {
@@ -489,8 +469,9 @@ public static class RnaSecondaryStructure
             {
                 int loopEnd = loopStart + loopSize - 1;
 
-                // Try to extend stem on both sides
-                var stemLoop = TryBuildStemLoop(upper, loopStart, loopEnd, minStemLength, allowWobble);
+                var stemLoop = chainPredecessor == null
+                    ? TryBuildStemLoop(upper, loopStart, loopEnd, minStemLength, allowWobble)
+                    : TryBuildUnbranchedStemLoop(upper, chainPredecessor, loopStart, loopEnd, minStemLength, allowWobble);
                 if (stemLoop != null)
                 {
                     yield return stemLoop.Value;
@@ -499,50 +480,135 @@ public static class RnaSecondaryStructure
         }
     }
 
+    private static bool IsStemPair(string seq, int i, int j, bool allowWobble)
+    {
+        byte t = PairType(seq[i], seq[j]);
+        return t == 1 || (t == 2 && allowWobble);
+    }
+
     private static StemLoop? TryBuildStemLoop(string sequence, int loopStart, int loopEnd, int minStemLength, bool allowWobble)
     {
         var basePairs = new List<BasePair>();
-        int stemLength = 0;
 
         int left = loopStart - 1;
         int right = loopEnd + 1;
 
-        // Extend stem
-        while (left >= 0 && right < sequence.Length)
+        // Extend the helix outward while the next pair can form.
+        while (left >= 0 && right < sequence.Length && IsStemPair(sequence, left, right, allowWobble))
         {
-            var pairType = GetBasePairType(sequence[left], sequence[right]);
-
-            if (pairType == null)
-                break;
-
-            if (pairType == BasePairType.Wobble && !allowWobble)
-                break;
-
-            basePairs.Add(new BasePair(left, right, sequence[left], sequence[right], pairType.Value));
-            stemLength++;
+            basePairs.Add(new BasePair(left, right, sequence[left], sequence[right],
+                GetBasePairType(sequence[left], sequence[right])!.Value));
             left--;
             right++;
         }
 
-        if (stemLength < minStemLength)
+        if (basePairs.Count < minStemLength)
             return null;
 
-        // Build result
-        int stemStart = left + 1;
+        basePairs.Reverse(); // Order from 5' to 3'
+        return BuildStemLoop(sequence, basePairs, loopStart, loopEnd, perfectHelix: true);
+    }
+
+    /// <summary>
+    /// Outside DP for unbranched stems: G(k,l) = min{ AU/GU end penalty of (k,l) as the outermost pair,
+    /// min over enclosing (i,j) with n1 + n2 ≤ maxInternal of G(i,j) + InteriorTerm(i,j,k,l),
+    /// G(k−3,l+3) + GGUC/CUGG 3-stack }. The optimal stem closing a hairpin at (p,q) is the argmin chain
+    /// of G(p,q) (the hairpin term is fixed by (p,q)). Returns the predecessor of each pair state:
+    /// −1 = outermost pair, ≥ 0 = enclosing pair index i·n + j, ≤ −2 = GGUC step from index −2 − value;
+    /// int.MinValue = pair not allowed.
+    /// </summary>
+    private static int[] FillUnbranchedStemDp(string seq, int minLoopSize, bool allowWobble, int maxInternal)
+    {
+        int n = seq.Length;
+        var g = new double[n * n];
+        var pred = new int[n * n];
+        Array.Fill(pred, int.MinValue);
+        const double tieEps = 1e-9;
+
+        for (int span = n - 1; span > minLoopSize; span--)
+        {
+            for (int k = 0; k + span < n; k++)
+            {
+                int l = k + span;
+                if (!IsStemPair(seq, k, l, allowWobble)) continue;
+
+                double best = IsAUorGU(seq[k], seq[l]) ? TerminalAU_GU_Penalty : 0.0;
+                int arg = -1;
+                for (int i = k - 1; i >= 0 && k - i - 1 <= maxInternal; i--)
+                {
+                    int n1 = k - i - 1;
+                    for (int j = l + 1; j < n && n1 + j - l - 1 <= maxInternal; j++)
+                    {
+                        int o = i * n + j;
+                        if (pred[o] == int.MinValue) continue;
+                        double e = g[o] + InteriorTerm(seq, i, j, k, l);
+                        if (e < best - tieEps) { best = e; arg = o; }
+                    }
+                }
+
+                if (k >= 3 && l + 3 < n && pred[(k - 3) * n + l + 3] != int.MinValue && allowWobble &&
+                    IsSpecialGgucCuggStack(seq, k - 3, l + 3))
+                {
+                    int o = (k - 3) * n + l + 3;
+                    double e = g[o] + SpecialGGUC_CUGG_3Stack;
+                    if (e < best - tieEps) { best = e; arg = -2 - o; }
+                }
+
+                g[k * n + l] = best;
+                pred[k * n + l] = arg;
+            }
+        }
+        return pred;
+    }
+
+    private static StemLoop? TryBuildUnbranchedStemLoop(
+        string sequence, int[] pred, int loopStart, int loopEnd, int minStemLength, bool allowWobble)
+    {
+        int n = sequence.Length;
+        int p = loopStart - 1, q = loopEnd + 1;
+        if (p < 0 || q >= n || !IsStemPair(sequence, p, q, allowWobble) || pred[p * n + q] == int.MinValue)
+            return null;
+
+        // Trace the optimal chain outward (inner → outer).
+        var chain = new List<(int I, int J)> { (p, q) };
+        int cur = p * n + q;
+        bool perfectHelix = true;
+        while (pred[cur] != -1)
+        {
+            int v = pred[cur];
+            int ci = cur / n, cj = cur % n;
+            if (v <= -2)
+            {
+                chain.Add((ci - 1, cj + 1));
+                chain.Add((ci - 2, cj + 2));
+                chain.Add((ci - 3, cj + 3));
+                cur = -2 - v;
+            }
+            else
+            {
+                if (v / n != ci - 1 || v % n != cj + 1) perfectHelix = false;
+                chain.Add((v / n, v % n));
+                cur = v;
+            }
+        }
+
+        if (chain.Count < minStemLength)
+            return null;
+
+        chain.Reverse(); // Order from 5' to 3'
+        var basePairs = chain
+            .Select(c => new BasePair(c.I, c.J, sequence[c.I], sequence[c.J], GetBasePairType(sequence[c.I], sequence[c.J])!.Value))
+            .ToList();
+        return BuildStemLoop(sequence, basePairs, loopStart, loopEnd, perfectHelix);
+    }
+
+    // Builds the result record; basePairs are ordered outer (5') → inner (closing pair of the loop).
+    private static StemLoop BuildStemLoop(string sequence, List<BasePair> basePairs, int loopStart, int loopEnd, bool perfectHelix)
+    {
+        int stemStart = basePairs[0].Position1;
+        int stemEnd = basePairs[0].Position2;
         int stemEnd5 = loopStart - 1;
         int stemStart3 = loopEnd + 1;
-        int stemEnd = right - 1;
-
-        basePairs.Reverse(); // Order from 5' to 3'
-
-        var stem = new Stem(
-            Start5Prime: stemStart,
-            End5Prime: stemEnd5,
-            Start3Prime: stemStart3,
-            End3Prime: stemEnd,
-            Length: stemLength,
-            BasePairs: basePairs,
-            FreeEnergy: CalculateStemEnergy(sequence, basePairs));
 
         string loopSeq = sequence.Substring(loopStart, loopEnd - loopStart + 1);
         var loop = new Loop(
@@ -552,12 +618,33 @@ public static class RnaSecondaryStructure
             Size: loopSeq.Length,
             Sequence: loopSeq);
 
-        double loopEnergy = CalculateHairpinLoopEnergy(
-            loopSeq, sequence[stemEnd5], sequence[stemStart3],
-            IsSpecialGUClosure(sequence, basePairs));
-        double totalEnergy = stem.FreeEnergy + loopEnergy;
-
         string dotBracket = GenerateDotBracket(sequence.Length, basePairs, stemStart, stemEnd);
+
+        // Energy of the isolated motif (ViennaRNA eval_structure counterpart, shared loop functions).
+        double totalEnergy = EvaluateStructureEnergy(sequence.Substring(stemStart, stemEnd - stemStart + 1), dotBracket);
+
+        double stemEnergy;
+        if (perfectHelix)
+        {
+            stemEnergy = CalculateStemEnergy(sequence, basePairs);
+        }
+        else
+        {
+            // Special GU closure in the isolated motif: G·U closing pair preceded by two Gs inside the motif.
+            bool specialGU = sequence[stemEnd5] == 'G' && sequence[stemStart3] == 'U' &&
+                             stemEnd5 - 2 >= stemStart && sequence[stemEnd5 - 1] == 'G' && sequence[stemEnd5 - 2] == 'G';
+            stemEnergy = Math.Round(totalEnergy -
+                CalculateHairpinLoopEnergy(loopSeq, sequence[stemEnd5], sequence[stemStart3], specialGU), 2);
+        }
+
+        var stem = new Stem(
+            Start5Prime: stemStart,
+            End5Prime: stemEnd5,
+            Start3Prime: stemStart3,
+            End3Prime: stemEnd,
+            Length: basePairs.Count,
+            BasePairs: basePairs,
+            FreeEnergy: stemEnergy);
 
         return new StemLoop(
             Start: stemStart,
@@ -573,13 +660,26 @@ public static class RnaSecondaryStructure
     #region Energy Calculations
 
     /// <summary>
-    /// Calculates the free energy of a stem region using Turner 2004 nearest-neighbor
-    /// stacking parameters from NNDB, including terminal AU/GU penalties.
+    /// Calculates the free energy of a helix (consecutively stacked pairs (i,j), (i+1,j−1), …, listed 5' → 3',
+    /// i.e. outermost first) with the Turner 2004 nearest-neighbour model (NNDB "Watson-Crick-Franklin helix"):
+    /// the sum of the stacking terms (special 5'GGUC/3'CUGG three-stack −4.12 kcal/mol, NNDB GU note b) plus
+    /// the terminal AU/GU penalty (+0.45) for each helix end closed by A·U or G·U. Bases are read
+    /// case-insensitively with DNA T as U (as <see cref="CanPair"/>); the AU/GU class is taken from the bases,
+    /// not from <see cref="BasePair.Type"/>. A stack with an unknown pair contributes 0. The
+    /// <paramref name="sequence"/> argument is not read (the bases come from the pairs).
     /// </summary>
     public static double CalculateStemEnergy(string sequence, IReadOnlyList<BasePair> basePairs)
     {
         if (basePairs.Count == 0)
             return 0;
+
+        var b5 = new char[basePairs.Count];
+        var b3 = new char[basePairs.Count];
+        for (int k = 0; k < basePairs.Count; k++)
+        {
+            b5[k] = NormalizeBase(basePairs[k].Base1);
+            b3[k] = NormalizeBase(basePairs[k].Base2);
+        }
 
         double energy = 0;
 
@@ -593,20 +693,17 @@ public static class RnaSecondaryStructure
             // When 4 consecutive pairs are G-C, G-U, U-G, C-G, replace
             // 3 individual stacking terms with -4.12 total.
             if (i + 3 < basePairs.Count &&
-                basePairs[i].Base1 == 'G' && basePairs[i].Base2 == 'C' &&
-                basePairs[i + 1].Base1 == 'G' && basePairs[i + 1].Base2 == 'U' &&
-                basePairs[i + 2].Base1 == 'U' && basePairs[i + 2].Base2 == 'G' &&
-                basePairs[i + 3].Base1 == 'C' && basePairs[i + 3].Base2 == 'G')
+                b5[i] == 'G' && b3[i] == 'C' &&
+                b5[i + 1] == 'G' && b3[i + 1] == 'U' &&
+                b5[i + 2] == 'U' && b3[i + 2] == 'G' &&
+                b5[i + 3] == 'C' && b3[i + 3] == 'G')
             {
                 energy += SpecialGGUC_CUGG_3Stack;
                 i += 2; // Skip next 2 iterations (3 stacks consumed)
                 continue;
             }
 
-            var pair1 = basePairs[i];
-            var pair2 = basePairs[i + 1];
-
-            string stack = $"{pair1.Base1}{pair2.Base1}/{pair1.Base2}{pair2.Base2}";
+            string stack = $"{b5[i]}{b5[i + 1]}/{b3[i]}{b3[i + 1]}";
             if (StackingEnergies.TryGetValue(stack, out double stackEnergy))
                 energy += stackEnergy;
             // Unknown stacking pairs contribute 0 (no data available)
@@ -615,56 +712,78 @@ public static class RnaSecondaryStructure
 
         // Terminal AU/GU penalty: +0.45 per helix end that terminates with AU/UA or GU/UG
         // Source: NNDB — "Per AU end" (wc-parameters.html), "Per GU end" (gu-parameters.html)
-        if (IsTerminalAUorGU(basePairs[0]))
+        if (IsAUorGU(b5[0], b3[0]))
             energy += TerminalAU_GU_Penalty;
-        if (IsTerminalAUorGU(basePairs[^1]))
+        if (IsAUorGU(b5[^1], b3[^1]))
             energy += TerminalAU_GU_Penalty;
 
         return Math.Round(energy, 2);
     }
 
-    private static bool IsTerminalAUorGU(BasePair pair)
-    {
-        return pair.Type == BasePairType.Wobble ||
-               (pair.Base1 == 'A' && pair.Base2 == 'U') ||
-               (pair.Base1 == 'U' && pair.Base2 == 'A');
-    }
-
     /// <summary>
-    /// Detects whether the innermost (closing) pair qualifies for the special GU closure bonus.
-    /// Requires: closing pair is G-U (not U-G) AND the two preceding stem pairs have G on the 5' side.
+    /// Returns the Turner 2004 terminal-mismatch stacking energy (NNDB terminal mismatches, kcal/mol) of the
+    /// helix end <c>5'-closingBase5 mismatch5-3' / 3'-closingBase3 mismatch3-5'</c>: <paramref name="mismatch5"/>
+    /// is the unpaired base 3' of <paramref name="closingBase5"/>, <paramref name="mismatch3"/> the unpaired base
+    /// 5' of <paramref name="closingBase3"/>. This is the term of exterior and multibranch helix ends (ViennaRNA
+    /// 2.7.2 <c>mismatchExt37</c> = <c>mismatchM37</c> <c>[pair(closingBase3, closingBase5)][mismatch3][mismatch5]</c>).
     /// </summary>
-    private static bool IsSpecialGUClosure(string sequence, IReadOnlyList<BasePair> basePairs)
-    {
-        if (basePairs.Count < 3)
-            return false;
-
-        var closing = basePairs[^1];
-        if (closing.Base1 != 'G' || closing.Base2 != 'U')
-            return false;
-
-        return basePairs[^2].Base1 == 'G' && basePairs[^3].Base1 == 'G';
-    }
-
-    /// <summary>
-    /// Returns the terminal mismatch stacking energy for a closing pair and adjacent mismatched bases.
-    /// </summary>
+    /// <remarks>
+    /// Bases are case-insensitive and DNA T is read as U. An unpaired base other than A/C/G/U (N, IUPAC codes,
+    /// gaps) is ViennaRNA's unknown base 'N', whose <c>params/default.c</c> entries are the maximum (least
+    /// stabilising) value over A/C/G/U; the same maximum is taken here. A closing pair that is not canonical
+    /// (Watson–Crick or G·U, see <see cref="CanPair"/>) is outside the nearest-neighbour model and returns 0.
+    /// </remarks>
     public static double GetTerminalMismatchEnergy(char closingBase5, char closingBase3, char mismatch5, char mismatch3)
     {
-        string key = $"{char.ToUpperInvariant(closingBase5)}{char.ToUpperInvariant(mismatch5)}" +
-                     $"{char.ToUpperInvariant(mismatch3)}{char.ToUpperInvariant(closingBase3)}";
-        return TerminalMismatchEnergies.TryGetValue(key, out double e) ? e : 0.0;
+        char c5 = NormalizeBase(closingBase5);
+        char c3 = NormalizeBase(closingBase3);
+        if (!CanPair(c5, c3))
+            return 0.0;
+        return MaxOverUnknownBases(NormalizeBase(mismatch5), NormalizeBase(mismatch3),
+            (x, y) => TerminalMismatchEnergies[$"{c5}{x}{y}{c3}"]);
     }
 
     /// <summary>
-    /// Returns the dangling end energy contribution.
+    /// Returns the Turner 2004 dangling-end energy (NNDB dangling ends, kcal/mol) of a single unpaired base
+    /// stacked on the helix end <c>5'-closingBase5-3' / 3'-closingBase3-5'</c>: a 3' dangle
+    /// (<paramref name="is3Prime"/> = true) sits 3' of <paramref name="closingBase5"/>, a 5' dangle 5' of
+    /// <paramref name="closingBase3"/> (ViennaRNA 2.7.2 <c>dangle3_37</c> / <c>dangle5_37</c>
+    /// <c>[pair(closingBase3, closingBase5)][danglingBase]</c>).
     /// </summary>
+    /// <remarks>
+    /// Same base conventions as <see cref="GetTerminalMismatchEnergy"/>: case-insensitive, T read as U, an unknown
+    /// dangling base takes the maximum over A/C/G/U (ViennaRNA's 'N' column), a non-canonical closing pair returns 0.
+    /// </remarks>
     public static double GetDanglingEndEnergy(char closingBase5, char closingBase3, char danglingBase, bool is3Prime)
     {
-        string key = $"{char.ToUpperInvariant(closingBase5)}{char.ToUpperInvariant(danglingBase)}" +
-                     $"{char.ToUpperInvariant(closingBase3)}";
+        char c5 = NormalizeBase(closingBase5);
+        char c3 = NormalizeBase(closingBase3);
+        if (!CanPair(c5, c3))
+            return 0.0;
         var table = is3Prime ? DanglingEnd3 : DanglingEnd5;
-        return table.TryGetValue(key, out double e) ? e : 0.0;
+        return MaxOverUnknownBases(NormalizeBase(danglingBase), 'A', (d, _) => table[$"{c5}{d}{c3}"]);
+    }
+
+    private static bool IsKnownBase(char b) => b is 'A' or 'C' or 'G' or 'U';
+
+    /// <summary>
+    /// Evaluates <paramref name="term"/> for two (normalised) single-base positions; a position holding an unknown
+    /// base (anything but A/C/G/U) is ViennaRNA's 'N' and is replaced by every A/C/G/U, keeping the maximum —
+    /// the rule by which ViennaRNA 2.7.2 <c>params/default.c</c> fills every 'N' row/column of its Turner 2004
+    /// mismatch and dangle tables.
+    /// </summary>
+    private static double MaxOverUnknownBases(char x, char y, Func<char, char, double> term)
+    {
+        if (IsKnownBase(x) && IsKnownBase(y))
+            return term(x, y);
+
+        string xs = IsKnownBase(x) ? x.ToString() : "ACGU";
+        string ys = IsKnownBase(y) ? y.ToString() : "ACGU";
+        double max = double.NegativeInfinity;
+        foreach (char a in xs)
+            foreach (char b in ys)
+                max = Math.Max(max, term(a, b));
+        return max;
     }
 
     /// <summary>
@@ -672,16 +791,24 @@ public static class RnaSecondaryStructure
     /// For special loops (tri/tetra/hexaloops), the total energy from experimental data
     /// replaces the model calculation. Otherwise uses:
     /// ΔG° = initiation(n) + terminal_mismatch + UU/GA_bonus + GG_bonus + special_GU_closure + all_C_penalty
+    /// (n ≥ 4); ΔG° = initiation(3) + C3 penalty (n = 3, no first-mismatch term). Initiation n = 3..30 is the NNDB
+    /// <c>turner_2004_loop_dg.txt</c> table (= ViennaRNA 2.7.2 <c>hairpin37</c>); n &gt; 30 is init(9) + 1.75·RT·ln(n/9).
+    /// The closing pair's terminal AU/GU penalty is NOT included (NNDB counts it in the helix; see
+    /// <see cref="CalculateStemEnergy"/>); a special loop's tabulated value is the loop total. Case-insensitive,
+    /// T read as U; an unknown first-mismatch base takes the maximum over A/C/G/U (ViennaRNA 'N').
+    /// Loops shorter than 3 nt return the prohibitive sentinel 100.0.
     /// </summary>
-    /// <param name="specialGUClosure">True when closing pair is G-U preceded by two Gs on 5' side.</param>
+    /// <param name="specialGUClosure">True when the closing pair is G(5')-U(3') and the two nucleotides 5' of that G
+    /// are both G (NNDB / Mathews et al. 2004); ignored for other closing pairs and for 3-nt loops.</param>
     public static double CalculateHairpinLoopEnergy(
         string loopSequence, char closingBase5, char closingBase3,
         bool specialGUClosure = false)
     {
-        string loopUpper = loopSequence.ToUpperInvariant();
+        // Case-insensitive; DNA T is the same base as U (ViennaRNA vrna_nucleotide_encode).
+        string loopUpper = loopSequence.ToUpperInvariant().Replace('T', 'U');
         int size = loopUpper.Length;
-        char c5 = char.ToUpperInvariant(closingBase5);
-        char c3 = char.ToUpperInvariant(closingBase3);
+        char c5 = NormalizeBase(closingBase5);
+        char c3 = NormalizeBase(closingBase3);
 
         // Check for special hairpin loop (NNDB experimental total energy).
         // Key = closing5' + loop + closing3'.
@@ -715,26 +842,8 @@ public static class RnaSecondaryStructure
         // For loops ≥4nt: terminal mismatch stacking + sequence-dependent bonuses + penalties
         if (size >= 4)
         {
-            char firstMismatch = loopUpper[0];
-            char lastMismatch = loopUpper[^1];
-
-            // Terminal mismatch stacking energy (96-entry table from NNDB)
-            string tmKey = $"{c5}{firstMismatch}{lastMismatch}{c3}";
-            if (TerminalMismatchEnergies.TryGetValue(tmKey, out double tmEnergy))
-                energy += tmEnergy;
-
-            // UU or GA first mismatch bonus — additive on top of terminal mismatch
-            if ((firstMismatch == 'U' && lastMismatch == 'U') ||
-                (firstMismatch == 'G' && lastMismatch == 'A'))
-            {
-                energy += UU_GA_MismatchBonus;
-            }
-
-            // GG first mismatch bonus — additive on top of terminal mismatch
-            if (firstMismatch == 'G' && lastMismatch == 'G')
-            {
-                energy += GG_MismatchBonus;
-            }
+            // Terminal mismatch + UU/GA and GG first-mismatch bonuses (an unknown mismatch base: see below).
+            energy += HairpinFirstMismatchTerm(c5, loopUpper[0], loopUpper[^1], c3);
 
             // Special GU closure: -2.2 when closing pair is G-U preceded by two Gs
             if (specialGUClosure && c5 == 'G' && c3 == 'U')
@@ -756,19 +865,53 @@ public static class RnaSecondaryStructure
     }
 
     /// <summary>
-    /// Calculates the free energy of an internal loop using Turner 2004 parameters.
-    /// ΔG° = initiation(n₁+n₂) + |n₁−n₂|·asymmetry + mismatch_1 + mismatch_2 + AU/GU_closure
+    /// Sequence-dependent first-mismatch part of a hairpin loop of ≥ 4 nt: terminal mismatch (NNDB tstackh)
+    /// + UU/GA first-mismatch bonus (not AG) + GG first-mismatch bonus. A mismatch base other than A/C/G/U
+    /// (N, IUPAC codes, gaps) is ViennaRNA's unknown base 'N' (<c>vrna_nucleotide_encode</c> → 0), whose
+    /// Turner 2004 hairpin-mismatch entries (<c>params/default.c</c> <c>mismatchH37[type][0][·]</c> /
+    /// <c>[·][0]</c>) are the maximum — the least stabilising value — over the four bases; the same maximum
+    /// is taken here over every A/C/G/U substitution of the unknown base(s).
     /// </summary>
-    /// <param name="n1">Number of unpaired bases on the 5' side.</param>
-    /// <param name="n2">Number of unpaired bases on the 3' side.</param>
-    /// <param name="closingBase5_1">5' base of closing pair 1 (outer).</param>
-    /// <param name="closingBase3_1">3' base of closing pair 1 (outer).</param>
-    /// <param name="closingBase5_2">5' base of closing pair 2 (inner).</param>
-    /// <param name="closingBase3_2">3' base of closing pair 2 (inner).</param>
-    /// <param name="mismatch5_1">First unpaired base adjacent to closing pair 1.</param>
-    /// <param name="mismatch3_1">Last unpaired base adjacent to closing pair 1.</param>
-    /// <param name="mismatch5_2">First unpaired base adjacent to closing pair 2.</param>
-    /// <param name="mismatch3_2">Last unpaired base adjacent to closing pair 2.</param>
+    private static double HairpinFirstMismatchTerm(char c5, char x, char y, char c3)
+        => MaxOverUnknownBases(x, y, (a, b) =>
+        {
+            double e = TerminalMismatchEnergies.TryGetValue($"{c5}{a}{b}{c3}", out double tm) ? tm : 0.0;
+            if ((a == 'U' && b == 'U') || (a == 'G' && b == 'A')) e += UU_GA_MismatchBonus;
+            if (a == 'G' && b == 'G') e += GG_MismatchBonus;
+            return e;
+        });
+
+    /// <summary>
+    /// Calculates the free energy of the degree-2 loop closed by the outer pair (i,j) and the inner pair
+    /// (p,q) with the Turner 2004 rules, exactly as ViennaRNA 2.7.2 <c>vrna_E_internal</c>
+    /// (<c>eval/eval_internal.c</c>):
+    /// <list type="bullet">
+    /// <item>1×1, 1×2 (2×1) and 2×2 loops: tabulated int11 / int21 / int22 values (NNDB, all closure terms included);</item>
+    /// <item>1×n (n ≥ 3): initiation(n+1) + min(3.0, 0.6·|n1−n2|) + 1×n mismatch terms (0, AU/GU closure +0.7);</item>
+    /// <item>2×3: initiation(5) + 0.6 + 2×3 first-mismatch terms;</item>
+    /// <item>other: initiation(n1+n2) + min(3.0, 0.6·|n1−n2|) + generic first-mismatch terms;</item>
+    /// <item>n1 = n2 = 0: the stacking energy; exactly one side empty: <see cref="CalculateBulgeLoopEnergy"/>.</item>
+    /// </list>
+    /// Each mismatch term is applied to both closing pairs read from inside the loop:
+    /// <c>[pair(i,j)][s(i+1)][s(j−1)] + [pair(q,p)][s(q+1)][s(p−1)]</c>.
+    /// </summary>
+    /// <remarks>
+    /// Sources: NNDB Turner 2004 internal loops (turner_2004_int11_dg.txt, int21_dg.txt, int22_dg.txt,
+    /// internal_loop_dg.txt); ViennaRNA 2.7.2 <c>vrna_E_internal</c> and default parameter set. Bases are
+    /// case-insensitive, T is read as U, and any other character is ViennaRNA's unknown base 'N'
+    /// (table index 0). A non-canonical closing pair uses ViennaRNA's non-standard pair type.
+    /// </remarks>
+    /// <param name="n1">Number of unpaired bases on the 5' side (between i and p).</param>
+    /// <param name="n2">Number of unpaired bases on the 3' side (between q and j).</param>
+    /// <param name="closingBase5_1">5' base of closing pair 1 (outer, position i).</param>
+    /// <param name="closingBase3_1">3' base of closing pair 1 (outer, position j).</param>
+    /// <param name="closingBase5_2">5' base of closing pair 2 (inner, position p).</param>
+    /// <param name="closingBase3_2">3' base of closing pair 2 (inner, position q).</param>
+    /// <param name="mismatch5_1">Unpaired base adjacent to the outer pair on the 5' side (i+1).</param>
+    /// <param name="mismatch3_1">Unpaired base adjacent to the outer pair on the 3' side (j−1).</param>
+    /// <param name="mismatch5_2">Unpaired base adjacent to the inner pair on the 5' side (p−1).</param>
+    /// <param name="mismatch3_2">Unpaired base adjacent to the inner pair on the 3' side (q+1).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="n1"/> or <paramref name="n2"/> is negative.</exception>
     public static double CalculateInternalLoopEnergy(
         int n1, int n2,
         char closingBase5_1, char closingBase3_1,
@@ -776,119 +919,92 @@ public static class RnaSecondaryStructure
         char mismatch5_1, char mismatch3_1,
         char mismatch5_2, char mismatch3_2)
     {
-        char c5_1 = char.ToUpperInvariant(closingBase5_1);
-        char c3_1 = char.ToUpperInvariant(closingBase3_1);
-        char c5_2 = char.ToUpperInvariant(closingBase5_2);
-        char c3_2 = char.ToUpperInvariant(closingBase3_2);
+        ArgumentOutOfRangeException.ThrowIfNegative(n1);
+        ArgumentOutOfRangeException.ThrowIfNegative(n2);
 
-        // 1×1 internal loops: use NNDB int11 lookup table (includes AU/GU penalties)
-        if (n1 == 1 && n2 == 1)
+        char c5_1 = NormalizeBase(closingBase5_1);
+        char c3_1 = NormalizeBase(closingBase3_1);
+        char c5_2 = NormalizeBase(closingBase5_2);
+        char c3_2 = NormalizeBase(closingBase3_2);
+
+        int nl = Math.Max(n1, n2);
+        int ns = Math.Min(n1, n2);
+
+        if (nl == 0)
         {
-            int pi1 = Int11PairIndex(c5_1, c3_1);
-            int pi2 = Int11PairIndex(c5_2, c3_2);
-            int xi = Int11BaseIndex(char.ToUpperInvariant(mismatch5_1));
-            int yi = Int11BaseIndex(char.ToUpperInvariant(mismatch3_1));
-            if (pi1 >= 0 && pi2 >= 0 && xi >= 0 && yi >= 0)
-                return Int11Energies[pi1, pi2, xi, yi];
+            // Stack: (i,j) directly on (p,q).
+            return StackingEnergies.TryGetValue($"{c5_1}{c5_2}/{c3_1}{c3_2}", out double st) ? st : 0.0;
         }
 
-        int totalSize = n1 + n2;
-
-        // Initiation energy
-        double energy;
-        if (InternalLoopInitiation.TryGetValue(totalSize, out double initEnergy))
+        if (ns == 0)
         {
-            energy = initEnergy;
-        }
-        else if (totalSize > 30)
-        {
-            energy = 2.0 + 1.08 * Math.Log((double)totalSize / 6.0);
-        }
-        else
-        {
-            energy = 1.1; // Minimum (size 4)
+            // Bulge: the bulged nucleotide adjacent to the outer pair is i+1 (5' side) or j−1 (3' side).
+            char bulged = n1 > 0 ? mismatch5_1 : mismatch3_1;
+            return CalculateBulgeLoopEnergy(nl, bulged, c5_1, c3_1, c5_2, c3_2, bulgeOn5PrimeStrand: n1 > 0);
         }
 
-        // Asymmetry penalty
-        energy += InternalLoop_AsymmetryPenalty * Math.Abs(n1 - n2);
+        int type = Turner2004InteriorLoopTables.PairType(c5_1, c3_1);
+        int type2 = Turner2004InteriorLoopTables.PairType(c3_2, c5_2);
+        int si1 = Turner2004InteriorLoopTables.BaseCode(mismatch5_1);
+        int sj1 = Turner2004InteriorLoopTables.BaseCode(mismatch3_1);
+        int sp1 = Turner2004InteriorLoopTables.BaseCode(mismatch5_2);
+        int sq1 = Turner2004InteriorLoopTables.BaseCode(mismatch3_2);
 
-        // AU/GU closure penalty on each side
-        if (IsAUorGU(c5_1, c3_1))
-            energy += InternalLoop_AU_GU_Closure;
-        if (IsAUorGU(c5_2, c3_2))
-            energy += InternalLoop_AU_GU_Closure;
-
-        // Mismatch contributions (depend on loop geometry)
-        char mm5_1 = char.ToUpperInvariant(mismatch5_1);
-        char mm3_1 = char.ToUpperInvariant(mismatch3_1);
-        char mm5_2 = char.ToUpperInvariant(mismatch5_2);
-        char mm3_2 = char.ToUpperInvariant(mismatch3_2);
-
-        if ((n1 == 2 && n2 == 3) || (n1 == 3 && n2 == 2))
+        if (ns == 1)
         {
-            // 2×3 loops: orientation-dependent mismatch
-            energy += GetInternalLoop2x3MismatchEnergy(mm5_1, mm3_1);
-            energy += GetInternalLoop2x3MismatchEnergy(mm5_2, mm3_2);
-        }
-        else if (n1 >= 2 && n2 >= 2)
-        {
-            // Other internal loops: sequence-dependent mismatch
-            energy += GetInternalLoopOtherMismatchEnergy(mm5_1, mm3_1);
-            energy += GetInternalLoopOtherMismatchEnergy(mm5_2, mm3_2);
+            if (nl == 1)
+                return Turner2004InteriorLoopTables.Int11(type, type2, si1, sj1) / 100.0;
+            if (nl == 2)
+            {
+                int e21 = n1 == 1
+                    ? Turner2004InteriorLoopTables.Int21(type, type2, si1, sq1, sj1)
+                    : Turner2004InteriorLoopTables.Int21(type2, type, sq1, si1, sp1);
+                return e21 / 100.0;
+            }
+
+            // 1×n loop (n ≥ 3)
+            double e1n = InternalLoopInitiationEnergy(nl + 1) + InternalLoopAsymmetry(nl - ns)
+                + (Turner2004InteriorLoopTables.Mismatch1nInterior(type, si1, sj1)
+                 + Turner2004InteriorLoopTables.Mismatch1nInterior(type2, sq1, sp1)) / 100.0;
+            return Math.Round(e1n, 2);
         }
 
-        return Math.Round(energy, 2);
+        if (ns == 2 && nl == 2)
+            return Turner2004InteriorLoopTables.Int22(type, type2, si1, sp1, sq1, sj1) / 100.0;
+
+        if (ns == 2 && nl == 3)
+        {
+            double e23 = InternalLoopInitiationEnergy(5) + InternalLoop_AsymmetryPenalty
+                + (Turner2004InteriorLoopTables.Mismatch23Interior(type, si1, sj1)
+                 + Turner2004InteriorLoopTables.Mismatch23Interior(type2, sq1, sp1)) / 100.0;
+            return Math.Round(e23, 2);
+        }
+
+        // Generic internal loop.
+        double e = InternalLoopInitiationEnergy(nl + ns) + InternalLoopAsymmetry(nl - ns)
+            + (Turner2004InteriorLoopTables.MismatchInterior(type, si1, sj1)
+             + Turner2004InteriorLoopTables.MismatchInterior(type2, sq1, sp1)) / 100.0;
+        return Math.Round(e, 2);
     }
 
-    private static bool IsAUorGU(char b5, char b3)
-    {
-        return (b5 == 'A' && b3 == 'U') || (b5 == 'U' && b3 == 'A') ||
-               (b5 == 'G' && b3 == 'U') || (b5 == 'U' && b3 == 'G');
-    }
+    // Internal loop initiation for n unpaired nucleotides (n ≥ 4 on every path that reaches it).
+    private static double InternalLoopInitiationEnergy(int n)
+        => InternalLoopInitiation.TryGetValue(n, out double init)
+            ? init
+            : 2.0 + 1.08 * Math.Log(n / 6.0); // NNDB: ΔG°init(6) + 1.08·ln(n/6) for n > 30
 
+    private static double InternalLoopAsymmetry(int asymmetry)
+        => Math.Min(InternalLoop_MaxAsymmetry, InternalLoop_AsymmetryPenalty * asymmetry);
+
+    // Upper-cases a nucleotide and reads DNA thymine as uracil (the shared tables are A/C/G/U keyed).
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Int11PairIndex(char c5, char c3)
+    private static char NormalizeBase(char b)
     {
-        return (c5, c3) switch
-        {
-            ('A', 'U') => 0,
-            ('C', 'G') => 1,
-            ('G', 'C') => 2,
-            ('U', 'A') => 3,
-            ('G', 'U') => 4,
-            ('U', 'G') => 5,
-            _ => -1
-        };
+        char u = char.ToUpperInvariant(b);
+        return u == 'T' ? 'U' : u;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Int11BaseIndex(char b)
-    {
-        return b switch { 'A' => 0, 'C' => 1, 'G' => 2, 'U' => 3, _ => -1 };
-    }
-
-    private static double GetInternalLoop2x3MismatchEnergy(char mm5, char mm3)
-    {
-        bool isPurine5 = mm5 is 'A' or 'G';
-
-        if (mm5 == 'G' && mm3 == 'G') return IL_2x3_GG;
-        if (mm5 == 'U' && mm3 == 'U') return IL_2x3_UU;
-        if (isPurine5 && mm3 == 'A') return IL_2x3_RA_YG; // RA
-        if (!isPurine5 && mm3 == 'A') return IL_2x3_YA_RG; // YA
-        if (isPurine5 && mm3 == 'G') return IL_2x3_RG_YA;
-        if (!isPurine5 && mm3 == 'G') return IL_2x3_YG_RA;
-
-        return 0.0;
-    }
-
-    private static double GetInternalLoopOtherMismatchEnergy(char mm5, char mm3)
-    {
-        if (mm5 == 'A' && mm3 == 'G') return IL_Other_AG;
-        if (mm5 == 'G' && mm3 == 'A') return IL_Other_GA;
-        if (mm5 == 'G' && mm3 == 'G') return IL_Other_GG;
-        if (mm5 == 'U' && mm3 == 'U') return IL_Other_UU;
-        return 0.0;
-    }
+    private static bool IsAUorGU(char b5, char b3) => Turner2004Parameters.IsTerminalPenaltyPair(b5, b3);
 
     /// <summary>
     /// Calculates the free energy of a bulge loop using Turner 2004 parameters.
@@ -903,32 +1019,42 @@ public static class RnaSecondaryStructure
     /// <param name="pair3_base1">5' base of the pair on the 3' side of the bulge.</param>
     /// <param name="pair3_base2">3' base of the pair on the 3' side.</param>
     /// <param name="numStates">Number of equivalent states for degeneracy (n=1 only). Default 1 = no degeneracy.</param>
+    /// <param name="bulgeOn5PrimeStrand">
+    /// Strand of the bulge: <c>true</c> = between <paramref name="pair5_base1"/> and
+    /// <paramref name="pair3_base1"/>, <c>false</c> = between <paramref name="pair3_base2"/> and
+    /// <paramref name="pair5_base2"/>. NNDB's special C bulge (−0.9) needs a paired C ADJACENT to the bulged C,
+    /// i.e. one of the two closing bases on the bulged strand. When <c>null</c> (strand not given) the rule cannot
+    /// be decided from the arguments; the bonus is then applied only when it holds on BOTH strands, i.e. the
+    /// result is the larger (least stabilising) of the two readings — the convention ViennaRNA 2.7.2 uses for
+    /// every unknown in its Turner 2004 tables (maximum over the possibilities). Pass the strand for the exact
+    /// NNDB value.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="bulgeSize"/> is less than 1.</exception>
+    /// <remarks>Bases are case-insensitive and DNA T is read as U.</remarks>
     public static double CalculateBulgeLoopEnergy(
         int bulgeSize, char bulgedBase,
         char pair5_base1, char pair5_base2,
         char pair3_base1, char pair3_base2,
-        int numStates = 1)
+        int numStates = 1, bool? bulgeOn5PrimeStrand = null)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(bulgeSize, 1);
+
         // Initiation energy
         double energy;
         if (BulgeLoopInitiation.TryGetValue(bulgeSize, out double initEnergy))
         {
             energy = initEnergy;
         }
-        else if (bulgeSize > 30)
-        {
-            // Extrapolation: init(6) + 1.75·R·T·ln(n/6)
-            energy = 4.4 + 1.75 * 1.987 * 310.15 / 1000.0 * Math.Log((double)bulgeSize / 6.0);
-        }
         else
         {
-            energy = 3.8; // Minimum
+            // n > 30 (the table covers 1..30): NNDB extrapolation init(6) + 1.75·R·T·ln(n/6)
+            energy = 4.4 + 1.75 * 1.987 * 310.15 / 1000.0 * Math.Log((double)bulgeSize / 6.0);
         }
 
-        char p5b1 = char.ToUpperInvariant(pair5_base1);
-        char p5b2 = char.ToUpperInvariant(pair5_base2);
-        char p3b1 = char.ToUpperInvariant(pair3_base1);
-        char p3b2 = char.ToUpperInvariant(pair3_base2);
+        char p5b1 = NormalizeBase(pair5_base1);
+        char p5b2 = NormalizeBase(pair5_base2);
+        char p3b1 = NormalizeBase(pair3_base1);
+        char p3b2 = NormalizeBase(pair3_base2);
 
         if (bulgeSize == 1)
         {
@@ -938,8 +1064,16 @@ public static class RnaSecondaryStructure
                 energy += stackEnergy;
 
             // Special C bulge bonus: bulged C adjacent to at least one paired C
-            char bulge = char.ToUpperInvariant(bulgedBase);
-            if (bulge == 'C' && (p5b1 == 'C' || p5b2 == 'C' || p3b1 == 'C' || p3b2 == 'C'))
+            char bulge = NormalizeBase(bulgedBase);
+            bool on5 = p5b1 == 'C' || p3b1 == 'C';
+            bool on3 = p5b2 == 'C' || p3b2 == 'C';
+            bool adjacentC = bulgeOn5PrimeStrand switch
+            {
+                true => on5,
+                false => on3,
+                null => on5 && on3, // strand unknown: least stabilising reading (see parameter doc)
+            };
+            if (bulge == 'C' && adjacentC)
                 energy += BulgeSpecialC_Bonus;
 
             // Degeneracy: −RT·ln(numStates) — entropy from equivalent bulge positions
@@ -963,69 +1097,146 @@ public static class RnaSecondaryStructure
     }
 
     /// <summary>
-    /// Calculates the free energy of a multibranch loop using Turner 2004 parameters.
-    /// ΔG° = a + b·avg_asymmetry + c·num_helices + optimal_stacking + strain
+    /// Initiation free energy of a multibranch loop in the linear Turner 2004 model used for dynamic programming —
+    /// the model of every folding engine in this class (<see cref="CalculateMinimumFreeEnergy"/>,
+    /// <see cref="CalculateMfeStructure"/>, <see cref="CalculatePartitionFunction"/>):
+    /// ΔG°init = a + b·[unpaired nucleotides] + c·[branching helices, the closing helix included],
+    /// a = 9.3, b = 0, c = −0.9 kcal/mol (Mathews et al. 2004 PNAS 101:7287; ViennaRNA 2.7.2
+    /// <c>params/default.c</c> <c>ML_closing37 = 930</c>, <c>ML_BASE37 = 0</c>, <c>ML_intern37 = −90</c>),
+    /// plus <paramref name="stackingEnergy"/> (the dangles / terminal mismatches of the branches, see
+    /// <see cref="GetTerminalMismatchEnergy"/>). The NNDB efn2 model with the asymmetry and strain terms is the
+    /// overload taking the unpaired-nucleotide counts between the helices.
     /// </summary>
-    /// <param name="numHelices">Number of helical branches in the multibranch loop.</param>
-    /// <param name="numUnpaired">Total number of unpaired nucleotides in the loop.</param>
-    /// <param name="hasStrain">True for 3-way junctions with fewer than 2 unpaired bases.</param>
-    /// <param name="stackingEnergy">Pre-computed optimal stacking/dangling end energy for the junction.</param>
+    /// <param name="numHelices">Number of helices in the loop, the closing helix included (≥ 3).</param>
+    /// <param name="numUnpaired">Total number of unpaired nucleotides in the loop (≥ 0; b = 0 in this model).</param>
+    /// <param name="hasStrain">
+    /// Must be <c>false</c>: the three-way strain term exists only in the NNDB efn2 model; use
+    /// <see cref="CalculateMultibranchLoopEnergy(IReadOnlyList{int}, double)"/>, which derives it from the loop.
+    /// </param>
+    /// <param name="stackingEnergy">Stacking (dangles / terminal mismatches / coaxial stacks) of the loop, added as given.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="numHelices"/> &lt; 3 or <paramref name="numUnpaired"/> &lt; 0.</exception>
+    /// <exception cref="ArgumentException"><paramref name="hasStrain"/> is <c>true</c>.</exception>
     public static double CalculateMultibranchLoopEnergy(
         int numHelices, int numUnpaired, bool hasStrain = false, double stackingEnergy = 0.0)
     {
-        double asymmetry = numHelices > 0 ? (double)numUnpaired / numHelices : 0.0;
-        double energy = MultibranchLoop_Offset
-                      + MultibranchLoop_Asymmetry * asymmetry
-                      + MultibranchLoop_Helix * numHelices
-                      + stackingEnergy;
-
+        ArgumentOutOfRangeException.ThrowIfLessThan(numHelices, 3);
+        ArgumentOutOfRangeException.ThrowIfNegative(numUnpaired);
         if (hasStrain)
+            throw new ArgumentException(
+                "The strain term belongs to the NNDB efn2 multibranch model; call the overload with the unpaired " +
+                "counts between the helices, which applies it to three-way loops with fewer than two unpaired nucleotides.",
+                nameof(hasStrain));
+
+        double energy = Dp_ML_closing + Dp_ML_base * numUnpaired + Dp_ML_intern * numHelices + stackingEnergy;
+        return Math.Round(energy, 2);
+    }
+
+    /// <summary>
+    /// Free energy of a multibranch loop in the NNDB Turner 2004 (efn2) model (NNDB "Multibranch Loops" §9.1;
+    /// Mathews &amp; Turner 2002, Biochemistry 41:869):
+    /// ΔG° = a + b·[average asymmetry] + c·[branching helices] + ΔG°strain + ΔG°stacking with a = 9.25, b = 0.91,
+    /// c = −0.63, strain = +3.14 kcal/mol; average asymmetry = min[2.0, mean over the helices of
+    /// |unpaired nucleotides on the 5' side − unpaired nucleotides on the 3' side|]; the strain applies to
+    /// three-way loops with fewer than two unpaired nucleotides.
+    /// </summary>
+    /// <param name="unpairedBetweenHelices">
+    /// The loop read 5'→3' starting after the closing pair: element k is the number of unpaired nucleotides
+    /// between helix k and helix k+1 (cyclically; helix 0 is the closing helix, the last element is the gap
+    /// before the 3' base of the closing pair). Its length is the number of helices (≥ 3); helix k has
+    /// element k−1 on its 5' side and element k on its 3' side.
+    /// </param>
+    /// <param name="stackingEnergy">
+    /// Optimal configuration of dangling ends, terminal mismatches and coaxial stacks (NNDB §9.1), added as given
+    /// (see <see cref="GetDanglingEndEnergy"/>, <see cref="GetTerminalMismatchEnergy"/>,
+    /// <see cref="CalculateFlushCoaxialStacking"/>, <see cref="CalculateMismatchCoaxialStacking"/>).
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="unpairedBetweenHelices"/> is null.</exception>
+    /// <exception cref="ArgumentException">Fewer than 3 helices, or a negative count.</exception>
+    public static double CalculateMultibranchLoopEnergy(IReadOnlyList<int> unpairedBetweenHelices, double stackingEnergy = 0.0)
+    {
+        ArgumentNullException.ThrowIfNull(unpairedBetweenHelices);
+        int h = unpairedBetweenHelices.Count;
+        if (h < 3)
+            throw new ArgumentException("A multibranch loop has at least 3 helices (the closing helix included).",
+                nameof(unpairedBetweenHelices));
+
+        int total = 0;
+        double asymmetrySum = 0;
+        for (int k = 0; k < h; k++)
+        {
+            int after = unpairedBetweenHelices[k];
+            if (after < 0)
+                throw new ArgumentException("Unpaired counts must be non-negative.", nameof(unpairedBetweenHelices));
+            int before = unpairedBetweenHelices[(k + h - 1) % h];
+            asymmetrySum += Math.Abs(before - after);
+            total += after;
+        }
+
+        double averageAsymmetry = Math.Min(MultibranchLoop_MaxAsymmetry, asymmetrySum / h);
+        double energy = MultibranchLoop_Offset
+                      + MultibranchLoop_Asymmetry * averageAsymmetry
+                      + MultibranchLoop_Helix * h
+                      + stackingEnergy;
+        if (h == 3 && total < 2)
             energy += MultibranchLoop_Strain;
 
         return Math.Round(energy, 2);
     }
 
     /// <summary>
-    /// Calculates flush coaxial stacking energy — uses the WC/GU stacking table
-    /// as if the two helices were continuous with no backbone break.
+    /// Flush coaxial stacking energy of two helices with no intervening unpaired nucleotide (NNDB Turner 2004
+    /// "Coaxial Stacking" §8.2): the Watson–Crick / G·U helical stack as though there were no backbone break.
+    /// The continuous strand runs 5'→3' through <paramref name="base5_1"/> then <paramref name="base5_2"/>;
+    /// (<paramref name="base5_1"/>, <paramref name="base3_1"/>) and (<paramref name="base5_2"/>,
+    /// <paramref name="base3_2"/>) are the two terminal pairs — e.g. an A·U pair followed by a C·G pair is
+    /// <c>('A','U','C','G')</c> = −2.24 (NNDB example). Case-insensitive, T read as U; a non-canonical pair
+    /// returns 0 (outside the model). The terminal AU/GU penalties of the helices are not included (NNDB note).
     /// </summary>
     public static double CalculateFlushCoaxialStacking(
         char base5_1, char base3_1, char base5_2, char base3_2)
     {
-        string stack = $"{char.ToUpperInvariant(base5_1)}{char.ToUpperInvariant(base5_2)}/" +
-                       $"{char.ToUpperInvariant(base3_1)}{char.ToUpperInvariant(base3_2)}";
+        string stack = $"{NormalizeBase(base5_1)}{NormalizeBase(base5_2)}/{NormalizeBase(base3_1)}{NormalizeBase(base3_2)}";
         return StackingEnergies.TryGetValue(stack, out double e) ? Math.Round(e, 2) : 0.0;
     }
 
     /// <summary>
-    /// Calculates mismatch-mediated coaxial stacking energy.
-    /// ΔG° = terminal_mismatch + base_constant + WC/GU_bonus
+    /// Mismatch-mediated coaxial stacking energy (NNDB Turner 2004 "Coaxial Stacking" §8.3 and parameter table):
+    /// ΔG° = terminal mismatch of the helix end with the continuous backbone
+    /// (<see cref="GetTerminalMismatchEnergy"/>) − 2.1 (stack on the second helix, backbone not continuous)
+    /// − 0.4 when the "mismatch" (<paramref name="mismatch5"/>, <paramref name="mismatch3"/>) could form a
+    /// Watson–Crick pair, or − 0.2 when it could form a G·U pair; no bonus otherwise. NNDB example: A·U followed
+    /// by a GG mismatch = −0.8 − 2.1 = −2.9 kcal/mol. Case-insensitive, T read as U; an unknown mismatch base takes
+    /// the maximum over A/C/G/U (ViennaRNA 'N' convention); a non-canonical closing pair returns 0.
     /// </summary>
     public static double CalculateMismatchCoaxialStacking(
         char closingBase5, char closingBase3, char mismatch5, char mismatch3)
     {
-        double tmEnergy = GetTerminalMismatchEnergy(closingBase5, closingBase3, mismatch5, mismatch3);
-        double energy = tmEnergy + CoaxialMismatch_Base;
+        char c5 = NormalizeBase(closingBase5);
+        char c3 = NormalizeBase(closingBase3);
+        if (!CanPair(c5, c3))
+            return 0.0;
 
-        char c5 = char.ToUpperInvariant(closingBase5);
-        char c3 = char.ToUpperInvariant(closingBase3);
-        if ((c5 == 'G' && c3 == 'U') || (c5 == 'U' && c3 == 'G'))
-            energy += CoaxialMismatch_GU_Bonus;
-        else
-            energy += CoaxialMismatch_WC_Bonus;
-
+        double energy = MaxOverUnknownBases(NormalizeBase(mismatch5), NormalizeBase(mismatch3), (x, y) =>
+            TerminalMismatchEnergies[$"{c5}{x}{y}{c3}"] + CoaxialMismatch_Base + GetBasePairType(x, y) switch
+            {
+                BasePairType.WatsonCrick => CoaxialMismatch_WC_Bonus,
+                BasePairType.Wobble => CoaxialMismatch_GU_Bonus,
+                _ => 0.0,
+            });
         return Math.Round(energy, 2);
     }
 
     /// <summary>
     /// Calculates the minimum free energy (MFE) of an RNA sequence using Zuker-style DP
-    /// with Turner 2004 nearest-neighbor parameters from NNDB.
-    /// Returns physical kcal/mol values.
+    /// with Turner 2004 nearest-neighbor parameters (NNDB), the loop decomposition and d2 dangle
+    /// model of ViennaRNA 2.7.2 (<c>RNAfold</c> default). Returns physical kcal/mol values.
     ///
-    /// Recurrences:
-    ///   W(j) = min{ W(j-1), min over 0≤i≤j { W(i-1) + V(i,j) + AU_penalty(i,j) + dangle(i,j) } }
-    ///   V(i,j) = min{ Hairpin(i,j), Stack(i,j)+V(i+1,j-1), InternalOrBulge(i,j), Multi(i,j) }
-    ///   WM(i,j) = min{ V(k,j)+b+dangle, WM(i,k-1)+V(k,j)+b, WM(i,j-1)+c, WM(i+1,j)+c }
+    /// Recurrences (see <see cref="FillDp"/>):
+    ///   W(j)    = min{ W(j-1), min_i W(i-1) + V(i,j) + Ext(i,j) }            (Ext: AU/GU + terminal mismatch / dangle)
+    ///   V(i,j)  = min{ Hairpin(i,j), min_(p,q) Interior(i,j,p,q) + V(p,q), Mclose(i,j) + min_k WM(i+1,k)+WM(k+1,j-1) }
+    ///   WM(i,j) = min{ V(i,j)+Mstem(i,j), WM(i+1,j), WM(i,j-1), min_k WM(i,k)+WM(k+1,j) }
+    /// Interior loops use the Turner 2004 int11/int21/int22 tables and the 1×n / 2×3 / generic
+    /// mismatch rules (<see cref="CalculateInternalLoopEnergy"/>, ViennaRNA <c>vrna_E_internal</c>).
     ///
     /// Complexity: O(n³) with MAXLOOP=30 for internal/bulge loops.
     /// </summary>
@@ -1063,361 +1274,244 @@ public static class RnaSecondaryStructure
         }
     }
 
-    // DP constants shared by the matrix fill, the scalar MFE, and the traceback.
+    // DP constants shared by the matrix fill, the scalar MFE, the traceback and the partition function.
     private const double Dp_INF = 1e18;
     private const int Dp_MAXLOOP = 30;
-    // Multibranch loop parameters (NNDB Turner 2004 — mb-parameters.html).
-    private const double Dp_ML_offset = 9.25;   // a — initiation
-    private const double Dp_ML_helix = -0.63;   // c — per helix
-    private const double Dp_ML_unpaired = 0.0;  // free base cost (simplified to 0)
+
+    // Multibranch loop, linear DP model ΔG = a + b·[unpaired] + c·[branching helices incl. the closing one]
+    // (the NNDB efn2 asymmetry/strain form of CalculateMultibranchLoopEnergy cannot be decomposed by an
+    // O(n³) recursion). Source: ViennaRNA 2.7.2 params/default.c ML_closing37 = 930, ML_intern37 = −90,
+    // ML_BASE37 = 0 (Turner 2004 set, as used by vrna_E_multibranch_stem / E_MLstem).
+    private const double Dp_ML_closing = 9.3;   // a
+    private const double Dp_ML_intern = -0.9;   // c (per branch, the closing pair included)
+    private const double Dp_ML_base = 0.0;      // b (per unpaired nucleotide)
 
     /// <summary>
-    /// Fills the Zuker–Stiegler (1981) MFE dynamic-programming matrices in place:
-    /// V(i,j) (minimum energy with i·j paired), WM(i,j) (multiloop region), and W(j)
-    /// (overall MFE of the prefix 0..j). Caller supplies n×n buffers for <paramref name="vBuf"/>
-    /// and <paramref name="wmBuf"/> (row-major, index i*n+j) and an n-length buffer for
-    /// <paramref name="w"/>. The traceback (<see cref="TracebackMfe"/>) and the scalar MFE
-    /// (<see cref="CalculateMinimumFreeEnergy"/>) reuse the SAME fill so the reconstructed
-    /// structure's energy equals the scalar W(0,n-1).
+    /// Energy of the helix end (i,j) facing the exterior loop, dangle model d2 (ViennaRNA 2.7.2
+    /// <c>vrna_E_exterior_stem</c> with <c>md.dangles = 2</c>): terminal AU/GU penalty plus the terminal
+    /// mismatch of the neighbours i−1 / j+1 when both exist, else the single 5' or 3' dangle.
+    /// The terminal-mismatch and dangle tables are read with the pair as seen from the loop
+    /// (closing 5' base = j); they equal ViennaRNA mismatchExt37 / dangle5_37 / dangle3_37 entry for entry.
+    /// </summary>
+    private static double ExteriorStemEnergy(string seq, int n, int i, int j)
+    {
+        double e = IsAUorGU(seq[i], seq[j]) ? TerminalAU_GU_Penalty : 0.0;
+        bool has5 = i > 0;
+        bool has3 = j < n - 1;
+        if (has5 && has3)
+            e += GetTerminalMismatchEnergy(seq[j], seq[i], seq[j + 1], seq[i - 1]);
+        else if (has5)
+            e += GetDanglingEndEnergy(seq[j], seq[i], seq[i - 1], is3Prime: false);
+        else if (has3)
+            e += GetDanglingEndEnergy(seq[j], seq[i], seq[j + 1], is3Prime: true);
+        return e;
+    }
+
+    /// <summary>
+    /// Energy of a branch helix (i,j) inside a multibranch loop, d2 (ViennaRNA <c>E_MLstem(type, s[i−1], s[j+1])</c>):
+    /// per-branch term c + terminal AU/GU penalty + terminal mismatch of the loop neighbours (always present).
+    /// </summary>
+    private static double MultiloopStemEnergy(string seq, int i, int j)
+        => Dp_ML_intern
+           + (IsAUorGU(seq[i], seq[j]) ? TerminalAU_GU_Penalty : 0.0)
+           + GetTerminalMismatchEnergy(seq[j], seq[i], seq[j + 1], seq[i - 1]);
+
+    /// <summary>
+    /// Energy contributed by the pair (i,j) that closes a multibranch loop, d2 (ViennaRNA
+    /// <c>E_MLstem(rtype, s[j−1], s[i+1]) + ML_closing</c>): a + c + terminal AU/GU + inner terminal mismatch.
+    /// </summary>
+    private static double MultiloopClosingEnergy(string seq, int i, int j)
+        => Dp_ML_closing + Dp_ML_intern
+           + (IsAUorGU(seq[i], seq[j]) ? TerminalAU_GU_Penalty : 0.0)
+           + GetTerminalMismatchEnergy(seq[i], seq[j], seq[i + 1], seq[j - 1]);
+
+    /// <summary>Hairpin loop closed by (i,j), including the terminal AU/GU penalty of the closing helix end.</summary>
+    private static double HairpinTerm(string seq, int i, int j)
+    {
+        string loopSeq = seq.Substring(i + 1, j - i - 1);
+        // Special GU closure: closing G-U preceded by two Gs on the 5' side (NNDB hairpin loops).
+        bool specialGU = seq[i] == 'G' && seq[j] == 'U' &&
+                         i >= 2 && seq[i - 1] == 'G' && seq[i - 2] == 'G';
+        double e = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j], specialGU);
+        // NNDB: terminal AU/GU penalty at the helix end facing the hairpin loop
+        // (ViennaRNA folds the same +penalty into mismatch_hairpin / the 3-nt hairpin term). A special
+        // tri/tetra/hexaloop value is the experimentally measured TOTAL loop energy and replaces the whole
+        // hairpin term, closure penalty included (ViennaRNA 2.7.2 vrna_E_hairpin returns Triloop_E /
+        // Tetraloop_E / Hexaloop_E directly) — relevant for the A-U-closed hexaloops.
+        if (IsAUorGU(seq[i], seq[j]) && !SpecialHairpinLoops.ContainsKey(seq.Substring(i, j - i + 1)))
+            e += TerminalAU_GU_Penalty;
+        return e;
+    }
+
+    /// <summary>
+    /// Degree-2 loop closed by (i,j) with inner pair (ip,jp): stacking, bulge (NNDB n = 1 degeneracy
+    /// −RT·ln(states) and special-C terms) or interior loop (<see cref="CalculateInternalLoopEnergy"/>).
+    /// </summary>
+    private static double InteriorTerm(string seq, int i, int j, int ip, int jp)
+    {
+        int n1 = ip - i - 1;
+        int n2 = j - jp - 1;
+        if (n1 == 0 && n2 == 0)
+            return StackingEnergies.TryGetValue($"{seq[i]}{seq[ip]}/{seq[j]}{seq[jp]}", out double st) ? st : Dp_INF;
+
+        if (n1 == 0 || n2 == 0)
+        {
+            int bulgeSize = n1 + n2;
+            char bulgedBase = n1 > 0 ? seq[i + 1] : seq[j - 1];
+            // Degeneracy: count identical adjacent bases for n=1 bulges (NNDB bulge loops, Example 1).
+            int numStates = 1;
+            if (bulgeSize == 1)
+            {
+                if (n1 == 1)
+                {
+                    if (seq[i] == seq[i + 1]) numStates++;
+                    if (seq[ip] == seq[i + 1]) numStates++;
+                }
+                else
+                {
+                    if (seq[j] == seq[j - 1]) numStates++;
+                    if (seq[jp] == seq[j - 1]) numStates++;
+                }
+            }
+            return CalculateBulgeLoopEnergy(bulgeSize, bulgedBase, seq[i], seq[j], seq[ip], seq[jp], numStates,
+                bulgeOn5PrimeStrand: n1 > 0);
+        }
+
+        return CalculateInternalLoopEnergy(n1, n2, seq[i], seq[j], seq[ip], seq[jp],
+            seq[i + 1], seq[j - 1], seq[ip - 1], seq[jp + 1]);
+    }
+
+    // True when (i,j) closes the special 5'GGUC/3'CUGG three-stack (NNDB GU pairs, note b): the three
+    // stacks over (i,j)…(i+3,j−3) are replaced by −4.12 kcal/mol in total.
+    private static bool IsSpecialGgucCuggStack(string seq, int i, int j)
+        => j - i >= 7 &&
+           seq[i] == 'G' && seq[j] == 'C' &&
+           seq[i + 1] == 'G' && seq[j - 1] == 'U' &&
+           seq[i + 2] == 'U' && seq[j - 2] == 'G' &&
+           seq[i + 3] == 'C' && seq[j - 3] == 'G';
+
+    /// <summary>
+    /// Fills the Zuker–Stiegler (1981) MFE dynamic-programming matrices in place, with the Turner 2004
+    /// loop decomposition and the d2 dangle model of ViennaRNA 2.7.2 (<c>RNAfold -d2</c>, the default):
+    /// <code>
+    /// V(i,j)  = min{ H(i,j), min_(p,q) I(i,j,p,q) + V(p,q), GGUC3(i,j) + V(i+3,j−3),
+    ///                Mclose(i,j) + min_k WM(i+1,k) + WM(k+1,j−1) }
+    /// WM(i,j) = min{ V(i,j) + Mstem(i,j), WM(i+1,j) + b, WM(i,j−1) + b, min_k WM(i,k) + WM(k+1,j) }
+    /// W(j)    = min{ W(j−1), min_i W(i−1) + V(i,j) + Ext(i,j) }
+    /// </code>
+    /// The multiloop split demands ≥ 2 inner branches, so a multiloop is never scored with a single
+    /// branch (that would be an interior loop). Caller supplies n×n buffers for <paramref name="vBuf"/>
+    /// and <paramref name="wmBuf"/> (row-major, index i*n+j) and an n-length buffer for <paramref name="w"/>.
+    /// The traceback (<see cref="TracebackMfe"/>) and the scalar MFE reuse the SAME fill.
     /// </summary>
     private static void FillDp(string seq, int n, int minLoopSize, double[] vBuf, double[] wmBuf, double[] w)
     {
         const double INF = Dp_INF;
         const int MAXLOOP = Dp_MAXLOOP;
-        const double ML_offset = Dp_ML_offset;
-        const double ML_helix = Dp_ML_helix;
-        const double ML_unpaired = Dp_ML_unpaired;
 
+        Array.Fill(vBuf, INF, 0, n * n);
+        Array.Fill(wmBuf, INF, 0, n * n);
+        Array.Fill(w, 0.0, 0, n);
+
+        for (int span = minLoopSize + 2; span <= n; span++)
         {
-            // Initialize to +INF (no valid structure)
-            Array.Fill(vBuf, INF, 0, n * n);
-            Array.Fill(wmBuf, INF, 0, n * n);
-            Array.Fill(w, 0.0, 0, n);
-
-            // Fill diagonal and short spans
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i <= n - span; i++)
             {
-                for (int j = i; j < Math.Min(i + minLoopSize + 1, n); j++)
+                int j = i + span - 1;
+                int ij = i * n + j;
+
+                // ===== V(i,j): i and j pair =====
+                if (PairType(seq[i], seq[j]) != 0)
                 {
-                    // Too short to form any pair
-                    vBuf[i * n + j] = INF;
-                    wmBuf[i * n + j] = INF;
+                    double vBest = HairpinTerm(seq, i, j);
+
+                    // Stack, bulge and interior loops with inner pair (ip,jp), n1+n2 ≤ MAXLOOP.
+                    for (int ip = i + 1; ip < j - 1 && ip - i - 1 <= MAXLOOP; ip++)
+                    {
+                        int jpMin = Math.Max(ip + 1, j - (MAXLOOP - (ip - i - 1)) - 1);
+                        for (int jp = j - 1; jp >= jpMin; jp--)
+                        {
+                            if (PairType(seq[ip], seq[jp]) == 0) continue;
+                            double vInner = vBuf[ip * n + jp];
+                            if (vInner >= INF) continue;
+                            double total = InteriorTerm(seq, i, j, ip, jp) + vInner;
+                            if (total < vBest) vBest = total;
+                        }
+                    }
+
+                    // Special GGUC/CUGG 3-stack (NNDB GU pairs, note b).
+                    if (IsSpecialGgucCuggStack(seq, i, j))
+                    {
+                        double vInner3 = vBuf[(i + 3) * n + (j - 3)];
+                        if (vInner3 < INF && SpecialGGUC_CUGG_3Stack + vInner3 < vBest)
+                            vBest = SpecialGGUC_CUGG_3Stack + vInner3;
+                    }
+
+                    // Multiloop closed by (i,j): at least two branches inside.
+                    double split = INF;
+                    for (int k = i + 1; k < j - 1; k++)
+                    {
+                        double left = wmBuf[(i + 1) * n + k];
+                        if (left >= INF) continue;
+                        double right = wmBuf[(k + 1) * n + (j - 1)];
+                        if (right >= INF) continue;
+                        if (left + right < split) split = left + right;
+                    }
+                    if (split < INF)
+                    {
+                        double mEnergy = MultiloopClosingEnergy(seq, i, j) + split;
+                        if (mEnergy < vBest) vBest = mEnergy;
+                    }
+
+                    vBuf[ij] = vBest;
+                }
+
+                // ===== WM(i,j): part of a multiloop with ≥ 1 branch (only meaningful for 0 < i, j < n−1) =====
+                if (i > 0 && j < n - 1)
+                {
+                    double wmBest = INF;
+                    if (vBuf[ij] < INF)
+                        wmBest = vBuf[ij] + MultiloopStemEnergy(seq, i, j);
+
+                    double e = wmBuf[(i + 1) * n + j];
+                    if (e < INF && e + Dp_ML_base < wmBest) wmBest = e + Dp_ML_base;
+                    e = wmBuf[i * n + (j - 1)];
+                    if (e < INF && e + Dp_ML_base < wmBest) wmBest = e + Dp_ML_base;
+
+                    for (int k = i; k < j; k++)
+                    {
+                        double left = wmBuf[i * n + k];
+                        if (left >= INF) continue;
+                        double right = wmBuf[(k + 1) * n + j];
+                        if (right >= INF) continue;
+                        if (left + right < wmBest) wmBest = left + right;
+                    }
+
+                    wmBuf[ij] = wmBest;
                 }
             }
+        }
 
-            // Main DP: fill by increasing span length
-            for (int span = minLoopSize + 2; span <= n; span++)
+        // ===== W(j): exterior loop of the prefix [0..j] =====
+        for (int j = 0; j < n; j++)
+        {
+            double wBest = j > 0 ? w[j - 1] : 0.0;
+            for (int i = 0; i + minLoopSize + 1 <= j; i++)
             {
-                for (int i = 0; i <= n - span; i++)
-                {
-                    int j = i + span - 1;
-                    int ij = i * n + j;
-
-                    // ===== V(i,j): i and j must pair =====
-                    byte pairIJ = PairType(seq[i], seq[j]);
-                    if (pairIJ != 0)
-                    {
-                        double vBest = INF;
-
-                        // --- Option 1: Hairpin loop ---
-                        int loopLen = j - i - 1;
-                        if (loopLen >= minLoopSize)
-                        {
-                            string loopSeq = seq.Substring(i + 1, loopLen);
-
-                            // Detect special GU closure: closing G-U preceded by two Gs on 5' side
-                            // Source: NNDB hairpin-mismatch-parameters.html
-                            bool specialGU = seq[i] == 'G' && seq[j] == 'U' &&
-                                             i >= 2 && seq[i - 1] == 'G' && seq[i - 2] == 'G';
-
-                            double hEnergy = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j], specialGU);
-
-                            // NNDB: terminal AU/GU penalty at inner helix end facing hairpin loop.
-                            // Source: rna.urmc.rochester.edu/NNDB/turner04/hairpin-example-1.html
-                            if (IsAUorGU(seq[i], seq[j]))
-                                hEnergy += TerminalAU_GU_Penalty;
-
-                            if (hEnergy < vBest) vBest = hEnergy;
-                        }
-
-                        // --- Option 2: Stacking (i,j) closes over (i+1,j-1) ---
-                        if (j - i > 2 && PairType(seq[i + 1], seq[j - 1]) != 0)
-                        {
-                            double vInner = vBuf[(i + 1) * n + (j - 1)];
-                            if (vInner < INF)
-                            {
-                                string stackKey = $"{seq[i]}{seq[i + 1]}/{seq[j]}{seq[j - 1]}";
-                                if (StackingEnergies.TryGetValue(stackKey, out double stackE))
-                                {
-                                    double sEnergy = stackE + vInner;
-                                    if (sEnergy < vBest) vBest = sEnergy;
-                                }
-                            }
-                        }
-
-                        // --- Option 2b: Special GGUC/CUGG 3-stack (NNDB note b) ---
-                        // 5'GGUC/3'CUGG: total of 3 stacks = -4.12 replaces individual sum.
-                        if (j - i >= 7 &&
-                            seq[i] == 'G' && seq[j] == 'C' &&
-                            seq[i + 1] == 'G' && seq[j - 1] == 'U' &&
-                            PairType(seq[i + 1], seq[j - 1]) != 0 &&
-                            seq[i + 2] == 'U' && seq[j - 2] == 'G' &&
-                            PairType(seq[i + 2], seq[j - 2]) != 0 &&
-                            seq[i + 3] == 'C' && seq[j - 3] == 'G' &&
-                            PairType(seq[i + 3], seq[j - 3]) != 0)
-                        {
-                            double vInner3 = vBuf[(i + 3) * n + (j - 3)];
-                            if (vInner3 < INF)
-                            {
-                                double sEnergy = SpecialGGUC_CUGG_3Stack + vInner3;
-                                if (sEnergy < vBest) vBest = sEnergy;
-                            }
-                        }
-
-                        // --- Option 3: Internal loop or bulge ---
-                        // Enumerate (i', j') where i < i' < j' < j, (i',j') paired
-                        // with loop size (i'-i-1) + (j-j'-1) ≤ MAXLOOP
-                        for (int ip = i + 1; ip < j - 1 && ip - i - 1 <= MAXLOOP; ip++)
-                        {
-                            int maxN2 = MAXLOOP - (ip - i - 1);
-                            int jpMin = Math.Max(ip + 1, j - maxN2 - 1);
-
-                            for (int jp = j - 1; jp >= jpMin; jp--)
-                            {
-                                if (ip == i + 1 && jp == j - 1)
-                                    continue; // Already handled by stacking
-
-                                byte pairIpJp = PairType(seq[ip], seq[jp]);
-                                if (pairIpJp == 0) continue;
-
-                                double vInner = vBuf[ip * n + jp];
-                                if (vInner >= INF) continue;
-
-                                int n1 = ip - i - 1;
-                                int n2 = j - jp - 1;
-
-                                double loopE;
-                                if (n1 == 0 || n2 == 0)
-                                {
-                                    // Bulge loop
-                                    int bulgeSize = n1 + n2;
-                                    char bulgedBase = n1 > 0 ? seq[i + 1] : seq[j - 1];
-
-                                    // Degeneracy: count identical adjacent bases for n=1 bulges
-                                    int numStates = 1;
-                                    if (bulgeSize == 1)
-                                    {
-                                        if (n1 == 1)
-                                        {
-                                            // Bulge on 5' side at i+1; adjacent bases: seq[i], seq[ip]=seq[i+2]
-                                            if (seq[i] == seq[i + 1]) numStates++;
-                                            if (seq[ip] == seq[i + 1]) numStates++;
-                                        }
-                                        else
-                                        {
-                                            // Bulge on 3' side at j-1; adjacent bases: seq[j], seq[jp]=seq[j-2]
-                                            if (seq[j] == seq[j - 1]) numStates++;
-                                            if (seq[jp] == seq[j - 1]) numStates++;
-                                        }
-                                    }
-
-                                    loopE = CalculateBulgeLoopEnergy(
-                                        bulgeSize, bulgedBase,
-                                        seq[i], seq[j], seq[ip], seq[jp],
-                                        numStates);
-                                }
-                                else
-                                {
-                                    // Internal loop
-                                    loopE = CalculateInternalLoopEnergy(
-                                        n1, n2,
-                                        seq[i], seq[j], seq[ip], seq[jp],
-                                        seq[i + 1], seq[j - 1], seq[ip - 1], seq[jp + 1]);
-                                }
-
-                                double total = loopE + vInner;
-                                if (total < vBest) vBest = total;
-                            }
-                        }
-
-                        // --- Option 4: Multiloop ---
-                        // V(i,j) = ML_offset + ML_helix + AU_penalty(i,j) + WM(i+1, j-1)
-                        // We need at least 2 helices in WM, but approximate with WM decomposition
-                        {
-                            double wmInner = wmBuf[(i + 1) * n + (j - 1)];
-                            if (wmInner < INF)
-                            {
-                                double mEnergy = ML_offset + ML_helix + wmInner;
-                                if (IsAUorGU(seq[i], seq[j]))
-                                    mEnergy += TerminalAU_GU_Penalty;
-                                if (mEnergy < vBest) vBest = mEnergy;
-                            }
-                        }
-
-                        vBuf[ij] = vBest;
-                    }
-
-                    // ===== WM(i,j): multiloop region =====
-                    {
-                        double wmBest = INF;
-
-                        // Option A: V(i,j) starts a helix here
-                        if (vBuf[ij] < INF)
-                        {
-                            double e = vBuf[ij] + ML_helix;
-                            if (IsAUorGU(seq[i], seq[j]))
-                                e += TerminalAU_GU_Penalty;
-                            if (e < wmBest) wmBest = e;
-                        }
-
-                        // Option A2: i is 5' dangle, helix at (i+1, j)
-                        if (i + 1 <= j)
-                        {
-                            double vij2 = vBuf[(i + 1) * n + j];
-                            if (vij2 < INF)
-                            {
-                                double e = vij2 + ML_helix;
-                                if (IsAUorGU(seq[i + 1], seq[j]))
-                                    e += TerminalAU_GU_Penalty;
-                                e += GetDanglingEndEnergy(seq[i + 1], seq[j], seq[i], false);
-                                if (e < wmBest) wmBest = e;
-                            }
-                        }
-
-                        // Option A3: j is 3' dangle, helix at (i, j-1)
-                        if (j - 1 >= i)
-                        {
-                            double vij3 = vBuf[i * n + (j - 1)];
-                            if (vij3 < INF)
-                            {
-                                double e = vij3 + ML_helix;
-                                if (IsAUorGU(seq[i], seq[j - 1]))
-                                    e += TerminalAU_GU_Penalty;
-                                e += GetDanglingEndEnergy(seq[i], seq[j - 1], seq[j], true);
-                                if (e < wmBest) wmBest = e;
-                            }
-                        }
-
-                        // Option A4: both i and j are dangles, helix at (i+1, j-1)
-                        if (i + 1 < j - 1)
-                        {
-                            double vij4 = vBuf[(i + 1) * n + (j - 1)];
-                            if (vij4 < INF)
-                            {
-                                double e = vij4 + ML_helix;
-                                if (IsAUorGU(seq[i + 1], seq[j - 1]))
-                                    e += TerminalAU_GU_Penalty;
-                                e += GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[i], false);
-                                e += GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[j], true);
-                                if (e < wmBest) wmBest = e;
-                            }
-                        }
-
-                        // Option B: i is unpaired in multiloop
-                        if (i + 1 <= j)
-                        {
-                            double e = wmBuf[(i + 1) * n + j];
-                            if (e < INF)
-                            {
-                                e += ML_unpaired;
-                                if (e < wmBest) wmBest = e;
-                            }
-                        }
-
-                        // Option C: j is unpaired in multiloop
-                        if (j - 1 >= i)
-                        {
-                            double e = wmBuf[i * n + (j - 1)];
-                            if (e < INF)
-                            {
-                                e += ML_unpaired;
-                                if (e < wmBest) wmBest = e;
-                            }
-                        }
-
-                        // Option D: split — WM(i,k) + WM(k+1,j), ensures ≥2 helices
-                        for (int k = i; k < j; k++)
-                        {
-                            double left = wmBuf[i * n + k];
-                            double right = wmBuf[(k + 1) * n + j];
-                            if (left < INF && right < INF)
-                            {
-                                double e = left + right;
-                                if (e < wmBest) wmBest = e;
-                            }
-                        }
-
-                        wmBuf[ij] = wmBest;
-                    }
-                }
-
-                // ===== W(j): overall MFE up to position j =====
-                {
-                    int j = span - 1; // only fill W for increasing j
-                    if (j < minLoopSize + 1)
-                    {
-                        w[j] = 0; // too short
-                        continue;
-                    }
-
-                    double wBest = w[j - 1]; // j unpaired
-
-                    for (int i = 0; i <= j; i++)
-                    {
-                        double vij = vBuf[i * n + j];
-                        if (vij >= INF) continue;
-
-                        double auPenalty = IsAUorGU(seq[i], seq[j]) ? TerminalAU_GU_Penalty : 0;
-                        double dangle = 0;
-                        if (i > 0)
-                            dangle += GetDanglingEndEnergy(seq[i], seq[j], seq[i - 1], false);
-                        if (j < n - 1)
-                            dangle += GetDanglingEndEnergy(seq[i], seq[j], seq[j + 1], true);
-                        double left = i > 0 ? w[i - 1] : 0;
-                        double total = left + vij + auPenalty + dangle;
-                        if (total < wBest) wBest = total;
-                    }
-
-                    w[j] = wBest;
-                }
+                double vij = vBuf[i * n + j];
+                if (vij >= INF) continue;
+                double total = (i > 0 ? w[i - 1] : 0.0) + vij + ExteriorStemEnergy(seq, n, i, j);
+                if (total < wBest) wBest = total;
             }
-
-            // Final pass: W[j] = min { W[j-1], min_i { W[i-1] + V(i,j) + AU + dangle } }
-            for (int j = 0; j < n; j++)
-            {
-                if (j < minLoopSize + 1)
-                {
-                    w[j] = 0;
-                    continue;
-                }
-
-                double wBest = w[j - 1];
-                for (int i = 0; i <= j; i++)
-                {
-                    double vij = vBuf[i * n + j];
-                    if (vij >= INF) continue;
-
-                    double auPenalty = IsAUorGU(seq[i], seq[j]) ? TerminalAU_GU_Penalty : 0;
-                    double dangle = 0;
-                    if (i > 0)
-                        dangle += GetDanglingEndEnergy(seq[i], seq[j], seq[i - 1], false);
-                    if (j < n - 1)
-                        dangle += GetDanglingEndEnergy(seq[i], seq[j], seq[j + 1], true);
-                    double left = i > 0 ? w[i - 1] : 0;
-                    double total = left + vij + auPenalty + dangle;
-                    if (total < wBest) wBest = total;
-                }
-
-                w[j] = wBest;
-            }
+            w[j] = wBest;
         }
     }
 
     /// <summary>
     /// Computes the MFE-OPTIMAL secondary structure of an RNA sequence by Zuker–Stiegler (1981)
     /// dynamic-programming traceback over the same V/W/WM matrices used by
-    /// <see cref="CalculateMinimumFreeEnergy"/>. Unlike <see cref="PredictStructure"/> (a greedy
-    /// stem-loop heuristic), this returns the globally optimal pseudoknot-free structure for the
+    /// <see cref="CalculateMinimumFreeEnergy"/>. Unlike <see cref="PredictStructure"/> (an assembly of
+    /// isolated hairpin stem-loops), this returns the globally optimal pseudoknot-free structure for the
     /// Turner 2004 energy model, and its <see cref="MfeStructure.FreeEnergy"/> equals the scalar
     /// MFE for the same input and parameters.
     /// </summary>
@@ -1466,7 +1560,7 @@ public static class RnaSecondaryStructure
     /// <summary>
     /// Predicts the MFE-optimal secondary structure via DP traceback and returns it in the same
     /// <see cref="SecondaryStructure"/> shape as <see cref="PredictStructure"/>. This is the
-    /// optimal counterpart of the greedy <see cref="PredictStructure"/>: the dot-bracket and base
+    /// global-optimum counterpart of the stem-loop assembly <see cref="PredictStructure"/>: the dot-bracket and base
     /// pairs are the DP optimum (Zuker–Stiegler 1981) and <see cref="SecondaryStructure.MinimumFreeEnergy"/>
     /// equals <see cref="CalculateMinimumFreeEnergy"/>.
     /// </summary>
@@ -1508,15 +1602,12 @@ public static class RnaSecondaryStructure
     {
         const double INF = Dp_INF;
         const int MAXLOOP = Dp_MAXLOOP;
-        const double ML_offset = Dp_ML_offset;
-        const double ML_helix = Dp_ML_helix;
-        const double ML_unpaired = Dp_ML_unpaired;
         const double EPS = Dp_TraceEps;
 
         var pairs = new List<(int, int)>();
 
-        // Work items. Kind W → reconstruct prefix [0..j]; V → pair (i,j) already recorded,
-        // reconstruct what (i,j) encloses; WM → reconstruct the multiloop region [i..j].
+        // Work items. 'W' → prefix [0..j]; 'V' → pair (i,j), reconstruct what it encloses;
+        // 'M' → multiloop region [i..j] with ≥ 1 branch.
         var stack = new Stack<(char Kind, int I, int J)>();
         stack.Push(('W', 0, n - 1));
 
@@ -1526,63 +1617,55 @@ public static class RnaSecondaryStructure
 
             if (kind == 'W')
             {
-                int jj = j;
-                if (jj < minLoopSize + 1) continue; // too short — all unpaired
-                double target = w[jj];
-
-                // Option: j unpaired → W(j-1).
-                if (Math.Abs(target - w[jj - 1]) <= EPS)
+                if (j < 0) continue;
+                double target = w[j];
+                if (j > 0 && Math.Abs(target - w[j - 1]) <= EPS)
                 {
-                    stack.Push(('W', 0, jj - 1));
+                    stack.Push(('W', 0, j - 1));
                     continue;
                 }
-
-                // Option: helix (k,j) closes the last branch, with W(k-1) before it.
-                bool matched = false;
-                for (int k = 0; k <= jj && !matched; k++)
+                for (int k = 0; k + minLoopSize + 1 <= j; k++)
                 {
-                    double vij = vBuf[k * n + jj];
-                    if (vij >= INF) continue;
-                    double auPenalty = IsAUorGU(seq[k], seq[jj]) ? TerminalAU_GU_Penalty : 0;
-                    double dangle = 0;
-                    if (k > 0) dangle += GetDanglingEndEnergy(seq[k], seq[jj], seq[k - 1], false);
-                    if (jj < n - 1) dangle += GetDanglingEndEnergy(seq[k], seq[jj], seq[jj + 1], true);
-                    double left = k > 0 ? w[k - 1] : 0;
-                    if (Math.Abs(target - (left + vij + auPenalty + dangle)) <= EPS)
+                    double vkj = vBuf[k * n + j];
+                    if (vkj >= INF) continue;
+                    double left = k > 0 ? w[k - 1] : 0.0;
+                    if (Math.Abs(target - (left + vkj + ExteriorStemEnergy(seq, n, k, j))) <= EPS)
                     {
                         if (k > 0) stack.Push(('W', 0, k - 1));
-                        stack.Push(('V', k, jj));
-                        matched = true;
+                        stack.Push(('V', k, j));
+                        break;
                     }
                 }
-                // If nothing matched (numerical corner), leave the region unpaired.
-                continue;
+                continue; // nothing matched only for an open chain (target 0)
             }
 
             if (kind == 'V')
             {
-                pairs.Add((i, j)); // i·j is paired in the optimal structure
+                pairs.Add((i, j));
                 double target = vBuf[i * n + j];
 
-                // --- Option 1: Hairpin loop ---
-                int loopLen = j - i - 1;
-                if (loopLen >= minLoopSize)
-                {
-                    string loopSeq = seq.Substring(i + 1, loopLen);
-                    bool specialGU = seq[i] == 'G' && seq[j] == 'U' &&
-                                     i >= 2 && seq[i - 1] == 'G' && seq[i - 2] == 'G';
-                    double hEnergy = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j], specialGU);
-                    if (IsAUorGU(seq[i], seq[j])) hEnergy += TerminalAU_GU_Penalty;
-                    if (Math.Abs(target - hEnergy) <= EPS) continue; // hairpin closes here
-                }
+                if (Math.Abs(target - HairpinTerm(seq, i, j)) <= EPS) continue;
 
-                // --- Option 2b: Special GGUC/CUGG 3-stack ---
-                bool consumed = false;
-                if (j - i >= 7 &&
-                    seq[i] == 'G' && seq[j] == 'C' &&
-                    seq[i + 1] == 'G' && seq[j - 1] == 'U' && PairType(seq[i + 1], seq[j - 1]) != 0 &&
-                    seq[i + 2] == 'U' && seq[j - 2] == 'G' && PairType(seq[i + 2], seq[j - 2]) != 0 &&
-                    seq[i + 3] == 'C' && seq[j - 3] == 'G' && PairType(seq[i + 3], seq[j - 3]) != 0)
+                bool found = false;
+                for (int ip = i + 1; ip < j - 1 && ip - i - 1 <= MAXLOOP && !found; ip++)
+                {
+                    int jpMin = Math.Max(ip + 1, j - (MAXLOOP - (ip - i - 1)) - 1);
+                    for (int jp = j - 1; jp >= jpMin; jp--)
+                    {
+                        if (PairType(seq[ip], seq[jp]) == 0) continue;
+                        double vInner = vBuf[ip * n + jp];
+                        if (vInner >= INF) continue;
+                        if (Math.Abs(target - (InteriorTerm(seq, i, j, ip, jp) + vInner)) <= EPS)
+                        {
+                            stack.Push(('V', ip, jp));
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (found) continue;
+
+                if (IsSpecialGgucCuggStack(seq, i, j))
                 {
                     double vInner3 = vBuf[(i + 3) * n + (j - 3)];
                     if (vInner3 < INF && Math.Abs(target - (SpecialGGUC_CUGG_3Stack + vInner3)) <= EPS)
@@ -1591,171 +1674,50 @@ public static class RnaSecondaryStructure
                         pairs.Add((i + 1, j - 1));
                         pairs.Add((i + 2, j - 2));
                         stack.Push(('V', i + 3, j - 3));
-                        consumed = true;
-                    }
-                }
-                if (consumed) continue;
-
-                // --- Option 2: Stacking (i,j) over (i+1,j-1) ---
-                if (j - i > 2 && PairType(seq[i + 1], seq[j - 1]) != 0)
-                {
-                    double vInner = vBuf[(i + 1) * n + (j - 1)];
-                    if (vInner < INF)
-                    {
-                        string stackKey = $"{seq[i]}{seq[i + 1]}/{seq[j]}{seq[j - 1]}";
-                        if (StackingEnergies.TryGetValue(stackKey, out double stackE) &&
-                            Math.Abs(target - (stackE + vInner)) <= EPS)
-                        {
-                            stack.Push(('V', i + 1, j - 1));
-                            continue;
-                        }
+                        continue;
                     }
                 }
 
-                // --- Option 3: Internal loop or bulge ---
-                bool matchedIL = false;
-                for (int ip = i + 1; ip < j - 1 && ip - i - 1 <= MAXLOOP && !matchedIL; ip++)
+                double close = MultiloopClosingEnergy(seq, i, j);
+                for (int k = i + 1; k < j - 1; k++)
                 {
-                    int maxN2 = MAXLOOP - (ip - i - 1);
-                    int jpMin = Math.Max(ip + 1, j - maxN2 - 1);
-                    for (int jp = j - 1; jp >= jpMin && !matchedIL; jp--)
+                    double left = wmBuf[(i + 1) * n + k];
+                    double right = wmBuf[(k + 1) * n + (j - 1)];
+                    if (left >= INF || right >= INF) continue;
+                    if (Math.Abs(target - (close + left + right)) <= EPS)
                     {
-                        if (ip == i + 1 && jp == j - 1) continue; // handled by stacking
-                        byte pairIpJp = PairType(seq[ip], seq[jp]);
-                        if (pairIpJp == 0) continue;
-                        double vInner = vBuf[ip * n + jp];
-                        if (vInner >= INF) continue;
-
-                        int n1 = ip - i - 1;
-                        int n2 = j - jp - 1;
-                        double loopE;
-                        if (n1 == 0 || n2 == 0)
-                        {
-                            int bulgeSize = n1 + n2;
-                            char bulgedBase = n1 > 0 ? seq[i + 1] : seq[j - 1];
-                            int numStates = 1;
-                            if (bulgeSize == 1)
-                            {
-                                if (n1 == 1)
-                                {
-                                    if (seq[i] == seq[i + 1]) numStates++;
-                                    if (seq[ip] == seq[i + 1]) numStates++;
-                                }
-                                else
-                                {
-                                    if (seq[j] == seq[j - 1]) numStates++;
-                                    if (seq[jp] == seq[j - 1]) numStates++;
-                                }
-                            }
-                            loopE = CalculateBulgeLoopEnergy(
-                                bulgeSize, bulgedBase, seq[i], seq[j], seq[ip], seq[jp], numStates);
-                        }
-                        else
-                        {
-                            loopE = CalculateInternalLoopEnergy(
-                                n1, n2, seq[i], seq[j], seq[ip], seq[jp],
-                                seq[i + 1], seq[j - 1], seq[ip - 1], seq[jp + 1]);
-                        }
-
-                        if (Math.Abs(target - (loopE + vInner)) <= EPS)
-                        {
-                            stack.Push(('V', ip, jp));
-                            matchedIL = true;
-                        }
-                    }
-                }
-                if (matchedIL) continue;
-
-                // --- Option 4: Multiloop — V(i,j) = ML_offset + ML_helix + AU + WM(i+1,j-1) ---
-                {
-                    double wmInner = wmBuf[(i + 1) * n + (j - 1)];
-                    if (wmInner < INF)
-                    {
-                        double mEnergy = ML_offset + ML_helix + wmInner;
-                        if (IsAUorGU(seq[i], seq[j])) mEnergy += TerminalAU_GU_Penalty;
-                        if (Math.Abs(target - mEnergy) <= EPS)
-                        {
-                            stack.Push(('M', i + 1, j - 1));
-                            continue;
-                        }
+                        stack.Push(('M', i + 1, k));
+                        stack.Push(('M', k + 1, j - 1));
+                        break;
                     }
                 }
                 continue;
             }
 
-            // kind == 'M' : reconstruct the multiloop region [i..j].
+            // kind == 'M'
             {
-                if (i > j) continue;
                 double target = wmBuf[i * n + j];
                 if (target >= INF) continue;
 
-                // Option A: V(i,j) is a single helix.
-                if (vBuf[i * n + j] < INF)
+                double vij = vBuf[i * n + j];
+                if (vij < INF && Math.Abs(target - (vij + MultiloopStemEnergy(seq, i, j))) <= EPS)
                 {
-                    double e = vBuf[i * n + j] + ML_helix;
-                    if (IsAUorGU(seq[i], seq[j])) e += TerminalAU_GU_Penalty;
-                    if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i, j)); continue; }
+                    stack.Push(('V', i, j));
+                    continue;
                 }
-
-                // Option A2: i is a 5' dangle, helix at (i+1, j).
-                if (i + 1 <= j)
+                double e = wmBuf[(i + 1) * n + j];
+                if (e < INF && Math.Abs(target - (e + Dp_ML_base)) <= EPS)
                 {
-                    double vij2 = vBuf[(i + 1) * n + j];
-                    if (vij2 < INF)
-                    {
-                        double e = vij2 + ML_helix;
-                        if (IsAUorGU(seq[i + 1], seq[j])) e += TerminalAU_GU_Penalty;
-                        e += GetDanglingEndEnergy(seq[i + 1], seq[j], seq[i], false);
-                        if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i + 1, j)); continue; }
-                    }
+                    stack.Push(('M', i + 1, j));
+                    continue;
                 }
-
-                // Option A3: j is a 3' dangle, helix at (i, j-1).
-                if (j - 1 >= i)
+                e = wmBuf[i * n + (j - 1)];
+                if (e < INF && Math.Abs(target - (e + Dp_ML_base)) <= EPS)
                 {
-                    double vij3 = vBuf[i * n + (j - 1)];
-                    if (vij3 < INF)
-                    {
-                        double e = vij3 + ML_helix;
-                        if (IsAUorGU(seq[i], seq[j - 1])) e += TerminalAU_GU_Penalty;
-                        e += GetDanglingEndEnergy(seq[i], seq[j - 1], seq[j], true);
-                        if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i, j - 1)); continue; }
-                    }
+                    stack.Push(('M', i, j - 1));
+                    continue;
                 }
-
-                // Option A4: both i and j are dangles, helix at (i+1, j-1).
-                if (i + 1 < j - 1)
-                {
-                    double vij4 = vBuf[(i + 1) * n + (j - 1)];
-                    if (vij4 < INF)
-                    {
-                        double e = vij4 + ML_helix;
-                        if (IsAUorGU(seq[i + 1], seq[j - 1])) e += TerminalAU_GU_Penalty;
-                        e += GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[i], false);
-                        e += GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[j], true);
-                        if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i + 1, j - 1)); continue; }
-                    }
-                }
-
-                // Option B: i unpaired in the multiloop.
-                if (i + 1 <= j)
-                {
-                    double e = wmBuf[(i + 1) * n + j];
-                    if (e < INF && Math.Abs(target - (e + ML_unpaired)) <= EPS)
-                    { stack.Push(('M', i + 1, j)); continue; }
-                }
-
-                // Option C: j unpaired in the multiloop.
-                if (j - 1 >= i)
-                {
-                    double e = wmBuf[i * n + (j - 1)];
-                    if (e < INF && Math.Abs(target - (e + ML_unpaired)) <= EPS)
-                    { stack.Push(('M', i, j - 1)); continue; }
-                }
-
-                // Option D: split WM(i,k) + WM(k+1,j).
-                bool split = false;
-                for (int k = i; k < j && !split; k++)
+                for (int k = i; k < j; k++)
                 {
                     double left = wmBuf[i * n + k];
                     double right = wmBuf[(k + 1) * n + j];
@@ -1763,14 +1725,121 @@ public static class RnaSecondaryStructure
                     {
                         stack.Push(('M', i, k));
                         stack.Push(('M', k + 1, j));
-                        split = true;
+                        break;
                     }
                 }
-                // else: numerical corner — leave region unpaired.
             }
         }
 
         return pairs;
+    }
+
+    /// <summary>
+    /// Free energy ΔG°37 (kcal/mol) of a given pseudoknot-free secondary structure — the Turner 2004 loop-by-loop
+    /// sum (exterior d2 stem terms, hairpins, stacks, bulges, interior loops, GGUC/CUGG three-stack, linear d2
+    /// multiloops) of exactly the model minimised by <see cref="CalculateMinimumFreeEnergy"/>; the counterpart of
+    /// ViennaRNA 2.7.2 <c>vrna_eval_structure</c> (<c>RNAeval</c>, <c>-d2</c>). For every sequence,
+    /// <c>CalculateFreeEnergy(s, CalculateMfeStructure(s).DotBracket)</c> equals the MFE.
+    /// </summary>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U), case-insensitive.</param>
+    /// <param name="dotBracket">Structure of the same length using only '(', ')' and '.'.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// The structure has another character, is unbalanced, has the wrong length, pairs bases that cannot pair
+    /// (see <see cref="CanPair"/>), or contains a hairpin loop of fewer than 3 unpaired nucleotides (prohibited by
+    /// the Turner 2004 rules; ViennaRNA evaluates such a structure to INF).
+    /// </exception>
+    public static double CalculateFreeEnergy(string rnaSequence, string dotBracket)
+    {
+        ArgumentNullException.ThrowIfNull(rnaSequence);
+        ArgumentNullException.ThrowIfNull(dotBracket);
+        foreach (char c in dotBracket)
+            if (c is not ('(' or ')' or '.'))
+                throw new ArgumentException("Only '(', ')' and '.' are allowed (pseudoknot-free structure).", nameof(dotBracket));
+        return EvaluateStructureEnergy(rnaSequence, dotBracket);
+    }
+
+    /// <summary>
+    /// Free energy (kcal/mol) of a fixed pseudoknot-free structure under exactly the energy model of
+    /// <see cref="FillDp"/> (loop decomposition: exterior d2 stems, hairpins, stacks / bulges / interior
+    /// loops, GGUC/CUGG three-stack, linear d2 multiloops) — the counterpart of ViennaRNA
+    /// <c>vrna_eval_structure</c> with <c>md.dangles = 2</c>. Interior loops are evaluated without the
+    /// MAXLOOP cut-off, as in ViennaRNA. Used to verify that the MFE equals the energy of its own structure.
+    /// </summary>
+    /// <exception cref="ArgumentException">The dot-bracket is unbalanced, has the wrong length, pairs non-canonical bases, or
+    /// has a hairpin loop of fewer than 3 unpaired nucleotides.</exception>
+    internal static double EvaluateStructureEnergy(string rnaSequence, string dotBracket)
+    {
+        ArgumentNullException.ThrowIfNull(rnaSequence);
+        ArgumentNullException.ThrowIfNull(dotBracket);
+        string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
+        int n = seq.Length;
+        if (dotBracket.Length != n || !ValidateDotBracket(dotBracket))
+            throw new ArgumentException("Dot-bracket must be balanced and as long as the sequence.", nameof(dotBracket));
+
+        var partner = new int[n];
+        Array.Fill(partner, -1);
+        foreach (var (a, b) in ParseDotBracket(dotBracket))
+        {
+            if (PairType(seq[a], seq[b]) == 0)
+                throw new ArgumentException($"Non-canonical pair ({a},{b}).", nameof(dotBracket));
+            // NNDB Turner 2004: "The nearest neighbor rules prohibit hairpin loops with fewer than 3 nucleotides"
+            // (ViennaRNA 2.7.2 vrna_E_hairpin: hairpin[0..2] = INF; eval_structure reports 100000). A pair spanning
+            // fewer than 3 positions cannot enclose another pair, so it always closes such a hairpin.
+            if (b - a - 1 < MinHairpinLoop)
+                throw new ArgumentException(
+                    $"Pair ({a},{b}) closes a hairpin loop of {b - a - 1} nucleotides; Turner 2004 prohibits hairpin loops of fewer than 3.",
+                    nameof(dotBracket));
+            partner[a] = b;
+            partner[b] = a;
+        }
+
+        double energy = 0.0;
+        int k = 0;
+        while (k < n)
+        {
+            if (partner[k] > k)
+            {
+                energy += ExteriorStemEnergy(seq, n, k, partner[k]) + LoopEnergyClosedBy(seq, partner, k, partner[k]);
+                k = partner[k];
+            }
+            k++;
+        }
+        return Math.Round(energy, 2);
+    }
+
+    // Energy of the loop closed by (i,j) plus everything nested inside it.
+    private static double LoopEnergyClosedBy(string seq, int[] partner, int i, int j)
+    {
+        if (IsSpecialGgucCuggStack(seq, i, j) &&
+            partner[i + 1] == j - 1 && partner[i + 2] == j - 2 && partner[i + 3] == j - 3)
+            return SpecialGGUC_CUGG_3Stack + LoopEnergyClosedBy(seq, partner, i + 3, j - 3);
+
+        var branches = new List<(int P, int Q)>();
+        int k = i + 1;
+        while (k < j)
+        {
+            if (partner[k] > k)
+            {
+                branches.Add((k, partner[k]));
+                k = partner[k];
+            }
+            k++;
+        }
+
+        if (branches.Count == 0)
+            return HairpinTerm(seq, i, j);
+
+        if (branches.Count == 1)
+        {
+            var (p, q) = branches[0];
+            return InteriorTerm(seq, i, j, p, q) + LoopEnergyClosedBy(seq, partner, p, q);
+        }
+
+        double e = MultiloopClosingEnergy(seq, i, j);
+        foreach (var (p, q) in branches)
+            e += MultiloopStemEnergy(seq, p, q) + LoopEnergyClosedBy(seq, partner, p, q);
+        return e;
     }
 
     // Hot-path pair classification for already-normalised (uppercase) sequences: reads the same
@@ -1841,9 +1910,23 @@ public static class RnaSecondaryStructure
     #region Structure Prediction
 
     /// <summary>
-    /// Predicts the secondary structure of an RNA sequence.
-    /// Case-insensitive; DNA T is read as U (the returned sequence is the normalised A/C/G/U string).
+    /// Assembles a secondary structure from hairpin stem-loops: the minimum-free-energy set of mutually
+    /// non-overlapping candidates of <see cref="FindStemLoops"/> (stems of ≥ <paramref name="minStemLength"/> stacked
+    /// pairs closing a hairpin of <paramref name="minLoopSize"/>..<paramref name="maxLoopSize"/> nt) placed in the
+    /// exterior loop. Case-insensitive; DNA T is read as U (the returned sequence is the normalised A/C/G/U string).
     /// </summary>
+    /// <remarks>
+    /// The selection is the Zuker–Stiegler (1981) exterior-loop recursion restricted to the candidate set:
+    /// <c>W(j) = min{ W(j−1), min over candidates (i,j) of W(i−1) + E(i,j) }</c>, where <c>E(i,j)</c> is the free energy of
+    /// the whole sequence folded into that single stem-loop (<see cref="CalculateFreeEnergy"/>: stem, hairpin and the
+    /// d2 exterior terminal-mismatch/dangle term, which under d2 depends on the sequence only, so the terms of disjoint
+    /// stem-loops add up). It is therefore the exact optimum over every combination of candidates — no candidate whose
+    /// energy is ≥ 0 is ever chosen and <see cref="SecondaryStructure.MinimumFreeEnergy"/> is the free energy of the
+    /// returned structure (= <see cref="CalculateFreeEnergy"/> on its dot-bracket, ≤ 0). The search space has no
+    /// multiloops, interior loops, bulges or nested hairpins, so the result is in general LESS stable than the global
+    /// optimum: for the minimum-free-energy fold use <see cref="PredictStructureMfe"/> / <see cref="CalculateMfeStructure"/>
+    /// (ViennaRNA RNAfold counterpart).
+    /// </remarks>
     public static SecondaryStructure PredictStructure(
         string rnaSequence,
         int minStemLength = 3,
@@ -1859,25 +1942,18 @@ public static class RnaSecondaryStructure
 
         string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
 
-        // Find stem-loops
-        var stemLoops = FindStemLoops(seq, minStemLength, minLoopSize, maxLoopSize)
-            .OrderBy(sl => sl.TotalFreeEnergy)
-            .ToList();
+        var candidates = FindStemLoops(seq, minStemLength, minLoopSize, maxLoopSize).ToList();
+        var selectedStemLoops = SelectStemLoopsByExteriorDp(seq, candidates);
 
-        // Select non-overlapping structures greedily by energy
-        var selectedStemLoops = SelectNonOverlapping(stemLoops);
-
-        // Collect all base pairs
         var allBasePairs = selectedStemLoops
             .SelectMany(sl => sl.Stem.BasePairs)
             .OrderBy(bp => bp.Position1)
             .ToList();
 
-        // Generate dot-bracket notation
         string dotBracket = GenerateFullDotBracket(seq.Length, allBasePairs);
 
-        // Calculate total MFE
-        double mfe = selectedStemLoops.Sum(sl => sl.TotalFreeEnergy);
+        // Free energy of the assembled structure with the canonical evaluator (RNAeval -d2 counterpart).
+        double mfe = EvaluateStructureEnergy(seq, dotBracket);
 
         // Detect pseudoknots
         var pseudoknots = DetectPseudoknots(allBasePairs).ToList();
@@ -1891,33 +1967,58 @@ public static class RnaSecondaryStructure
             MinimumFreeEnergy: mfe);
     }
 
-    private static List<StemLoop> SelectNonOverlapping(List<StemLoop> stemLoops)
+    /// <summary>
+    /// Zuker–Stiegler exterior-loop recursion over a fixed candidate set of stem-loops:
+    /// W(j) = min{ W(j−1), min_(c ends at j) W(c.Start−1) + E(c) }, E(c) = free energy of the full sequence folded
+    /// into stem-loop c alone. Ties keep the unpaired option (W(j−1)), then the first candidate in input order.
+    /// </summary>
+    private static List<StemLoop> SelectStemLoopsByExteriorDp(string seq, List<StemLoop> candidates)
     {
-        var selected = new List<StemLoop>();
-        var used = new HashSet<int>();
-
-        foreach (var sl in stemLoops)
+        int n = seq.Length;
+        var byEnd = new List<(int Index, double Energy)>?[n];
+        var db = new char[n];
+        for (int c = 0; c < candidates.Count; c++)
         {
-            bool overlaps = false;
-            for (int pos = sl.Start; pos <= sl.End; pos++)
+            var sl = candidates[c];
+            Array.Fill(db, '.');
+            foreach (var bp in sl.Stem.BasePairs)
             {
-                if (used.Contains(pos))
-                {
-                    overlaps = true;
-                    break;
-                }
+                db[bp.Position1] = '(';
+                db[bp.Position2] = ')';
             }
+            double e = EvaluateStructureEnergy(seq, new string(db));
+            (byEnd[sl.End] ??= new List<(int, double)>()).Add((c, e));
+        }
 
-            if (!overlaps)
+        const double eps = 1e-9;
+        var w = new double[n + 1];      // w[j + 1] = W(j); w[0] = 0 (empty prefix)
+        var choice = new int[n + 1];    // candidate index ending at j, or −1 = j unpaired
+        choice[0] = -1;
+        for (int j = 0; j < n; j++)
+        {
+            w[j + 1] = w[j];
+            choice[j + 1] = -1;
+            if (byEnd[j] is null) continue;
+            foreach (var (index, e) in byEnd[j]!)
             {
-                selected.Add(sl);
-                for (int pos = sl.Start; pos <= sl.End; pos++)
+                double v = w[candidates[index].Start] + e;
+                if (v < w[j + 1] - eps)
                 {
-                    used.Add(pos);
+                    w[j + 1] = v;
+                    choice[j + 1] = index;
                 }
             }
         }
 
+        var selected = new List<StemLoop>();
+        for (int j = n; j > 0;)
+        {
+            if (choice[j] < 0) { j--; continue; }
+            var sl = candidates[choice[j]];
+            selected.Add(sl);
+            j = sl.Start;
+        }
+        selected.Reverse();
         return selected;
     }
 
@@ -2462,8 +2563,10 @@ public static class RnaSecondaryStructure
     /// energy ΔG, the partition function takes a <c>sum</c> over the same options and MULTIPLIES
     /// by the Boltzmann weight exp(−ΔG/RT) of the SAME Turner-2004 loop energy
     /// (<see cref="CalculateHairpinLoopEnergy"/>, the stacking table, <see cref="CalculateInternalLoopEnergy"/>,
-    /// <see cref="CalculateBulgeLoopEnergy"/>, the multibranch term, and the dangling-end /
-    /// terminal-AU table). Hence Z = Σ_S exp(−E(S)/RT) over exactly the structure space the MFE
+    /// <see cref="CalculateBulgeLoopEnergy"/>, and the d2 multibranch / exterior stem terms with their
+    /// terminal-mismatch, dangle and terminal-AU contributions). The decomposition is unambiguous (every
+    /// structure has exactly one derivation; multiloop branches go through a single-branch matrix as in
+    /// ViennaRNA's fM1), so Z = Σ_S exp(−E(S)/RT) over exactly the structure space the MFE
     /// folder explores, and ΔG_ensemble = −RT·ln Z ≤ MFE (McCaskill JS 1990 Biopolymers 29:1105;
     /// Lorenz et al. 2011 Algorithms Mol Biol 6:26 — ViennaRNA; ViennaRNA pf_fold reference,
     /// Z = Σ_s e^{−βE(s)}, p(s) = e^{−βE(s)}/Z).
@@ -2664,8 +2767,6 @@ public static class RnaSecondaryStructure
         int requireI = -1, int requireJ = -1)
     {
         const int MAXLOOP = Dp_MAXLOOP;
-        const double ML_offset = Dp_ML_offset;
-        const double ML_helix = Dp_ML_helix;
 
         bool Forbidden(int p) => forbiddenStart <= forbiddenEnd && p >= forbiddenStart && p <= forbiddenEnd;
 
@@ -2686,18 +2787,20 @@ public static class RnaSecondaryStructure
                 return p == requireI && q == requireJ;
             return true;
         }
-        bool UnpairedOk(int p) => !(RequireActive && (p == requireI || p == requireJ));
         // True if a required (must-pair) endpoint would be stranded UNPAIRED inside [lo..hi]
-        // (e.g. a hairpin/internal/bulge loop region). Such a decomposition is inadmissible.
-        bool RequiredUnpairedIn(int lo, int hi) => RequireActive &&
+        // (a loop region or an unpaired multiloop / exterior stretch). Such a decomposition is inadmissible.
+        bool RequiredUnpairedIn(int lo, int hi) => RequireActive && lo <= hi &&
             ((requireI >= lo && requireI <= hi) || (requireJ >= lo && requireJ <= hi));
 
-        // Boltzmann weights of the (per-helix / initiation / dangle) multiloop and external terms.
-        double mlOffsetW = BoltzmannWeight(ML_offset, rt);
-        double mlHelixW = BoltzmannWeight(ML_helix, rt);
-        double auW = BoltzmannWeight(TerminalAU_GU_Penalty, rt);
+        // Unambiguous McCaskill decomposition of the SAME energy model as FillDp (d2 dangles, linear
+        // multiloop, ML_base = 0 ⇒ an unpaired multiloop nucleotide has weight 1):
+        //   WM1(i,j) = Σ_l V(i,l)·e^{−Mstem(i,l)/RT}                 (one branch (i,l), j−l unpaired)
+        //   WM(i,j)  = Σ_k [ 1(i..k−1 unpaired) + WM(i,k−1) ]·WM1(k,j)  (≥ 1 branch)
+        //   V(i,j)  += e^{−Mclose(i,j)/RT}·Σ_k WM(i+1,k−1)·WM1(k,j−1)    (≥ 2 branches)
+        //   W(j)     = W(j−1) + Σ_i W(i−1)·V(i,j)·e^{−Ext(i,j)/RT}
+        // Each secondary structure has exactly one derivation (no double counting).
+        var wm1Exp = new double[n, n];
 
-        // Vexp[i,j]: i & j paired. Empty unless within range and pairable and neither is forbidden.
         for (int span = minLoopSize + 2; span <= n; span++)
         {
             for (int i = 0; i <= n - span; i++)
@@ -2709,183 +2812,93 @@ public static class RnaSecondaryStructure
                 {
                     double v = 0.0;
 
-                    // --- Hairpin loop --- (all loop bases [i+1..j-1] are unpaired)
-                    int loopLen = j - i - 1;
-                    if (loopLen >= minLoopSize && !RequiredUnpairedIn(i + 1, j - 1))
-                    {
-                        // The hairpin loop bases are [i+1 .. j-1]; all must be unpaired anyway, but
-                        // if any is forbidden that is automatically satisfied (loop bases ARE unpaired).
-                        string loopSeq = seq.Substring(i + 1, loopLen);
-                        bool specialGU = seq[i] == 'G' && seq[j] == 'U' &&
-                                         i >= 2 && seq[i - 1] == 'G' && seq[i - 2] == 'G';
-                        double hEnergy = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j], specialGU);
-                        if (IsAUorGU(seq[i], seq[j]))
-                            hEnergy += TerminalAU_GU_Penalty;
-                        v += BoltzmannWeight(hEnergy, rt);
-                    }
+                    // Hairpin loop: all loop bases [i+1..j-1] unpaired.
+                    if (!RequiredUnpairedIn(i + 1, j - 1))
+                        v += BoltzmannWeight(HairpinTerm(seq, i, j), rt);
 
-                    // --- Stacking + internal/bulge loops: (i,j) encloses (ip,jp) ---
+                    // Stack / bulge / interior loop with inner pair (ip,jp).
                     for (int ip = i + 1; ip < j - 1 && ip - i - 1 <= MAXLOOP; ip++)
                     {
-                        int maxN2 = MAXLOOP - (ip - i - 1);
-                        int jpMin = Math.Max(ip + 1, j - maxN2 - 1);
+                        if (RequiredUnpairedIn(i + 1, ip - 1)) break; // a longer 5' gap strands it too
+                        int jpMin = Math.Max(ip + 1, j - (MAXLOOP - (ip - i - 1)) - 1);
                         for (int jp = j - 1; jp >= jpMin; jp--)
                         {
-                            if (PairType(seq[ip], seq[jp]) == 0) continue;
+                            if (RequiredUnpairedIn(jp + 1, j - 1)) break;
                             double inner = vExp[ip, jp];
                             if (inner <= 0) continue;
-                            // The internal/bulge loop gaps [i+1..ip-1] and [jp+1..j-1] are unpaired;
-                            // a required endpoint may not be stranded there.
-                            if (RequiredUnpairedIn(i + 1, ip - 1) || RequiredUnpairedIn(jp + 1, j - 1))
-                                continue;
-
-                            int n1 = ip - i - 1;
-                            int n2 = j - jp - 1;
-                            double loopE;
-                            if (n1 == 0 && n2 == 0)
-                            {
-                                // Stacking
-                                string stackKey = $"{seq[i]}{seq[i + 1]}/{seq[j]}{seq[j - 1]}";
-                                if (!StackingEnergies.TryGetValue(stackKey, out loopE))
-                                    continue; // unknown stack contributes nothing in this model
-                            }
-                            else if (n1 == 0 || n2 == 0)
-                            {
-                                int bulgeSize = n1 + n2;
-                                char bulgedBase = n1 > 0 ? seq[i + 1] : seq[j - 1];
-                                int numStates = 1;
-                                if (bulgeSize == 1)
-                                {
-                                    if (n1 == 1)
-                                    {
-                                        if (seq[i] == seq[i + 1]) numStates++;
-                                        if (seq[ip] == seq[i + 1]) numStates++;
-                                    }
-                                    else
-                                    {
-                                        if (seq[j] == seq[j - 1]) numStates++;
-                                        if (seq[jp] == seq[j - 1]) numStates++;
-                                    }
-                                }
-                                loopE = CalculateBulgeLoopEnergy(bulgeSize, bulgedBase,
-                                    seq[i], seq[j], seq[ip], seq[jp], numStates);
-                            }
-                            else
-                            {
-                                loopE = CalculateInternalLoopEnergy(n1, n2,
-                                    seq[i], seq[j], seq[ip], seq[jp],
-                                    seq[i + 1], seq[j - 1], seq[ip - 1], seq[jp + 1]);
-                            }
+                            double loopE = InteriorTerm(seq, i, j, ip, jp);
+                            if (loopE >= Dp_INF) continue;
                             v += BoltzmannWeight(loopE, rt) * inner;
                         }
                     }
 
-                    // --- Multiloop: (i,j) closes a multibranch region [i+1..j-1] ---
-                    double wmInner = wmExp[i + 1, j - 1];
-                    if (wmInner > 0)
+                    // Special GGUC/CUGG three-stack: replaces the three individual stacks (as FillDp does).
+                    if (IsSpecialGgucCuggStack(seq, i, j) && vExp[i + 1, j - 1] > 0 && vExp[i + 2, j - 2] > 0)
                     {
-                        double closeW = mlOffsetW * mlHelixW;
-                        if (IsAUorGU(seq[i], seq[j])) closeW *= auW;
-                        v += closeW * wmInner;
+                        double inner3 = vExp[i + 3, j - 3];
+                        if (inner3 > 0)
+                        {
+                            double s3 = InteriorTerm(seq, i, j, i + 1, j - 1)
+                                      + InteriorTerm(seq, i + 1, j - 1, i + 2, j - 2)
+                                      + InteriorTerm(seq, i + 2, j - 2, i + 3, j - 3);
+                            v += (BoltzmannWeight(SpecialGGUC_CUGG_3Stack, rt) - BoltzmannWeight(s3, rt)) * inner3;
+                        }
                     }
+
+                    // Multiloop closed by (i,j): ≥ 2 branches inside.
+                    double ml = 0.0;
+                    for (int k = i + 2; k < j - 1; k++)
+                    {
+                        double right = wm1Exp[k, j - 1];
+                        if (right <= 0) continue;
+                        double left = wmExp[i + 1, k - 1];
+                        if (left > 0) ml += left * right;
+                    }
+                    if (ml > 0)
+                        v += BoltzmannWeight(MultiloopClosingEnergy(seq, i, j), rt) * ml;
 
                     vExp[i, j] = v;
                 }
 
-                // ===== WMexp(i,j): multibranch region partition function =====
+                // ===== WM1exp / WMexp(i,j): multiloop parts (only meaningful for 0 < i, j < n−1) =====
+                if (i > 0 && j < n - 1)
                 {
+                    double wm1 = 0.0;
+                    for (int l = j; l >= i + minLoopSize + 1; l--)
+                    {
+                        if (RequiredUnpairedIn(l + 1, j)) break;
+                        double vil = vExp[i, l];
+                        if (vil > 0)
+                            wm1 += vil * BoltzmannWeight(MultiloopStemEnergy(seq, i, l), rt);
+                    }
+                    wm1Exp[i, j] = wm1;
+
                     double wm = 0.0;
-
-                    // A: a helix V(i,j) starts here (per-helix weight; AU penalty at the helix end).
-                    if (vExp[i, j] > 0)
+                    for (int k = i; k <= j - minLoopSize - 1; k++)
                     {
-                        double e = mlHelixW * vExp[i, j];
-                        if (IsAUorGU(seq[i], seq[j])) e *= auW;
-                        wm += e;
+                        double branch = wm1Exp[k, j];
+                        if (branch <= 0) continue;
+                        double before = RequiredUnpairedIn(i, k - 1) ? 0.0 : 1.0; // Dp_ML_base = 0 ⇒ weight 1
+                        if (k > i) before += wmExp[i, k - 1];
+                        wm += before * branch;
                     }
-                    // A2: i is a 5' dangle, helix at (i+1,j).
-                    if (i + 1 <= j && vExp[i + 1, j] > 0 && UnpairedOk(i))
-                    {
-                        double dG = ML_helix + GetDanglingEndEnergy(seq[i + 1], seq[j], seq[i], false);
-                        double e = BoltzmannWeight(dG, rt) * vExp[i + 1, j];
-                        if (IsAUorGU(seq[i + 1], seq[j])) e *= auW;
-                        wm += e;
-                    }
-                    // A3: j is a 3' dangle, helix at (i,j-1).
-                    if (j - 1 >= i && vExp[i, j - 1] > 0 && UnpairedOk(j))
-                    {
-                        double dG = ML_helix + GetDanglingEndEnergy(seq[i], seq[j - 1], seq[j], true);
-                        double e = BoltzmannWeight(dG, rt) * vExp[i, j - 1];
-                        if (IsAUorGU(seq[i], seq[j - 1])) e *= auW;
-                        wm += e;
-                    }
-                    // A4: both i and j dangle, helix at (i+1,j-1).
-                    if (i + 1 < j - 1 && vExp[i + 1, j - 1] > 0 && UnpairedOk(i) && UnpairedOk(j))
-                    {
-                        double dG = ML_helix
-                            + GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[i], false)
-                            + GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[j], true);
-                        double e = BoltzmannWeight(dG, rt) * vExp[i + 1, j - 1];
-                        if (IsAUorGU(seq[i + 1], seq[j - 1])) e *= auW;
-                        wm += e;
-                    }
-                    // B: i unpaired in the multiloop (Dp_ML_unpaired = 0 → weight 1).
-                    if (i + 1 <= j && wmExp[i + 1, j] > 0 && UnpairedOk(i))
-                        wm += wmExp[i + 1, j];
-                    // C: j unpaired in the multiloop.
-                    if (j - 1 >= i && wmExp[i, j - 1] > 0 && UnpairedOk(j))
-                        wm += wmExp[i, j - 1];
-                    // D: split into two adjacent multibranch regions (≥2 helices).
-                    for (int k = i; k < j; k++)
-                    {
-                        double left = wmExp[i, k];
-                        double right = wmExp[k + 1, j];
-                        if (left > 0 && right > 0)
-                            wm += left * right;
-                    }
-
                     wmExp[i, j] = wm;
                 }
             }
         }
 
-        // ===== Wexp(j): external partition function of the prefix [0..j] =====
-        // Mirrors W(j) = min{ W(j-1), min_i W(i-1)+V(i,j)+AU+dangle } as a Boltzmann sum.
-        // Forbidden positions can still be "unpaired in the external loop" (factor 1).
+        // ===== Wexp(j): exterior-loop partition function of the prefix [0..j] =====
         for (int j = 0; j < n; j++)
         {
-            if (j < minLoopSize + 1)
-            {
-                // Too short to pair: only the open prefix. Under a required pair this prefix
-                // cannot satisfy the constraint (it contains no pair), so its weight is 0 if a
-                // required endpoint lies within it; otherwise 1.
-                bool prefixHoldsRequired = RequireActive && requireI <= j;
-                wExp[j] = prefixHoldsRequired ? 0.0 : 1.0;
-                continue;
-            }
-
-            // j unpaired externally — blocked if j is a required (must-pair) endpoint.
-            double wjUnpaired = j >= 1 ? wExp[j - 1] : 1.0;
-            double wj = UnpairedOk(j) ? wjUnpaired : 0.0;
-
-            for (int i = 0; i <= j; i++)
+            double prev = j > 0 ? wExp[j - 1] : 1.0;
+            double wj = RequiredUnpairedIn(j, j) ? 0.0 : prev; // j unpaired externally
+            for (int i = 0; i + minLoopSize + 1 <= j; i++)
             {
                 double vij = vExp[i, j];
                 if (vij <= 0) continue;
-
-                double dG = 0.0;
-                if (IsAUorGU(seq[i], seq[j])) dG += TerminalAU_GU_Penalty;
-                // Dangling ends reference the (unpaired) neighbour bases of the helix; a forbidden /
-                // forced-unpaired neighbour is still a valid dangle (it is unpaired by definition).
-                if (i > 0)
-                    dG += GetDanglingEndEnergy(seq[i], seq[j], seq[i - 1], false);
-                if (j < n - 1)
-                    dG += GetDanglingEndEnergy(seq[i], seq[j], seq[j + 1], true);
-
-                double left = (i > 0) ? wExp[i - 1] : 1.0;
-                wj += left * BoltzmannWeight(dG, rt) * vij;
+                double left = i > 0 ? wExp[i - 1] : 1.0;
+                wj += left * vij * BoltzmannWeight(ExteriorStemEnergy(seq, n, i, j), rt);
             }
-
             wExp[j] = wj;
         }
     }

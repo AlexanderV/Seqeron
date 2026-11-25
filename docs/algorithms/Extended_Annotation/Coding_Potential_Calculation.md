@@ -6,7 +6,7 @@
 | Test Unit ID | ANNOT-CODING-001 |
 | Related Projects | Seqeron.Genomics.Annotation |
 | Implementation Status | Framework |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-11-25 |
 
 ## 1. Overview
 
@@ -16,7 +16,7 @@ Coding potential scoring distinguishes protein-coding sequence from non-coding s
 
 ### 2.1 Domain Context
 
-Coding regions exhibit non-random hexamer (6-mer) usage caused by codon-usage bias and dependence between adjacent amino acids [1]. Comparing the frequency of each in-frame hexamer in coding versus non-coding training data yields a discriminative log-likelihood signal; CPAT uses this hexamer score as one feature of its logistic-regression classifier [1]. An alternative composite measure is the Fickett TESTCODE statistic [4]; it is not implemented here (§5.3).
+Coding regions exhibit non-random hexamer (6-mer) usage caused by codon-usage bias and dependence between adjacent amino acids [1]. Comparing the frequency of each in-frame hexamer in coding versus non-coding training data yields a discriminative log-likelihood signal; CPAT uses this hexamer score as one feature of its logistic-regression classifier [1]. The Fickett TESTCODE statistic [4] and the full CPAT logistic coding probability [1] are implemented as additional methods (§9, §10).
 
 ### 2.2 Core Model
 
@@ -48,6 +48,7 @@ Score `= ( Σ contributions ) / (number of scored hexamers)` [2]. Positive ⇒ c
 | INV-04 | Coding-biased tables ⇒ score > 0; non-coding-biased ⇒ score < 0 | Sign convention [1] |
 | INV-05 | Only in-frame full-length hexamers (offset 0, step 3, length = wordSize) are scored | `word_generator` [2] |
 | INV-06 | `sequence.Length < wordSize` ⇒ score = 0 | Guard in `kmer_ratio` [2] |
+| INV-07 | length ≥ wordSize but no scored hexamer ⇒ score = −1 | `except: return -1` in `kmer_ratio` [2] |
 
 ### 2.5 Comparison with Related Methods
 
@@ -73,7 +74,7 @@ Score `= ( Σ contributions ) / (number of scored hexamers)` [2]. Positive ⇒ c
 
 | Field | Type | Description |
 |-------|------|-------------|
-| (return) | `double` | Mean per-hexamer log-likelihood ratio. > 0 ⇒ coding, < 0 ⇒ non-coding [1]. 0 when no hexamer is scorable. |
+| (return) | `double` | Mean per-hexamer log-likelihood ratio. > 0 ⇒ coding, < 0 ⇒ non-coding [1]. 0 when shorter than one word; −1 when no hexamer is scorable [2]. |
 
 ### 3.3 Preconditions and Validation
 
@@ -88,7 +89,7 @@ Null `sequence` or either table → `ArgumentNullException`. `wordSize ≤ 0` or
 3. For `i = 0, stepSize, 2·stepSize, …` while `i + wordSize ≤ length`, take the hexamer `seq[i, wordSize]` [2].
 4. If the hexamer is missing from either table, skip it [2].
 5. Otherwise add its contribution (`ln(F/F')`, `+1`, `−1`, or 0) and increment the scored-hexamer count [2].
-6. Return `sum / count`, or 0 if `count = 0`.
+6. Return `sum / count`, or −1 if `count = 0` [2].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -107,10 +108,12 @@ The per-hexamer contribution rule (§2.2) is the only decision table; constants 
 **Implementation location:** [GenomeAnnotator.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs)
 
 - `GenomeAnnotator.CalculateCodingPotential(string, IReadOnlyDictionary<string,double>, IReadOnlyDictionary<string,double>, int, int)`: computes the CPAT hexamer usage-bias mean log-likelihood (frame 0).
+- `CalculateFickettScore(string[, FickettTableSet])`, `ClassifyFickettScore(double)`, `ScanFickettScore(string, int, int)`: Fickett TESTCODE (§9).
+- `CpatModel`, `CpatOptions`, `PredictCodingProbability(string, CpatModel, CpatOptions?)`, `PredictBestCodingOrf(...)`: CPAT coding probability (§10).
 
 ### 5.2 Current Behavior
 
-Implements `FrameKmer.kmer_ratio` frame-0 path verbatim [2]. The `coding == 0 && noncoding == 0` case (a hexamer present in both tables with zero value) is `continue`d — skipped and **not counted** toward the scored-hexamer denominator, matching the reference branch `elif coding[k]==0 and noncoding[k]==0: continue` (verified against canonical CPAT `liguowang/cpat` `src/cpmodule/FrameKmer.py` and lncScore, 2026-06-15). For the degenerate "no scorable hexamer" case the implementation returns 0 (the reference returns −1 there); see §5.4. No substring/search reuse is relevant: scoring is a single linear in-frame scan with O(1) table lookups, so the repository suffix tree does not apply (no occurrence enumeration or multi-query matching).
+Implements `FrameKmer.kmer_ratio` frame-0 path verbatim [2]. The `coding == 0 && noncoding == 0` case (a hexamer present in both tables with zero value) is `continue`d — skipped and **not counted** toward the scored-hexamer denominator, matching the reference branch `elif coding[k]==0 and noncoding[k]==0: continue` (verified against canonical CPAT `liguowang/cpat` `src/cpmodule/FrameKmer.py` and lncScore, 2026-06-15). For the "no scorable hexamer" case it returns −1 exactly as the reference (`except: return -1`), which CPAT feeds into its logistic model (F11, 2026-11-25). No substring/search reuse is relevant: scoring is a single linear in-frame scan with O(1) table lookups, so the repository suffix tree does not apply (no occurrence enumeration or multi-query matching).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -121,21 +124,15 @@ Implements `FrameKmer.kmer_ratio` frame-0 path verbatim [2]. The `coding == 0 &&
 - Mean over the number of scored hexamers [2].
 - Sign convention positive=coding / negative=non-coding [1].
 
-**Intentionally simplified:**
+**Intentionally simplified:** none.
 
-- No-scorable-hexamer result: returns 0 instead of the reference −1 sentinel; **consequence:** for inputs with zero scorable hexamers the score reads 0 ("no information") rather than −1. Both are non-scores.
-
-**Not implemented:**
-
-- The full CPAT logistic-regression classifier (ORF size, ORF coverage, Fickett TESTCODE, hexamer score combined) [1]; **users should rely on:** this method as the hexamer feature only — combine externally for a full coding/non-coding call.
-- Fickett TESTCODE statistic [4]; **users should rely on:** EMBOSS `tcode` or a dedicated implementation — no current in-repo alternative.
-- Built-in organism frequency tables; **users should rely on:** supplying tables (e.g. generated by CPAT `make_hexamer_tab.py`).
+**Not bundled (licence):** CPAT's prebuilt organism hexamer tables / logit models are GNU GPL v2+ (CPAT `LICENSE.txt`) and cannot be shipped in this MIT library; load them with `CpatModel.ParseHexamerTable` and the coefficients listed in the Evidence (§10).
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | No-scorable-hexamer returns 0, reference returns −1 | Deviation | Only affects inputs with zero scored hexamers; both are non-scores | accepted | ASM/ASSUMPTION-1 |
+| 1 | No-scorable-hexamer returns −1 as the reference | — | — | resolved 2026-11-25 (F11) | former ASSUMPTION-1 |
 | 2 | Tables must share units (counts vs proportions) | Assumption | Score shifts by `ln(Σ/Σ)` if mixed | accepted | ASM-02 |
 
 ## 6. Edge Cases and Limitations
@@ -149,13 +146,13 @@ Implements `FrameKmer.kmer_ratio` frame-0 path verbatim [2]. The `coding == 0 &&
 | Coding-only hexamer | +1 contribution | `kmer_ratio` branch [2] |
 | Non-coding-only hexamer | −1 contribution | `kmer_ratio` branch [2] |
 | Both tables value 0 for an in-both hexamer | skipped (`continue`), not counted | branch `coding==0 && noncoding==0: continue` [2] |
-| No scorable hexamer at all | 0 | implementation choice (§5.4) |
+| No scorable hexamer at all | −1 | `kmer_ratio` `except: return -1` [2] |
 | null sequence / table | `ArgumentNullException` | validation |
 | wordSize ≤ 0 / stepSize ≤ 0 | `ArgumentOutOfRangeException` | validation |
 
 ### 6.2 Limitations
 
-Requires user-supplied, organism-appropriate hexamer tables (no built-in defaults). Scores only frame 0 of the supplied sequence — the caller must supply the ORF in frame. The hexamer score alone is one feature; a complete coding/non-coding decision in CPAT also uses ORF size, ORF coverage and Fickett TESTCODE [1]. Mixing table units silently shifts the score (ASM-02).
+Requires user-supplied, organism-appropriate hexamer tables (no built-in defaults). Scores only frame 0 of the supplied sequence — the caller must supply the ORF in frame. The hexamer score alone is one feature; the complete CPAT decision (transcript length, ORF length, Fickett TESTCODE, hexamer) is `PredictCodingProbability` (§10). Mixing table units silently shifts the score (ASM-02).
 
 ## 7. Examples and Related Material
 
@@ -183,3 +180,41 @@ double score = GenomeAnnotator.CalculateCodingPotential("ATGAAACCC", coding, non
 2. CPAT / lncScore reference implementation, `cpmodule/FrameKmer.py` (`kmer_ratio`, `word_generator`, `kmer_freq_file`). https://github.com/WGLab/lncScore/blob/master/tools/cpmodule/FrameKmer.py
 3. Fickett JW, Tung C-S. 1992. Assessment of protein coding measures. Nucleic Acids Research 20(24):6441–6450. https://doi.org/10.1093/nar/20.24.6441
 4. Fickett JW. 1982. Recognition of protein coding regions in DNA sequences. Nucleic Acids Research 10(17):5303–5318. https://doi.org/10.1093/nar/10.17.5303
+5. EMBOSS 6.6.0 `tcode` (tcode.c, tcode.acd, Etcode.dat). https://github.com/kimrutherford/EMBOSS
+6. CPAT 3.0.5, `cpmodule/{FrameKmer,fickett,find_orfs,utils,__init__}.py`. https://github.com/liguowang/cpat
+
+## 9. Fickett TESTCODE (Fickett 1982) — `CalculateFickettScore`, `ClassifyFickettScore`, `ScanFickettScore`
+
+For each base b ∈ {A,C,G,T}: position parameter `max(b₁,b₂,b₃) / (min(b₁,b₂,b₃) + 1)` over the counts of b in codon
+phases 1–3, content parameter = fraction of b. Each parameter is mapped to the first threshold it reaches
+(position 1.9, 1.8 … 1.1, 0.0; content 0.33, 0.31 … 0.19, 0.17, 0.00), the bin's coding probability is multiplied by the
+base weight (position A .26 C .18 G .31 T .33; content A .11 C .12 G .15 T .14) and the eight terms are summed [4][5].
+Call: < 0.74 non-coding, ≥ 0.95 coding, otherwise no opinion [5].
+
+| Table set | Content thresholds | Composition denominator | Short input | Source |
+|---|---|---|---|---|
+| `Fickett1982` (default) | 10 (incl. 0.19) | A/C/G/T count | no A/C/G/T → 0 | Etcode.dat / tcode.c [5] |
+| `Cpat` | 9 (0.19 missing) | full length | length < 2 → 0 | CPAT fickett.py [6] |
+
+The Fickett1982 value is returned as the exact 4-decimal statistic (all probabilities and weights have two decimals), so
+the 0.74/0.95 limits are applied without summation noise; EMBOSS sums in float32 and reports exact-0.95 windows as
+"No opinion" (proved by a byte-identical float32 emulation, Evidence). The Cpat value keeps CPAT's double sum order
+(bit-identical with `fickett_value`). `ScanFickettScore` reproduces EMBOSS `tcode`: windows at 0, step, … while
+`start + window < length`, window ≥ 200 (tcode.acd minimum), step ≥ 1 (default 3); coordinates 0-based half-open.
+
+## 10. CPAT coding probability — `CpatModel`, `PredictCodingProbability`, `PredictBestCodingOrf`
+
+CPAT 3.0.5 [1][6]: (1) ORF candidates — per frame of the sense strand (and of the reverse complement with
+`SearchAntisense`), codons read left to right; a start codon (default ATG; an empty list lets any non-stop codon start)
+opens an ORF that runs to and includes the next in-frame stop (default TAG/TAA/TGA) or to the last complete codon;
+scanning resumes after it (nested starts are not separate ORFs); ORFs longer than `MinOrfLength` (75) nt are stably sorted
+by length and the top `TopOrfCount` (5) kept. (2) Features per ORF: transcript length, ORF length, `CalculateFickettScore(orf,
+Cpat)`, `CalculateCodingPotential(orf, coding, noncoding)`. (3) Probability `1/(1+e^−η)`,
+η = intercept + Σ coefficient·feature (R `predict(glm, type="response")`). Coding when probability ≥ cutoff (Human 0.364).
+(4) Best ORF: highest probability (default) or longest, first wins ties. Coordinates are CPAT's: 1-based; '−' ORFs report
+Start > End. The CPAT ORF scanner differs from `FindOrfs` (which reports every nested ATG/GTG/TTG start and only
+stop-terminated ORFs), so it is a separate private scanner; reverse complement uses the canonical
+`DnaSequence.GetReverseComplementString`. Model tables are user-supplied (`CpatModel.ParseHexamerTable` reads CPAT's
+`*_Hexamer.tsv`); CPAT's prebuilt models are GPL and not bundled. Cross-checked against the `cpat` CLI on 8 000 human test
+transcripts (all ORF rows and best ORFs identical, probability rel. diff ≤ 9.3e-14) — Evidence.
+

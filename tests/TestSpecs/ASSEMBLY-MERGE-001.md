@@ -5,7 +5,7 @@
 **Algorithm:** Contig Merging (suffix–prefix overlap collapse)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -19,6 +19,8 @@
 | 2 | Langmead, *Overlap Layout Consensus assembly* (JHU notes) | 1 | https://www.cs.jhu.edu/~langmea/resources/lecture_notes/assembly_olc.pdf | 2026-06-13 |
 | 3 | MIT 7.91J Lecture 6, *Genome Assembly* (MIT OCW, 2014) | 1 | https://ocw.mit.edu/courses/7-91j-foundations-of-computational-and-systems-biology-spring-2014/e885f0eb376ea6c2045eb9d8847f106f_MIT7_91JS14_Lecture6.pdf | 2026-06-13 |
 | 4 | Compeau, Pevzner & Tesler (2011), Nat Biotechnol 29:987–991 | 1 | https://doi.org/10.1038/nbt.2023 | 2026-06-13 |
+| 5 | Langmead, `CG_SCS.ipynb` (`overlap`, `scs`: `sup += y[olen:]`) | 1 (reference code) | https://raw.githubusercontent.com/BenLangmead/comp-genomics-class/master/notebooks/CG_SCS.ipynb | 2026-11-25 |
+| 6 | EMBOSS `merger` source, emboss/merger.c | 1 (reference implementation) | https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/merger.c | 2026-11-25 |
 
 ### 1.2 Key Evidence Points
 
@@ -51,6 +53,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `MergeContigs(string contig1, string contig2, int overlapLength)` | SequenceAssembler | Canonical | Suffix/prefix overlap collapse primitive |
+| `MergeContigs(string, string, int, bool resolveOverlapConflicts)` | SequenceAssembler | Canonical | Opt-in EMBOSS `merger` overlap conflict rule; MCP `merge_contigs` delegates here |
 
 ---
 
@@ -58,9 +61,10 @@
 
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
-| INV-01 | With a valid overlap `0 < l ≤ min(|c1|,|c2|)`, result = `c1 + c2[l..]`; length = `|c1| + |c2| − l` | Yes | Source 1 (merge keeps one copy of overlap) |
+| INV-01 | With a valid overlap `0 ≤ l ≤ min(|c1|,|c2|)`, result = `c1 + c2[l..]` (default); length = `|c1| + |c2| − l` (both modes) | Yes | Sources 1, 5 |
 | INV-02 | Overlap length 0 ⇒ result = `c1 + c2` (plain concatenation) | Yes | Source 1 ("just concatenate them") |
-| INV-03 | Overlap length `l ≤ 0` or `l > min(|c1|,|c2|)` ⇒ result = `c1 + c2` (no usable overlap) | Yes | Source 1 (overlap 0 = concat; bound = min length) |
+| INV-03 | Overlap length `l < 0` or `l > min(|c1|,|c2|)` ⇒ `ArgumentOutOfRangeException` | Yes | Sources 1, 5 (overlap ∈ [0, min length]); F-MERGE-1 |
+| INV-05 | `resolveOverlapConflicts`: overlap columns resolved by the EMBOSS `merger` rule (N yields; quality windows 5/10/20; tie → contig1) | Yes | Source 6 |
 | INV-04 | Result always contains `c1` as a prefix and the non-overlapped tail of `c2` as a suffix | Yes | Source 1 (collapse preserves both strings' content) |
 
 ---
@@ -81,8 +85,12 @@
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| S1 | Oversized overlap | overlap > `min(|c1|,|c2|)` | result = `c1 + c2` | INV-03 / bound (Source 1) |
-| S2 | Negative overlap | overlap = −2 | result = `c1 + c2` | INV-03 (non-positive = no overlap) |
+| S1 | Oversized overlap | overlap > `min(|c1|,|c2|)` (`AC`+`GTAA`,3; `ACGT`+`ACG`,4), both modes | `ArgumentOutOfRangeException` | INV-03 (Sources 1, 5) |
+| S2 | Negative overlap | overlap = −2 | `ArgumentOutOfRangeException` | INV-03 |
+| S5 | Overlap = both lengths | `ACGT`+`ACGT`,4 | `"ACGT"` | INV-01 |
+| S6 | Default mode, mismatched overlap | `AAAACCCCGGGG`+`CCCCGTGGTTTT`,8 | `"AAAACCCCGGGGTTTT"` (contig1 kept) | Source 5 |
+| S7 | EMBOSS conflict rule (11 rows: w5/w10/w20 winners each side, full tie, N in contig1/contig2/both, exact overlap) | `MergeContigs(..., resolveOverlapConflicts: true)` | EMBOSS-port values (Evidence table) | Source 6 |
+| S8 | EMBOSS mode, case-only difference | `acgtAC`+`GTAcgt`,4 | `"acgtACgt"` (no conflict) | Source 6 (lower-cases inputs) |
 | S3 | Null contig1 | `MergeContigs(null, "AAB", 1)` | `ArgumentNullException` | Sibling null-validation convention |
 | S4 | Null contig2 | `MergeContigs("BAA", null, 1)` | `ArgumentNullException` | Sibling null-validation convention |
 
@@ -122,6 +130,7 @@
 | C1 | ❌ Missing | New unit |
 | C2 | ❌ Missing | New unit |
 | C3 | ❌ Missing | New unit |
+| S5–S8 | ❌ Missing | Added 2026-11-25 (B10 review) |
 
 ### 5.3 Consolidation Plan
 
@@ -133,7 +142,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `SequenceAssembler_MergeContigs_Tests.cs` | Canonical | 12 |
+| `SequenceAssembler_MergeContigs_Tests.cs` | Canonical | 27 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -171,6 +180,8 @@
 | C1 | ✅ Covered | Identity asserted |
 | C2 | ✅ Covered | Identity asserted |
 | C3 | ✅ Covered | Prefix/suffix containment asserted |
+| S1/S2 | ✅ Covered (changed) | Now assert `ArgumentOutOfRangeException` (F-MERGE-1) |
+| S5–S8 | ✅ Covered | `MergeContigs_OverlapEqualsBothLengths_ReturnsSingleCopy`, `MergeContigs_DefaultMode_MismatchedOverlapKeepsContig1Bases`, `MergeContigs_Resolve_*` (11), `MergeContigs_ResolveOverlapConflicts_CaseOnlyDifference_IsNotAConflict` |
 
 **✅ Covered: 12 / 12 in-scope cases.**
 
@@ -183,7 +194,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Caller-supplied overlap length is trusted (verification is `FindOverlap`'s responsibility) — API contract, not a numeric parameter | §1.4, contract |
-| 2 | Out-of-range overlap (≤0 or > min length) → plain concatenation, derived from Source 1 facts (overlap 0 = concat; bound = min length) | INV-03, S1, S2 |
+| 2 | ~~Out-of-range overlap → plain concatenation~~ withdrawn 2026-11-25: now rejected (F-MERGE-1) | INV-03, S1, S2 |
 
 ---
 

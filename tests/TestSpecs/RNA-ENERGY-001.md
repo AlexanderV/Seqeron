@@ -22,6 +22,17 @@ Testing RNA free energy calculation algorithms including stacking energy, hairpi
 | `CalculateHairpinLoopEnergy(loop, closing5, closing3)` | RnaSecondaryStructure | Canonical | Must |
 | `CalculateMinimumFreeEnergy(rnaSequence, minLoopSize)` | RnaSecondaryStructure | Canonical | Must |
 | `CalculateStackingEnergy(bp1, bp2)` | RnaSecondaryStructure | Helper | Should |
+| `GetTerminalMismatchEnergy(c5, c3, x, y)` | RnaSecondaryStructure | Canonical (exterior / multibranch helix ends) | Must |
+| `GetDanglingEndEnergy(c5, c3, d, is3Prime)` | RnaSecondaryStructure | Canonical | Must |
+| `CalculateBulgeLoopEnergy(n, b, …, numStates, bulgeOn5PrimeStrand)` | RnaSecondaryStructure | Canonical | Must |
+| `CalculateMultibranchLoopEnergy(numHelices, numUnpaired, …)` (linear DP model) | RnaSecondaryStructure | Canonical | Must |
+| `CalculateMultibranchLoopEnergy(unpairedBetweenHelices, stacking)` (NNDB efn2) | RnaSecondaryStructure | Canonical | Must |
+| `CalculateFlushCoaxialStacking` / `CalculateMismatchCoaxialStacking` | RnaSecondaryStructure | Canonical (public/MCP only) | Must |
+| `Turner2004Parameters` (all public members) | Seqeron.Genomics.Core | Shared tables | Must |
+| `CalculateFreeEnergy(rnaSequence, dotBracket)` (structure evaluation, RNAeval counterpart; checklist canonical) | RnaSecondaryStructure | Canonical | Must |
+
+Note: `CalculateStackingEnergy(bp1, bp2)` does not exist as a public method; single stacks are covered through
+`CalculateStemEnergy` with two pairs.
 
 ---
 
@@ -84,6 +95,18 @@ Testing RNA free energy calculation algorithms including stacking energy, hairpi
 | CT-001 | Very long loop extrapolation | Uses Jacobson-Stockmayer |
 | CT-002 | G-U wobble stacking | Reduced stability vs WC |
 | CT-003 | Structure probability calculation | Valid range [0,1] |
+
+### 2.4 B12 review 2026-11 (EN-*; all values NNDB Turner 2004 / ViennaRNA 2.7.2, Evidence §8)
+
+| Test ID | Description | Expected |
+|---------|-------------|----------|
+| EN-1 | Unknown base (N/IUPAC/gap) in a terminal mismatch / dangle = ViennaRNA 'N' entry (max over A/C/G/U); T / lower case read as RNA; non-canonical closing pair = 0 | e.g. TM(C,G,N,N) −0.8; d3(C,G,N) −0.8; d3(A,T,A) −0.8 |
+| EN-1 | MFE with unknown neighbours = `RNA.fold` (NNDB-precision file) | NGGGAAACCCN −1.92 |
+| EN-2 | Bulge special C: strand given → NNDB rule; strand null → bonus only if valid on both strands; T read as U; size < 1 throws; n > 30 NNDB extrapolation | (1,C,G,C,A,U) null 1.45, 3' side 0.55; n = 40 → 6.45 |
+| EN-3 | Multibranch linear model 9.3 − 0.9·h = ViennaRNA "Multi loop"; efn2 overload with asymmetry cap 2.0 and strain | 6.6 / 5.7 / d2 2.5; NNDB §9.3 8.55 (2.65 with stacking) |
+| EN-4 | Mismatch coaxial bonus by the MISMATCH pairability; flush = helical stack | A·U + GG −2.9 (NNDB §8.4); A·U→C·G −2.24 |
+| EN-5 | `Turner2004Parameters`: table sizes, `IsTerminalPenaltyPair` case/T | 36 / 3..30 / 96 / 0.45 |
+| EN-6 | `CalculateFreeEnergy` = ViennaRNA `eval_structure` (d2, NNDB-precision file); energy of the MFE structure = MFE; invalid structure throws | GGGAAACCC −1.12; 3-way multiloop −1.54; NNDB example GGGAUAAAUCCC −3.42 |
 
 ---
 
@@ -194,6 +217,17 @@ Testing RNA free energy calculation algorithms including stacking energy, hairpi
 |---|-------------|---------|--------|
 | 35 | `EnergyCalculation_UsesStandardTemperature_37C` | EC-003 | ✅ |
 
+### 5.5a B12 energy terms — `Unit/Analysis/RnaSecondaryStructure_Energy_Tests.cs`
+
+| Test Method | Spec ID |
+|-------------|---------|
+| `TerminalMismatch_UnknownBase_IsViennaMaxOverBases` (×4), `DanglingEnd_UnknownBase_IsViennaMaxOverBases` (×3), `TerminalMismatchAndDangle_DnaTAndLowerCase_AreReadAsRna`, `TerminalMismatchAndDangle_NonCanonicalClosingPair_ReturnZero`, `Mfe_UnknownNeighbours_MatchViennaRnaFold` (×3) | EN-1 |
+| `Bulge_SideUnknown_AppliesSpecialCOnlyWhenBothStrandsQualify`, `Bulge_DnaTAndLowerCase_AreReadAsRna`, `Bulge_SizeBelowOne_Throws` (×2), `Bulge_LargerThan30_UsesNndbExtrapolation` | EN-2 |
+| `Multibranch_Linear_PlusTerminalMismatches_MatchesViennaRnaD2`, `Multibranch_Efn2_MatchesNndbFormula` (×5), `Multibranch_InvalidInput_Throws`; `RnaSecondaryStructureTests::CalculateMultibranchLoopEnergy_Linear_MatchesViennaRnaMultiLoop` (×3), `::CalculateMultibranchLoopEnergy_StrainedThreeWay_AddsStrainPenalty` | EN-3 |
+| `MismatchCoaxialStacking_MatchesNndbRule` (×6), `FlushCoaxialStacking_NndbExampleAndDnaT`; `RnaSecondaryStructureTests::CalculateMismatchCoaxialStacking_*` (re-locked −3.2 / −2.4), `::CalculateFlushCoaxialStacking_MatchesStackingTable` | EN-4 |
+| `TerminalPenaltyPair_IsCaseInsensitiveAndReadsTAsU`, `Tables_HaveNndbEntryCounts` | EN-5 |
+| `CalculateFreeEnergy_MatchesViennaRnaEvalStructure` (×6), `CalculateFreeEnergy_OfMfeStructure_EqualsMfe` (×2), `CalculateFreeEnergy_InvalidStructure_Throws`; MCP `RnaStructureEnergyTests` | EN-6 |
+
 ### 5.6 Classification Summary
 
 - ✅ Covered: 35 test methods (all spec IDs)
@@ -212,8 +246,9 @@ See Evidence document for full verification matrix.
 
 ## 7. Test File Location
 
-**Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructureTests.cs`  
-**Region:** Energy Calculation Tests
+**Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructureTests.cs`  
+**Region:** Energy Calculation Tests  
+**B12 additions:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_Energy_Tests.cs`
 
 ---
 

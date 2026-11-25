@@ -6,7 +6,7 @@
 | Test Unit ID | RNA-HAIRPIN-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-11-25 |
 
 ## 1. Overview
 
@@ -55,7 +55,28 @@ pair is G(5')–U(3') (not U–G) preceded by two Gs [3]. The **all-C penalty** 
 tetra- and hexaloops are poorly fit by the model and instead take an experimentally measured
 **total** that overrides the additive formula [3].
 
-For n > 9 the initiation is extrapolated by `ΔG°37(n) = ΔG°37(9) + 1.75·R·T·ln(n/9)` [3].
+**Initiation.** n = 3..30 is read from NNDB `turner_2004_loop_dg.txt` (HAIRPIN column), which tabulates
+measured values for n ≤ 9 and NNDB's own extrapolation for 10..30 (identical to ViennaRNA 2.7.2 `hairpin37`).
+These tabulated entries are not always the rounded formula (e.g. n = 15: table 6.9, formula 6.95), so the
+table is used as published. For n > 30 the NNDB extrapolation `ΔG°37(n) = ΔG°37(9) + 1.75·R·T·ln(n/9)`
+(R = 1.987 cal/(mol·K), T = 310.15 K) is evaluated directly and rounded to 0.01; ViennaRNA instead uses
+`hairpin[30] + ⌊lxc·ln(n/30)⌋` (whole dcal), which differs by ≤ 0.01 kcal/mol (e.g. n = 100: 7.50 vs 7.49).
+
+**Closing-pair AU/GU penalty.** NNDB counts the +0.45 terminal AU/GU penalty of the closing pair in the
+*helix* (§5.3 example: "AU end penalty"); `CalculateHairpinLoopEnergy` therefore excludes it, and the folding
+engines' hairpin term adds it for every hairpin size (3-nt loops included) except a special loop, whose
+measured total already contains it (ViennaRNA `vrna_E_hairpin` returns `Triloop_E`/`Tetraloop_E`/`Hexaloop_E`
+directly and folds TerminalAU into `mismatchH` and the 3-nt term).
+
+**Special GU closure context.** The −2.2 bonus applies when the 5' closing base is G, the 3' closing base
+is U, and the two nucleotides immediately 5' of that G are both G (Mathews et al. 2004 [1]: "a 5′ closing G
+preceded by two G residues"; NNDB [3]: "a GU closing pair (not UG) is preceded by two Gs"). In the folding
+engines this is read from the sequence (positions i−1, i−2); the public method takes it as the flag.
+
+**ViennaRNA 2.7.2 vs NNDB.** ViennaRNA's default Turner 2004 set has the same 22 special loops with the
+same values and the same initiation table, but omits the special GU closure and all-C terms, rounds the
+AU/GU penalty to 0.5, and has `mismatchH[UA][A][G]` = −1.0 + 0.5 where NNDB tstack gives −1.1. The NNDB
+values are implemented; see Evidence §"B12 systematic cross-check".
 
 **Stem (helix)** [4]: the helix free energy is the sum of nearest-neighbor stacking terms plus
 a per-end penalty: for a helix of `P` uninterrupted base pairs there are `P−1` stacks; an
@@ -86,9 +107,9 @@ from the full duplex equation are not part of a unimolecular stem and are exclud
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `loopSequence` | string | required | Unpaired loop bases, 5'→3' | RNA alphabet; case-insensitive (uppercased) |
-| `closingBase5` | char | required | 5' base of the closing pair | A/C/G/U |
-| `closingBase3` | char | required | 3' base of the closing pair | A/C/G/U |
+| `loopSequence` | string | required | Unpaired loop bases, 5'→3' | RNA alphabet; case-insensitive, T read as U |
+| `closingBase5` | char | required | 5' base of the closing pair | A/C/G/U (T, lower case accepted) |
+| `closingBase3` | char | required | 3' base of the closing pair | A/C/G/U (T, lower case accepted) |
 | `specialGUClosure` | bool | false | Whether the G-U closing pair is preceded by two Gs | applied only when closing pair is G-U |
 | `sequence` | string | required (stem) | Sequence context (unused for energy; kept for API parity) | RNA |
 | `basePairs` | IReadOnlyList\<BasePair\> | required (stem) | Stacked pairs, outer→inner | each pair has Base1 (5'), Base2 (3'), Type |
@@ -101,9 +122,13 @@ from the full duplex equation are not part of a unimolecular stem and are exclud
 
 ### 3.3 Preconditions and Validation
 
-Bases are uppercased; T is not auto-converted to U (RNA expected). For `CalculateHairpinLoopEnergy`,
-loops shorter than 3 nt return a prohibitive 100.0 (INV-02); unknown terminal-mismatch keys
-contribute 0. For `CalculateStemEnergy`, an empty `basePairs` list returns 0 (INV-04); unknown
+Bases are case-insensitive and DNA `T` is read as `U` (ViennaRNA `vrna_nucleotide_encode`). For
+`CalculateHairpinLoopEnergy`, loops shorter than 3 nt return a prohibitive 100.0 (INV-02). An unknown base
+(N, IUPAC code, gap) as a first-mismatch base takes the maximum (least stabilising) value over A/C/G/U, as
+ViennaRNA's `N` rows of `mismatchH37`; in the loop body it has no effect. A non-canonical closing pair has
+no terminal-mismatch entry and contributes 0 (ViennaRNA never forms one). `CalculateFreeEnergy` /
+`rna_structure_energy` reject a structure with a hairpin of fewer than 3 nt (`ArgumentException`;
+ViennaRNA `eval_structure` reports INF). For `CalculateStemEnergy`, an empty `basePairs` list returns 0 (INV-04); unknown
 stacking keys contribute 0. Indexing within `basePairs` is outer (helix end) → inner (loop end).
 
 ## 4. Algorithm
@@ -112,7 +137,7 @@ stacking keys contribute 0. Indexing within `basePairs` is outer (helix end) →
 
 **Hairpin:**
 1. Uppercase the loop; build the special-loop key `closing5' + loop + closing3'`. If found, return its total (INV-03).
-2. Look up initiation(n); for n>30 use the log extrapolation; for n<3 return 100.0 (INV-02).
+2. Look up initiation(n) in the NNDB loop table (3..30); for n>30 use the log extrapolation from init(9); for n<3 return 100.0 (INV-02).
 3. For n ≥ 4: add terminal mismatch, UU/GA bonus, GG bonus, and (if applicable) special-GU closure.
 4. Add the all-C penalty (C3 for 3-nt, linear `A·n+B` for longer).
 5. Round to 2 decimals.
@@ -159,7 +184,8 @@ stacking. Results are rounded to 2 decimals. No suffix-tree search is used (§4.
 **Implemented (verbatim from the cited theory/spec):**
 
 - Hairpin additive model for n ≥ 4 and the reduced n = 3 model (no first-mismatch term) [3].
-- Hairpin initiation table and n>9/n>30 log extrapolation [3].
+- Hairpin initiation table (NNDB loop.txt, 3..30) and the n>30 log extrapolation [3].
+- Systematic cross-check (2026-11-25): 160,500 hairpins (all loops of 3–7 nt × 6 closing pairs, 300 random loops per size 8–60/75/100/150/200 incl. N, 12,000 N-containing 3–6-nt loops, all-C 3–40) — `CalculateHairpinLoopEnergy` = independent NNDB-file model 160,500/160,500; folding-engine hairpin term = ViennaRNA 2.7.2 `eval_hp_loop` (NNDB-precision file) + NNDB-only terms 160,500/160,500 (n > 30: ≤ 0.01).
 - Terminal mismatch, UU/GA bonus (−0.9), GG bonus (−0.8), special-GU closure (−2.2), all-C penalties (C3 +1.5; A=0.3,B=1.6) [3].
 - Special tri/tetra/hexaloop totals overriding the model [3].
 - Nearest-neighbor stacking and the per-AU/GU-end penalty (+0.45) for stems [4].

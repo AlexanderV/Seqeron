@@ -21,7 +21,8 @@
     "required": ["distribution"]
   },
   "errors": [
-    { "code": 1001, "message": "Lengths cannot be null" }
+    { "code": 1001, "message": "Lengths cannot be null" },
+    { "code": 1002, "message": "Bin upper bounds must be strictly increasing" }
   ],
   "examples": [
     { "name": "Three lengths, default bins", "input": { "lengths": [50, 150, 600] }, "output": { "distribution": { "<100": 1, "<500": 1, "<1000": 1, "<5000": 0, ">=1000000": 0 } } },

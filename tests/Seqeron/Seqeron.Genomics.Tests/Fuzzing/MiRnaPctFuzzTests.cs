@@ -37,27 +37,32 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// The library maps a branch-length score b (Bls) to PCT via the published TargetScan
 /// logistic (targetscan_70_BL_PCT.pl, calculatePCTthisBL):
 ///
-///     PCT(b) = B0 + B1 / (1 + e^(−B2·b + B3)),   then truncated at 0 (negative ⇒ 0).
+///     PCT(b) = B0 + B1 / (1 + e^(−B2·b + B3)),   sprintf("%.4f"), then truncated at 0,
+///
+/// and getPCT's rules: b = 0 ⇒ PCT 0 (no sigmoid), b &lt; 0 or non-numeric ⇒ no PCT ("NA"; the
+/// library throws ArgumentOutOfRangeException). Re-locked 2026-11-25 (B13 MIRNA-PCT-001 F19/F20)
+/// against a perl 5.38 run of targetscan_70_BL_PCT.pl; INV-PCT-1/3/5 below were written before
+/// those rules were read and claimed a b = 0 floor and finite PCT for negative b.
 ///
 /// Pinned invariants (theory, re-derived here):
 ///   INV-PCT-1  (FLOOR / saturation): the logistic term B1/(1+e^…) ∈ (0, B1) for any
 ///              finite b, so PCT ∈ (B0, B0+B1) before truncation. As b→+∞ the term →B1
 ///              (PCT→B0+B1, the ceiling); as b→−∞ it →0 (PCT→B0, the floor). For the
 ///              PUBLISHED-STYLE band B0≥0, B1>0, B0+B1≤1 this forces PCT ∈ [0,1] for
-///              ALL b — including the degenerate b=0 (empty / single-species tree), the
-///              boundary b=0, and NEGATIVE b.
+///              ALL b ≥ 0 (b = 0, the empty / single-species tree, gives 0). Negative b is
+///              rejected (perl getPCT: "NA").
 ///   INV-PCT-2  (MONOTONIC): for B1>0, B2>0, PCT is non-decreasing in b (dPCT/db =
 ///              B1·B2·e^(…)/(1+e^(…))² ≥ 0). More conservation ⇒ never-lower PCT.
-///   INV-PCT-3  (HAND PIN): for B0=0,B1=1,B2=1,B3=0 → PCT(0)=1/(1+e^0)=0.5 exactly;
-///              PCT(2)=1/(1+e^−2)=0.880797…  (computed independently below).
+///   INV-PCT-3  (HAND PIN): for B0=0,B1=1,B2=1,B3=0 → PCT(0)=0 (getPCT); PCT(2)=1/(1+e^−2)
+///              = 0.880797… ⇒ 0.8808 (perl run prints 0.8808).
 ///   INV-PCT-4  (FINITE / no overflow escape): with FINITE params and ANY finite b
 ///              (incl. ±1e300 and huge B2) the result is finite and ≥0 — Math.Exp may
 ///              return +Inf, but B1/(1+Inf)=0 saturates to the floor B0, NOT NaN/Inf.
 ///   INV-PCT-5  (Bls semantics, Friedman 2009): Bls = total branch length of the minimal
 ///              subtree connecting the species-with-site. EMPTY species set or a SINGLE
 ///              species ⇒ Bls = 0 (no connecting path). NEGATIVE edge lengths flow
-///              through additively (the score is a plain sum), and the resulting b feeds
-///              the same logistic — so even a negative Bls yields a finite PCT≥0.
+///              through additively (the score is a plain sum, as getBranchLength sums), and a
+///              negative Bls has no PCT (ArgumentOutOfRangeException; perl "NA").
 ///
 /// MC/BE boundaries fuzzed: empty tree (single leaf), single-species alignment (Bls=0),
 /// negative branch length (negative b into the logistic), all-zero / degenerate /
@@ -77,12 +82,19 @@ public class MiRnaPctFuzzTests
     #region Helpers
 
     /// <summary>Independent reference logistic — the doc's formula re-implemented here,
-    /// deliberately NOT calling the library, so the pins test theory not tautology.</summary>
+    /// deliberately NOT calling the library, so the pins test theory not tautology. Unrounded:
+    /// the library's 4-dp value must lie within 0.5e-4 of it (see <see cref="RoundTol"/>).</summary>
     private static double ReferencePct(double b, double b0, double b1, double b2, double b3)
     {
+        if (b == 0.0) return 0.0; // getPCT: BL == 0 ⇒ "0.0"
         double pct = b0 + b1 / (1.0 + Math.Exp(-b2 * b + b3));
         return pct < 0.0 ? 0.0 : pct;
     }
+
+    // sprintf("%.4f") half-unit + double slack.
+    private const double RoundTol = 0.5e-4 + 1e-12;
+
+    private static bool IsFourDecimal(double x) => Math.Abs(x * 1e4 - Math.Round(x * 1e4)) < 1e-6;
 
     /// <summary>A leaf node with a name and a branch length.</summary>
     private static PhylogeneticAnalyzer.PhyloNode Leaf(string name, double bl) =>
@@ -100,31 +112,31 @@ public class MiRnaPctFuzzTests
 
     #region MIRNA-PCT-001 — hand-derived sigmoid pin (INV-PCT-3)
 
-    // PCT(0) with B0=0,B1=1,B2=1,B3=0 = 0 + 1/(1+e^0) = 1/(1+1) = 0.5 EXACTLY.
+    // getPCT: elsif ($branchLength == 0) { $pct = "0.0"; } — the sigmoid is not evaluated at b = 0
+    // (it would give 0.5 here). perl run (single-species site): BL 0, PCT 0.0.
     [Test]
-    public void Pct_AtZeroBranchLength_IsTheLogisticFloor_HalfForCanonicalParams()
+    public void Pct_AtZeroBranchLength_IsZero_AsGetPct()
     {
         var p = new PctSigmoidParameters(0.0, 1.0, 1.0, 0.0);
 
         double pct = PctFromBranchLength(0.0, p);
 
-        pct.Should().BeApproximately(0.5, Tol,
-            "PCT(0)=B0+B1/(1+e^0)=0+1/2 for B0=0,B1=1,B3=0 — the documented b=0 floor");
+        pct.Should().Be(0.0, "getPCT returns \"0.0\" for BL = 0");
     }
 
-    // PCT(2) with B0=0,B1=1,B2=1,B3=0 = 1/(1+e^-2) = 0.8807970779778823… (hand value).
+    // PCT(2) with B0=0,B1=1,B2=1,B3=0 = 1/(1+e^-2) = 0.8807970779778823… ⇒ 0.8808 (perl run: 2.0000 ⇒ 0.8808).
     [Test]
     public void Pct_HandDerivedValue_MatchesPublishedLogistic()
     {
         var p = new PctSigmoidParameters(0.0, 1.0, 1.0, 0.0);
-        const double expected = 0.8807970779778823; // 1/(1+e^-2), computed independently
+        const double expected = 0.8808; // sprintf("%.4f", 1/(1+e^-2)), perl run
 
         double pct = PctFromBranchLength(2.0, p);
 
-        pct.Should().BeApproximately(expected, Tol,
-            "PCT(2)=1/(1+e^-2) for the canonical logistic — pinned from the doc formula, not the code");
-        pct.Should().BeApproximately(ReferencePct(2.0, 0, 1, 1, 0), Tol,
-            "and must equal the independent reference logistic");
+        pct.Should().Be(expected,
+            "PCT(2)=1/(1+e^-2) to 4 dp, as calculatePCTthisBL prints it");
+        pct.Should().BeApproximately(ReferencePct(2.0, 0, 1, 1, 0), RoundTol,
+            "and must equal the independent reference logistic to the 4-dp rounding");
     }
 
     #endregion
@@ -137,12 +149,10 @@ public class MiRnaPctFuzzTests
     public void Pct_PublishedStyleParams_StayWithinUnitInterval_ForEveryBranchLength([Values(20260626, 42, 7)] int seed)
     {
         var rng = new Random(seed);
-        // Branch lengths spanning empty/zero, tiny, typical, huge, and NEGATIVE corners.
-        double[] branchLengths =
-        {
-            0.0, 1e-12, 0.5, 1.0, 2.0, 3.5, 12.7, 1e6, 1e300,
-            -1e-12, -0.5, -3.0, -1e6, -1e300,
-        };
+        // Branch lengths spanning empty/zero, tiny, typical and huge corners; negative ones have
+        // no PCT (getPCT "NA") and must be rejected.
+        double[] branchLengths = { 0.0, 1e-12, 0.5, 1.0, 2.0, 3.5, 12.7, 1e6, 1e300 };
+        double[] negative = { -1e-12, -0.5, -3.0, -1e6, -1e300 };
 
         for (int i = 0; i < 400; i++)
         {
@@ -161,8 +171,15 @@ public class MiRnaPctFuzzTests
                 pct.Should().BeGreaterThanOrEqualTo(0.0, "the logistic is truncated at 0");
                 pct.Should().BeLessThanOrEqualTo(1.0 + Tol,
                     $"PCT ≤ B0+B1 ≤ 1 for published-style params (b={b})");
-                pct.Should().BeApproximately(ReferencePct(b, b0, b1, b2, b3), 1e-9,
-                    "library PCT must equal the independent reference logistic");
+                pct.Should().BeApproximately(ReferencePct(b, b0, b1, b2, b3), RoundTol,
+                    "library PCT must equal the independent reference logistic to 4 dp");
+                IsFourDecimal(pct).Should().BeTrue($"PCT is reported to 4 dp (got {pct})");
+            }
+
+            foreach (double b in negative)
+            {
+                Action call = () => PctFromBranchLength(b, p);
+                call.Should().Throw<ArgumentOutOfRangeException>($"negative BL {b} has no PCT (perl NA)");
             }
         }
     }
@@ -185,8 +202,8 @@ public class MiRnaPctFuzzTests
             var p = new PctSigmoidParameters(b0, b1, b2, b3);
 
             double prev = double.NegativeInfinity;
-            // Increasing branch lengths, including the negative→zero→positive range.
-            foreach (double b in new[] { -10.0, -3.0, -1.0, 0.0, 0.5, 1.0, 2.0, 5.0, 20.0, 1e6 })
+            // Increasing branch lengths from 0 (PCT is defined only for BL ≥ 0).
+            foreach (double b in new[] { 0.0, 0.5, 1.0, 2.0, 5.0, 20.0, 1e6 })
             {
                 double pct = PctFromBranchLength(b, p);
                 pct.Should().BeGreaterThanOrEqualTo(prev - 1e-9,
@@ -210,19 +227,18 @@ public class MiRnaPctFuzzTests
             // All-zero params ("missing"): PCT = 0 + 0/(1+e^0) = 0.
             (0.0,   new PctSigmoidParameters(0, 0, 0, 0), "all-zero params ⇒ PCT=0"),
             (5.0,   new PctSigmoidParameters(0, 0, 0, 0), "all-zero params, b≠0 ⇒ still 0"),
-            (-5.0,  new PctSigmoidParameters(0, 0, 0, 0), "all-zero params, negative b ⇒ still 0"),
             // Huge slope × huge +b: -B2·b → −∞, exp→0, PCT→B0+B1 (ceiling), finite.
             (1e6,   new PctSigmoidParameters(0.0, 0.9, 1e6, 0), "huge +arg ⇒ ceiling, finite"),
-            // Huge slope × huge -b: -B2·b → +∞, exp→+Inf, B1/(1+Inf)=0 ⇒ PCT→B0 (floor), finite.
-            (-1e6,  new PctSigmoidParameters(0.2, 0.7, 1e6, 0), "huge -arg ⇒ floor, exp saturates not NaN"),
+            // Huge +B3: exp→+Inf, B1/(1+Inf)=0 ⇒ PCT→B0 (floor), finite.
+            (1e-6,  new PctSigmoidParameters(0.2, 0.7, 1.0, 1e6), "huge +arg ⇒ floor, exp saturates not NaN"),
             (1e300, new PctSigmoidParameters(0.1, 0.8, 1e300, 0), "double-overflow magnitude ⇒ finite floor/ceiling"),
             // Large B3 offset both directions.
             (1.0,   new PctSigmoidParameters(0.0, 1.0, 1.0, 1e3), "huge +B3 ⇒ exp +Inf ⇒ PCT floor B0"),
             (1.0,   new PctSigmoidParameters(0.0, 1.0, 1.0, -1e3), "huge -B3 ⇒ exp 0 ⇒ PCT ceiling B0+B1"),
-            // Negative B1 with the logistic ≤1 ⇒ PCT could dip below 0 ⇒ truncated to 0.
-            (-50.0, new PctSigmoidParameters(0.0, 1.0, 1.0, 0.0), "very negative b ⇒ near-0, truncated, ≥0"),
+            // Tiny logistic term ⇒ PCT rounds to 0.0000 (perl may print -0.0000) ⇒ 0, ≥0.
+            (1e-9,  new PctSigmoidParameters(0.0, 1.0, 1.0, 50.0), "near-0 logistic, rounded to 0, ≥0"),
             // Negative B0 (out-of-band param) ⇒ truncation-at-0 must still hold the floor.
-            (-50.0, new PctSigmoidParameters(-0.5, 0.4, 1.0, 0.0), "negative B0 below 0 ⇒ truncated to 0"),
+            (1.0,   new PctSigmoidParameters(-0.5, 0.4, 1.0, 0.0), "negative B0 below 0 ⇒ truncated to 0"),
         };
 
         foreach (var (b, p, why) in cases)
@@ -239,8 +255,8 @@ public class MiRnaPctFuzzTests
     [Test]
     public void Pct_ExpOverflowCorners_SaturateToFloorAndCeiling()
     {
-        // -B2·b = +∞ ⇒ exp = +Inf ⇒ B1/(1+Inf)=0 ⇒ PCT = B0 (floor).
-        PctFromBranchLength(-1e6, new PctSigmoidParameters(0.25, 0.6, 1e6, 0.0))
+        // −B2·b + B3 = +∞ ⇒ exp = +Inf ⇒ B1/(1+Inf)=0 ⇒ PCT = B0 (floor).
+        PctFromBranchLength(1.0, new PctSigmoidParameters(0.25, 0.6, 1.0, 1e6))
             .Should().BeApproximately(0.25, 1e-9, "huge +exp-arg saturates to the floor B0");
 
         // -B2·b = −∞ ⇒ exp = 0 ⇒ B1/1 = B1 ⇒ PCT = B0+B1 (ceiling).
@@ -293,16 +309,16 @@ public class MiRnaPctFuzzTests
         var p = new PctSigmoidParameters(0.0, 0.9, 2.0, 1.0);
         double pct = PctFromBranchLength(bls, p);
 
-        pct.Should().BeApproximately(ReferencePct(6.0, 0.0, 0.9, 2.0, 1.0), Tol,
-            "PCT(6.0) must equal the independent reference logistic for these params");
+        pct.Should().BeApproximately(ReferencePct(6.0, 0.0, 0.9, 2.0, 1.0), RoundTol,
+            "PCT(6.0) must equal the independent reference logistic (4 dp) for these params");
         pct.Should().BeInRange(0.0, 1.0, "published-style params keep PCT in [0,1]");
     }
 
-    // NEGATIVE branch length: the score is a plain additive sum, so a negative edge yields a
-    // negative Bls — which is a legal real-number input to the logistic and must NOT crash and
-    // must still produce a finite PCT ≥ 0.
+    // NEGATIVE branch length: the score is a plain additive sum (getBranchLength sums), so a
+    // negative edge yields a negative Bls. getPCT gives such a BL no PCT ("NA": neither > 0 nor
+    // == 0), so PctFromBranchLength rejects it with ArgumentOutOfRangeException.
     [Test]
-    public void Bls_NegativeEdgeLengths_FlowThroughToFinitePct()
+    public void Bls_NegativeEdgeLengths_SumAdditively_AndHaveNoPct()
     {
         // A and C connected; the inner CD edge is NEGATIVE.
         var tree = Inner(0.0,
@@ -314,13 +330,9 @@ public class MiRnaPctFuzzTests
         bls.Should().BeApproximately(-2.0, Tol, "negative edges sum additively into Bls");
 
         var p = new PctSigmoidParameters(0.0, 0.9, 2.0, 1.0);
-        double pct = PctFromBranchLength(bls, p);
+        Action pct = () => PctFromBranchLength(bls, p);
 
-        double.IsNaN(pct).Should().BeFalse("negative Bls must not yield NaN");
-        double.IsInfinity(pct).Should().BeFalse("negative Bls must not yield Inf");
-        pct.Should().BeGreaterThanOrEqualTo(0.0, "PCT truncated at 0 even for negative Bls");
-        pct.Should().BeApproximately(ReferencePct(-2.0, 0.0, 0.9, 2.0, 1.0), Tol,
-            "negative Bls feeds the same logistic — pinned to the reference");
+        pct.Should().Throw<ArgumentOutOfRangeException>("a negative Bls has no PCT (perl getPCT: NA)");
     }
 
     // Randomised malformed trees (random topology, random ± branch lengths, random marked
@@ -361,6 +373,13 @@ public class MiRnaPctFuzzTests
             double b2 = rng.NextDouble() * 4.0;
             double b3 = (rng.NextDouble() - 0.5) * 6.0;
             var p = new PctSigmoidParameters(b0, b1, b2, b3);
+
+            if (bls < 0.0)
+            {
+                Action negative = () => PctFromBranchLength(bls, p);
+                negative.Should().Throw<ArgumentOutOfRangeException>("negative Bls ⇒ no PCT (perl NA)");
+                continue;
+            }
 
             double pct = PctFromBranchLength(bls, p);
             double.IsNaN(pct).Should().BeFalse("PCT must be finite for any tree-derived Bls");

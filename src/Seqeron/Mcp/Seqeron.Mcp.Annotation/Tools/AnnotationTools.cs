@@ -88,7 +88,7 @@ public class AnnotationTools
 
     /// <summary>Parse a GFF3 annotation document into structured features.</summary>
     [McpServerTool(Name = "parse_gff3", Title = "Annotation — Parse GFF3", ReadOnly = true)]
-    [Description("Parse a GFF3 annotation document into structured features.")]
+    [Description("Parse a GFF3 (SO spec v1.26) document into features: 1-based inclusive coordinates, percent-decoded seqid/source/type/attributes, multi-valued attributes (e.g. Parent=a,b) as value lists in AttributeValues. Stops at ##FASTA (or a '>' line); spec-invalid feature lines (not 9 columns, start<1 or start>end, strand not +-.?, phase not 0/1/2, malformed or repeated column-9 tags) are skipped.")]
     public static ParseGff3Result ParseGff3(
         [Description("GFF3 document text (lines separated by newlines)")] string gff3Text)
     {
@@ -102,7 +102,7 @@ public class AnnotationTools
 
     /// <summary>Serialize gene annotations to GFF3 lines.</summary>
     [McpServerTool(Name = "to_gff3", Title = "Annotation — Export GFF3", ReadOnly = true)]
-    [Description("Serialize gene annotations to GFF3 lines (with header).")]
+    [Description("Serialize gene annotations (0-based half-open) to GFF3 lines with the ##gff-version 3 header: start+1/end, source and score or '.', CDS phase accumulated per GeneId 5'->3', ID/product then attributes (AttributeValues written comma-separated), spec percent-encoding (seqid outside [a-zA-Z0-9.:^*$@!+_?-|], column-9 ;=&, escaped). Rejects strands other than +-.? and empty/inverted intervals.")]
     public static ToGff3Result ToGff3(
         [Description("Gene annotations to serialize")] IReadOnlyList<GeneAnnotationDto> annotations,
         [Description("Sequence identifier for column 1")] string seqId = "seq1")
@@ -147,12 +147,87 @@ public class AnnotationTools
         return new CodingPotentialResult(score);
     }
 
+    /// <summary>Fickett (1982) TESTCODE of a whole sequence.</summary>
+    [McpServerTool(Name = "fickett_score", Title = "Annotation — Fickett TESTCODE", ReadOnly = true)]
+    [Description("Fickett (1982) TESTCODE coding statistic of a whole DNA sequence (position asymmetry + base composition look-up tables). Call: < 0.74 non-coding, >= 0.95 coding, else no opinion. tableSet 'fickett1982' (published / EMBOSS tables, default) or 'cpat' (CPAT fickett_value, the feature of CPAT's logistic model).")]
+    public static FickettScoreResult FickettScore(
+        [Description("DNA sequence")] string sequence,
+        [Description("'fickett1982' (default) or 'cpat'")] string tableSet = "fickett1982")
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var tables = tableSet?.Trim().ToLowerInvariant() switch
+        {
+            "fickett1982" => GenomeAnnotator.FickettTableSet.Fickett1982,
+            "cpat" => GenomeAnnotator.FickettTableSet.Cpat,
+            _ => throw new ArgumentException("tableSet must be 'fickett1982' or 'cpat'", nameof(tableSet)),
+        };
+        double score = GenomeAnnotator.CalculateFickettScore(sequence, tables);
+        return new FickettScoreResult(score, GenomeAnnotator.ClassifyFickettScore(score).ToString());
+    }
+
+    /// <summary>Sliding-window Fickett TESTCODE (EMBOSS tcode).</summary>
+    [McpServerTool(Name = "fickett_scan", Title = "Annotation — Fickett TESTCODE Scan", ReadOnly = true)]
+    [Description("Slide a window along a DNA sequence and report the Fickett (1982) TESTCODE and coding call of each window, as EMBOSS tcode (window >= 200, default 200; step default 3). Coordinates are 0-based half-open.")]
+    public static FickettScanResult FickettScan(
+        [Description("DNA sequence")] string sequence,
+        [Description("Window length (>= 200)")] int windowSize = 200,
+        [Description("Window step (>= 1)")] int stepSize = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var windows = GenomeAnnotator.ScanFickettScore(sequence, windowSize, stepSize)
+            .Select(w => new FickettWindowDto(w.Start, w.End, w.Score, w.Call.ToString()))
+            .ToList();
+        return new FickettScanResult(windows);
+    }
+
+    /// <summary>CPAT coding probability of a transcript.</summary>
+    [McpServerTool(Name = "cpat_coding_probability", Title = "Annotation — CPAT Coding Probability", ReadOnly = true)]
+    [Description("CPAT (Wang et al. 2013): find ORF candidates in a transcript, score each by transcript length, ORF length, Fickett TESTCODE and hexamer score, and return the logistic coding probability (coding when >= cutoff) plus the best candidate. Requires the hexamer tables and logistic coefficients of a CPAT model (e.g. CPAT's Human model: intercept -7.8284881840360567, mRNA -5.4831277888113823e-05, ORF 0.011187815405519514, Fickett 3.4471695641643225, Hexamer 6.068275924110611, cutoff 0.364).")]
+    public static CpatCodingProbabilityResult CpatCodingProbability(
+        [Description("Transcript DNA sequence (T, not U)")] string sequence,
+        [Description("Coding hexamer table: 6-mer -> frequency")] IReadOnlyDictionary<string, double> codingHexamerFrequencies,
+        [Description("Non-coding hexamer table: 6-mer -> frequency (same units)")] IReadOnlyDictionary<string, double> noncodingHexamerFrequencies,
+        [Description("Logistic intercept")] double intercept,
+        [Description("Coefficient of transcript length")] double mrnaLengthCoefficient,
+        [Description("Coefficient of ORF length")] double orfLengthCoefficient,
+        [Description("Coefficient of the Fickett score")] double fickettCoefficient,
+        [Description("Coefficient of the hexamer score")] double hexamerCoefficient,
+        [Description("Coding-probability cutoff (e.g. 0.364 for CPAT Human)")] double codingProbabilityCutoff,
+        [Description("Also search the antisense strand (CPAT --antisense)")] bool searchAntisense = false,
+        [Description("Number of longest ORF candidates scored (CPAT --top-orf, default 5)")] int topOrfCount = 5,
+        [Description("ORFs must be longer than this many nt (CPAT --min-orf, default 75)")] int minOrfLength = 75,
+        [Description("Start codons (default ATG); an empty list lets any non-stop codon open an ORF")] IReadOnlyList<string>? startCodons = null,
+        [Description("Stop codons (default TAG, TAA, TGA)")] IReadOnlyList<string>? stopCodons = null,
+        [Description("Pick the best candidate by length instead of probability (CPAT --best-orf l)")] bool bestByLength = false)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var model = new GenomeAnnotator.CpatModel(codingHexamerFrequencies, noncodingHexamerFrequencies,
+            intercept, mrnaLengthCoefficient, orfLengthCoefficient, fickettCoefficient, hexamerCoefficient,
+            codingProbabilityCutoff);
+        var options = new GenomeAnnotator.CpatOptions { SearchAntisense = searchAntisense, TopOrfCount = topOrfCount, MinOrfLength = minOrfLength };
+        if (startCodons is not null) options = options with { StartCodons = startCodons };
+        if (stopCodons is not null) options = options with { StopCodons = stopCodons };
+
+        var candidates = GenomeAnnotator.PredictCodingProbability(sequence, model, options);
+        var best = GenomeAnnotator.PredictBestCodingOrf(sequence, model, options, bestByLength);
+        var dtos = candidates.Select(p => new CpatOrfDto(p.Strand.ToString(), p.Frame, p.Start, p.End, p.OrfLength,
+            p.OrfSequence, p.MrnaLength, p.FickettScore, p.HexamerScore, p.CodingProbability, p.IsCoding)).ToList();
+        int bestIndex = best is null ? -1 : candidates.ToList().IndexOf(best);
+        return new CpatCodingProbabilityResult(dtos, bestIndex);
+    }
+
     /// <summary>Find tandem and inverted repeats.</summary>
     [McpServerTool(Name = "find_repetitive_elements", Title = "Annotation — Find Repetitive Elements", ReadOnly = true)]
-    [Description("Find tandem and inverted repeats in a DNA sequence.")]
+    [Description("Find exact tandem repeats (maximal runs of a primitive ACGT unit of 1-60 bp, complete copies) and exact inverted repeats (maximal stems, EMBOSS palindrome model: arm >= max(minRepeatLength, 2) and <= 100, loop 0-100) in a DNA sequence.")]
     public static FindRepetitiveElementsResult FindRepetitiveElements(
         [Description("DNA sequence to scan")] string dnaSequence,
-        [Description("Minimum repeat length (nt)")] int minRepeatLength = 10,
+        [Description("Minimum tandem-repeat span and minimum inverted-repeat arm length (nt)")] int minRepeatLength = 10,
         [Description("Minimum number of tandem copies")] int minCopies = 2)
     {
         if (string.IsNullOrEmpty(dnaSequence))
@@ -167,9 +242,9 @@ public class AnnotationTools
 
     /// <summary>Count codon occurrences in-frame.</summary>
     [McpServerTool(Name = "codon_usage", Title = "Annotation — Codon Usage", ReadOnly = true)]
-    [Description("Count codon occurrences (in-frame, 5'→3') for a coding sequence.")]
+    [Description("Count codon occurrences (in-frame from position 0, non-overlapping, 5'→3') for a coding sequence. DNA or RNA, case-insensitive: U is read as T and keys are upper-case DNA codons; a triplet with any other symbol (N, IUPAC code, gap) is skipped without shifting the frame; a partial trailing codon is ignored (CodonW / EMBOSS cusp convention).")]
     public static CodonUsageResult CodonUsage(
-        [Description("Coding DNA sequence (length should be a multiple of 3)")] string dnaSequence)
+        [Description("Coding DNA or RNA sequence (length should be a multiple of 3)")] string dnaSequence)
     {
         if (string.IsNullOrEmpty(dnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(dnaSequence));
@@ -187,15 +262,24 @@ public class AnnotationTools
 
     private static GeneAnnotationDto ToDto(GenomeAnnotator.GeneAnnotation g) =>
         new(g.GeneId, g.Start, g.End, g.Strand, g.Type, g.Product,
-            g.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value));
+            g.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value),
+            g.Source, g.Score, ToListDictionary(g.AttributeValues));
 
     private static GenomicFeatureDto ToDto(GenomeAnnotator.GenomicFeature f) =>
         new(f.FeatureId, f.Type, f.Start, f.End, f.Strand, f.Score, f.Phase,
-            f.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value));
+            f.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value),
+            f.Seqid, f.Source, ToListDictionary(f.AttributeValues));
 
     private static GenomeAnnotator.GeneAnnotation FromDto(GeneAnnotationDto g) =>
         new(g.GeneId, g.Start, g.End, g.Strand, g.Type, g.Product,
-            g.Attributes ?? new Dictionary<string, string>());
+            g.Attributes ?? new Dictionary<string, string>(),
+            string.IsNullOrEmpty(g.Source) ? "." : g.Source,
+            g.Score,
+            g.AttributeValues?.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value));
+
+    private static Dictionary<string, List<string>>? ToListDictionary(
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? values) =>
+        values?.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
     // ================================================================
     // VariantCaller tools (12)
@@ -1085,9 +1169,9 @@ public class AnnotationTools
         return new FindMiRnaTargetSitesResult(sites);
     }
 
-    /// <summary>Reverse-complement of an RNA sequence (A↔U, G↔C, unknowns → N).</summary>
+    /// <summary>RNA reverse complement (Biopython reverse_complement_rna; IUPAC codes complemented).</summary>
     [McpServerTool(Name = "rna_reverse_complement", Title = "miRNA — RNA Reverse Complement", ReadOnly = true)]
-    [Description("Reverse-complement of an RNA sequence (A↔U, G↔C, unknown bases → N).")]
+    [Description("RNA reverse complement, as Biopython reverse_complement_rna: A↔U, G↔C, DNA T→A; IUPAC ambiguity codes are complemented (R↔Y, K↔M, B↔V, D↔H; S, W, N unchanged). Case-insensitive, upper-case output for recognized codes; other characters (gaps etc.) pass through.")]
     public static RnaReverseComplementResult RnaReverseComplement(
         [Description("RNA (or DNA) nucleotide sequence")] string rnaSequence)
     {
@@ -1129,7 +1213,7 @@ public class AnnotationTools
 
     /// <summary>Align a miRNA against a target sequence and compute duplex statistics.</summary>
     [McpServerTool(Name = "align_mirna_to_target", Title = "miRNA — Align To Target", ReadOnly = true)]
-    [Description("Align a miRNA against a target sequence and compute duplex statistics (matches, mismatches, G-U wobbles, gaps, free energy).")]
+    [Description("Align a miRNA antiparallel (ungapped) against a target sequence and compute duplex statistics: matches, mismatches, G-U wobbles, gaps (always 0) and the Turner 2004 nearest-neighbor duplex free energy (kcal/mol, 37 °C) of the reported duplex — intermolecular initiation, stacks, internal loops, terminal AU/GU, dangling ends / terminal mismatches.")]
     public static AlignMiRnaToTargetResult AlignMiRnaToTarget(
         [Description("miRNA nucleotide sequence")] string miRnaSequence,
         [Description("Target nucleotide sequence")] string targetSequence)
@@ -1190,9 +1274,9 @@ public class AnnotationTools
             ctx.AuContent, ctx.NearStart, ctx.NearEnd, ctx.ContextScore);
     }
 
-    /// <summary>Estimate site accessibility from local secondary-structure density.</summary>
+    /// <summary>Site accessibility = McCaskill probability that the site is unpaired (Turner 2004).</summary>
     [McpServerTool(Name = "site_accessibility", Title = "miRNA — Site Accessibility", ReadOnly = true)]
-    [Description("Estimate miRNA target site accessibility from local secondary-structure density (lower structure ⇒ higher accessibility).")]
+    [Description("miRNA target site accessibility: McCaskill partition-function probability that the whole site is unpaired (Turner 2004 parameters), folding a window of max(80, site length) nt centred on the site (RNAplfold -W 80 context). Range 0–1; higher ⇒ more accessible.")]
     public static SiteAccessibilityResult SiteAccessibility(
         [Description("mRNA nucleotide sequence")] string mRnaSequence,
         [Description("0-based inclusive site start")] int siteStart,
@@ -1278,17 +1362,33 @@ public class AnnotationTools
 
     /// <summary>Find candidate 5' (donor) splice sites.</summary>
     [McpServerTool(Name = "find_donor_sites", Title = "Splice — Find Donor Sites", ReadOnly = true)]
-    [Description("Find candidate 5' (donor) splice sites (canonical GT/GU, optional GC and U12 AT/AU).")]
+    [Description("Find candidate 5' (donor) splice sites: GU/GT (optional GC) scored with the Shapiro & Senapathy (1987) 5' ss score over positions -2..+6 (published 0-100 score / 100) or with MaxEntScan score5 (bits); optional U12-type /RTATCCTY donors. Position = index of the G of GT (first intron nt).")]
     public static FindDonorSitesResult FindDonorSites(
         [Description("RNA/DNA sequence to scan")] string sequence,
-        [Description("Minimum PWM score [0,1] for a site to be reported")] double minScore = 0.5,
-        [Description("Whether to include non-canonical (GC, U12 AT/AU) donor motifs")] bool includeNonCanonical = false)
+        [Description("Minimum score for a site to be reported: [0,1] for shapiro-senapathy (and U12 match fraction), bits for maxent")] double minScore = 0.5,
+        [Description("Also report GC donors and U12-type (/RTATCCTY: AT-AC or GT-AG) donors")] bool includeNonCanonical = false,
+        [Description("Scoring model for GT/GC donors: 'shapiro-senapathy' (default) or 'maxent' (MaxEntScan score5, 9-nt window -3..+6)")] string model = "shapiro-senapathy",
+        [Description("Shapiro & Senapathy (1987) Table 1 subtable: primate (default), total, rodent, othermammal, othervertebrate, invertebrate, plant, viral")] string category = "primate")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
+        var scoringModel = (model ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "shapiro-senapathy" or "shapirosenapathy" or "ss" => SpliceSitePredictor.DonorScoringModel.ShapiroSenapathy,
+            "maxent" or "maxentscan" => SpliceSitePredictor.DonorScoringModel.MaxEntScan,
+            _ => throw new ArgumentException(
+                $"Unknown model '{model}'; expected 'shapiro-senapathy' or 'maxent'.", nameof(model))
+        };
+
+        if (string.IsNullOrWhiteSpace(category) || category.Trim().Any(char.IsDigit) ||
+            !Enum.TryParse<SpliceSitePredictor.ShapiroSenapathyCategory>(category.Trim(), ignoreCase: true, out var table))
+            throw new ArgumentException(
+                $"Unknown category '{category}'; expected primate, total, rodent, othermammal, othervertebrate, invertebrate, plant or viral.",
+                nameof(category));
+
         var sites = SpliceSitePredictor
-            .FindDonorSites(sequence, minScore, includeNonCanonical)
+            .FindDonorSites(sequence, minScore, includeNonCanonical, scoringModel, table)
             .Select(ToDto)
             .ToList();
         return new FindDonorSitesResult(sites);
@@ -1402,11 +1502,11 @@ public class AnnotationTools
         return new FindRetainedIntronCandidatesResult(introns);
     }
 
-    /// <summary>Compute a MaxEntScan-like log-likelihood score for a splice motif.</summary>
+    /// <summary>Score a splice motif: Donor = MaxEntScan score5, Acceptor = MaxEntScan score3 (Yeo &amp; Burge 2004).</summary>
     [McpServerTool(Name = "maxent_score", Title = "Splice — MaxEnt Score", ReadOnly = true)]
-    [Description("Compute a MaxEntScan-like log-likelihood score for a donor or acceptor motif.")]
+    [Description("Score a splice motif. Donor: MaxEntScan score5 (Yeo & Burge 2004) in bits on the 9-nt window (3 exon + 6 intron nt, GT at positions 4-5), e.g. CAGGTAAGT = 10.86. Acceptor: MaxEntScan score3 in bits on the 23-nt window (20 intron + 3 exon nt, AG at positions 19-20), e.g. TTCCAAACGAACTTTTGTAGGGA = 2.89.")]
     public static MaxEntScoreResult MaxentScore(
-        [Description("Splice-site motif sequence (RNA or DNA)")] string motif,
+        [Description("Splice-site motif sequence (RNA or DNA); Donor exactly 9 nt, Acceptor exactly 23 nt, of A/C/G/T(/U)")] string motif,
         [Description("Splice-site type: \"Donor\" or \"Acceptor\"")] string type)
     {
         if (string.IsNullOrEmpty(motif))

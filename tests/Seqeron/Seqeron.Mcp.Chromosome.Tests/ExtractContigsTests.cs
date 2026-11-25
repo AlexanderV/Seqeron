@@ -5,8 +5,9 @@ using Seqeron.Mcp.Chromosome.Tools;
 namespace Seqeron.Mcp.Chromosome.Tests;
 
 /// <summary>
-/// Tests for <c>extract_contigs</c>. GenomeAssemblyAnalyzer.ExtractContigs splits a scaffold at N-runs
-/// and emits each gap-free run of length >= minContigLength as "{id}_contig{n}".
+/// Tests for <c>extract_contigs</c>. GenomeAssemblyAnalyzer.ExtractContigs (QUAST broken scaffolds) splits
+/// a scaffold at N-runs of length >= minGapLength (default 10) and emits each piece of length
+/// >= minContigLength as "{id}_contig{n}".
 /// </summary>
 [TestFixture]
 public class ExtractContigsTests
@@ -20,6 +21,7 @@ public class ExtractContigsTests
         Assert.DoesNotThrow(() => ChromosomeTools.ExtractContigs(scaffolds));
         Assert.Throws<ArgumentException>(() => ChromosomeTools.ExtractContigs(null!));
         Assert.Throws<ArgumentException>(() => ChromosomeTools.ExtractContigs(scaffolds, minContigLength: 0));
+        Assert.Throws<ArgumentException>(() => ChromosomeTools.ExtractContigs(scaffolds, minGapLength: 0));
     }
 
     [Test]
@@ -46,5 +48,18 @@ public class ExtractContigsTests
         var scaffolds = new List<NamedSequence> { new("s", Rep("A", 300) + Rep("N", 20) + Rep("C", 100)) };
         var result = ChromosomeTools.ExtractContigs(scaffolds, 200);
         Assert.That(result.Items, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void ExtractContigs_MinGapLength_DelegatesQuastBreakThreshold()
+    {
+        // 9 Ns < default threshold 10: one contig with the Ns inside; minGapLength 1 cuts at every N.
+        string seq = Rep("A", 300) + Rep("N", 9) + Rep("C", 300);
+        var scaffolds = new List<NamedSequence> { new("s", seq) };
+
+        Assert.That(ChromosomeTools.ExtractContigs(scaffolds, 200).Items.Select(i => i.Sequence),
+            Is.EqualTo(new[] { seq }));
+        Assert.That(ChromosomeTools.ExtractContigs(scaffolds, 200, minGapLength: 1).Items.Select(i => i.Sequence.Length),
+            Is.EqualTo(new[] { 300, 300 }));
     }
 }

@@ -5,7 +5,7 @@
 **Algorithm:** Quality Trimming (BWA / cutadapt running-sum)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -19,6 +19,7 @@
 | 2 | BWA `bwa_trim_read` (bwaseqio.c) | 3 | https://github.com/lh3/bwa/blob/master/bwaseqio.c | 2026-06-13 |
 | 3 | BWA `BWA_MIN_RDLEN` (bwtaln.h) | 3 | https://github.com/lh3/bwa/blob/master/bwtaln.h | 2026-06-13 |
 | 4 | Cock et al. (2010), Sanger FASTQ format | 1 | https://doi.org/10.1093/nar/gkp1137 | 2026-06-13 |
+| 5 | cutadapt 5.2 `qualtrim.pyx` `quality_trim_index`, `cli.py` `parse_cutoffs` (source + installed package as oracle) | 3 | https://raw.githubusercontent.com/marcelm/cutadapt/v5.2/src/cutadapt/qualtrim.pyx | 2026-11-25 |
 
 ### 1.2 Key Evidence Points
 
@@ -46,7 +47,9 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `QualityTrimReads(reads, minQuality, minLength)` | SequenceAssembler | Canonical | Running-sum trim on both ends + min-length filter |
+| `QualityTrimReads(reads, minQuality, minLength)` | SequenceAssembler | Canonical | Running-sum trim on both ends (cutadapt `-q C,C`) + min-length filter; delegates |
+| `QualityTrimReads(reads, cutoffFront, cutoffBack, minLength, phredOffset)` | SequenceAssembler | Canonical | cutadapt `-q 5',3' --quality-base N -m`; decodes via Core `QualitySequence` |
+| `QualityTrimIndex(phredScores, cutoffFront, cutoffBack)` | SequenceAssembler | Canonical | port of cutadapt `quality_trim_index` |
 
 ---
 
@@ -58,7 +61,7 @@
 | INV-2 | Trimmed length ≤ original length | Yes | Trimming only removes bases (#1, #2) |
 | INV-3 | threshold ≤ 0 ⇒ read returned unchanged (only min-length filter may drop it) | Yes | BWA `trim_qual < 1` guard (#2) |
 | INV-4 | Every output read has length ≥ minLength | Yes | Min-length filter (Evidence Assumption 2) |
-| INV-5 | Quality is decoded as Phred = ASCII − 33 | Yes | BWA `qual - 33` (#2); Cock et al. (#4) |
+| INV-5 | Quality is decoded as Phred = ASCII − offset (33 default; 64 opt-in); length mismatch / out-of-range characters rejected | Yes | BWA `qual - 33` (#2); Cock et al. (#4); cutadapt `--quality-base` (#5) |
 
 ---
 
@@ -81,6 +84,18 @@
 | S1 | 5'-end trimming | low-quality prefix, high-quality suffix | leading low-quality bases removed | cutadapt "repeat for other end" |
 | S2 | Min-length keeps survivor | trimmed length == minLength | read kept | boundary of INV-4 |
 | S3 | Multiple reads | list with one trimmable, one droppable, one clean | per-read independent result | batch semantics |
+
+### 4.2b Review 2026-11 additions (B10)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | Quality length ≠ sequence length (short / long), character `\u001f` or `\u007f` | `ArgumentException` (was IndexOutOfRange / silently ignored / negative Phred) | Cock et al. (#4); Core `QualitySequence` |
+| R2 | null sequence / quality element | `ArgumentNullException` | defensive contract |
+| R3 | 12 `quality_trim_index` cases (separate cutoffs, Phred+64, empty) | (start, stop) = cutadapt 5.2 | #5 (installed cutadapt 5.2 values) |
+| R4 | single-cutoff overload = (C, C); `cutoffFront 0` = cutadapt `-q C` 3'-only | equal / untrimmed prefix | #5 `parse_cutoffs` |
+| R5 | Phred+64 cutadapt example `jhZ[GFJCAB` → `acgt` (case kept); `5` invalid in Phred+64 | as stated | #5, #4 |
+
+Tests: `QualityTrimReads_MalformedQuality_ThrowsArgumentException` (4), `QualityTrimReads_NullSequenceOrQuality_ThrowsArgumentNullException`, `QualityTrimIndex_MatchesCutadaptQualityTrimIndex` (12), `QualityTrimReads_SeparateCutoffs_ThreePrimeOnlyKeepsLowQualityPrefix`, `QualityTrimReads_Phred64_DecodesWithOffset64`; MCP `QualityTrimReads_CutadaptOptions_DelegateToCore`. One-off oracle: 5000 random reads (seed 2026) vs installed cutadapt 5.2 → 5000/5000.
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -179,3 +194,4 @@ Total in-scope cases: 11. ✅ = 11.
 ## 7. Open Questions / Decisions
 
 1. The prior implementation used a naive per-base hard cutoff (non-conforming to BWA/cutadapt). Decision: replaced with the running-sum algorithm; checklist behavioural intent ("quality trimming") is satisfied by the authoritative algorithm. No open correctness questions remain.
+2. (2026-11 review) The 3-argument overload trims both ends with one cutoff (cutadapt `-q C,C`); cutadapt `-q C` / BWA `-q C` are 3'-only. Kept for backward compatibility; 3'-only is available via `cutoffFront: 0`.

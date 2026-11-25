@@ -53,8 +53,47 @@ public static class SpliceSitePredictor
         Donor,      // 5' splice site (GT/GU)
         Acceptor,   // 3' splice site (AG)
         Branch,     // Branch point (A)
-        U12Donor,   // Minor spliceosome donor (AT/AU)
+        U12Donor,   // Minor spliceosome donor (/RTATCCTY: AT-AC or GT-AG U12 introns)
         U12Acceptor // Minor spliceosome acceptor (AC)
+    }
+
+    /// <summary>
+    /// Scoring model for <see cref="FindDonorSites(string, double, bool, DonorScoringModel, ShapiroSenapathyCategory)"/>.
+    /// </summary>
+    public enum DonorScoringModel
+    {
+        /// <summary>Shapiro &amp; Senapathy (1987) consensus-value score on positions -2..+6,
+        /// reported in [0, 1] (the published 0-100 score divided by 100). Default.</summary>
+        ShapiroSenapathy,
+
+        /// <summary>Yeo &amp; Burge (2004) MaxEntScan <c>score5ss</c> in bits on the 9-nt window
+        /// -3..+6 (<see cref="ScoreDonorMaxEnt"/>); <c>minScore</c> is then a threshold in bits.</summary>
+        MaxEntScan
+    }
+
+    /// <summary>
+    /// GENBANK category subtable of Shapiro &amp; Senapathy (1987) Table 1 used for the
+    /// donor (5' splice site) percentages. The paper scores a sequence with the subtable of
+    /// its organism; <see cref="Primate"/> is the default (human sequences).
+    /// </summary>
+    public enum ShapiroSenapathyCategory
+    {
+        /// <summary>Primate (542 5' ss).</summary>
+        Primate,
+        /// <summary>All seven GENBANK categories pooled (1446 5' ss).</summary>
+        Total,
+        /// <summary>Rodent (393 5' ss).</summary>
+        Rodent,
+        /// <summary>Other mammals (65 5' ss).</summary>
+        OtherMammal,
+        /// <summary>Other vertebrates (209 5' ss).</summary>
+        OtherVertebrate,
+        /// <summary>Invertebrates (80 5' ss).</summary>
+        Invertebrate,
+        /// <summary>Plants (111 5' ss).</summary>
+        Plant,
+        /// <summary>Viruses (46 5' ss).</summary>
+        Viral
     }
 
     /// <summary>
@@ -117,23 +156,78 @@ public static class SpliceSitePredictor
 
     #region Position Weight Matrices
 
-    // Donor site IUPAC consensus: MAG|GURAGU (M=A/C, R=A/G)
-    // Positions -3 to +5 relative to exon-intron boundary (9 positions total).
-    // Binary weights: 1.0 = matches consensus nucleotide(s), 0.0 = no match.
-    // Sources: Shapiro & Senapathy (1987) NAR 15:7155; Mount (1982) NAR 10:459;
-    //          Burge et al. (1999) The RNA World, CSHL Press.
-    private static readonly Dictionary<int, Dictionary<char, double>> DonorPwm = new()
-    {
-        { -3, new Dictionary<char, double> { {'A', 1.0}, {'C', 1.0}, {'G', 0.0}, {'U', 0.0} } }, // M (A or C)
-        { -2, new Dictionary<char, double> { {'A', 1.0}, {'C', 0.0}, {'G', 0.0}, {'U', 0.0} } }, // A
-        { -1, new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 1.0}, {'U', 0.0} } }, // G
-        { 0,  new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 1.0}, {'U', 0.0} } }, // G (invariant)
-        { 1,  new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 0.0}, {'U', 1.0} } }, // U (invariant)
-        { 2,  new Dictionary<char, double> { {'A', 1.0}, {'C', 0.0}, {'G', 1.0}, {'U', 0.0} } }, // R (A or G)
-        { 3,  new Dictionary<char, double> { {'A', 1.0}, {'C', 0.0}, {'G', 0.0}, {'U', 0.0} } }, // A
-        { 4,  new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 1.0}, {'U', 0.0} } }, // G
-        { 5,  new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 0.0}, {'U', 1.0} } }  // U
-    };
+    // --- Shapiro & Senapathy (1987) 5' splice-site (donor) score ---
+    // Source: Shapiro MB, Senapathy P (1987) "RNA splice junctions of different classes of
+    // eukaryotes: sequence statistics and functional implications in gene expression."
+    // Nucleic Acids Res 15(17):7155-7174 (DOI 10.1093/nar/15.17.7155).
+    // Table 1 (p. 7159): percentage of each nucleotide at 5' ss positions -3..+6 (exon -3..-1,
+    // intron +1..+6; +1/+2 = the GT), one subtable per GENBANK category. Rows below are
+    // -3,-2,-1,+1,+2,+3,+4,+5,+6; columns A, C, G, T(=U). Transcribed from the scanned paper.
+    // Methods (p. 7157-7158): every subsequence of length 8 (positions -2..+6) is scored as
+    //   score = 100 (t - mint) / (maxt - mint)
+    // where t is the sum of the percentages of the observed nucleotides and mint / maxt are
+    // the sums of the lowest / highest percentages of the eight positions (worked example,
+    // primate AAGTGAGT: t = 509, mint = 47, maxt = 595, score 84.3). Position -3 is tabulated
+    // but not part of the scored subsequence. This library reports score / 100 in [0, 1].
+    private static readonly IReadOnlyDictionary<ShapiroSenapathyCategory, int[,]> ShapiroSenapathyDonorTables =
+        new Dictionary<ShapiroSenapathyCategory, int[,]>
+        {
+            [ShapiroSenapathyCategory.Total] = new int[,]
+            {
+                { 36, 36, 18, 11 }, { 56, 13, 14, 17 }, { 11, 3, 78, 8 }, { 0, 0, 100, 0 }, { 0, 0, 0, 100 },
+                { 60, 3, 35, 3 }, { 69, 9, 12, 11 }, { 7, 6, 82, 5 }, { 14, 14, 19, 53 },
+            },
+            [ShapiroSenapathyCategory.Primate] = new int[,]
+            {
+                { 32, 37, 19, 12 }, { 58, 13, 15, 15 }, { 10, 4, 78, 8 }, { 0, 0, 100, 0 }, { 0, 0, 0, 100 },
+                { 57, 2, 39, 2 }, { 71, 8, 12, 9 }, { 5, 6, 84, 5 }, { 16, 15, 22, 47 },
+            },
+            [ShapiroSenapathyCategory.Rodent] = new int[,]
+            {
+                { 38, 35, 16, 11 }, { 56, 14, 14, 16 }, { 11, 3, 79, 7 }, { 0, 0, 100, 0 }, { 0, 0, 0, 100 },
+                { 55, 4, 37, 4 }, { 73, 7, 11, 8 }, { 7, 6, 82, 5 }, { 14, 14, 19, 54 },
+            },
+            [ShapiroSenapathyCategory.OtherMammal] = new int[,]
+            {
+                { 38, 43, 11, 8 }, { 52, 8, 22, 18 }, { 8, 0, 86, 6 }, { 0, 0, 100, 0 }, { 0, 0, 0, 100 },
+                { 42, 0, 52, 6 }, { 65, 5, 22, 9 }, { 6, 5, 89, 0 }, { 13, 19, 13, 56 },
+            },
+            [ShapiroSenapathyCategory.OtherVertebrate] = new int[,]
+            {
+                { 35, 36, 19, 11 }, { 57, 12, 15, 15 }, { 11, 3, 77, 9 }, { 0, 0, 100, 0 }, { 0, 0, 0, 100 },
+                { 68, 1, 29, 2 }, { 71, 8, 11, 11 }, { 10, 6, 79, 5 }, { 11, 14, 26, 50 },
+            },
+            [ShapiroSenapathyCategory.Invertebrate] = new int[,]
+            {
+                { 38, 28, 25, 10 }, { 63, 13, 10, 15 }, { 8, 5, 80, 8 }, { 0, 0, 100, 0 }, { 0, 0, 0, 100 },
+                { 75, 0, 21, 4 }, { 76, 11, 7, 6 }, { 7, 4, 82, 7 }, { 17, 13, 4, 66 },
+            },
+            [ShapiroSenapathyCategory.Plant] = new int[,]
+            {
+                { 41, 34, 17, 8 }, { 47, 13, 10, 31 }, { 9, 4, 77, 10 }, { 0, 0, 100, 0 }, { 0, 0, 0, 100 },
+                { 64, 7, 19, 10 }, { 35, 19, 10, 36 }, { 10, 6, 72, 12 }, { 10, 17, 8, 64 },
+            },
+            [ShapiroSenapathyCategory.Viral] = new int[,]
+            {
+                { 35, 28, 22, 15 }, { 54, 26, 9, 11 }, { 35, 7, 54, 4 }, { 0, 0, 100, 0 }, { 0, 0, 0, 100 },
+                { 83, 0, 17, 0 }, { 70, 11, 15, 4 }, { 15, 2, 74, 9 }, { 11, 9, 13, 67 },
+            },
+        };
+
+    // Table rows used by the S&S 5' score: positions -2..+6 (rows 1..8; row 0 = -3 unused).
+    private const int ShapiroSenapathyFirstScoredRow = 1;
+    private const int ShapiroSenapathyRowCount = 9;
+    // Offset of the scored subsequence start (-2) relative to the G of GT (+1).
+    private const int ShapiroSenapathyUpstream = 2;
+    // Offset of the last scored nucleotide (+6) relative to the G of GT (+1).
+    private const int ShapiroSenapathyDownstream = 5;
+
+    // U12-type 5' splice-site consensus /RTATCCTY at intron positions +1..+8 (R = A/G, Y = C/T):
+    // Sharp PA, Burge CB (1997) Cell 91:875-879; Burge CB, Tuschl T, Sharp PA (1999) The RNA
+    // World 2nd ed., CSHL Press; Hall SL, Padgett RA (1994) J Mol Biol 239:357 (ATATCCTT, AT-AC);
+    // AT-AC and GT-AG termini both occur in U12-type introns (Dietrich, Incorvaia & Padgett 1997
+    // Mol Cell 1:151). Stored in RNA alphabet; each entry lists the nucleotides that match.
+    private static readonly string[] U12DonorConsensus = { "AG", "U", "A", "U", "C", "C", "U", "CU" };
 
     // Consensus acceptor site: (Y)nNCAG|G
     // Position -15 to +1 relative to splice site
@@ -194,47 +288,130 @@ public static class SpliceSitePredictor
     #region Splice Site Prediction
 
     /// <summary>
-    /// Finds all potential donor (5') splice sites in a sequence.
+    /// Finds all potential donor (5') splice sites in a sequence, scored with the
+    /// Shapiro &amp; Senapathy (1987) primate 5' splice-site table.
     /// </summary>
+    /// <remarks>
+    /// Equivalent to <see cref="FindDonorSites(string, double, bool, DonorScoringModel, ShapiroSenapathyCategory)"/>
+    /// with <see cref="DonorScoringModel.ShapiroSenapathy"/> and <see cref="ShapiroSenapathyCategory.Primate"/>.
+    /// </remarks>
     public static IEnumerable<SpliceSite> FindDonorSites(
         string sequence,
         double minScore = 0.5,
-        bool includeNonCanonical = false)
+        bool includeNonCanonical = false) =>
+        FindDonorSites(sequence, minScore, includeNonCanonical,
+            DonorScoringModel.ShapiroSenapathy, ShapiroSenapathyCategory.Primate);
+
+    /// <summary>
+    /// Finds all potential donor (5') splice sites in a sequence.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The input is upper-cased and read as RNA (T = U). A candidate is a <c>GU</c> (and, when
+    /// <paramref name="includeNonCanonical"/> is true, a <c>GC</c>) dinucleotide; its
+    /// <see cref="SpliceSite.Position"/> is the 0-based index of the <c>G</c>, i.e. the first
+    /// intron nucleotide (+1); the exon-intron boundary lies immediately before it.
+    /// <see cref="SpliceSite.Motif"/> is the -3..+6 context (3 exon + 6 intron nt, truncated at
+    /// the sequence ends).
+    /// </para>
+    /// <para>
+    /// <b><see cref="DonorScoringModel.ShapiroSenapathy"/> (default):</b> the Shapiro &amp;
+    /// Senapathy (1987) score of the 8-nt subsequence -2..+6,
+    /// <c>(t - mint) / (maxt - mint)</c> with <c>t</c> the sum of the Table 1 percentages of the
+    /// observed nucleotides (subtable <paramref name="category"/>), i.e. the published 0-100
+    /// score / 100 (e.g. primate <c>AAGTGAGT</c> → 0.843). A candidate whose -2..+6 window runs
+    /// off the sequence or contains a non-A/C/G/T/U character is not scored (no site).
+    /// <see cref="SpliceSite.Confidence"/> = clamp((score - 0.5) / 0.5, 0, 1).
+    /// </para>
+    /// <para>
+    /// <b><see cref="DonorScoringModel.MaxEntScan"/>:</b> the Yeo &amp; Burge (2004) MaxEntScan
+    /// <c>score5ss</c> (<see cref="ScoreDonorMaxEnt"/>) of the 9-nt window -3..+6, in bits;
+    /// <paramref name="minScore"/> is a threshold in bits. A window that runs off the sequence
+    /// or contains a non-A/C/G/T/U character is skipped. <see cref="SpliceSite.Confidence"/> =
+    /// 2^s / (1 + 2^s), the posterior probability of a true site at prior odds 1 (score5 is the
+    /// log2 likelihood ratio site/background).
+    /// </para>
+    /// <para>
+    /// <b>U12-type donors</b> (<paramref name="includeNonCanonical"/>, Shapiro-Senapathy model
+    /// only): every <c>AU</c> or <c>GU</c> start is also scored against the U12 5' splice-site
+    /// consensus <c>/RUAUCCUY</c> (+1..+8; Sharp &amp; Burge 1997, Burge et al. 1999) as the
+    /// fraction of matching positions, and reported as <see cref="SpliceSiteType.U12Donor"/>
+    /// when the score reaches <paramref name="minScore"/>. A <c>GU</c> site can therefore be
+    /// reported both as a U2 <see cref="SpliceSiteType.Donor"/> and as a U12 candidate.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">DNA or RNA sequence (case-insensitive); null/empty yields no sites.</param>
+    /// <param name="minScore">Minimum score to report a site (model units).</param>
+    /// <param name="includeNonCanonical">Also report GC donors and U12-type donors.</param>
+    /// <param name="model">Scoring model for U2-type (GU/GC) donors.</param>
+    /// <param name="category">Shapiro &amp; Senapathy (1987) Table 1 subtable (ignored by MaxEntScan).</param>
+    public static IEnumerable<SpliceSite> FindDonorSites(
+        string sequence,
+        double minScore,
+        bool includeNonCanonical,
+        DonorScoringModel model,
+        ShapiroSenapathyCategory category = ShapiroSenapathyCategory.Primate)
     {
-        if (string.IsNullOrEmpty(sequence) || sequence.Length < 6)
+        if (!Enum.IsDefined(model))
+            throw new ArgumentOutOfRangeException(nameof(model), model, "Unknown donor scoring model.");
+        if (!ShapiroSenapathyDonorTables.ContainsKey(category))
+            throw new ArgumentOutOfRangeException(nameof(category), category, "Unknown Shapiro & Senapathy category.");
+
+        return FindDonorSitesIterator(sequence, minScore, includeNonCanonical, model, category);
+    }
+
+    private static IEnumerable<SpliceSite> FindDonorSitesIterator(
+        string sequence,
+        double minScore,
+        bool includeNonCanonical,
+        DonorScoringModel model,
+        ShapiroSenapathyCategory category)
+    {
+        if (string.IsNullOrEmpty(sequence))
             yield break;
 
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
 
-        for (int i = 0; i <= upper.Length - 6; i++)
+        for (int i = 0; i + 1 < upper.Length; i++)
         {
-            // Canonical GU, or (opt-in) non-canonical GC — same donor scoring; GC naturally
-            // scores lower because position +1 mismatches the U consensus.
-            if (upper[i] == 'G' && (upper[i + 1] == 'U' || (includeNonCanonical && upper[i + 1] == 'C')))
+            char first = upper[i];
+            char second = upper[i + 1];
+
+            // U2-type candidate: canonical GU, or (opt-in) non-canonical GC.
+            if (first == 'G' && (second == 'U' || (includeNonCanonical && second == 'C')))
             {
-                double score = ScoreDonorSite(upper, i);
-                if (score >= minScore)
+                double? score = model == DonorScoringModel.MaxEntScan
+                    ? ScoreDonorSiteMaxEnt(upper, i)
+                    : ScoreDonorSiteShapiroSenapathy(upper, i, category);
+
+                if (score is double s && s >= minScore)
                 {
+                    double confidence = model == DonorScoringModel.MaxEntScan
+                        ? 1.0 / (1.0 + Math.Pow(2.0, -s))
+                        : CalculateConfidence(s, 0.5, 1.0);
+
                     yield return new SpliceSite(
                         Position: i,
                         Type: SpliceSiteType.Donor,
                         Motif: GetMotifContext(upper, i, 3, 6),
-                        Score: score,
-                        Confidence: CalculateConfidence(score, 0.5, 1.0));
+                        Score: s,
+                        Confidence: confidence);
                 }
             }
-            // U12 spliceosome AT/AU
-            else if (includeNonCanonical && upper[i] == 'A' && (upper[i + 1] == 'U' || upper[i + 1] == 'T'))
+
+            // U12-type candidate: /RU (AU or GU) start, scored against /RUAUCCUY.
+            if (includeNonCanonical && model == DonorScoringModel.ShapiroSenapathy &&
+                (first == 'A' || first == 'G') && second == 'U')
             {
-                double score = ScoreU12DonorSite(upper, i);
-                if (score >= minScore)
+                double? score = ScoreU12DonorSite(upper, i);
+                if (score is double s && s >= minScore)
                 {
                     yield return new SpliceSite(
                         Position: i,
                         Type: SpliceSiteType.U12Donor,
-                        Motif: GetMotifContext(upper, i, 3, 6),
-                        Score: score,
-                        Confidence: CalculateConfidence(score, 0.5, 1.0));
+                        Motif: GetMotifContext(upper, i, 3, 8),
+                        Score: s,
+                        Confidence: CalculateConfidence(s, 0.5, 1.0));
                 }
             }
         }
@@ -393,27 +570,71 @@ public static class SpliceSitePredictor
 
     #region Scoring Functions
 
-    private static double ScoreDonorSite(string sequence, int position)
+    /// <summary>
+    /// Shapiro &amp; Senapathy (1987) 5' splice-site score in [0, 1] of the 8-nt subsequence
+    /// -2..+6 around the donor whose +1 nucleotide is at <paramref name="position"/>;
+    /// null when the subsequence runs off the sequence or contains a non-A/C/G/U character.
+    /// <paramref name="sequence"/> must be upper-case RNA.
+    /// </summary>
+    private static double? ScoreDonorSiteShapiroSenapathy(
+        string sequence, int position, ShapiroSenapathyCategory category)
     {
-        double score = 0;
-        int count = 0;
+        int start = position - ShapiroSenapathyUpstream;
+        int end = position + ShapiroSenapathyDownstream;
+        if (start < 0 || end >= sequence.Length)
+            return null;
 
-        foreach (var (offset, weights) in DonorPwm)
+        int[,] table = ShapiroSenapathyDonorTables[category];
+        int t = 0, minT = 0, maxT = 0;
+        for (int row = ShapiroSenapathyFirstScoredRow; row < ShapiroSenapathyRowCount; row++)
         {
-            int pos = position + offset;
-            if (pos >= 0 && pos < sequence.Length)
+            int column = NucleotideColumn(sequence[start + row - ShapiroSenapathyFirstScoredRow]);
+            if (column < 0)
+                return null;
+
+            t += table[row, column];
+            int lo = int.MaxValue, hi = int.MinValue;
+            for (int c = 0; c < 4; c++)
             {
-                char b = sequence[pos];
-                if (weights.TryGetValue(b, out double weight))
-                {
-                    score += weight;
-                    count++;
-                }
+                lo = Math.Min(lo, table[row, c]);
+                hi = Math.Max(hi, table[row, c]);
             }
+            minT += lo;
+            maxT += hi;
         }
 
-        return count > 0 ? score / count : 0;
+        return (double)(t - minT) / (maxT - minT);
     }
+
+    /// <summary>
+    /// MaxEntScan score5 (bits) of the 9-nt window -3..+6 around the donor whose +1 nucleotide
+    /// is at <paramref name="position"/>; null when the window runs off the sequence or
+    /// contains a non-A/C/G/U character. <paramref name="sequence"/> must be upper-case RNA.
+    /// </summary>
+    private static double? ScoreDonorSiteMaxEnt(string sequence, int position)
+    {
+        int start = position - MaxEntDonorGtStart;
+        if (start < 0 || start + MaxEntDonorWindowLength > sequence.Length)
+            return null;
+
+        for (int k = start; k < start + MaxEntDonorWindowLength; k++)
+        {
+            if (NucleotideColumn(sequence[k]) < 0)
+                return null;
+        }
+
+        return ScoreDonorMaxEnt(sequence.Substring(start, MaxEntDonorWindowLength));
+    }
+
+    /// <summary>Column of an upper-case RNA/DNA nucleotide in an A,C,G,T(U) table; -1 otherwise.</summary>
+    private static int NucleotideColumn(char c) => c switch
+    {
+        'A' => 0,
+        'C' => 1,
+        'G' => 2,
+        'U' or 'T' => 3,
+        _ => -1
+    };
 
     private static double ScoreAcceptorSite(string sequence, int position)
     {
@@ -530,22 +751,24 @@ public static class SpliceSitePredictor
         return Math.Max(0, Math.Min(1, normalized));
     }
 
-    private static double ScoreU12DonorSite(string sequence, int position)
+    /// <summary>
+    /// Fraction of the 8 intron positions +1..+8 matching the U12-type 5' splice-site
+    /// consensus /RUAUCCUY (Sharp &amp; Burge 1997); null when the 8-nt window runs off the
+    /// sequence. <paramref name="sequence"/> must be upper-case RNA.
+    /// </summary>
+    private static double? ScoreU12DonorSite(string sequence, int position)
     {
-        // Simplified U12 scoring - /ATATCC/ consensus
-        string motif = position + 6 <= sequence.Length
-            ? sequence.Substring(position, 6)
-            : "";
+        if (position < 0 || position + U12DonorConsensus.Length > sequence.Length)
+            return null;
 
         int matches = 0;
-        string consensus = "AUAUCC";
-        for (int i = 0; i < Math.Min(motif.Length, consensus.Length); i++)
+        for (int k = 0; k < U12DonorConsensus.Length; k++)
         {
-            if (motif[i] == consensus[i])
+            if (U12DonorConsensus[k].Contains(sequence[position + k]))
                 matches++;
         }
 
-        return matches / 6.0;
+        return (double)matches / U12DonorConsensus.Length;
     }
 
     private static double ScoreU12AcceptorSite(string sequence, int position)
@@ -911,38 +1134,39 @@ public static class SpliceSitePredictor
     }
 
     /// <summary>
-    /// Calculates MaxEntScan-like score for splice sites.
+    /// Calculates a splice-site score for a motif of the given type.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Donor:</b> the Yeo &amp; Burge (2004) MaxEntScan <c>score5ss</c> maximum-entropy score in bits,
+    /// computed by <see cref="ScoreDonorMaxEnt"/> (the motif must be the 9-nt window: 3 exonic + 6
+    /// intronic nt, GT at 1-based positions 4-5; e.g. <c>CAGGTAAGT</c> → 10.86, as printed by
+    /// MaxEntScan <c>score5.pl</c>).
+    /// </para>
+    /// <para>
+    /// <b>Acceptor:</b> the Yeo &amp; Burge (2004) MaxEntScan <c>score3ss</c> maximum-entropy score in bits,
+    /// computed by <see cref="ScoreAcceptorMaxEnt"/> (the motif must be the 23-nt window: 20 intronic +
+    /// 3 exonic nt, AG at 1-based positions 19-20; e.g. <c>TTCCAAACGAACTTTTGTAGGGA</c> → 2.89, as
+    /// printed by MaxEntScan <c>score3.pl</c>).
+    /// </para>
+    /// <para>
+    /// Any other <paramref name="type"/> returns 0; an empty motif returns 0.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">Donor motif not exactly 9 nt, acceptor motif not exactly 23 nt,
+    /// or a motif containing a non-A/C/G/T(/U) character (MaxEntScan cannot score it).</exception>
     public static double CalculateMaxEntScore(string motif, SpliceSiteType type)
     {
         if (string.IsNullOrEmpty(motif))
             return 0;
 
-        string upper = motif.ToUpperInvariant().Replace('T', 'U');
-
+        // Donor: the real MaxEntScan score5 model (Yeo & Burge 2004; score5.pl / me2x5).
         if (type == SpliceSiteType.Donor)
-        {
-            // Score 9-mer around GT
-            double score = 0;
-            for (int i = 0; i < upper.Length && i < 9; i++)
-            {
-                int offset = i - 3;
-                if (DonorPwm.TryGetValue(offset, out var weights) && weights.TryGetValue(upper[i], out double w))
-                    score += Math.Log2(w + 0.01);
-            }
-            return score;
-        }
-        else if (type == SpliceSiteType.Acceptor)
-        {
-            double score = 0;
-            for (int i = 0; i < upper.Length; i++)
-            {
-                int offset = i - 15;
-                if (AcceptorPwm.TryGetValue(offset, out var weights) && weights.TryGetValue(upper[i], out double w))
-                    score += Math.Log2(w + 0.01);
-            }
-            return score;
-        }
+            return ScoreDonorMaxEnt(motif);
+
+        // Acceptor: the real MaxEntScan score3 model (Yeo & Burge 2004; score3.pl / me2x3acc1-9).
+        if (type == SpliceSiteType.Acceptor)
+            return ScoreAcceptorMaxEnt(motif);
 
         return 0;
     }
@@ -1186,15 +1410,17 @@ public static class SpliceSitePredictor
             restScore /= tables[matrixIndex][hash];
         }
 
-        return Math.Log2(consScore * restScore);
+        // score3.pl / maxentpy compute log2 as ln(x)/ln(2); use the same expression so the
+        // result is the reference double (Math.Log2 differs by up to ~1e-14 on some inputs).
+        return Math.Log(consScore * restScore) / Math.Log(2.0);
     }
 
-    private static char NormalizeNucleotide(char c) => c switch
+    private static char NormalizeNucleotide(char c, string model = "score3") => c switch
     {
         'A' or 'C' or 'G' or 'T' => c,
         'U' => 'T',
         _ => throw new ArgumentException(
-            $"MaxEntScan score3 requires an A/C/G/T(/U) sequence; found '{c}'.")
+            $"MaxEntScan {model} requires an A/C/G/T(/U) sequence; found '{c}'.")
     };
 
     #endregion
@@ -1297,8 +1523,8 @@ public static class SpliceSitePredictor
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This is an opt-in alternative to the default <see cref="FindDonorSites"/> PWM /
-    /// consensus scorer; the existing PWM scorers and their defaults are unchanged. The
+    /// This is the window scorer behind <see cref="DonorScoringModel.MaxEntScan"/> in
+    /// <c>FindDonorSites</c> (whose default is the Shapiro &amp; Senapathy 1987 score). The
     /// returned value is the log<sub>2</sub> ratio of the maximum-entropy probability of the
     /// window to its background probability — higher means a stronger 5' splice site (the
     /// canonical documented example <c>cagGTAAGT</c> scores 10.86 bits).
@@ -1329,8 +1555,8 @@ public static class SpliceSitePredictor
         string upper = window.ToUpperInvariant();
 
         // --- Consensus GT dinucleotide term: P_cons(G)*P_cons(T) / (P_bgd(G)*P_bgd(T)) ---
-        char gt1 = NormalizeNucleotide(upper[MaxEntDonorGtStart]);
-        char gt2 = NormalizeNucleotide(upper[MaxEntDonorGtStart + 1]);
+        char gt1 = NormalizeNucleotide(upper[MaxEntDonorGtStart], "score5");
+        char gt2 = NormalizeNucleotide(upper[MaxEntDonorGtStart + 1], "score5");
 
         double consScore =
             MaxEntDonorConsensusGt1[gt1] * MaxEntDonorConsensusGt2[gt2] /
@@ -1340,13 +1566,15 @@ public static class SpliceSitePredictor
         // rest = window[0..3) + window[5..9)  -> 3 + 4 = 7 nt; normalise U->T for the key.
         Span<char> rest = stackalloc char[MaxEntDonorWindowLength - 2];
         for (int i = 0; i < MaxEntDonorGtStart; i++)
-            rest[i] = NormalizeNucleotide(upper[i]);
+            rest[i] = NormalizeNucleotide(upper[i], "score5");
         for (int i = MaxEntDonorGtStart + 2; i < MaxEntDonorWindowLength; i++)
-            rest[i - 2] = NormalizeNucleotide(upper[i]);
+            rest[i - 2] = NormalizeNucleotide(upper[i], "score5");
 
         double restScore = MaxEntScore5Table[new string(rest)];
 
-        return Math.Log2(consScore * restScore);
+        // score5.pl / maxentpy compute log2 as ln(x)/ln(2); use the same expression so the
+        // result is the reference double (Math.Log2 differs by up to ~1e-14 on some inputs).
+        return Math.Log(consScore * restScore) / Math.Log(2.0);
     }
 
     #endregion

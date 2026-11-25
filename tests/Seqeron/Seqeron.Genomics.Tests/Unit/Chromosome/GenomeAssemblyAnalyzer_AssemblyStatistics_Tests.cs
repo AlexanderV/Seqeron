@@ -216,6 +216,97 @@ public class GenomeAssemblyAnalyzer_AssemblyStatistics_Tests
 
     #endregion
 
+    #region QUAST N50.py oracle (B10 ASSEMBLY-STATS-001 review)
+
+    // M14 — Expected values computed by running QUAST quast_libs/N50.py (ablab/quast master,
+    // N50_and_L50 / NG50_and_LG50) on each length set; see Evidence "QUAST oracle table".
+    [TestCase(new[] { 4, 3, 2 }, 50, 3, 2, TestName = "QuastN50_432_Odd9_N50is3")]
+    [TestCase(new[] { 4, 3, 2 }, 90, 2, 3, TestName = "QuastN90_432")]
+    [TestCase(new[] { 2, 1, 1, 1 }, 50, 1, 2, TestName = "QuastN50_2111_N50is1")]
+    [TestCase(new[] { 2, 1, 1, 1 }, 90, 1, 4, TestName = "QuastN90_2111")]
+    [TestCase(new[] { 5, 5, 5, 5 }, 50, 5, 2, TestName = "QuastN50_Ties")]
+    [TestCase(new[] { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }, 50, 7, 4, TestName = "QuastN50_OddTotal55")]
+    [TestCase(new[] { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }, 90, 3, 8, TestName = "QuastN90_OddTotal55")]
+    [TestCase(new[] { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }, 0, 10, 1, TestName = "QuastN0_IsLargest")]
+    [TestCase(new[] { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }, 100, 1, 10, TestName = "QuastN100_IsSmallest")]
+    [TestCase(new[] { 80, 70, 50, 40, 30, 20, 10, 5 }, 90, 20, 6, TestName = "QuastN90_AssemblyB")]
+    [TestCase(new[] { 80, 70, 50, 40, 30, 20, 10, 5 }, 100, 5, 8, TestName = "QuastN100_AssemblyB")]
+    [TestCase(new[] { 3, 0, 0 }, 100, 3, 1, TestName = "QuastN100_TrailingZeroLengths")]
+    [TestCase(new[] { 0, 0 }, 50, 0, 1, TestName = "QuastN50_AllZeroLengths")]
+    public void CalculateNx_MatchesQuastN50Py(int[] lengths, int x, int expectedNx, int expectedLx)
+    {
+        var nx = GenomeAssemblyAnalyzer.CalculateNx(lengths, x);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nx.Nx, Is.EqualTo(expectedNx), "Nx = QUAST N50_and_L50(lengths, x)[0].");
+            Assert.That(nx.Lx, Is.EqualTo(expectedLx), "Lx = QUAST N50_and_L50(lengths, x)[1].");
+        });
+    }
+
+    // M15 — NGx/LGx: the core overload with a genome size (QUAST NG50_and_LG50). Assembly A with
+    // reference 400: NG50 = 50, LG50 = 3; NG90 is never reached (QUAST None) => 0/0.
+    // {4,3,2} with reference 7: NG50 = 4/1, NG90 = 3/2.
+    [TestCase(new[] { 80, 70, 50, 40, 30, 20 }, 400L, 50, 50, 3)]
+    [TestCase(new[] { 80, 70, 50, 40, 30, 20 }, 400L, 90, 0, 0)]
+    [TestCase(new[] { 80, 70, 50, 40, 30, 20 }, 1000L, 50, 0, 0)]
+    [TestCase(new[] { 4, 3, 2 }, 7L, 50, 4, 1)]
+    [TestCase(new[] { 4, 3, 2 }, 7L, 90, 3, 2)]
+    public void CalculateNx_GenomeSizeReference_MatchesQuastNG50(
+        int[] lengthsDescending, long reference, int x, int expectedNg, int expectedLg)
+    {
+        var ng = GenomeAssemblyAnalyzer.CalculateNx(lengthsDescending, reference, x);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ng.Nx, Is.EqualTo(expectedNg), "NGx = QUAST NG50_and_LG50 (0 where QUAST gives None).");
+            Assert.That(ng.Lx, Is.EqualTo(expectedLg), "LGx = QUAST NG50_and_LG50 (0 where QUAST gives None).");
+        });
+    }
+
+    // M16 — Totals above int.MaxValue are summed exactly (QUAST: {2e9,2e9,1} -> N50 2e9/L50 2, N100 1/3).
+    [Test]
+    public void CalculateNx_TotalAboveInt32_IsExact()
+    {
+        int[] lengths = { 2_000_000_000, 2_000_000_000, 1 };
+
+        var n50 = GenomeAssemblyAnalyzer.CalculateNx(lengths, 50);
+        var n100 = GenomeAssemblyAnalyzer.CalculateNx(lengths, 100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((n50.Nx, n50.Lx), Is.EqualTo((2_000_000_000, 2)));
+            Assert.That((n100.Nx, n100.Lx, n100.CumulativeLength), Is.EqualTo((1, 3, 4_000_000_001L)));
+        });
+    }
+
+    // M17 — Out-of-contract input is rejected: QUAST asserts 0 <= x <= 100; the core overload needs
+    // non-negative lengths in non-increasing order (an unsorted list would give a wrong Nx silently).
+    [Test]
+    public void CalculateNx_InvalidInput_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateNx(new[] { 3, 2 }, 5, -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateNx(new[] { 3, 2 }, 5, 101));
+            Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateNx(new[] { 3, 2 }, -5, 50));
+            Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateNx(new[] { 2, 3 }, 5, 50));
+            Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateNx(new[] { 3, -1 }, 2, 50));
+            Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateNxCurve(new[] { 3, 2 }, 150).ToList());
+        });
+    }
+
+    // M18 — auN = QUAST au_metric: Assembly B 16825/305 = 55.16393442622951; {4,3,2} 29/9.
+    [TestCase(new[] { 80, 70, 50, 40, 30, 20, 10, 5 }, 55.16393442622951)]
+    [TestCase(new[] { 4, 3, 2 }, 3.2222222222222223)]
+    [TestCase(new[] { 2, 1, 1, 1 }, 1.4)]
+    public void CalculateAuN_MatchesQuastAuMetric(int[] lengths, double expected)
+    {
+        Assert.That(GenomeAssemblyAnalyzer.CalculateAuN(lengths), Is.EqualTo(expected).Within(1e-12));
+    }
+
+    #endregion
+
     #region CalculateStatistics
 
     // M9 — Full aggregation over Assembly A as contigs: N50/L50/N90/L90/largest/smallest/total.
@@ -263,6 +354,32 @@ public class GenomeAssemblyAnalyzer_AssemblyStatistics_Tests
             Assert.That(stats.GapPercentage, Is.EqualTo(100.0 * 4 / 12).Within(1e-10),
                 "GapPercentage = 100 * gapLength / totalLength = 100*4/12.");
         });
+    }
+
+    // M19 — GC% is QUAST GC_content: pooled (G+C)/(A+C+G+T); correct_seq turns IUPAC codes into N
+    // and upper-cases, so ambiguity codes and N are in neither count. QUAST values:
+    // ["ACGTRYSW"] -> 50.0 %; ["GGCCnnAT","acgtNNNN"] -> 60.0 %; ["GCGCRRRR"] -> 100.0 %.
+    [TestCase(new[] { "ACGTRYSW" }, 0.5)]
+    [TestCase(new[] { "GGCCnnAT", "acgtNNNN" }, 0.6)]
+    [TestCase(new[] { "GCGCRRRR" }, 1.0)]
+    [TestCase(new[] { "ATATATAT", "GGGG" }, 4.0 / 12.0)]
+    public void CalculateStatistics_GcContent_MatchesQuastGcContent(string[] sequences, double expected)
+    {
+        var stats = GenomeAssemblyAnalyzer.CalculateStatistics(
+            sequences.Select((q, i) => ($"c{i}", q)));
+
+        Assert.That(stats.GcContent, Is.EqualTo(expected).Within(1e-12),
+            "GC fraction = (G+C)/(A+C+G+T), IUPAC codes and N excluded (QUAST GC_content).");
+    }
+
+    // M20 — Median contig length is the sample median: {4,3,2,1} -> 2.5 (numpy/R median), odd {5,3,1} -> 3.
+    [TestCase(new[] { 4, 3, 2, 1 }, 2.5)]
+    [TestCase(new[] { 5, 3, 1 }, 3.0)]
+    public void CalculateStatistics_MedianLength_IsSampleMedian(int[] lengths, double expected)
+    {
+        var stats = GenomeAssemblyAnalyzer.CalculateStatistics(AsContigs(lengths));
+
+        Assert.That(stats.MedianLength, Is.EqualTo(expected));
     }
 
     // C1 — Empty input returns the all-zero statistics record without throwing.
@@ -395,4 +512,20 @@ public class GenomeAssemblyAnalyzer_AssemblyStatistics_Tests
     }
 
     #endregion
+
+    // C5 — Length histogram bins are half-open [previous, bound); bounds must be strictly increasing.
+    [Test]
+    public void CalculateLengthDistribution_BinsAndValidation()
+    {
+        var dist = GenomeAssemblyAnalyzer.CalculateLengthDistribution(new[] { 50, 100, 499, 500, 2000 }, 100, 500);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dist["<100"], Is.EqualTo(1));
+            Assert.That(dist["<500"], Is.EqualTo(2));
+            Assert.That(dist[">=500"], Is.EqualTo(2));
+            Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateLengthDistribution(new[] { 50 }, 500, 100));
+            Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateLengthDistribution(new[] { 50 }, 100, 100));
+        });
+    }
 }

@@ -29,7 +29,8 @@
   "errors": [
     { "code": 1001, "message": "Sorted lengths cannot be null" },
     { "code": 1002, "message": "Total length cannot be negative" },
-    { "code": 1003, "message": "Threshold must be in [0, 100]" }
+    { "code": 1003, "message": "Threshold must be in [0, 100]" },
+    { "code": 1004, "message": "Sequence lengths must be non-negative / sorted in non-increasing order" }
   ],
   "examples": [
     {

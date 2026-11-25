@@ -4,196 +4,214 @@ namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 /// <summary>
 /// SPLICE-DONOR-001: Canonical test file for Donor (5') Splice Site Detection.
-/// Tests <see cref="SpliceSitePredictor.FindDonorSites"/> and internal scoring.
-/// Evidence: Shapiro &amp; Senapathy (1987), Burge et al. (1999), Yeo &amp; Burge (2004).
+/// Tests <see cref="SpliceSitePredictor.FindDonorSites(string, double, bool)"/> (Shapiro &amp;
+/// Senapathy 1987 score), its MaxEntScan mode and U12-type donors, and
+/// <see cref="SpliceSitePredictor.ScoreDonorMaxEnt"/>.
+/// Evidence: Shapiro &amp; Senapathy (1987) NAR 15:7155 (Table 1 percentages, Methods formula,
+/// Table 5 published scores), Sharp &amp; Burge (1997), Burge et al. (1999), Yeo &amp; Burge (2004).
 /// </summary>
 [TestFixture]
 public class SpliceSitePredictor_DonorSite_Tests
 {
+    // S&S (1987) score = (t - mint) / (maxt - mint) over the 8-nt subsequence -2..+6.
+    // Primate Table 1: mint = 13+4+0+0+2+8+5+15 = 47, maxt = 58+78+100+100+57+71+84+47 = 595.
+    private const double PrimateRange = 595 - 47;
+
     #region M1: Canonical GT Consensus Detected — Shapiro & Senapathy (1987)
 
     [Test]
     public void FindDonorSites_CanonicalGT_ConsensusMotif_ProducesDonorSite()
     {
-        // MAG|GURAGU perfect consensus: CAG|GUAAGU
-        // Theory: all 9 positions match → score = 9/9 = 1.0
+        // CAG|GUAAGU: every scored position -2..+6 (AG|GUAAGU) carries its highest primate
+        // percentage (58, 78, 100, 100, 57, 71, 84, 47) ⇒ t = maxt ⇒ score 1.0.
         // Confidence = (1.0 - 0.5) / (1.0 - 0.5) = 1.0
         const string sequence = "CAGGUAAGU";
         var sites = FindDonorSites(sequence, minScore: 0.3).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(sites, Has.Count.EqualTo(1),
-                "Perfect GU consensus CAG|GUAAGU must produce exactly one donor site");
-            Assert.That(sites[0].Type, Is.EqualTo(SpliceSiteType.Donor),
-                "Site type must be Donor for canonical GT/GU dinucleotide");
-            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-10),
-                "All 9 IUPAC positions match MAG|GURAGU: C∈M, A=A, G=G, G=G, U=U, A∈R, A=A, G=G, U=U → 9/9");
-            Assert.That(sites[0].Confidence, Is.EqualTo(1.0).Within(1e-10),
-                "Confidence = (1.0 − 0.5) / (1.0 − 0.5) = 1.0");
-            Assert.That(sites[0].Position, Is.EqualTo(3),
-                "GU dinucleotide starts at index 3 in CAGGUAAGU");
+            Assert.That(sites, Has.Count.EqualTo(1), "Exactly one GU in the sequence");
+            Assert.That(sites[0].Type, Is.EqualTo(SpliceSiteType.Donor));
+            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(sites[0].Confidence, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(sites[0].Position, Is.EqualTo(3), "Position = index of the G of GU (intron +1)");
+            Assert.That(sites[0].Motif, Is.EqualTo("CAGGUAAGU"), "Motif = -3..+6 context, RNA alphabet");
         });
     }
 
     #endregion
 
-    #region M2: No GU Dinucleotide Returns Empty — Trivially Correct
+    #region M1b: Published S&S scores — Shapiro & Senapathy (1987) Table 5
+
+    // Table 5 (p. 7168) lists the 5' ss score of real introns, each scored with the subtable of
+    // its GENBANK category; the formula reproduces 39 of its 42 values exactly at 1 dp (the
+    // other three: primate GC/GTGAGT 75.1 vs 75.4 and CG/GTGAGT 88.4 vs 88.5 — Table 1
+    // percentages are rounded; rodent TG/GTACAG 68.3 vs 60.9 — a misprint, its rank >100 is
+    // below intron 4's 67.2 at rank 71). Methods worked example: primate AAGTGAGT → 84.3.
+    [TestCase("AAGTGAGT", ShapiroSenapathyCategory.Primate, 84.3)]
+    [TestCase("GGGTACCA", ShapiroSenapathyCategory.Primate, 60.8)]
+    [TestCase("GGGTAAGG", ShapiroSenapathyCategory.Primate, 87.6)]
+    [TestCase("AGGTAAGG", ShapiroSenapathyCategory.Primate, 95.4)]
+    [TestCase("AAGTAAGT", ShapiroSenapathyCategory.Primate, 87.6)]
+    [TestCase("TGGTAAGT", ShapiroSenapathyCategory.Rodent, 92.8)]
+    [TestCase("AGGTGAGA", ShapiroSenapathyCategory.Rodent, 89.5)]
+    [TestCase("AGGTACAC", ShapiroSenapathyCategory.Rodent, 67.2)]
+    [TestCase("GGGTGAGT", ShapiroSenapathyCategory.OtherMammal, 94.8)]
+    [TestCase("AGGTTCGC", ShapiroSenapathyCategory.OtherMammal, 75.1)]
+    [TestCase("GGGTAGAG", ShapiroSenapathyCategory.OtherMammal, 63.6)]
+    [TestCase("AGGTAAGT", ShapiroSenapathyCategory.OtherMammal, 98.3)]
+    [TestCase("AGGTACCG", ShapiroSenapathyCategory.OtherVertebrate, 71.5)]
+    [TestCase("TTGTAAGT", ShapiroSenapathyCategory.OtherVertebrate, 80.4)]
+    [TestCase("AGGTAAAA", ShapiroSenapathyCategory.OtherVertebrate, 80.8)]
+    [TestCase("AGGTGAGT", ShapiroSenapathyCategory.Invertebrate, 91.2)]
+    [TestCase("ACGTAAGT", ShapiroSenapathyCategory.Invertebrate, 87.8)]
+    [TestCase("TTGTGAGT", ShapiroSenapathyCategory.Invertebrate, 71.6)]
+    [TestCase("CTGTAAGT", ShapiroSenapathyCategory.Invertebrate, 80.1)]
+    [TestCase("AGGTCCGC", ShapiroSenapathyCategory.Plant, 76.5)]
+    [TestCase("GGGTATGT", ShapiroSenapathyCategory.Plant, 92.8)]
+    [TestCase("TGGTAAGT", ShapiroSenapathyCategory.Plant, 96.7)]
+    [TestCase("AGGTACAG", ShapiroSenapathyCategory.Plant, 73.8)]
+    public void FindDonorSites_ShapiroSenapathy_ReproducesPublishedTable5Scores(
+        string subsequence, ShapiroSenapathyCategory category, double published)
+    {
+        // The 8-mer is the scored subsequence -2..+6, so its GT sits at index 2.
+        var site = FindDonorSites(subsequence, 0.0, false, DonorScoringModel.ShapiroSenapathy, category).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Position, Is.EqualTo(2));
+            Assert.That(Math.Round(site.Score * 100, 1, MidpointRounding.AwayFromZero), Is.EqualTo(published));
+        });
+    }
+
+    [Test]
+    public void FindDonorSites_ShapiroSenapathy_MethodsWorkedExample_ExactFraction()
+    {
+        // Methods (p. 7158): primate AAGTGAGT, t = 58+10+100+100+39+71+84+47 = 509 ⇒ (509-47)/548.
+        var site = FindDonorSites("AAGTGAGT", minScore: 0.0).Single();
+        Assert.That(site.Score, Is.EqualTo(462 / PrimateRange).Within(1e-15));
+    }
+
+    [Test]
+    public void FindDonorSites_DefaultOverload_IsPrimateShapiroSenapathy()
+    {
+        const string sequence = "CCAGGUGAGUACGGUAAGCAUUGUAUGG";
+        var legacy = FindDonorSites(sequence, 0.0, true).ToList();
+        var explicitPrimate = FindDonorSites(sequence, 0.0, true,
+            DonorScoringModel.ShapiroSenapathy, ShapiroSenapathyCategory.Primate).ToList();
+        Assert.That(legacy, Is.EqualTo(explicitPrimate));
+    }
+
+    #endregion
+
+    #region M2-M4: Negative controls
 
     [Test]
     public void FindDonorSites_NoGU_ReturnsEmpty()
     {
         const string sequence = "AAAAACCCCC";
         var sites = FindDonorSites(sequence, minScore: 0.3).ToList();
-
-        Assert.That(sites, Is.Empty,
-            "Sequence without any GU/GT dinucleotide must yield no donor sites");
+        Assert.That(sites, Is.Empty, "No GU dinucleotide → no donor sites");
     }
-
-    #endregion
-
-    #region M3: Empty Input Returns Empty — Trivially Correct
 
     [Test]
     public void FindDonorSites_EmptyString_ReturnsEmpty()
     {
         var sites = FindDonorSites("", minScore: 0.3).ToList();
-
-        Assert.That(sites, Is.Empty,
-            "Empty sequence must yield no donor sites");
+        Assert.That(sites, Is.Empty, "Empty input yields no donor sites");
     }
-
-    #endregion
-
-    #region M4: Short Sequence Returns Empty — Implementation Guard
 
     [Test]
-    public void FindDonorSites_SequenceShorterThan6_ReturnsEmpty()
+    public void FindDonorSites_SequenceShorterThanScoredWindow_ReturnsEmpty()
     {
-        // PWM window requires at least 6 characters (positions 0..+5)
-        var sites = FindDonorSites("GUAA", minScore: 0.3).ToList();
-
-        Assert.That(sites, Is.Empty,
-            "Sequence shorter than 6 nucleotides lacks sufficient context for PWM scoring");
+        // The S&S subsequence -2..+6 needs 8 nt; "GUAA" and "AGGUAAG" (7 nt) cannot be scored.
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindDonorSites("GUAA", minScore: 0.0), Is.Empty);
+            Assert.That(FindDonorSites("AGGUAAG", minScore: 0.0), Is.Empty);
+            Assert.That(FindDonorSites("AGGUAAGU", minScore: 0.0).Single().Position, Is.EqualTo(2));
+        });
     }
 
     #endregion
 
-    #region M5: Strong Context Scores Higher Than Weak — Shapiro & Senapathy (1987), Yeo & Burge (2004)
+    #region M5: Strong vs Weak Context — Shapiro & Senapathy (1987)
 
     [Test]
     public void FindDonorSites_StrongConsensus_ScoresHigherThanWeakContext()
     {
-        // Strong: CAG|GUAAGU → all 9 positions match MAG|GURAGU → 9/9 = 1.0
-        // Weak: UUU|GUAAUU → U∉M, U≠A, U≠G, G=G, U=U, A∈R, A=A, U≠G, U=U → 5/9
-        const string strongSequence = "CAGGUAAGU";
-        const string weakSequence = "UUUGUAAUU";
-
-        var strongSites = FindDonorSites(strongSequence, minScore: 0.0).ToList();
-        var weakSites = FindDonorSites(weakSequence, minScore: 0.0).ToList();
+        // Strong: CAG|GUAAGU ⇒ 1.0.
+        // Weak:   UUU|GUAAUU, -2..+6 = UU|GUAAUU ⇒ t = 15+8+100+100+57+71+5+47 = 403 ⇒ 356/548.
+        var strongSites = FindDonorSites("CAGGUAAGU", minScore: 0.0).ToList();
+        var weakSites = FindDonorSites("UUUGUAAUU", minScore: 0.0).ToList();
 
         Assert.That(strongSites, Has.Count.EqualTo(1));
         Assert.That(weakSites, Has.Count.EqualTo(1));
-
         Assert.Multiple(() =>
         {
-            Assert.That(strongSites[0].Score, Is.EqualTo(1.0).Within(1e-10),
-                "Perfect consensus: 9/9 = 1.0");
-            Assert.That(weakSites[0].Score, Is.EqualTo(5.0 / 9).Within(1e-10),
-                "Weak context: 5 of 9 match (G,U at +0,+1; A∈R at +2; A at +3; U at +5) → 5/9");
-            Assert.That(strongSites[0].Score, Is.GreaterThan(weakSites[0].Score),
-                "Perfect consensus must score higher than weak context per PWM model");
+            Assert.That(strongSites[0].Score, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(weakSites[0].Score, Is.EqualTo(356 / PrimateRange).Within(1e-12));
+            Assert.That(weakSites[0].Confidence, Is.EqualTo((356 / PrimateRange - 0.5) / 0.5).Within(1e-12));
+            Assert.That(strongSites[0].Score, Is.GreaterThan(weakSites[0].Score));
         });
     }
 
     #endregion
 
-    #region M6: GC Non-Canonical Detected When Enabled — Burge et al. (1999)
+    #region M6-M7: GC Non-Canonical Donor — Burge et al. (1999)
 
     [Test]
     public void FindDonorSites_GC_NonCanonical_DetectedWhenEnabled()
     {
-        // GC-AG introns are valid U2-type (~0.5-1% of introns) — Burge et al. (1999)
-        // GC at position +1 mismatches invariant U consensus → 8/9 positions match
-        // Theory: C∈M, A=A, G=G, G=G, C≠U, A∈R, A=A, G=G, U=U → 8/9
-        const string sequence = "CAGGCAAGU";
-        var sites = FindDonorSites(sequence, minScore: 0.0, includeNonCanonical: true).ToList();
+        // CAG|GCAAGU: +2 C carries 0 % (U = 100 %) ⇒ t = 595 - 100 = 495 ⇒ 448/548.
+        var sites = FindDonorSites("CAGGCAAGU", minScore: 0.0, includeNonCanonical: true).ToList();
 
-        // GC at position 3 is the only donor-like dinucleotide in scan window
         Assert.Multiple(() =>
         {
-            Assert.That(sites, Has.Count.EqualTo(1),
-                "Exactly one GC donor in scan window");
-            Assert.That(sites[0].Type, Is.EqualTo(SpliceSiteType.Donor),
-                "GC donors are classified as Donor type (U2 spliceosome)");
-            Assert.That(sites[0].Score, Is.EqualTo(8.0 / 9).Within(1e-10),
-                "GC donor: position +1 (C) mismatches invariant U → 8/9");
-            Assert.That(sites[0].Position, Is.EqualTo(3),
-                "GC dinucleotide is at index 3");
+            Assert.That(sites, Has.Count.EqualTo(1), "GC donor found; no GU/AU ⇒ no U12 candidate");
+            Assert.That(sites[0].Type, Is.EqualTo(SpliceSiteType.Donor));
+            Assert.That(sites[0].Score, Is.EqualTo(448 / PrimateRange).Within(1e-12));
+            Assert.That(sites[0].Position, Is.EqualTo(3));
         });
     }
-
-    #endregion
-
-    #region M7: GC Not Detected With Canonical Only — Burge et al. (1999)
 
     [Test]
     public void FindDonorSites_GC_NotDetected_WhenCanonicalOnly()
     {
-        // Sequence with GC donor context but no GT/GU dinucleotide anywhere
-        const string gcOnlySequence = "CAGGCAACC";
-        var sites = FindDonorSites(gcOnlySequence, minScore: 0.0, includeNonCanonical: false).ToList();
+        var sites = FindDonorSites("CAGGCAACC", minScore: 0.0, includeNonCanonical: false).ToList();
+        Assert.That(sites, Is.Empty, "GC donors are reported only with includeNonCanonical = true");
+    }
 
-        // No GT/GU present anywhere in sequence
-        Assert.That(sites, Is.Empty,
-            "Without GT/GU and includeNonCanonical=false, no donor sites should be found");
+    [Test]
+    public void FindDonorSites_GC_Donor_ScoresLowerThanEquivalentGT()
+    {
+        var gt = FindDonorSites("CAGGUAAGU", minScore: 0.0).Single();
+        var gc = FindDonorSites("CAGGCAAGU", minScore: 0.0, includeNonCanonical: true).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(gt.Score, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(gc.Score, Is.EqualTo(448 / PrimateRange).Within(1e-12));
+            Assert.That(gc.Score, Is.LessThan(gt.Score));
+        });
     }
 
     #endregion
 
-    #region M8: DNA T Equivalence — Implementation T→U Conversion
+    #region M8-M9: Alphabet and case
 
     [Test]
     public void FindDonorSites_DNA_T_ProducesSameResultsAsRNA_U()
     {
-        const string dnaSequence = "CAGGTAAGT"; // DNA with T
-        const string rnaSequence = "CAGGUAAGU"; // RNA with U
-
-        var dnaSites = FindDonorSites(dnaSequence, minScore: 0.3).ToList();
-        var rnaSites = FindDonorSites(rnaSequence, minScore: 0.3).ToList();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(dnaSites.Count, Is.EqualTo(rnaSites.Count),
-                "DNA (T) and RNA (U) must produce the same number of donor sites");
-            Assert.That(dnaSites[0].Score, Is.EqualTo(rnaSites[0].Score).Within(1e-10),
-                "Scores must be identical after T→U normalization");
-            Assert.That(dnaSites[0].Score, Is.EqualTo(1.0).Within(1e-10),
-                "Both DNA and RNA perfect consensus score 9/9 = 1.0");
-            Assert.That(dnaSites[0].Position, Is.EqualTo(rnaSites[0].Position),
-                "Site positions must be identical");
-        });
+        var dnaSites = FindDonorSites("CAGGTAAGT", minScore: 0.3).ToList();
+        var rnaSites = FindDonorSites("CAGGUAAGU", minScore: 0.3).ToList();
+        Assert.That(dnaSites, Is.EqualTo(rnaSites), "T is read as U; Motif is reported in RNA alphabet");
     }
-
-    #endregion
-
-    #region M9: Lowercase Handling — Implementation ToUpperInvariant
 
     [Test]
     public void FindDonorSites_LowercaseInput_FindsSite()
     {
-        const string lowercase = "cagguaagu";
-        var sites = FindDonorSites(lowercase, minScore: 0.3).ToList();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(sites, Has.Count.EqualTo(1),
-                "Lowercase input must be handled via case-insensitive normalization");
-            Assert.That(sites[0].Type, Is.EqualTo(SpliceSiteType.Donor),
-                "Lowercase input must produce correct Donor type classification");
-            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-10),
-                "Lowercase perfect consensus must score identically to uppercase: 9/9 = 1.0");
-        });
+        var sites = FindDonorSites("cagguaagu", minScore: 0.3).ToList();
+        Assert.That(sites, Is.EqualTo(FindDonorSites("CAGGUAAGU", minScore: 0.3).ToList()));
     }
 
     #endregion
@@ -203,268 +221,187 @@ public class SpliceSitePredictor_DonorSite_Tests
     [Test]
     public void FindDonorSites_MultipleSites_AllDetected()
     {
-        // Two consensus motifs (pos 3, 26) plus one cryptic GU (pos 7) in scan window
-        // Position 3: CAGGUAAGU → 9/9 = 1.0
-        // Position 7: context UAAGUUUUU → 4/9 (G,U at +0,+1; A at -2; U at +5)
-        // Position 26: CAGGUAAGU → 9/9 = 1.0
+        // GU at 3 (CAG|GUAAGU ⇒ 1.0), at 7 (-2..+6 = AA|GUUUUU ⇒ t = 58+10+200+2+9+5+47 = 331
+        // ⇒ 284/548) and at 26 (⇒ 1.0; its +6 is the last base).
         const string sequence = "CAGGUAAGUUUUUUUUUUUUUUUCAGGUAAGU";
         var sites = FindDonorSites(sequence, minScore: 0.3).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(sites.Count, Is.EqualTo(3),
-                "Three GU dinucleotides in scan window: positions 3, 7, 26");
-            Assert.That(sites, Has.All.Property(nameof(SpliceSite.Type)).EqualTo(SpliceSiteType.Donor),
-                "All detected sites must be classified as Donor");
-            Assert.That(sites.Select(s => s.Position).ToArray(),
-                Is.EqualTo(new[] { 3, 7, 26 }),
-                "Site positions must match all GU locations within scan range");
-            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-10),
-                "First consensus site (pos 3): 9/9");
-            Assert.That(sites[1].Score, Is.EqualTo(4.0 / 9).Within(1e-10),
-                "Cryptic site (pos 7): 4/9");
-            Assert.That(sites[2].Score, Is.EqualTo(1.0).Within(1e-10),
-                "Second consensus site (pos 26): 9/9");
+            Assert.That(sites.Select(s => s.Position), Is.EqualTo(new[] { 3, 7, 26 }));
+            Assert.That(sites, Has.All.Property(nameof(SpliceSite.Type)).EqualTo(SpliceSiteType.Donor));
+            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(sites[1].Score, Is.EqualTo(284 / PrimateRange).Within(1e-12));
+            Assert.That(sites[2].Score, Is.EqualTo(1.0).Within(1e-12));
         });
     }
 
     #endregion
 
-    #region S1: Score In Valid Range — INV-2
+    #region S1-S5: Invariants
 
     [Test]
-    public void FindDonorSites_AllScores_InZeroOneRange()
+    public void FindDonorSites_AllScoresAndConfidences_InZeroOneRange()
+    {
+        const string sequence = "CAGGUAAGUAAAGUAAGUCCCCAAAGGUAAGUAUAUCCUUGU";
+        var sites = FindDonorSites(sequence, minScore: 0.0, includeNonCanonical: true).ToList();
+
+        Assert.That(sites, Is.Not.Empty);
+        foreach (var site in sites)
+        {
+            Assert.That(site.Score, Is.InRange(0.0, 1.0));
+            Assert.That(site.Confidence, Is.InRange(0.0, 1.0));
+            Assert.That(site.Motif, Is.Not.Null.And.Not.Empty);
+        }
+    }
+
+    [Test]
+    public void FindDonorSites_HigherMinScore_IsSubsetOfLowerThreshold()
     {
         const string sequence = "CAGGUAAGUAAAGUAAGUCCCCAAAGGUAAGU";
-        var sites = FindDonorSites(sequence, minScore: 0.0).ToList();
-
-        Assert.That(sites, Is.Not.Empty, "Should find at least one site");
-        foreach (var site in sites)
-        {
-            Assert.That(site.Score, Is.InRange(0.0, 1.0),
-                $"Score {site.Score} at position {site.Position} must be in [0, 1]");
-        }
+        var low = FindDonorSites(sequence, minScore: 0.2).ToList();
+        var high = FindDonorSites(sequence, minScore: 0.8).ToList();
+        Assert.That(high, Is.SubsetOf(low));
+        Assert.That(high.All(s => s.Score >= 0.8), Is.True);
     }
-
-    #endregion
-
-    #region S2: Confidence In Valid Range — INV-3
-
-    [Test]
-    public void FindDonorSites_AllConfidences_InZeroOneRange()
-    {
-        const string sequence = "CAGGUAAGUAAAGUAAGUCCCC";
-        var sites = FindDonorSites(sequence, minScore: 0.0).ToList();
-
-        Assert.That(sites, Is.Not.Empty, "Should find at least one site");
-        foreach (var site in sites)
-        {
-            Assert.That(site.Confidence, Is.InRange(0.0, 1.0),
-                $"Confidence {site.Confidence} at position {site.Position} must be in [0, 1]");
-        }
-    }
-
-    #endregion
-
-    #region S3: Motif Non-Empty — INV-8
-
-    [Test]
-    public void FindDonorSites_AllMotifs_AreNonEmpty()
-    {
-        const string sequence = "CAGGUAAGU";
-        var sites = FindDonorSites(sequence, minScore: 0.3).ToList();
-
-        Assert.That(sites, Is.Not.Empty, "Should find at least one site");
-        foreach (var site in sites)
-        {
-            Assert.That(site.Motif, Is.Not.Null.And.Not.Empty,
-                $"Motif at position {site.Position} must be non-empty for display context");
-        }
-    }
-
-    #endregion
-
-    #region S4: Higher Threshold Reduces Results — Score Filtering
-
-    [Test]
-    public void FindDonorSites_HigherMinScore_FewerOrEqualSites()
-    {
-        const string sequence = "CAGGUAAGUAAAGUAAGUCCCCAAAGGUAAGU";
-        var lowThreshold = FindDonorSites(sequence, minScore: 0.2).ToList();
-        var highThreshold = FindDonorSites(sequence, minScore: 0.8).ToList();
-
-        Assert.That(highThreshold.Count, Is.LessThanOrEqualTo(lowThreshold.Count),
-            "Higher minScore threshold must yield fewer or equal sites than lower threshold");
-    }
-
-    #endregion
-
-    #region S5: Null Input Returns Empty — Defensive
 
     [Test]
     public void FindDonorSites_NullInput_ReturnsEmpty()
     {
-        var sites = FindDonorSites(null!, minScore: 0.3).ToList();
+        Assert.That(FindDonorSites(null!, minScore: 0.3), Is.Empty);
+    }
 
-        Assert.That(sites, Is.Empty,
-            "Null input must yield empty result, not throw exception");
+    [Test]
+    public void FindDonorSites_UnknownModelOrCategory_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                FindDonorSites("CAGGUAAGU", 0.0, false, (DonorScoringModel)99));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                FindDonorSites("CAGGUAAGU", 0.0, false, DonorScoringModel.ShapiroSenapathy, (ShapiroSenapathyCategory)99));
+        });
     }
 
     #endregion
 
-    #region C1: U12 AT Donor Detected — Minor Spliceosome
+    #region C1: U12-type donors — /RTATCCTY (Sharp & Burge 1997; Burge et al. 1999)
 
     [Test]
     public void FindDonorSites_U12_AT_Donor_Detected_WhenNonCanonical()
     {
-        // U12-type introns use AT/AU at donor — Burge et al. (1999)
-        // /ATATCC/ consensus → AUAUCC in RNA
-        const string sequence = "CAGAUAUCC";
-        var sites = FindDonorSites(sequence, minScore: 0.0, includeNonCanonical: true).ToList();
+        // AT-AC U12 intron: /AUAUCCUU matches all 8 positions of /RUAUCCUY ⇒ 1.0.
+        var sites = FindDonorSites("CAGAUAUCCUUA", minScore: 0.0, includeNonCanonical: true).ToList();
 
-        var u12Sites = sites.Where(s => s.Type == SpliceSiteType.U12Donor).ToList();
-        Assert.That(u12Sites, Has.Count.GreaterThanOrEqualTo(1),
-            "AU donor matching U12 consensus should be detected with includeNonCanonical=true");
-    }
-
-    #endregion
-
-    #region C2: GC Donor Score Lower Than GT — INV-7
-
-    [Test]
-    public void FindDonorSites_GC_Donor_ScoresLowerThanEquivalentGT()
-    {
-        // Same context except GT vs GC at the splice dinucleotide
-        // GT: CAGGUAAGU → 9/9 = 1.0 (all match)
-        // GC: CAGGCAAGU → 8/9 (position +1: C mismatches invariant U)
-        const string gtSequence = "CAGGUAAGU";
-        const string gcSequence = "CAGGCAAGU";
-
-        var gtSites = FindDonorSites(gtSequence, minScore: 0.0).ToList();
-        var gcSites = FindDonorSites(gcSequence, minScore: 0.0, includeNonCanonical: true).ToList();
-
+        Assert.That(sites, Has.Count.EqualTo(1));
         Assert.Multiple(() =>
         {
-            Assert.That(gtSites, Has.Count.EqualTo(1), "GT sequence must yield one site");
-            Assert.That(gcSites, Has.Count.EqualTo(1), "GC sequence must yield one site");
-            Assert.That(gtSites[0].Score, Is.EqualTo(1.0).Within(1e-10),
-                "GT donor: 9/9 = 1.0");
-            Assert.That(gcSites[0].Score, Is.EqualTo(8.0 / 9).Within(1e-10),
-                "GC donor: 8/9 (C≠U at position +1)");
-            Assert.That(gcSites[0].Score, Is.LessThan(gtSites[0].Score),
-                "GC donor must score lower than GT donor — Burge et al. (1999)");
+            Assert.That(sites[0].Type, Is.EqualTo(SpliceSiteType.U12Donor));
+            Assert.That(sites[0].Position, Is.EqualTo(3));
+            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(sites[0].Motif, Is.EqualTo("CAGAUAUCCUU"), "U12 motif = -3..+8");
         });
+        Assert.That(FindDonorSites("CAGAUAUCCUUA", minScore: 0.0), Is.Empty,
+            "U12 donors are reported only with includeNonCanonical = true");
     }
 
-    #endregion
-
-    #region C3: Donor At Sequence Start — Partial-Window Boundary
-
     [Test]
-    public void FindDonorSites_DonorAtSequenceStart_ScoresOverInBoundsPositionsOnly()
+    public void FindDonorSites_U12_GTAG_Donor_ReportedAsBothU2AndU12Candidates()
     {
-        // GU at index 0: upstream offsets -3, -2, -1 fall before the sequence and are
-        // out of bounds, so ScoreDonorSite normalizes over only the 6 in-bounds positions
-        // (offsets 0..+5). GUAAGU... has G,U,A,A,G,U at offsets 0..+5 →
-        // 0:G✓ +1:U✓ +2:A∈R✓ +3:A✓ +4:G✓ +5:U✓ → 6/6 = 1.0.
-        // The score is a fraction over POSITIONS SCORED, so a partial window of perfect
-        // matches still reaches 1.0 (hand-computed, not a code echo).
-        const string sequence = "GUAAGUAAA";
-        var sites = FindDonorSites(sequence, minScore: 0.0).ToList();
+        // GT-AG U12 introns (~70 % of U12 introns) start /GUAUCCUY; the terminal dinucleotide
+        // does not decide the spliceosome (Dietrich et al. 1997), so the GU is scored both as a
+        // U2 donor (S&S: AG|GUAUCC ⇒ t = 58+78+200+57+9+6+15 = 423 ⇒ 376/548) and as a U12 donor (8/8).
+        var sites = FindDonorSites("CAGGUAUCCUUA", minScore: 0.0, includeNonCanonical: true).ToList();
 
+        Assert.That(sites.Select(s => (s.Position, s.Type)),
+            Is.EquivalentTo(new[] { (3, SpliceSiteType.Donor), (3, SpliceSiteType.U12Donor) }));
         Assert.Multiple(() =>
         {
-            Assert.That(sites, Has.Count.EqualTo(1),
-                "Single GU at the sequence start must be detected");
-            Assert.That(sites[0].Position, Is.EqualTo(0),
-                "Donor at the very start reports Position 0 (G of GU)");
-            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-10),
-                "Partial window (6 in-bounds positions, offsets 0..+5) all match → 6/6 = 1.0");
-        });
-    }
-
-    #endregion
-
-    #region C4: Non-ACGT Characters — Skipped, No Throw
-
-    [Test]
-    public void FindDonorSites_NonAcgtCharacterAtScoredPosition_IsSkippedNotCounted()
-    {
-        // A non-A/C/G/U base (N) at a scored offset is not a PWM key, so ScoreDonorSite
-        // skips it WITHOUT incrementing the divisor (graceful degradation, no throw).
-        // NAGGUAAGU: GU at index 3; offset -3 → index 0 = 'N' is skipped, leaving 8
-        // scored positions, all matching → 8/8 = 1.0. Hand-computed from the consensus.
-        const string sequence = "NAGGUAAGU";
-        var sites = FindDonorSites(sequence, minScore: 0.0).ToList();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(sites, Has.Count.EqualTo(1),
-                "GU is still located despite an upstream non-ACGT base");
-            Assert.That(sites[0].Position, Is.EqualTo(3),
-                "GU dinucleotide is at index 3");
-            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-10),
-                "N at offset -3 is skipped (not counted); remaining 8 positions match → 8/8 = 1.0");
+            Assert.That(sites.Single(s => s.Type == SpliceSiteType.Donor).Score,
+                Is.EqualTo(376 / PrimateRange).Within(1e-12));
+            Assert.That(sites.Single(s => s.Type == SpliceSiteType.U12Donor).Score, Is.EqualTo(1.0).Within(1e-12));
         });
     }
 
     [Test]
-    public void FindDonorSites_AllNonAcgt_ReturnsEmpty()
+    public void FindDonorSites_U12_PartialMatch_IsFractionOfEightPositions()
     {
-        // A sequence with no G/U at all (and non-ACGT noise) must yield no donor sites
-        // and must not throw.
-        const string sequence = "NNNNNNNNN";
-        Assert.DoesNotThrow(() => FindDonorSites(sequence, minScore: 0.0).ToList());
-        Assert.That(FindDonorSites(sequence, minScore: 0.0).ToList(), Is.Empty,
-            "No GU dinucleotide present → no donor sites");
+        // /AUAACCAA: positions +4 (A≠U), +7 (A≠U), +8 (A∉Y) mismatch ⇒ 5/8.
+        var site = FindDonorSites("CCCAUAACCAA", minScore: 0.0, includeNonCanonical: true)
+            .Single(s => s.Type == SpliceSiteType.U12Donor);
+        Assert.That(site.Score, Is.EqualTo(5.0 / 8.0).Within(1e-12));
     }
 
     #endregion
 
-    #region Helper: Independent PWM Score Verification
+    #region C4: Non-ACGT characters
 
-    /// <summary>
-    /// Independently computes a simplified donor site score to verify the PWM model direction.
-    /// Uses the IUPAC consensus MAG|GURAGU from Shapiro &amp; Senapathy (1987),
-    /// Mount (1982), Burge et al. (1999).
-    /// This helper is NOT copied from the implementation; it encodes the expected
-    /// conservation pattern from the published consensus.
-    /// </summary>
-    private static double ComputeExpectedConsensusStrength(string ninemerRna)
+    [Test]
+    public void FindDonorSites_NonAcgtOutsideScoredWindow_DoesNotAffectScore()
     {
-        // IUPAC consensus: MAG|GURAGU
-        // M = A/C, R = A/G. Match = 1, no match = 0.
-        char[][] allowed =
+        // S&S scores -2..+6 only; N at -3 is outside the subsequence ⇒ still 1.0.
+        var site = FindDonorSites("NAGGUAAGU", minScore: 0.0).Single();
+        Assert.Multiple(() =>
         {
-            new[] { 'A', 'C' }, // -3: M
-            new[] { 'A' },       // -2: A
-            new[] { 'G' },       // -1: G
-            new[] { 'G' },       //  0: G (invariant)
-            new[] { 'U' },       //  1: U (invariant)
-            new[] { 'A', 'G' }, //  2: R
-            new[] { 'A' },       //  3: A
-            new[] { 'G' },       //  4: G
-            new[] { 'U' },       //  5: U
-        };
-
-        double matches = 0;
-        string upper = ninemerRna.ToUpperInvariant().Replace('T', 'U');
-        for (int i = 0; i < Math.Min(upper.Length, 9); i++)
-        {
-            if (allowed[i].Contains(upper[i]))
-                matches++;
-        }
-        return matches;
+            Assert.That(site.Position, Is.EqualTo(3));
+            Assert.That(site.Score, Is.EqualTo(1.0).Within(1e-12));
+        });
     }
 
     [Test]
-    public void HelperVerification_PerfectConsensus_HasHighestIndependentScore()
+    public void FindDonorSites_NonAcgtInsideScoredWindow_CandidateNotScored()
     {
-        double perfect = ComputeExpectedConsensusStrength("CAGGUAAGU");
-        double weak = ComputeExpectedConsensusStrength("UUUGUAAUU");
+        // N at +5 has no Table 1 percentage ⇒ the subsequence cannot be scored ⇒ no site.
+        Assert.That(FindDonorSites("CAGGUAANU", minScore: 0.0), Is.Empty);
+        Assert.That(FindDonorSites("NNNNNNNNN", minScore: 0.0), Is.Empty);
+    }
 
-        Assert.That(perfect, Is.GreaterThan(weak),
-            "Independent PWM verification: perfect consensus must score higher than weak context");
+    #endregion
+
+    #region MaxEntScan mode — Yeo & Burge (2004) score5 over GU/GC candidates
+
+    [Test]
+    public void FindDonorSites_MaxEntScanMode_ScoresWindowWithScore5()
+    {
+        // maxentpy score5('CAGGTAAGT') = 10.858313101356437 bits; confidence 2^s/(1+2^s).
+        var site = FindDonorSites("CAGGUAAGU", -100.0, false, DonorScoringModel.MaxEntScan).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Position, Is.EqualTo(3));
+            Assert.That(site.Type, Is.EqualTo(SpliceSiteType.Donor));
+            Assert.That(site.Score, Is.EqualTo(10.858313101356437).Within(1e-12));
+            Assert.That(site.Score, Is.EqualTo(ScoreDonorMaxEnt("CAGGUAAGU")));
+            Assert.That(site.Confidence, Is.EqualTo(0.9994616209198077).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void FindDonorSites_MaxEntScanMode_GcDonorAndThresholdInBits()
+    {
+        // maxentpy score5('CAGGCAAGT') = 3.104161570996358 (GC donor, includeNonCanonical).
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindDonorSites("CAGGCAAGU", -100.0, true, DonorScoringModel.MaxEntScan).Single().Score,
+                Is.EqualTo(3.104161570996358).Within(1e-12));
+            Assert.That(FindDonorSites("CAGGCAAGU", -100.0, false, DonorScoringModel.MaxEntScan), Is.Empty);
+            Assert.That(FindDonorSites("CAGGCAAGU", 3.2, true, DonorScoringModel.MaxEntScan), Is.Empty,
+                "minScore is a threshold in bits");
+            Assert.That(FindDonorSites("CAGAUAUCCUUA", -100.0, true, DonorScoringModel.MaxEntScan)
+                .Any(s => s.Type == SpliceSiteType.U12Donor), Is.False, "score5 is a U2 GT model: no U12 candidates");
+        });
+    }
+
+    [Test]
+    public void FindDonorSites_MaxEntScanMode_WindowMustFitAndBeAcgu()
+    {
+        // The 9-nt window -3..+6 needs 3 exonic nt: "AGGUAAGU" (GU at 2) and a window with N are skipped.
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindDonorSites("AGGUAAGUAA", -100.0, false, DonorScoringModel.MaxEntScan), Is.Empty);
+            Assert.That(FindDonorSites("CAGGUAANU", -100.0, false, DonorScoringModel.MaxEntScan), Is.Empty);
+            Assert.That(FindDonorSites("AAGGUAAGUC", -100.0, false, DonorScoringModel.MaxEntScan).Single().Score,
+                Is.EqualTo(10.998354285522845).Within(1e-12));
+        });
     }
 
     #endregion
@@ -598,6 +535,37 @@ public class SpliceSitePredictor_DonorSite_Tests
                 "A 10-nt window (wrong length) is invalid");
             Assert.Throws<System.ArgumentException>(() => ScoreDonorMaxEnt("cagGTAANT"),
                 "A non-A/C/G/T(/U) character (N) is invalid");
+        });
+    }
+
+    // ME10 — reference sweep (SPLICE-MAXENT5-001, B11 F19). Expected values are maxentpy score5
+    // (kepbod/maxentpy maxent.py + score5_matrix.txt) full-precision outputs; the CPAN port of
+    // score5.pl (Bio-RNA-SpliceSites-Scoring-MaxEntScan 0.05, me2x5 + splice5sequences) prints the
+    // same 2-decimal values. The C# score equals maxentpy bit-for-bit on all 4^9 = 262144 ACGT 9-mers.
+    // Includes non-GT dinucleotides (GC, AT, CC, ...), which MaxEntScan scores rather than rejects.
+    [TestCase("CAGGTAAGT", 10.858313101356437, 10.86)]
+    [TestCase("GGGGTAAGT", 9.652449523571205, 9.65)]
+    [TestCase("CACGTAAGT", 10.155128271120882, 10.16)]
+    [TestCase("AAAGTAAAA", 1.1774343078815603, 1.18)]
+    [TestCase("CAGGCAAGT", 3.104161570996358, 3.10)]
+    [TestCase("CAGATAAGT", 2.676285865160975, 2.68)]
+    [TestCase("AACATCTGG", -12.126838926748352, -12.13)]
+    [TestCase("GGACCATGG", -15.483798810300666, -15.48)]
+    [TestCase("TGCTTAATG", -9.751934925348701, -9.75)]
+    [TestCase("CTTCCGGAG", -31.261128275661, -31.26)]
+    [TestCase("ACAGTGTTT", -8.544635130848441, -8.54)]
+    [TestCase("TAGTACTCT", -20.020155712973068, -20.02)]
+    [TestCase("CCTATTCCC", -30.870167664881997, -30.87)]
+    [TestCase("TTCCGGCGT", -12.089519108744033, -12.09)]
+    [TestCase("AAAAAAAAA", -15.188009382392348, -15.19)]
+    public void ScoreDonorMaxEnt_ReferenceSweep_MatchesMaxEntScan(string window, double maxentpy, double score5Pl)
+    {
+        double score = ScoreDonorMaxEnt(window);
+        Assert.Multiple(() =>
+        {
+            Assert.That(score, Is.EqualTo(maxentpy).Within(1e-12), "maxentpy score5 (full precision)");
+            Assert.That(System.Math.Round(score, 2, System.MidpointRounding.AwayFromZero), Is.EqualTo(score5Pl),
+                "score5.pl prints %.2f");
         });
     }
 

@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RnaSecondaryStructure.GetTerminalMismatchEnergy",
   "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L639",
-  "description": "Turner 2004 terminal-mismatch stacking energy (kcal/mol) for a closing base pair and the first mismatch pair at a helix end.",
+  "description": "Turner 2004 terminal-mismatch stacking energy (kcal/mol) for a closing base pair and the first mismatch pair at a helix end (exterior/multibranch term, = ViennaRNA mismatchExt37); case-insensitive, T read as U; unknown mismatch base = max over A/C/G/U; non-canonical closing pair -> 0.",
   "inputSchema": {
     "type": "object",
     "properties": {

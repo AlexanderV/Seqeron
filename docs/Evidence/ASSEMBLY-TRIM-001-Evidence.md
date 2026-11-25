@@ -70,6 +70,39 @@
 1. **Sanger encoding (verbatim):** "Sanger FASTQ files use ASCII 33–126 to encode PHRED qualities from 0 to 93 (i.e. PHRED scores with an ASCII offset of 33)." Retrieved via WebFetch of the NAR article page.
 2. **Phred definition:** PHRED quality score `Q` is defined in terms of the estimated error probability `P` as `Q = -10 · log10(P)` (the standard PHRED definition; the article presents the equation as a figure image). Used only as background; the trimming algorithm operates on integer Phred values directly.
 
+### cutadapt 5.2 source — `qualtrim.pyx` and `cli.py` (opened 2026-11-25, B10 review)
+
+**URL:** https://raw.githubusercontent.com/marcelm/cutadapt/v5.2/src/cutadapt/qualtrim.pyx (fetched with a neutral User-Agent); `cli.py` read from the pip-installed cutadapt 5.2.
+**Authority rank:** 3 (reference implementation)
+
+1. `quality_trim_index(qualities, cutoff_front, cutoff_back, base=33)`: 5' loop `s += cutoff_front - (qual[i] - base); if s < 0: break; if s > max_qual: max_qual = s; start = i + 1`; 3' loop the same from the end with `stop = i`; `if start >= stop: start, stop = 0, 0`. Both passes over the full read — matches the implementation line by line (now `SequenceAssembler.QualityTrimIndex`).
+2. `parse_cutoffs("5") == (0, 5)`, `parse_cutoffs("6,7") == (6, 7)`: a single `-q` value trims only the 3' end; two values give separate 5'/3' cutoffs.
+3. `--quality-base` (default 33) is the ASCII offset; `-m` filter `TooShort.test: len(read) < minimum_length`.
+4. BWA `bwaseqio.c` re-fetched (raw.githubusercontent.com/lh3/bwa/master): unchanged (3'-only, `BWA_MIN_RDLEN` floor, `trim_qual < 1` guard).
+
+**Reference numbers (installed cutadapt 5.2, `cutadapt.qualtrim.quality_trim_index`):**
+
+| qualities | front | back | base | (start, stop) |
+|---|---|---|---|---|
+| `KI;<)(,%#$` | 10 | 10 | 33 | (0, 4) |
+| `KI;<)(,%#$` | 0 | 10 | 33 | (0, 4) |
+| `$#%,()<;IK` | 10 | 0 | 33 | (6, 10) |
+| `$#%,()<;IK` | 10 | 10 | 33 | (6, 10) |
+| `5!)I` | 10 | 10 | 33 | (0, 4) |
+| `##I##` | 10 | 10 | 33 | (2, 3) |
+| `##I##` | 0 | 10 | 33 | (0, 3) |
+| `##I##` | 10 | 0 | 33 | (2, 5) |
+| `5&&` | 20 | 20 | 33 | (0, 0) |
+| `jhZ[GFJCAB` | 10 | 10 | 64 | (0, 4) |
+| `jhZ[GFJCAB` | 10 | 0 | 64 | (0, 10) |
+| (empty) | 10 | 10 | 33 | (0, 0) |
+
+Random oracle: 5000 reads (Python `random.Random(2026)`, length 0–60, base 33/64, cutoffs −3..45 per end, minLength 0..10, mixed-case sequence) → C# `QualityTrimReads(reads, front, back, minLength, base)` 5000/5000 identical survivors; the 3-argument overload identical on every equal-cutoff Phred+33 case.
+
+### Core `QualitySequence` (canonical FASTQ quality decoder)
+
+`Seqeron.Genomics.Core/ISequence.cs` `QualitySequence(sequence, qualityString, phredOffset)` decodes Q = ord(c) − offset and rejects a length mismatch or a character outside [offset, 126] (Cock et al. 2010; Biopython `QualityIO`). The trimmer now decodes through it instead of its private `quality[i] - 33` (IO `QualityScoreAnalyzer` is not referenced by the Alignment project).
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -134,3 +167,4 @@ ASCII derivation (Phred+33): 42→`K`, 40→`I`, 26→`;`, 27→`<`, 8→`)`, 7�
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-25**: B10 review — cutadapt 5.2 source/oracle added; separate 5'/3' cutoffs, Phred offset, canonical decoding/validation.

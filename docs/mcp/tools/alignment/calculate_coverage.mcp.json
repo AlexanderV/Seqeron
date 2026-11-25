@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAssembler.CalculateCoverage",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L772",
-  "description": "Map each read to its best ungapped position on the reference (>= minOverlap matching bases) and return per-base coverage depth as an integer array of length reference.Length.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L1369",
+  "description": "Align each read end-to-end without gaps at its minimum-Hamming position on the reference (placed when >= minOverlap bases match; one placement per read) and return per-base coverage depth (samtools depth semantics) as an integer array of length reference.Length. Optionally search the reverse-complement strand and skip multi-mapped reads.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -21,8 +21,19 @@
       },
       "minOverlap": {
         "type": "integer",
-        "description": "Minimum matching bases required to map a read.",
-        "default": 20
+        "description": "Minimum matching bases required to map a read (>= 1).",
+        "default": 20,
+        "minimum": 1
+      },
+      "includeReverseComplement": {
+        "type": "boolean",
+        "description": "Also align each read's reverse complement (both strands, as Bowtie 2/BWA do by default).",
+        "default": false
+      },
+      "excludeMultiMapped": {
+        "type": "boolean",
+        "description": "Skip reads whose best score is reached at more than one locus (Bowtie 2 MAPQ <= 1; samtools depth -Q 2); otherwise counted once at the leftmost locus.",
+        "default": false
       }
     },
     "required": [
@@ -42,7 +53,12 @@
       "coverage"
     ]
   },
-  "errors": [],
+  "errors": [
+    {
+      "code": 1001,
+      "message": "minOverlap must be at least 1"
+    }
+  ],
   "examples": [
     {
       "name": "Two reads",
@@ -84,6 +100,33 @@
           0,
           0,
           0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "Reverse-strand read and multi-mapping filter",
+      "input": {
+        "reference": "ACGGTCAATGCC",
+        "reads": [
+          "TTGACC"
+        ],
+        "minOverlap": 6,
+        "includeReverseComplement": true
+      },
+      "output": {
+        "coverage": [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
           0,
           0,
           0,

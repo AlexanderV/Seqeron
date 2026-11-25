@@ -35,7 +35,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `estimate_cell_divisions_from_telomere_length` | Estimate the number of cell divisions from current telomere length given birth length and per-division loss rate. |
 | `estimate_completeness_from_kmers` | Estimate genome completeness, error rate and genome size from a k-mer count spectrum. |
 | `estimate_telomere_length_from_ts_ratio` | Estimate telomere length in bp from a qPCR Telomere/Single-copy gene (T/S) ratio against a reference. |
-| `extract_contigs` | Extract contigs (gap-free runs) from scaffolds with a minimum length filter. |
+| `extract_contigs` | Extract contigs from scaffolds (QUAST split_by_ns): cut at N-runs ≥ minGapLength (default 10), keep contigs ≥ minContigLength. |
 | `find_gaps` | Find gaps (N-runs) in assembled sequences; |
 | `find_heterochromatin_regions` | Identify heterochromatin regions by k-mer repeat content; |
 | `find_repetitive_regions` | Identify repetitive regions across assembled sequences using k-mer copy-number frequency. |
@@ -43,7 +43,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_syntenic_blocks_assemblies` | Find syntenic blocks between two assemblies via k-mer anchor clustering; |
 | `find_synteny_blocks` | Identify collinear synteny blocks between two genomes from a list of ortholog gene pairs. |
 | `find_tandem_repeats` | Identify tandem repeats; |
-| `gap_distribution` | Summarize a list of gaps: count, mean/median/max length, and counts by gap-length type. |
+| `gap_distribution` | Summarize a list of gaps: count, mean, sample median, max length, and counts by gap-length type. |
 | `identify_whole_chromosome_aneuploidy` | Identify whole-chromosome aneuploidies (Monosomy/Trisomy/Tetrasomy/etc.) from per-bin copy-number states. |
 | `length_distribution` | Bucket sequence lengths into bins (default: 100..1,000,000 powers). |
 | `local_quality` | Compute per-window local quality metrics (GC content, N count, linguistic complexity). |

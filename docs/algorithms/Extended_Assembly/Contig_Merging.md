@@ -6,7 +6,7 @@
 | Test Unit ID | ASSEMBLY-MERGE-001 |
 | Related Projects | Seqeron.Genomics.Alignment |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-11-25 |
 
 ## 1. Overview
 
@@ -49,9 +49,9 @@ exist, only the longest suffix/prefix match is used [2].
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | For a valid overlap `0 < l ≤ min(|c1|,|c2|)`: result = `c1 + c2[l..]`, length = `|c1|+|c2|−l` | Collapse keeps one copy of the length-`l` overlap [1] |
+| INV-01 | For a valid overlap `0 ≤ l ≤ min(|c1|,|c2|)`: result = `c1 + c2[l..]`, length = `|c1|+|c2|−l` | Collapse keeps one copy of the length-`l` overlap; Langmead `scs`: `sup += ssperm[i+1][olen:]` [1][5] |
 | INV-02 | `l = 0` ⇒ result = `c1 + c2` (plain concatenation) | Source defines the no-overlap case as concatenation [1] |
-| INV-03 | `l ≤ 0` or `l > min(|c1|,|c2|)` ⇒ result = `c1 + c2` | Such `l` is not a valid suffix/prefix overlap; bound is `min(|x|,|y|)` [1] |
+| INV-03 | `l < 0` or `l > min(|c1|,|c2|)` ⇒ `ArgumentOutOfRangeException` | Such `l` is not a suffix/prefix overlap (Langmead's `overlap()` only returns `0..min(|x|,|y|)`) [1][5] |
 | INV-04 | Result always starts with `c1` and ends with the non-overlapped tail of `c2` | Concatenation never deletes content from `c1` or from `c2[l..]` [1] |
 
 ### 2.5 Comparison with Related Methods
@@ -70,29 +70,51 @@ exist, only the longest suffix/prefix match is used [2].
 |------|------|---------|-------------|-------------|
 | `contig1` | `string` | required | Left contig; its suffix overlaps the prefix of `contig2`. | Non-null; any alphabet; case preserved verbatim |
 | `contig2` | `string` | required | Right contig; its length-`overlapLength` prefix is the shared region. | Non-null |
-| `overlapLength` | `int` | required | Length of the suffix(contig1)/prefix(contig2) overlap to collapse. | Treated as valid only when `0 < l ≤ min(|c1|,|c2|)` |
+| `overlapLength` | `int` | required | Length of the suffix(contig1)/prefix(contig2) overlap to collapse. | `0 ≤ l ≤ min(|c1|,|c2|)`, else `ArgumentOutOfRangeException` |
+| `resolveOverlapConflicts` | `bool` | `false` (overload) | Resolve mismatches / `N` inside the overlap by the EMBOSS `merger` rule (§4.2) instead of keeping `contig1`'s bases. | — |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
-| (return) | `string` | The merged superstring `c1 + c2[l..]` for a valid `l`, otherwise `c1 + c2`. |
+| (return) | `string` | The merged sequence, length `|c1| + |c2| − l`: `c1 + c2[l..]` (default), or with the overlap columns resolved by §4.2. |
 
 ### 3.3 Preconditions and Validation
 
-Null `contig1` or `contig2` throws `ArgumentNullException`. The method is case-sensitive and
-alphabet-agnostic (it manipulates characters, not nucleotides) — no T↔U normalization is performed.
-A non-positive `overlapLength`, or one exceeding `min(|c1|,|c2|)`, is treated as "no usable overlap"
-and yields plain concatenation rather than an error. The supplied overlap length is trusted and not
-re-verified against the actual characters; verifying the overlap is the role of `FindOverlap`.
+Null `contig1` or `contig2` throws `ArgumentNullException`. A negative `overlapLength`, or one
+exceeding `min(|c1|,|c2|)`, throws `ArgumentOutOfRangeException` (it is not a suffix/prefix overlap;
+before 2026-11 it was silently concatenated, which no source defines — F-MERGE-1). The default mode
+is case-sensitive and alphabet-agnostic (characters are copied verbatim, no T↔U normalization). The
+supplied overlap length is trusted and not re-verified; computing it is the role of `FindOverlap`.
+The conflict-resolving mode compares overlap columns case-insensitively (EMBOSS lower-cases both
+inputs) and emits each chosen character as given.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
 1. Validate that `contig1` and `contig2` are non-null.
-2. If `overlapLength ≤ 0` or `overlapLength > min(|contig1|, |contig2|)`, return `contig1 + contig2`.
-3. Otherwise return `contig1 + contig2.Substring(overlapLength)`.
+2. If `overlapLength < 0` or `overlapLength > min(|contig1|, |contig2|)`, throw `ArgumentOutOfRangeException`.
+3. Default: return `contig1 + contig2.Substring(overlapLength)`.
+4. `resolveOverlapConflicts = true`: `contig1[..start]`, then each overlap column resolved by §4.2,
+   then `contig2[overlapLength..]` (`start = |contig1| − overlapLength`).
+
+### 4.2 Overlap conflict rule (EMBOSS `merger`, opt-in)
+
+Port of `merger_Merge` / `merger_bestquality` / `merger_quality` (EMBOSS `emboss/merger.c`) on the
+ungapped alignment of `contig1[start..]` with `contig2[..l]` [6]. Per column (p from contig1 at
+`apos`, q from contig2 at `bpos`):
+
+1. `p` is `N` → `q`; else `q` is `N` → `p`; else `p == q` (ignoring case) → `p`.
+2. Otherwise the base of the contig with the higher local quality wins:
+   `quality(seq, pos, w) = points / (2w + 1)` over `seq[pos .. pos+w−1]` and `seq[pos−w+1 .. pos−1]`
+   of the *whole* contig, ACGTU = 2 points, IUPAC MRWSYKVHDB = 1, anything else (incl. `N`, off-end) = 0.
+   Try `w = 5`; if equal `w = 10`; if equal `w = 20`; a remaining tie keeps `contig1`.
+
+Because a window running off a contig end scores fewer points, conflicts near the end of `contig1`
+tend to take `contig2`'s (interior) base — "this heavily discriminates against the iffy bits at the
+end of sequence reads" [6]. Example: `AAAACCCCGGGG` + `CCCCGTGGTTTT`, `l = 8`: column 6 is `G`/`T`,
+w=5 quality 14/11 vs 18/11 → `T`; result `AAAACCCCGTGGTTTT` (default mode: `AAAACCCCGGGGTTTT`).
 
 ### 4.3 Complexity
 
@@ -107,13 +129,15 @@ re-verified against the actual characters; verifying the overlap is the role of 
 **Implementation location:** [SequenceAssembler.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs)
 
 - `SequenceAssembler.MergeContigs(string contig1, string contig2, int overlapLength)`: collapses the
-  two contigs at the given overlap, or concatenates when the overlap is not usable.
+  two contigs at the given overlap (`l = 0` concatenates).
+- `SequenceAssembler.MergeContigs(string contig1, string contig2, int overlapLength, bool resolveOverlapConflicts)`:
+  same, optionally resolving overlap mismatches by the EMBOSS `merger` rule (§4.2).
+- MCP `merge_contigs` (Alignment server) delegates to the 4-argument overload.
 
 ### 5.2 Current Behavior
 
 The overlap region is removed from the *front of `contig2`* (the prefix), not the back of `contig1`,
-so `contig1` is preserved verbatim as a prefix of the result. The single named constant `NoOverlap`
-(= 0) documents the no-overlap sentinel. No suffix tree is used here (see §5.3): this is a single
+so `contig1` is preserved verbatim as a prefix of the result (default mode). No suffix tree is used here (see §5.3): this is a single
 fixed-length substring/concatenation on a known overlap, not an occurrence-search, so the repository
 `SuffixTree` would add construction cost without changing the O(n) result; the suffix tree is the
 right tool for *overlap discovery* (`FindOverlap`/`FindAllOverlaps`), not for this collapse step [2].
@@ -123,8 +147,9 @@ right tool for *overlap discovery* (`FindOverlap`/`FindAllOverlaps`), not for th
 **Implemented (verbatim from the cited theory/spec):**
 
 - Merge as `X + Y[l:]`, keeping one copy of the length-`l` overlap, length `|X|+|Y|−l` [1].
-- No-overlap (l = 0) and out-of-range-overlap cases collapse to plain concatenation `X + Y` [1].
-- Overlap bounded by `min(|X|,|Y|)` [1].
+- No-overlap (l = 0) is plain concatenation `X + Y` [1].
+- Overlap bounded by `min(|X|,|Y|)`; out-of-range lengths are rejected [1][5].
+- Opt-in EMBOSS `merger` conflict resolution in the overlap (§4.2) [6].
 
 **Intentionally simplified:**
 
@@ -132,6 +157,8 @@ right tool for *overlap discovery* (`FindOverlap`/`FindAllOverlaps`), not for th
 
 **Not implemented:**
 
+- Overlap *discovery/alignment*: EMBOSS `merger` first computes a global alignment (with gaps); here the
+  overlap is ungapped and caller-supplied.
 - Overlap *verification*: the method does not re-check that `contig1`'s suffix equals `contig2`'s
   prefix; users should rely on `FindOverlap` / `FindAllOverlaps` to compute a verified overlap [2].
 - Multi-contig layout/consensus over an overlap graph; **users should rely on**
@@ -150,16 +177,20 @@ right tool for *overlap discovery* (`FindOverlap`/`FindAllOverlaps`), not for th
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
 | `overlapLength = 0` | `c1 + c2` | No overlap ⇒ concatenate [1] |
-| `overlapLength < 0` | `c1 + c2` | Non-positive is not a valid overlap [1] |
-| `overlapLength > min(|c1|,|c2|)` | `c1 + c2` | Overlap bounded by the shorter string [1] |
+| `overlapLength < 0` | `ArgumentOutOfRangeException` | Not a suffix/prefix overlap [1][5] |
+| `overlapLength > min(|c1|,|c2|)` | `ArgumentOutOfRangeException` | Overlap bounded by the shorter string [1][5] |
+| mismatch / `N` in the overlap, default | `contig1`'s characters kept | Langmead `sup += y[olen:]` [5] |
+| mismatch / `N` in the overlap, `resolveOverlapConflicts` | EMBOSS `merger` rule (§4.2) | [6] |
 | `overlapLength = min(|c1|,|c2|)` | full collapse of the shorter prefix | Boundary of a valid overlap [1] |
 | empty `c1` or `c2`, `l = 0` | the other contig | Concatenation with the empty string |
 | null `c1` or `c2` | `ArgumentNullException` | Input validation (sibling-method convention) |
 
 ### 6.2 Limitations
 
-This is a single-pair primitive: it neither discovers overlaps nor resolves repeats, mismatches, or
-indels in the overlap (it assumes an exact, already-known overlap). For approximate overlaps or
+This is a single-pair primitive: it neither discovers overlaps nor resolves repeats or indels in the
+overlap (it assumes an ungapped, already-known overlap); substitutions / `N`s are resolved only in the
+opt-in EMBOSS mode, which has no per-base quality values (EMBOSS `merger` infers quality from the
+local base composition, exactly as implemented). For approximate overlaps or
 full assembly use the OLC / de Bruijn entry points.
 
 ## 7. Examples and Related Material
@@ -195,3 +226,7 @@ From the Langmead greedy-SCS trace [1], chaining {AAA, AAB, ABB, BBB, BBA} at ov
    https://ocw.mit.edu/courses/7-91j-foundations-of-computational-and-systems-biology-spring-2014/e885f0eb376ea6c2045eb9d8847f106f_MIT7_91JS14_Lecture6.pdf (accessed 2026-06-13).
 4. Compeau, P.E.C., Pevzner, P.A., Tesler, G. (2011). *How to apply de Bruijn graphs to genome
    assembly*. Nature Biotechnology 29:987–991. https://doi.org/10.1038/nbt.2023
+5. Langmead, B. *comp-genomics-class* notebook `CG_SCS.ipynb` (`overlap`, `scs`).
+   https://raw.githubusercontent.com/BenLangmead/comp-genomics-class/master/notebooks/CG_SCS.ipynb (accessed 2026-11-25).
+6. Williams, G., Bleasby, A. EMBOSS `merger` — `emboss/merger.c` (Rice, Longden & Bleasby 2000, Trends Genet 16:276–277).
+   https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/merger.c (accessed 2026-11-25).

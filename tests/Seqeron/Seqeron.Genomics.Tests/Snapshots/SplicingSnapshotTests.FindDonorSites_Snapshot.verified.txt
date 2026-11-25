@@ -3,13 +3,14 @@
     {
       Position: 21,
       Motif: GCGGUAAGU,
-      Score: 0.7777777777777778,
-      Confidence: 0.5555555555555556
+      Score: 0.9178832116788321,
+      Confidence: 0.8357664233576643
     },
     {
       Position: 25,
       Motif: UAAGUUUUU,
-      Score: 0.4444444444444444
+      Score: 0.5182481751824818,
+      Confidence: 0.03649635036496357
     }
   ]
 }

@@ -47,6 +47,59 @@
 2. **Weak k-mer:** a k-mer not meeting the frequency threshold f0, which "often contains sequencing errors."
 3. **Two-sided correction:** a correction is accepted only when forward and backward searches meet and "the k-mers contained in both of them are solid," ensuring unambiguous solutions.
 
+
+### Musket 1.1 reference implementation (source code, read in full)
+
+**URL:** https://sourceforge.net/projects/musket/files/latest/download (musket-1.1.tar.gz, 2013-10-09; musket.sourceforge.net)
+**Accessed:** 2026-11-25 (B10 review). Compiling the downloaded tarball was not permitted in the review sandbox, so the
+reference is a line-by-line Python transcription of the files below (scratch oracle `musket_oracle.py`, code summarised here).
+**Authority rank:** 1 (authors' published implementation)
+
+Files read: `paracorrect.cpp` (successor, predecessor, selectAllMutations, paraCorrectCoreTwoSides, paraCorrectCore,
+ParaCorrect), `paracorrect.h` (CorrectRegionPingComp/PongComp), `voting.cpp` (voteErroneousRead, fixErroneousBase,
+isTrimmable), `kmer.cpp` (2-bit encode table: non-ACGT → A; `operator<` = memcmp over packed bytes; twin),
+`main.cpp`/`thread.cpp` (canonical counting `rep = km < twin ? km : twin`, one count per occurrence; singleton k-mers
+removed; `-minmulti` fixed watershed), `option.h/.cpp` (defaults: k=21, `-maxiter 2`, `-maxerr 4`, `-maxtrim 0`).
+
+**Key extracted points:**
+
+1. Trusted test is `getKmerMulti(rep) >= watershed` (paper text: "exceeds"); a base is solid when covered by a trusted k-mer.
+2. Stage 1 (`paraCorrectCoreTwoSides`): if all bases solid → error-free. Else for ipos = 0..L-1 skip solid bases;
+   candidates = trusted alternatives of the rightmost covering k-mer (start min(ipos, L-k)) ∩ those of the leftmost
+   (start max(0, ipos-k+1)); exactly one → return that single correction. `ParaCorrect` applies it and repeats
+   (≤ maxIters).
+3. Stage 2 (`paraCorrectCore`, for nerr = 1..numErrors, stride = numErrors − nerr + 1, regions popped from a std heap,
+   longest-first then shortest-first): extend each trusted k-mer run right/left; untrusted k-mer → unique trusted
+   alternative, else highest multiplicity (strict >, first wins) among alternatives whose next `stride` k-mers are
+   trusted; >nerr corrections within k bases → drop them and stop.
+4. Stage 3 (`voteErroneousRead` + `fixErroneousBase(minVote 3)`): every untrusted k-mer votes for each trusted single
+   substitution; positions whose max vote is reached by exactly one base are changed.
+5. Code defects (not followed, see Deviations): (a) stage-1 `lkm` for reads shorter than 2k−1 is advanced from the
+   k-mer at 0 and becomes a spliced string; (b) stage-2 left extension calls `predecessor(seq, ipos - 1, ..)`, whose
+   first prepended base is seq[ipos−2] (successor is called correctly with `seq + ipos + 1`).
+
+## Reference numbers (B10 review, 2026-11-25)
+
+Oracle = Python transcription of musket-1.1 with defects (a)/(b) corrected; C# via a scratch console harness.
+
+| Run | Cases | Agreement |
+|---|---|---|
+| Random (seed 2026): k 1–8, cut-off 1–4, 1–25 reads ≤ 40 bp from both strands, 0–3 substitutions, 3 % N; half 3-arg default, half random options (canonical 70 %, maxiter 1/2/3/10, maxerr 0/1/2/4) | 3000 | **3000/3000** identical outputs |
+
+Of the 3000: 1219 change at least one read; in 519 stages 2–3 change the result vs stage 1 alone; 366 differ from
+musket-1.1 verbatim (340 via defect (a), only reachable with reads < 2k−1; 34 via defect (b)).
+
+Hand cases (oracle and C#):
+
+| Case | Reads (k, cut-off) | Former Seqeron | Musket rule (this unit) |
+|---|---|---|---|
+| leftmost/rightmost probe | TCTCT, TCGCT (3, 2) | TCGCT unchanged (middle CGC→CTC untrusted) | TCTCT |
+| reverse-strand reads | 3×GAAGCCTGTAATC + GATTACGGGCTTC (3, 2) | AATTACGGGCTTC (false G→A, real error kept) | canonical: GATTACAGGCTTC; forward-only 3-arg: AATTACGGGCTTC (documented) |
+| two errors in one k-mer | 3×AAAAAAAA + AACCAAAA (4, 2) | unchanged | maxerr 0/1: unchanged; maxerr ≥ 2 (Musket): AAAAAAAA |
+| one correction per iteration | 3×ACGGTCATTGCAGTCCAT + ACGTTCATTGCAGTACAT (4, 2, forward, maxerr 0) | both fixed | maxiter 1: ACGGTCATTGCAGTACAT; maxiter 2: ACGGTCATTGCAGTCCAT |
+| voting stage | ACAATCTTCA, ACAATTGTCA, ACTATTGTCA (3, 2, Musket) | — | all ACAATTGTCA (stage 3 fixes read 0) |
+| defect (b) | CGCGT, ACCGT (3, 2, Musket) | — | ACCGT kept (musket-1.1 verbatim: CGCGT) |
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -128,3 +181,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-25**: B10 review — Musket 1.1 source read in full; implementation replaced by a port of `ParaCorrect` (two-sided stage = leftmost/rightmost probe, one correction per iteration; opt-in canonical counting, aggressive and voting stages); transcription oracle 3000/3000.

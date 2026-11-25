@@ -18,7 +18,16 @@ Enumerates **hairpin stem-loop candidates** in an RNA sequence. Each result repo
 the stem (5'/3' bounds, length, base pairs, energy), the loop (type, bounds, size,
 sequence), the dot-bracket notation, and the Turner 2004 total free energy. Stems must
 be at least `minStemLength` base pairs and loops within `[minLoopSize, maxLoopSize]`.
-G-U wobble pairs are allowed in the stem when `allowWobble` is true.
+G-U wobble pairs are allowed in the stem when `allowWobble` is true. DNA `T` is read as `U`;
+symbols other than A/C/G/U never pair.
+
+One candidate is reported per hairpin loop. With `maxInternalLoopSize = 0` (default) the stem is a
+perfect helix grown outward while the next pair can form; with `maxInternalLoopSize > 0` it is the
+minimum-free-energy unbranched stem (stacks, bulges and internal loops of up to that many unpaired
+nucleotides; Zuker–Stiegler V(i,j) without multiloops). `totalFreeEnergy` is the energy of the
+stem-loop as an isolated structure — identical to ViennaRNA 2.7.2 `eval_structure` on the motif
+(Turner 2004, NNDB-precision parameters) plus the NNDB-only terms (special GU closure, all-C loops,
+GGUC/CUGG 3-stack, 1-nt bulge degeneracy).
 
 ## Core Documentation Reference
 
@@ -33,6 +42,7 @@ G-U wobble pairs are allowed in the stem when `allowWobble` is true.
 | `minLoopSize` | integer | No | Minimum loop size (default 3) |
 | `maxLoopSize` | integer | No | Maximum loop size (default 10) |
 | `allowWobble` | boolean | No | Allow G-U wobble pairs in the stem (default true) |
+| `maxInternalLoopSize` | integer | No | 0 (default) = perfect stems; > 0 = stems may contain bulges/internal loops with up to this many unpaired nt (n1 + n2) |
 
 ## Output Schema
 
@@ -45,6 +55,7 @@ G-U wobble pairs are allowed in the stem when `allowWobble` is true.
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1001 | `maxInternalLoopSize` is negative |
 
 ## Examples
 

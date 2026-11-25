@@ -5,7 +5,7 @@
 **Algorithm:** K-mer spectrum (two-sided) read error correction
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -18,12 +18,14 @@
 | 1 | Liu, Schmidt & Maskell (2013), Musket, *Bioinformatics* 29(3):308-315 | 1 / 3 | https://doi.org/10.1093/bioinformatics/bts690 | 2026-06-13 |
 | 2 | Kelley, Schatz & Salzberg (2010), Quake, *Genome Biology* 11:R116 | 1 | https://doi.org/10.1186/gb-2010-11-11-r116 | 2026-06-13 |
 | 3 | Song & Florea (2018), Mining statistically-solid k-mers, PMC6311904 | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC6311904/ | 2026-06-13 |
+| 4 | Musket 1.1 source code (paracorrect.cpp, voting.cpp, kmer.cpp, main.cpp) | 1 | https://sourceforge.net/projects/musket/files/latest/download | 2026-11-25 |
 
 ### 1.2 Key Evidence Points
 
 1. A k-mer is *trusted/solid* when its multiplicity ≥ a coverage cut-off; *untrusted/weak* otherwise — Musket [1]; Quake [2]; [3].
 2. A base is *trusted* if it is covered by any trusted k-mer; trusted bases are not modified — Musket [1]; Quake [2].
-3. Two-sided correction finds a *unique* alternative base making all k-mers covering position *i* trusted; corrections are single-base substitutions (≤1 error per k-mer) — Musket [1]; Quake [2].
+3. Two-sided correction finds a *unique* alternative base making the leftmost and rightmost k-mers covering position *i* trusted, one correction per iteration; corrections are single-base substitutions (≤1 error per k-mer) — Musket [1][4].
+5. Musket counts canonical k-mers and adds an aggressive one-sided stage (-maxerr) and a voting stage (min vote 3) — [4].
 4. If more than one alternative makes the covering k-mers trusted, the base is left unchanged (ambiguity) — Musket [1]; [3].
 
 ### 1.3 Documented Corner Cases
@@ -43,7 +45,8 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `ErrorCorrectReads(reads, kmerSize, minKmerFrequency)` | SequenceAssembler | Canonical | Two-sided k-spectrum substitution correction |
+| `ErrorCorrectReads(reads, kmerSize, minKmerFrequency)` | SequenceAssembler | Canonical | Musket stage 1 to convergence, forward strand |
+| `ErrorCorrectReads(reads, kmerSize, minKmerFrequency, ErrorCorrectionOptions)` | SequenceAssembler | Canonical | Musket 1.1 corrector (`ErrorCorrectionOptions.Musket`) |
 
 ---
 
@@ -54,8 +57,8 @@
 | INV-1 | Output read count equals input read count | Yes | Substitution-only model [1][2] |
 | INV-2 | Each output read has the same length as its input (no indels) | Yes | Single-base substitution edits [1][2] |
 | INV-3 | A position covered by any trusted k-mer is never modified | Yes | Trusted-base rule [1][2] |
-| INV-4 | A base is changed only to a base that makes all covering k-mers trusted, and only when that base is unique | Yes | Two-sided unique-alternative rule [1] |
-| INV-5 | Determinism: same inputs → same output | Yes | Fixed A,C,G,T candidate order; spectrum built once |
+| INV-4 | (two-sided stage) A base is changed only to a base that makes its leftmost and rightmost covering k-mers trusted, and only when that base is unique | Yes | Two-sided unique-alternative rule [1][4] |
+| INV-5 | Determinism: same inputs → same output | Yes | Musket candidate/heap order; spectrum built once |
 
 ---
 
@@ -72,6 +75,13 @@
 | M5 | Count and length preserved | Any inputs | output count = input count; per-read length unchanged | INV-1/INV-2 [1][2] |
 | M6 | Null reads → exception | `ErrorCorrectReads(null)` | `ArgumentNullException` | Documented failure mode |
 | M7 | kmerSize < 1 → exception | `ErrorCorrectReads(reads, 0)` | `ArgumentOutOfRangeException` | Documented failure mode |
+| M8 | Leftmost/rightmost probe | k=3, cut-off 2; TCTCT, TCGCT | TCGCT → TCTCT | [1][4] |
+| M9 | Canonical counting | 3×GAAGCCTGTAATC + GATTACGGGCTTC, k=3 | canonical/Musket → GATTACAGGCTTC; forward → AATTACGGGCTTC | [4] main.cpp |
+| M10 | Aggressive stage error budget | 3×AAAAAAAA + AACCAAAA, k=4, Musket maxerr 0/1/2/4 | unchanged/unchanged/fixed/fixed | [4] paraCorrectCore |
+| M11 | One correction per iteration | maxiter 1 vs 2 | first error only vs both | [4] ParaCorrect |
+| M12 | Voting stage | ACAATCTTCA, ACAATTGTCA, ACTATTGTCA, k=3 | all ACAATTGTCA | [4] voting.cpp |
+| M13 | Oracle table | 8 random cases (6 Musket, 2 default) | transcription oracle output | [4] |
+| M14 | Validation | cut-off < 1, null read, null options, maxiter 0, maxerr −1 | ArgumentOutOfRange / Argument / ArgumentNull | |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -89,6 +99,7 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Read shorter than k | k=5, read `ACG` | returned unchanged (upper-cased) | No covering k-mers |
 | C2 | Empty read list | `[]` | empty result | Boundary |
+| C3 | Deviation (b) look-ahead | CGCGT, ACCGT, k=3, Musket | ACCGT kept | Evidence, deviation (b) |
 
 ---
 
@@ -166,6 +177,14 @@
 | P1 | ✅ Covered | `ErrorCorrectReads_RandomReads_PreservesLengthAndTrustedPositions` |
 | C1 | ✅ Covered | `ErrorCorrectReads_ReadShorterThanK_ReturnsUnchanged` |
 | C2 | ✅ Covered | `ErrorCorrectReads_EmptyReadList_ReturnsEmpty` |
+| M8 | ✅ Covered | `ErrorCorrectReads_TwoSidedRule_ProbesOnlyLeftmostAndRightmostKmers` |
+| M9 | ✅ Covered | `ErrorCorrectReads_ReverseStrandReads_CanonicalSpectrumCorrects_ForwardSpectrumMiscorrects` |
+| M10 | ✅ Covered | `ErrorCorrectReads_AggressiveStage_TwoErrorsInOneKmer_NeedMaxErrorsTwo` (4) |
+| M11 | ✅ Covered | `ErrorCorrectReads_TwoSidedStage_OneCorrectionPerIteration` (2) |
+| M12 | ✅ Covered | `ErrorCorrectReads_VotingStage_FixesWhatOneSidedStageLeaves` |
+| M13 | ✅ Covered | `ErrorCorrectReads_MatchesMusketTranscriptionOracle` (8) |
+| M14 | ✅ Covered | `ErrorCorrectReads_MinKmerFrequencyBelowOne_Throws` (2), `_NullReadElement_ThrowsArgumentException`, `_InvalidOptions_Throw`, `ErrorCorrectionOptions_Presets_MatchMusketDefaults` |
+| C3 | ✅ Covered | `ErrorCorrectReads_AggressiveStage_LookAheadUsesTruePrecedingKmers` |
 
 ---
 
@@ -181,4 +200,5 @@
 
 ## 7. Open Questions / Decisions
 
-1. Quake/Musket additionally trim or discard reads that cannot be corrected and use quality-weighted (q-mer) counting; this unit implements only the substitution-correction core (counts and lengths preserved). Recorded in algorithm doc §5.3 "Not implemented".
+1. Quake/Musket additionally trim or discard reads that cannot be corrected (Musket `-maxtrim`, default off) and Quake uses quality-weighted (q-mer) counting; not implemented (counts and lengths preserved). Recorded in algorithm doc §5.3.
+2. (2026-11-25) The three-argument overload counts the forward strand only (backward compatible); Musket counts canonical k-mers. Audit to decide whether the default should switch (test M9 shows a forward-only miscorrection).

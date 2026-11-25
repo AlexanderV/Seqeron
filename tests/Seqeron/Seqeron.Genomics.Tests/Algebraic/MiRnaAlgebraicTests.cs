@@ -75,17 +75,19 @@ public class MiRnaAlgebraicTests
     {
         var p = new MiRnaAnalyzer.PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0);
         double pct = MiRnaAnalyzer.PctFromBranchLength(3.0, p);
-        // 1/(1+e^-3) = 0.9525741268224334.
-        pct.Should().BeApproximately(1.0 / (1.0 + System.Math.Exp(-3.0)), 1e-12);
-        pct.Should().BeApproximately(0.952574126822433, 1e-12);
+        // 1/(1+e^-3) = 0.9525741268224334, printed with sprintf("%.4f") by calculatePCTthisBL
+        // (perl 5.38 run of targetscan_70_BL_PCT.pl: BL 3.0000 ⇒ 0.9526).
+        pct.Should().BeApproximately(1.0 / (1.0 + System.Math.Exp(-3.0)), 0.5e-4);
+        pct.Should().Be(0.9526);
     }
 
     [Test]
     public void Pct_Identity_NegativeValueTruncatedToZero()
     {
-        // targetscan_70_BL_PCT.pl: if ($pct < 0) { $pct = 0 }.
+        // targetscan_70_BL_PCT.pl: if ($pct < 0) { $pct = 0 }. (BL > 0, so the sigmoid is evaluated;
+        // BL = 0 is 0 by getPCT's own rule.)
         var p = new MiRnaAnalyzer.PctSigmoidParameters(B0: -0.5, B1: 0.3, B2: 1.0, B3: 5.0);
-        MiRnaAnalyzer.PctFromBranchLength(0.0, p).Should().Be(0.0);
+        MiRnaAnalyzer.PctFromBranchLength(1.0, p).Should().Be(0.0);
     }
 
     [Test]
@@ -132,39 +134,42 @@ public class MiRnaAlgebraicTests
 
     // ═══════════════════════════════════════════════════════════════════════
     // Unit: MIRNA-CLEAVAGE-001 — Drosha/Dicer cleavage rulers (MiRNA), row 255.
-    // ID — the integer measuring rules place the mature 5p product: Drosha cuts ~11 bp from the
-    //      basal junction (Han 2006) and Dicer's 5' counting rule fixes the mature at ~22 nt
-    //      (Park 2011). With basalJunction 0 the mature is exactly pri[11 .. 11+22).
+    // ID — the measuring rules place the 5p product: Drosha cuts 11 base pairs up the folded stem from
+    //      the basal junction (Han 2006) and Dicer's 5' counting rule fixes the 5p at 22 nt (Park 2011);
+    //      the 3p end is the partner of the 5p start + 2 (2-nt 3' overhang, miRDeep2 find_star).
     // IDEMP — the prediction is a pure, deterministic function.
     //   — MiRnaAnalyzer.PredictDroshaDicerCleavage; TestSpec MIRNA-CLEAVAGE-001.
     // ═══════════════════════════════════════════════════════════════════════
 
-    // 11-nt lower stem + the miR-21 stem region (≥ 11 + 22 + 2 nt).
+    // Real pri-miR-21 (miRBase MI0000077 ± 30 nt hg38 flank) and its RNAfold 2.8 structure; junction 23.
     private const string CleavagePri =
-        "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+        "CAUCGUGACAUCUCCAUGGCUGUACCACCUUGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACAUUUUGGUAUCUUUCAUCUGACCAUCCAUAU";
+    private const string CleavageFold =
+        "..(((((.......)))))..((((((...((((((((((((((((.(((((.(((((.((((.((...))))))))))).)))))))))))))))))))))...)))))).....................";
 
     [Test]
     public void Cleavage_Identity_ElevenBpAndTwentyTwoNtRulesYieldMature()
     {
-        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(CleavagePri, basalJunction: 0);
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(CleavagePri, 23, CleavageFold);
         cut.Should().NotBeNull();
 
-        // 11-bp ruler: Drosha 5' cut at basalJunction + 11 = 11; the mature starts there.
-        cut!.Value.DroshaCut5Prime.Should().Be(11);
-        cut.Value.MatureStart.Should().Be(11);
-        // 22-nt ruler: the mature length and inclusive span are exactly 22 nt.
+        // 11-bp ruler: the 12th pair above the junction (23) has 5' base 37 (bulges skipped).
+        cut!.Value.DroshaCut5Prime.Should().Be(37);
+        cut.Value.MatureStart.Should().Be(37);
+        // 22-nt ruler.
         cut.Value.MatureSequence.Length.Should().Be(22);
         (cut.Value.MatureEnd - cut.Value.MatureStart + 1).Should().Be(22);
-        // The mature sequence is exactly the measured window of the precursor.
-        cut.Value.MatureSequence.Should().Be(CleavagePri.Substring(11, 22));
+        cut.Value.MatureSequence.Should().Be(CleavagePri.Substring(37, 22));
+        // Overhang identity: partner(37) = 94 in the RNAfold structure, + 2.
+        cut.Value.DroshaCut3Prime.Should().Be(96);
     }
 
     [Test]
     public void Cleavage_Idempotent_Deterministic()
     {
-        var a = MiRnaAnalyzer.PredictDroshaDicerCleavage(CleavagePri, 0);
-        var b = MiRnaAnalyzer.PredictDroshaDicerCleavage(CleavagePri, 0);
+        var a = MiRnaAnalyzer.PredictDroshaDicerCleavage(CleavagePri, 23);
+        var b = MiRnaAnalyzer.PredictDroshaDicerCleavage(CleavagePri, 23);
+        a.Should().Be(b);
         a!.Value.MatureSequence.Should().Be(b!.Value.MatureSequence);
-        a.Value.DroshaCut5Prime.Should().Be(b.Value.DroshaCut5Prime);
     }
 }

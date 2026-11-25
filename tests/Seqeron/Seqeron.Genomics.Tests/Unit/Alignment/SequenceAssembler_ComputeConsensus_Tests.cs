@@ -165,4 +165,90 @@ public class SequenceAssembler_ComputeConsensus_Tests
     }
 
     #endregion
+
+    #region Biopython 1.85 dumb_consensus oracle (B10 review: F23-F26)
+
+    // Expected values produced by Biopython 1.85 Bio.Align.AlignInfo.SummaryInfo.dumb_consensus
+    // itself (MultipleSeqAlignment of the rows, ragged rows padded with trailing '-'), compared
+    // character-for-character with ignoreCase: false (Biopython compares exactly).
+    [TestCase(new[] { "A-", "AC" }, 0.5, 'N', true, "AN")]
+    [TestCase(new[] { "A-", "AC" }, 0.5, 'N', false, "AC")]
+    [TestCase(new[] { "a", "A" }, 0.5, 'N', false, "N")]
+    [TestCase(new[] { "aa", "Aa", "AA" }, 0.5, 'N', false, "Aa")]
+    [TestCase(new[] { "NA", "NC", "AA" }, 0.7, 'X', false, "XX")]
+    [TestCase(new[] { "ACGT", "ATGT", "ATGT" }, 0.7, 'N', false, "ANGT")]
+    [TestCase(new[] { "--A", "-CA", "GCA" }, 0.5, 'N', true, "NCA")]
+    [TestCase(new[] { "A", "C" }, 0.0, 'N', false, "N")]
+    [TestCase(new[] { "A", "A" }, 1.5, 'N', false, "N")]
+    [TestCase(new[] { "AAT", "AAC" }, -1.0, 'N', false, "AAN")]
+    [TestCase(new[] { "ACGTACGT", "AC-TACG.", "ACCTA", "ATGT" }, 0.5, 'N', true, "ACGTACGN")]
+    public void ComputeConsensus_MatchesBiopython185DumbConsensus(
+        string[] rows, double threshold, char ambiguous, bool requireMultiple, string expected)
+    {
+        string consensus = SequenceAssembler.ComputeConsensus(
+            rows, threshold, ambiguous, requireMultiple, ignoreCase: false);
+
+        Assert.That(consensus, Is.EqualTo(expected),
+            "Biopython 1.85 dumb_consensus(threshold, ambiguous, require_multiple) output.");
+    }
+
+    // F23 — require_multiple: a column supported by one non-gap residue is ambiguous.
+    [Test]
+    public void ComputeConsensus_RequireMultiple_SingleResidueColumnIsAmbiguous()
+    {
+        var reads = new[] { "A-", "AC" };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.ComputeConsensus(reads, 0.5, 'N', requireMultiple: true), Is.EqualTo("AN"),
+                "Biopython: require_multiple and num_atoms == 1 → ambiguous.");
+            Assert.That(SequenceAssembler.ComputeConsensus(reads), Is.EqualTo("AC"),
+                "Default (require_multiple=False): the single residue C has frequency 1/1.");
+        });
+    }
+
+    // F24 — Biopython compares exactly; the opt-out of case folding reproduces that.
+    [Test]
+    public void ComputeConsensus_IgnoreCaseFalse_ComparesCaseSensitively()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.ComputeConsensus(new[] { "a", "A" }, 0.5, 'N', false, ignoreCase: false),
+                Is.EqualTo("N"), "'a' and 'A' are different residues → 1:1 tie (Biopython 1.85).");
+            Assert.That(SequenceAssembler.ComputeConsensus(new[] { "aa", "Aa", "AA" }, 0.5, 'N', false, ignoreCase: false),
+                Is.EqualTo("Aa"), "Biopython 1.85 keeps the winning residue's case.");
+            Assert.That(SequenceAssembler.ComputeConsensus(new[] { "aa", "Aa", "AA" }),
+                Is.EqualTo("AA"), "Default folds case (EMBOSS reader upper-cases) = Biopython on upper-cased rows.");
+        });
+    }
+
+    // N is a residue, not a gap: Biopython only skips '-' and '.'.
+    [Test]
+    public void ComputeConsensus_NResidue_IsCountedNotSkipped()
+    {
+        string consensus = SequenceAssembler.ComputeConsensus(new[] { "N", "N", "A" }, ambiguous: 'X');
+
+        Assert.That(consensus, Is.EqualTo("N"), "Biopython 1.85: N holds 2/3 ≥ 0.5 of the column.");
+    }
+
+    // F25 — validation.
+    [Test]
+    public void ComputeConsensus_NullReadElement_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => SequenceAssembler.ComputeConsensus(new[] { "ACGT", null! }));
+    }
+
+    [Test]
+    public void ComputeConsensus_NaNThreshold_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                SequenceAssembler.ComputeConsensus(new[] { "A" }, double.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                SequenceAssembler.ComputeConsensus(new[] { "A" }, double.NaN, 'N', requireMultiple: false));
+        });
+    }
+
+    #endregion
 }

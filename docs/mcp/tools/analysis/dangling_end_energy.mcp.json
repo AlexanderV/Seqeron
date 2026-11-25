@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RnaSecondaryStructure.GetDanglingEndEnergy",
   "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L649",
-  "description": "NNDB Turner 2004 dangling-end stacking energy (kcal/mol at 37C) for a single unpaired base on an RNA helix end. Key = closing5' + dangling + closing3'; unknown key -> 0.",
+  "description": "NNDB Turner 2004 dangling-end stacking energy (kcal/mol at 37C) for a single unpaired base on an RNA helix end. 3' dangle sits 3' of closingBase5, 5' dangle 5' of closingBase3 (= ViennaRNA dangle3_37/dangle5_37); case-insensitive, T read as U; unknown dangling base = max over A/C/G/U; non-canonical closing pair -> 0.",
   "inputSchema": {
     "type": "object",
     "properties": {

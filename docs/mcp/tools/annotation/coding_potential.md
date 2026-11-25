@@ -20,7 +20,8 @@ coding and non-coding frequency tables the score adds `ln(coding/noncoding)`; a 
 the coding table adds `+1`, one found only in the non-coding table subtracts `1`; hexamers missing
 from either table (or with both counts zero) are skipped. The result is the sum divided by the number
 of scored hexamers. **Positive** values indicate a coding sequence, **negative** values a non-coding
-one. Sequences shorter than one hexamer, or with no scorable hexamer, return `0`.
+one. Sequences shorter than one hexamer return `0`; a longer sequence with no scorable hexamer returns `-1`,
+exactly as CPAT `kmer_ratio`.
 
 ## Core Documentation Reference
 
@@ -71,3 +72,5 @@ mean of `ln(8/2)` and `ln(2/4)` = 0.3465735902799726.
 
 - [find_orfs](find_orfs.md) - ORF detection
 - [predict_genes](predict_genes.md) - ORF-based gene prediction
+- [fickett_score](fickett_score.md) - Fickett TESTCODE
+- [cpat_coding_probability](cpat_coding_probability.md) - full CPAT coding probability

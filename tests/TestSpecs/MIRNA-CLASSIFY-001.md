@@ -4,7 +4,7 @@
 **Area:** MiRNA
 **Algorithm:** Pre-miRNA Structure-Feature Classifier
 **Status:** ☑ Complete — independently validated 2026-06-25 (Stage A ✅ / Stage B ✅ / CLEAN)
-**Last Updated:** 2026-06-25
+**Last Updated:** 2026-11-25 (B13 review: F23–F26)
 
 > **Validated.** Independently re-validated under the two-stage protocol; see
 > `docs/Validation/reports/MIRNA-CLASSIFY-001.md`. miRBase positives verified against the live database, the
@@ -34,7 +34,19 @@ R: probability ∈ [0,1]; D: deterministic; threshold split positive/negative
 ## 4. Cross-check / Differential Oracle
 
 - **Reference:** held-out miRBase vs shuffled (AUC)
-- **Comparison:** AUC ≈ 1.0 on held-out set
+- **Comparison (B13 2026-11-25):** held-out accuracy 0.90, AUC 0.984375 (scikit-learn on the same rows) — CL9.
+
+## 4a. B13 additions (2026-11-25)
+
+| ID | Test | Oracle |
+|----|------|--------|
+| CL1+ | `BasePairingPropensity` = 32/72 for hsa-mir-21 | dP = \|bp\|/L (Schultes 1999; Ng & Mishra 2007) |
+| CL15 | `TrainPreMiRnaClassifier` reproduces the bundled constants (1e-12) and scikit-learn (1e-8) | sklearn 1.9.1 LogisticRegression(C = 1/(1e-3·45)) |
+| CL16 | `FitRidgeLogisticRegression` saturated case: b0 = 0, b = ln 2; ridge score equation | hand derivation |
+| CL17 | `DinucleotideShuffle` scripted draws = uShuffle 1.1.2 output (3 cases) | `ushuffle.c` + replay randfunc |
+| CL18 | low-acceptance graph `A500 G A500 C` not returned unshuffled | uniform: P(input) = 1/999 |
+| CL19 | uniform over the 612 valid sequences of `ACGUGUCAGGAUCC` (χ² < 724.75) | Python Eulerian enumeration + scipy χ² |
+| CL20 | `CalculateRandfoldPValue` = 21/200 (20 of 199), hsa-mir-21 1/100; guards | randfold.c counting rule (Python), ViennaRNA 2.8 |
 
 ## 5. Validation Checklist (to restore ☑)
 

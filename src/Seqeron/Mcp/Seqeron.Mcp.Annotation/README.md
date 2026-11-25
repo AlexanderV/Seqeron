@@ -2,7 +2,7 @@
 
 MCP server — **Gene/ORF/promoter annotation, variant calling & effect, epigenetics, miRNA, splicing, SVs, transcriptomics.**
 
-Exposes **97 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **100 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/annotation/`](../../../../docs/mcp/tools/annotation). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -39,8 +39,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `cluster_genes_by_expression` | Cluster genes by similarity of their expression profiles using a k-means-like procedure on Pearson correlation. |
 | `cluster_split_reads` | Cluster split reads into breakpoint candidates. |
 | `coding_potential` | Score the coding potential of a DNA sequence using the CPAT hexamer usage-bias log-likelihood (Wang et al. |
-| `codon_usage` | Count codon occurrences (in-frame, 5'→3') for a coding sequence. |
+| `codon_usage` | Count codon occurrences (in-frame, 5'→3') for a coding DNA or RNA sequence (U read as T, ambiguous triplets skipped). |
 | `compare_seed_regions` | Compare seed regions of two miRNAs and report Hamming-style match counts and seed-family identity. |
+| `cpat_coding_probability` | CPAT (Wang et al. 2013): ORF candidates scored by transcript length, ORF length, Fickett TESTCODE and hexamer score; logistic coding probability. |
 | `cpg_observed_expected` | Compute CpG observed/expected ratio for a sequence. |
 | `create_mirna` | Build a MiRna record (T→U normalized) with seed metadata. |
 | `detect_alternative_splicing` | Detect candidate alternative splicing patterns (exon skipping, alternative 5'/3' splice sites). |
@@ -49,6 +50,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `differential_expression` | Run a simple two-group differential-expression analysis using log2 fold change, Welch-style t-test p-values, and Benjamini–Hochberg FDR c… |
 | `enrichment_score` | Compute a GSEA-like running-sum enrichment score for a gene set against a ranked gene list. |
 | `epigenetic_age` | Estimate epigenetic age (Horvath-clock-style) from methylation values at clock CpGs. |
+| `fickett_scan` | Sliding-window Fickett (1982) TESTCODE with coding calls, as EMBOSS tcode. |
+| `fickett_score` | Fickett (1982) TESTCODE coding statistic of a whole DNA sequence (published or CPAT table set). |
 | `filter_svs` | Filter structural variants by quality, supporting-read count, and length bounds. |
 | `find_acceptor_sites` | Find candidate 3' (acceptor) splice sites (canonical AG, optional U12 AC). |
 | `find_accessible_regions` | Identify accessible chromatin regions (ATAC-seq-like peaks) from per-position accessibility signal. |
@@ -69,7 +72,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_orfs` | Find all open reading frames (ORFs) in a DNA sequence across forward and reverse strands. |
 | `find_pre_mirna_hairpins` | Identify pre-miRNA hairpin candidates with stem/loop layout and Turner 2004 nearest-neighbor free energy. |
 | `find_promoter_motifs` | Find -10 (Pribnow/TATA) and -35 box bacterial promoter motifs. |
-| `find_repetitive_elements` | Find tandem and inverted repeats in a DNA sequence. |
+| `find_repetitive_elements` | Find exact tandem repeats (maximal runs, primitive ACGT unit 1-60 bp) and maximal exact inverted repeats (EMBOSS palindrome model) via RepeatFinder. |
 | `find_retained_intron_candidates` | Find short, moderately-scored intron candidates likely to be retained in some transcripts. |
 | `find_ribosome_binding_sites` | Locate Shine–Dalgarno (ribosome binding site) motifs upstream of ORFs. |
 | `find_similar_mirnas` | Find miRNAs in a database whose seed region is within `maxMismatches` Hamming distance of a query miRNA. |
@@ -87,7 +90,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `is_wobble_pair` | Test whether two bases form a G-U wobble pair. |
 | `log2_transform` | Apply log2(x + pseudocount) to each value (used to stabilize variance of count-like expression data). |
 | `longest_orfs_per_frame` | Return the longest ORF in each of the (up to) six reading frames. |
-| `maxent_score` | Compute a MaxEntScan-like log-likelihood score for a donor or acceptor motif. |
+| `maxent_score` | MaxEntScan (Yeo & Burge 2004) splice-site score in bits: Donor = score5 on the 9-nt window, Acceptor = score3 on the 23-nt window. |
 | `merge_overlapping_svs` | Merge structural variants of the same type whose reciprocal overlap fraction exceeds a threshold. |
 | `methylation_from_bisulfite` | Compute per-CpG methylation levels from bisulfite sequencing reads aligned to a reference. |
 | `methylation_profile` | Aggregate methylation sites into a global/CpG/CHG/CHH profile with per-position methylation. |
