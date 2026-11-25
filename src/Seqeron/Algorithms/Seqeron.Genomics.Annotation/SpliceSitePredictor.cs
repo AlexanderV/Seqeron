@@ -54,7 +54,7 @@ public static class SpliceSitePredictor
         Acceptor,   // 3' splice site (AG)
         Branch,     // Branch point (A)
         U12Donor,   // Minor spliceosome donor (/RTATCCTY: AT-AC or GT-AG U12 introns)
-        U12Acceptor // Minor spliceosome acceptor (AC)
+        U12Acceptor // Minor spliceosome acceptor (AC or AG terminus; U12 branch site UUCCUUAAC)
     }
 
     /// <summary>
@@ -72,27 +72,53 @@ public static class SpliceSitePredictor
     }
 
     /// <summary>
+    /// Scoring model for <see cref="FindAcceptorSites(string, double, bool, AcceptorScoringModel, ShapiroSenapathyCategory)"/>.
+    /// </summary>
+    public enum AcceptorScoringModel
+    {
+        /// <summary>Shapiro &amp; Senapathy (1987) 3' splice-site score on positions -14..+1
+        /// (pyrimidine region best 8 of 10 + CAGG), reported in [0, 1] (published 0-100 / 100). Default.</summary>
+        ShapiroSenapathy,
+
+        /// <summary>Yeo &amp; Burge (2004) MaxEntScan <c>score3ss</c> in bits on the 23-nt window
+        /// -20..+3 (<see cref="ScoreAcceptorMaxEnt"/>); <c>minScore</c> is then a threshold in bits.</summary>
+        MaxEntScan
+    }
+
+    /// <summary>
+    /// Branch-point consensus model for <see cref="FindBranchPoints(string, int, int, double, BranchPointModel)"/>.
+    /// </summary>
+    public enum BranchPointModel
+    {
+        /// <summary>Human <c>yUnAy</c> (Gao et al. 2008), conservation-weighted. Default.</summary>
+        HumanYUnAy,
+
+        /// <summary><i>S. cerevisiae</i> <c>UACUAAC</c> (Langford &amp; Gallwitz 1983), match fraction.</summary>
+        YeastUACUAAC
+    }
+
+    /// <summary>
     /// GENBANK category subtable of Shapiro &amp; Senapathy (1987) Table 1 used for the
-    /// donor (5' splice site) percentages. The paper scores a sequence with the subtable of
+    /// donor (5' splice site) and acceptor (3' splice site) percentages. The paper scores a sequence with the subtable of
     /// its organism; <see cref="Primate"/> is the default (human sequences).
     /// </summary>
     public enum ShapiroSenapathyCategory
     {
-        /// <summary>Primate (542 5' ss).</summary>
+        /// <summary>Primate (542 5' ss, 542 3' ss).</summary>
         Primate,
-        /// <summary>All seven GENBANK categories pooled (1446 5' ss).</summary>
+        /// <summary>All seven GENBANK categories pooled (1446 5' ss, 1432 3' ss).</summary>
         Total,
-        /// <summary>Rodent (393 5' ss).</summary>
+        /// <summary>Rodent (393 5' ss, 378 3' ss).</summary>
         Rodent,
-        /// <summary>Other mammals (65 5' ss).</summary>
+        /// <summary>Other mammals (65 5' ss, 67 3' ss).</summary>
         OtherMammal,
-        /// <summary>Other vertebrates (209 5' ss).</summary>
+        /// <summary>Other vertebrates (209 5' ss, 202 3' ss).</summary>
         OtherVertebrate,
-        /// <summary>Invertebrates (80 5' ss).</summary>
+        /// <summary>Invertebrates (80 5' ss, 86 3' ss).</summary>
         Invertebrate,
-        /// <summary>Plants (111 5' ss).</summary>
+        /// <summary>Plants (111 5' ss, 110 3' ss).</summary>
         Plant,
-        /// <summary>Viruses (46 5' ss).</summary>
+        /// <summary>Viruses (46 5' ss, 47 3' ss).</summary>
         Viral
     }
 
@@ -229,19 +255,94 @@ public static class SpliceSitePredictor
     // Mol Cell 1:151). Stored in RNA alphabet; each entry lists the nucleotides that match.
     private static readonly string[] U12DonorConsensus = { "AG", "U", "A", "U", "C", "C", "U", "CU" };
 
-    // Consensus acceptor site: (Y)nNCAG|G
-    // Position -15 to +1 relative to splice site
-    private static readonly Dictionary<int, Dictionary<char, double>> AcceptorPwm = new()
-    {
-        { -15, new Dictionary<char, double> { {'A', 0.10}, {'C', 0.30}, {'G', 0.10}, {'U', 0.50} } },
-        { -10, new Dictionary<char, double> { {'A', 0.10}, {'C', 0.30}, {'G', 0.10}, {'U', 0.50} } },
-        { -5,  new Dictionary<char, double> { {'A', 0.10}, {'C', 0.40}, {'G', 0.10}, {'U', 0.40} } },
-        { -4,  new Dictionary<char, double> { {'A', 0.05}, {'C', 0.40}, {'G', 0.05}, {'U', 0.50} } },
-        { -3,  new Dictionary<char, double> { {'A', 0.05}, {'C', 0.70}, {'G', 0.05}, {'U', 0.20} } },
-        { -2,  new Dictionary<char, double> { {'A', 1.00}, {'C', 0.00}, {'G', 0.00}, {'U', 0.00} } }, // A
-        { -1,  new Dictionary<char, double> { {'A', 0.00}, {'C', 0.00}, {'G', 1.00}, {'U', 0.00} } }, // G
-        { 0,   new Dictionary<char, double> { {'A', 0.20}, {'C', 0.15}, {'G', 0.50}, {'U', 0.15} } }
-    };
+    // --- Shapiro & Senapathy (1987) 3' splice-site (acceptor) score ---
+    // Source: Shapiro & Senapathy (1987) NAR 15:7155, Table 1 (p. 7159): percentage of each
+    // nucleotide at 3' ss positions -14..+1 (intron -14..-1, -2/-1 = the AG; +1 = first exon
+    // nucleotide), one subtable per GENBANK category. Rows below are -14..-1,+1; columns
+    // A, C, G, T(=U). Transcribed from the scanned paper.
+    // Methods (p. 7158): left of the NCAGG consensus the 10 pyrimidine locations (-14..-5) are
+    // scored by the best 8 of 10 percentages; the CAGG part (-3,-2,-1,+1) by its 4 percentages;
+    //   score = 100 ((t1 - l1)/(h1 - l1) + (t2 - l2)/(h2 - l2)) / 2
+    // with t1 = sum of the best 8 of the 10 observed percentages at -14..-5, l1 (h1) = sum of the
+    // lowest (highest) 8 of the 10 per-position minima (maxima), t2 / l2 / h2 = observed / minimum
+    // / maximum percentages summed over -3,-2,-1,+1; position -4 (N) is not scored. "Any sequence
+    // containing an AG in those 10 locations [is] eliminated from consideration." Reproduces the
+    // published 3' ss scores of Table 5 (40/41 at 1 dp). This library reports score / 100.
+    private static readonly IReadOnlyDictionary<ShapiroSenapathyCategory, int[,]> ShapiroSenapathyAcceptorTables =
+        new Dictionary<ShapiroSenapathyCategory, int[,]>
+        {
+            [ShapiroSenapathyCategory.Total] = new int[,]
+            {
+                { 11, 30, 13, 46 }, { 12, 32, 12, 44 }, { 9, 27, 11, 53 }, { 8, 29, 11, 51 }, { 11, 30, 10, 49 },
+                { 11, 32, 11, 46 }, { 10, 38, 9, 44 }, { 10, 38, 8, 44 }, { 8, 38, 7, 47 }, { 8, 35, 7, 49 },
+                { 25, 27, 24, 24 }, { 4, 72, 1, 23 }, { 100, 0, 0, 0 }, { 0, 0, 100, 0 }, { 26, 14, 50, 9 },
+            },
+            [ShapiroSenapathyCategory.Primate] = new int[,]
+            {
+                { 9, 31, 15, 45 }, { 9, 33, 13, 45 }, { 7, 31, 11, 51 }, { 7, 35, 7, 51 }, { 10, 35, 7, 47 },
+                { 10, 35, 11, 44 }, { 7, 43, 7, 42 }, { 9, 41, 8, 42 }, { 6, 39, 6, 48 }, { 6, 40, 8, 46 },
+                { 23, 29, 23, 24 }, { 3, 74, 1, 22 }, { 100, 0, 0, 0 }, { 0, 0, 100, 0 }, { 28, 13, 49, 10 },
+            },
+            [ShapiroSenapathyCategory.Rodent] = new int[,]
+            {
+                { 9, 35, 10, 46 }, { 11, 36, 11, 42 }, { 5, 29, 10, 56 }, { 6, 28, 15, 51 }, { 7, 32, 10, 51 },
+                { 9, 32, 11, 48 }, { 7, 40, 6, 47 }, { 6, 41, 6, 47 }, { 9, 43, 7, 42 }, { 9, 39, 6, 46 },
+                { 28, 30, 16, 26 }, { 4, 73, 0, 23 }, { 100, 0, 0, 0 }, { 0, 0, 100, 0 }, { 28, 14, 49, 9 },
+            },
+            [ShapiroSenapathyCategory.OtherMammal] = new int[,]
+            {
+                { 8, 29, 3, 60 }, { 5, 40, 14, 41 }, { 5, 29, 11, 56 }, { 0, 27, 10, 63 }, { 10, 43, 6, 40 },
+                { 9, 18, 9, 64 }, { 3, 45, 12, 40 }, { 1, 51, 4, 43 }, { 10, 51, 4, 34 }, { 7, 52, 7, 33 },
+                { 33, 25, 19, 22 }, { 0, 79, 0, 21 }, { 100, 0, 0, 0 }, { 0, 0, 100, 0 }, { 13, 30, 51, 6 },
+            },
+            [ShapiroSenapathyCategory.OtherVertebrate] = new int[,]
+            {
+                { 9, 35, 13, 43 }, { 10, 33, 10, 47 }, { 8, 24, 10, 59 }, { 8, 29, 9, 53 }, { 9, 28, 10, 53 },
+                { 5, 35, 13, 47 }, { 8, 39, 10, 43 }, { 10, 41, 7, 43 }, { 5, 39, 6, 50 }, { 7, 27, 8, 59 },
+                { 21, 27, 36, 17 }, { 5, 74, 0, 22 }, { 100, 0, 0, 0 }, { 0, 0, 100, 0 }, { 21, 17, 53, 8 },
+            },
+            [ShapiroSenapathyCategory.Invertebrate] = new int[,]
+            {
+                { 25, 14, 19, 42 }, { 25, 21, 12, 42 }, { 24, 13, 13, 49 }, { 19, 21, 19, 41 }, { 16, 18, 11, 55 },
+                { 26, 41, 7, 26 }, { 24, 17, 12, 47 }, { 22, 33, 3, 42 }, { 12, 25, 0, 63 }, { 8, 20, 3, 70 },
+                { 16, 16, 26, 42 }, { 1, 76, 0, 22 }, { 100, 0, 0, 0 }, { 0, 0, 100, 0 }, { 38, 9, 41, 12 },
+            },
+            [ShapiroSenapathyCategory.Plant] = new int[,]
+            {
+                { 21, 17, 12, 50 }, { 21, 15, 15, 49 }, { 21, 22, 12, 45 }, { 18, 19, 13, 50 }, { 21, 15, 25, 40 },
+                { 20, 21, 15, 44 }, { 27, 15, 15, 44 }, { 17, 11, 25, 47 }, { 14, 21, 18, 47 }, { 14, 19, 11, 56 },
+                { 27, 14, 35, 24 }, { 4, 62, 0, 35 }, { 100, 0, 0, 0 }, { 0, 0, 100, 0 }, { 21, 14, 57, 8 },
+            },
+            [ShapiroSenapathyCategory.Viral] = new int[,]
+            {
+                { 2, 26, 30, 41 }, { 17, 30, 15, 38 }, { 21, 28, 15, 36 }, { 15, 15, 15, 55 }, { 21, 17, 13, 49 },
+                { 19, 17, 2, 62 }, { 15, 26, 11, 49 }, { 17, 26, 9, 49 }, { 6, 32, 6, 55 }, { 11, 34, 4, 51 },
+                { 38, 26, 26, 11 }, { 11, 60, 6, 23 }, { 100, 0, 0, 0 }, { 0, 0, 100, 0 }, { 15, 4, 66, 15 },
+            },
+        };
+
+    // S&S 3' ss layout: 15 rows -14..-1,+1; rows 0..9 = pyrimidine region -14..-5 (best 8 of 10),
+    // row 10 = -4 (N, unscored), rows 11..14 = C,A,G (-3..-1) and +1.
+    private const int ShapiroSenapathyAcceptorPyrimidineRows = 10;
+    private const int ShapiroSenapathyAcceptorPyrimidineBest = 8;
+    private const int ShapiroSenapathyAcceptorCaggFirstRow = 11;
+    private const int ShapiroSenapathyAcceptorRowCount = 15;
+    // Offset of the A of AG (-2) from the first scored nucleotide (-14).
+    private const int ShapiroSenapathyAcceptorUpstream = 12;
+
+    // --- U12-type 3' splice site: branch-site recognition ---
+    // U12-type introns lack a polypyrimidine tract; their 3' ss is recognised through the highly
+    // conserved branch site, which lies close to the 3' end (Turunen et al. 2013 WIREs RNA 4:61,
+    // optimum 11-13 nt; Dietrich et al. 2001 RNA 7:1845). Consensus UUCCUUAAC with the branch
+    // adenosine at the second A (Brock, Dietrich & Padgett 2008 RNA 14:2430: NOL1 intron F, fully
+    // consensus branch site -UUCCUUAAC-, branch A90). Branch-site-to-acceptor distance window
+    // 8-21 nt: Levine & Durbin 2001 NAR 29:4006 (human genome U12 scan). AT-AC (AC terminus) and
+    // GT-AG (AG terminus) U12 introns (Dietrich, Incorvaia & Padgett 1997 Mol Cell 1:151).
+    // Stored in RNA alphabet; branch A at index 7.
+    private const string U12BranchSiteConsensus = "UUCCUUAAC";
+    private const int U12BranchSiteBranchIndex = 7;
+    private const int U12BranchToAcceptorMinDistance = 8;
+    private const int U12BranchToAcceptorMaxDistance = 21;
 
     // --- Human branch-point consensus (Gao et al. 2008) ---
     // Consensus BPS = yUnAy at motif positions -3..+1, with the branch-point
@@ -270,18 +371,14 @@ public static class SpliceSitePredictor
     private const int BranchPointPptMinSpan = 4;  // nt downstream of branch point
     private const int BranchPointPptMaxSpan = 24; // nt downstream of branch point
 
-    // Branch point consensus: YNYURAC (Y=C/U, R=A/G, N=any)
-    // Typically 18-40 nt upstream of 3' splice site
-    private static readonly Dictionary<int, Dictionary<char, double>> BranchPointPwm = new()
-    {
-        { 0, new Dictionary<char, double> { {'A', 0.10}, {'C', 0.40}, {'G', 0.10}, {'U', 0.40} } },
-        { 1, new Dictionary<char, double> { {'A', 0.25}, {'C', 0.25}, {'G', 0.25}, {'U', 0.25} } },
-        { 2, new Dictionary<char, double> { {'A', 0.10}, {'C', 0.40}, {'G', 0.10}, {'U', 0.40} } },
-        { 3, new Dictionary<char, double> { {'A', 0.05}, {'C', 0.05}, {'G', 0.05}, {'U', 0.85} } },
-        { 4, new Dictionary<char, double> { {'A', 0.60}, {'C', 0.05}, {'G', 0.30}, {'U', 0.05} } },
-        { 5, new Dictionary<char, double> { {'A', 0.95}, {'C', 0.02}, {'G', 0.02}, {'U', 0.01} } }, // Branch A
-        { 6, new Dictionary<char, double> { {'A', 0.10}, {'C', 0.60}, {'G', 0.10}, {'U', 0.20} } }
-    };
+    // Yeast (S. cerevisiae) branch-point sequence UACUAAC, strictly conserved, branch A = the
+    // last A (index 5) (Langford & Gallwitz 1983 Cell 33:519; Gao et al. 2008 Introduction).
+    private const string YeastBranchPointConsensus = "UACUAAC";
+    private const int YeastBranchPointBranchIndex = 5;
+
+    // Human yUnAy motif (positions -3..+1): length and index of the branch A.
+    private const int HumanBranchPointMotifLength = 5;
+    private const int HumanBranchPointBranchIndex = 3;
 
     #endregion
 
@@ -418,46 +515,135 @@ public static class SpliceSitePredictor
     }
 
     /// <summary>
-    /// Finds all potential acceptor (3') splice sites in a sequence.
+    /// Finds all potential acceptor (3') splice sites in a sequence, scored with the
+    /// Shapiro &amp; Senapathy (1987) primate 3' splice-site table.
     /// </summary>
+    /// <remarks>
+    /// Equivalent to <see cref="FindAcceptorSites(string, double, bool, AcceptorScoringModel, ShapiroSenapathyCategory)"/>
+    /// with <see cref="AcceptorScoringModel.ShapiroSenapathy"/> and <see cref="ShapiroSenapathyCategory.Primate"/>.
+    /// </remarks>
     public static IEnumerable<SpliceSite> FindAcceptorSites(
         string sequence,
         double minScore = 0.5,
-        bool includeNonCanonical = false)
+        bool includeNonCanonical = false) =>
+        FindAcceptorSites(sequence, minScore, includeNonCanonical,
+            AcceptorScoringModel.ShapiroSenapathy, ShapiroSenapathyCategory.Primate);
+
+    /// <summary>
+    /// Finds all potential acceptor (3') splice sites in a sequence.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The input is upper-cased and read as RNA (T = U). A candidate is an <c>AG</c> dinucleotide
+    /// (intron positions -2/-1); its <see cref="SpliceSite.Position"/> is the 0-based index of the
+    /// <c>G</c>, i.e. the last intron nucleotide; the intron-exon boundary lies immediately after it.
+    /// <see cref="SpliceSite.Motif"/> is the -20..+3 context (20 intron + 3 exon nt, the MaxEntScan
+    /// score3 window, truncated at the sequence ends).
+    /// </para>
+    /// <para>
+    /// <b><see cref="AcceptorScoringModel.ShapiroSenapathy"/> (default):</b> the Shapiro &amp;
+    /// Senapathy (1987) 3' ss score of the 15-nt subsequence -14..+1 (Table 1 subtable
+    /// <paramref name="category"/>): <c>((t1 - l1)/(h1 - l1) + (t2 - l2)/(h2 - l2)) / 2</c>, where
+    /// the pyrimidine region -14..-5 is scored by the best 8 of its 10 percentages and the
+    /// <c>CAGG</c> part by the percentages at -3, -2, -1, +1 (position -4 unscored); i.e. the
+    /// published 0-100 score / 100 (e.g. primate <c>TTATTCTACTCCAG|G</c> → 0.958). A candidate with
+    /// an <c>AG</c> inside -14..-5 is eliminated (as in the paper), and one whose -14..+1 window runs
+    /// off the sequence or contains a non-A/C/G/T/U character is not scored (no site).
+    /// <see cref="SpliceSite.Confidence"/> = clamp((score - 0.5) / 0.5, 0, 1).
+    /// </para>
+    /// <para>
+    /// <b><see cref="AcceptorScoringModel.MaxEntScan"/>:</b> the Yeo &amp; Burge (2004) MaxEntScan
+    /// <c>score3ss</c> (<see cref="ScoreAcceptorMaxEnt"/>) of the 23-nt window -20..+3, in bits;
+    /// <paramref name="minScore"/> is a threshold in bits. A window that runs off the sequence or
+    /// contains a non-A/C/G/T/U character is skipped. <see cref="SpliceSite.Confidence"/> =
+    /// 2^s / (1 + 2^s).
+    /// </para>
+    /// <para>
+    /// <b>U12-type acceptors</b> (<paramref name="includeNonCanonical"/>, Shapiro-Senapathy model
+    /// only): U12-type introns have no polypyrimidine tract and are recognised through their branch
+    /// site. Every <c>AC</c> (AT-AC) or <c>AG</c> (GT-AG U12) terminus is scored as the best
+    /// fraction of matching positions to the U12 branch-site consensus <c>UUCCUUAAC</c> (branch A
+    /// = second A; Brock et al. 2008) over all placements whose branch A lies 8-21 nt upstream of
+    /// the last intron nucleotide (Levine &amp; Durbin 2001), and reported as
+    /// <see cref="SpliceSiteType.U12Acceptor"/> when it reaches <paramref name="minScore"/>.
+    /// Placements running off the sequence or containing a non-A/C/G/T/U character are skipped.
+    /// An <c>AG</c> can therefore be reported both as a U2 <see cref="SpliceSiteType.Acceptor"/> and
+    /// as a U12 candidate.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">DNA or RNA sequence (case-insensitive); null/empty yields no sites.</param>
+    /// <param name="minScore">Minimum score to report a site (model units).</param>
+    /// <param name="includeNonCanonical">Also report U12-type (AC or AG) acceptors.</param>
+    /// <param name="model">Scoring model for U2-type (AG) acceptors.</param>
+    /// <param name="category">Shapiro &amp; Senapathy (1987) Table 1 subtable (ignored by MaxEntScan).</param>
+    public static IEnumerable<SpliceSite> FindAcceptorSites(
+        string sequence,
+        double minScore,
+        bool includeNonCanonical,
+        AcceptorScoringModel model,
+        ShapiroSenapathyCategory category = ShapiroSenapathyCategory.Primate)
     {
-        if (string.IsNullOrEmpty(sequence) || sequence.Length < 20)
+        if (!Enum.IsDefined(model))
+            throw new ArgumentOutOfRangeException(nameof(model), model, "Unknown acceptor scoring model.");
+        if (!ShapiroSenapathyAcceptorTables.ContainsKey(category))
+            throw new ArgumentOutOfRangeException(nameof(category), category, "Unknown Shapiro & Senapathy category.");
+
+        return FindAcceptorSitesIterator(sequence, minScore, includeNonCanonical, model, category);
+    }
+
+    private static IEnumerable<SpliceSite> FindAcceptorSitesIterator(
+        string sequence,
+        double minScore,
+        bool includeNonCanonical,
+        AcceptorScoringModel model,
+        ShapiroSenapathyCategory category)
+    {
+        if (string.IsNullOrEmpty(sequence))
             yield break;
 
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
 
-        for (int i = 15; i < upper.Length - 1; i++)
+        for (int i = 0; i + 1 < upper.Length; i++)
         {
-            // Check for canonical AG
-            if (upper[i] == 'A' && upper[i + 1] == 'G')
+            if (upper[i] != 'A')
+                continue;
+            char second = upper[i + 1];
+
+            // U2-type candidate: AG (A at -2, G at -1).
+            if (second == 'G')
             {
-                double score = ScoreAcceptorSite(upper, i);
-                if (score >= minScore)
+                double? score = model == AcceptorScoringModel.MaxEntScan
+                    ? ScoreAcceptorSiteMaxEnt(upper, i)
+                    : ScoreAcceptorSiteShapiroSenapathy(upper, i, category);
+
+                if (score is double s && s >= minScore)
                 {
+                    double confidence = model == AcceptorScoringModel.MaxEntScan
+                        ? 1.0 / (1.0 + Math.Pow(2.0, -s))
+                        : CalculateConfidence(s, 0.5, 1.0);
+
                     yield return new SpliceSite(
-                        Position: i + 1, // Position of G in AG (last intron nucleotide)
+                        Position: i + 1, // G of AG (last intron nucleotide)
                         Type: SpliceSiteType.Acceptor,
-                        Motif: GetMotifContext(upper, i, 15, 2),
-                        Score: score,
-                        Confidence: CalculateConfidence(score, 0.5, 1.0));
+                        Motif: GetMotifContext(upper, i, 18, 5),
+                        Score: s,
+                        Confidence: confidence);
                 }
             }
-            // U12 spliceosome AC
-            else if (includeNonCanonical && upper[i] == 'A' && upper[i + 1] == 'C')
+
+            // U12-type candidate: AC (AT-AC) or AG (GT-AG) terminus, scored by its branch site.
+            if (includeNonCanonical && model == AcceptorScoringModel.ShapiroSenapathy &&
+                (second == 'C' || second == 'G'))
             {
-                double score = ScoreU12AcceptorSite(upper, i);
-                if (score >= minScore)
+                double? score = ScoreU12AcceptorSite(upper, i + 1);
+                if (score is double s && s >= minScore)
                 {
                     yield return new SpliceSite(
                         Position: i + 1,
                         Type: SpliceSiteType.U12Acceptor,
-                        Motif: GetMotifContext(upper, i, 15, 2),
-                        Score: score,
-                        Confidence: CalculateConfidence(score, 0.5, 1.0));
+                        Motif: GetMotifContext(upper, i, 18, 5),
+                        Score: s,
+                        Confidence: CalculateConfidence(s, 0.5, 1.0));
                 }
             }
         }
@@ -466,8 +652,8 @@ public static class SpliceSitePredictor
     /// <summary>
     /// Detects the explicit branch point upstream of a 3' acceptor AG using the human
     /// <c>yUnAy</c> branch-point consensus (Gao et al. 2008). This is an opt-in,
-    /// additive analysis; the default <see cref="FindAcceptorSites"/> scoring
-    /// (PWM consensus + polypyrimidine-tract fraction) is unchanged.
+    /// additive analysis; the <see cref="FindAcceptorSites(string, double, bool)"/> score
+    /// (Shapiro &amp; Senapathy 1987) has no branch-point term.
     /// </summary>
     /// <remarks>
     /// The branch-point adenosine sits at motif position 0 of the consensus
@@ -476,13 +662,16 @@ public static class SpliceSitePredictor
     /// (default 18-40) nt window upstream of the AG, bracketing the -34..-21 core
     /// reported by Gao et al. (2008). Each candidate is scored by a conservation-weighted
     /// fraction over the four informative positions (-3 pyrimidine, -2 U, 0 A, +1
-    /// pyrimidine); position -1 is uninformative ('n'). The polypyrimidine-tract fraction
-    /// between the branch point and the AG is reported alongside the best candidate.
+    /// pyrimidine); position -1 is uninformative ('n'). A placement whose 5-nt motif contains a
+    /// non-A/C/G/T/U character is not scored. On ties the candidate nearest the AG wins (Gao et al.
+    /// 2008: downstream branch sites are used more often). The pyrimidine fraction of the
+    /// polypyrimidine tract (branch point +4..+24, Gao et al. 2008, ending before the AG) is
+    /// reported alongside the best candidate.
     /// </remarks>
     /// <param name="sequence">The pre-mRNA / intron sequence (DNA or RNA; case-insensitive).</param>
     /// <param name="acceptorAgPosition">0-based index of the terminal <c>G</c> of the 3'
     /// acceptor AG (i.e. the <see cref="SpliceSite.Position"/> reported by
-    /// <see cref="FindAcceptorSites"/>).</param>
+    /// <see cref="FindAcceptorSites(string, double, bool)"/>).</param>
     /// <param name="minScore">Minimum conservation-weighted score in [0, 1] for a
     /// candidate to count as found. Defaults to 0.5.</param>
     /// <returns>The best branch-point candidate in the upstream window, or a
@@ -514,7 +703,8 @@ public static class SpliceSitePredictor
         {
             int branchA = agEnd - distance;
             // Need motif positions -3..+1 → indices [branchA-3, branchA+1] in bounds.
-            if (branchA - 3 < 0 || branchA + 1 >= upper.Length)
+            if (branchA - 3 < 0 || branchA + 1 >= upper.Length ||
+                !IsAcgu(upper, branchA - 3, HumanBranchPointMotifLength))
                 continue;
 
             double score = ScoreBranchPointConsensus(upper, branchA);
@@ -537,29 +727,90 @@ public static class SpliceSitePredictor
     }
 
     /// <summary>
-    /// Finds branch point sites in a sequence.
+    /// Finds branch-point candidates in a sequence with the human <c>yUnAy</c> consensus
+    /// (Gao et al. 2008).
     /// </summary>
+    /// <remarks>
+    /// Equivalent to <see cref="FindBranchPoints(string, int, int, double, BranchPointModel)"/> with
+    /// <see cref="BranchPointModel.HumanYUnAy"/>.
+    /// </remarks>
     public static IEnumerable<SpliceSite> FindBranchPoints(
         string sequence,
         int searchStart = 0,
         int searchEnd = -1,
-        double minScore = 0.5)
+        double minScore = 0.5) =>
+        FindBranchPoints(sequence, searchStart, searchEnd, minScore, BranchPointModel.HumanYUnAy);
+
+    /// <summary>
+    /// Finds branch-point candidates in a sequence.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every motif placement whose first nucleotide index lies in
+    /// [<paramref name="searchStart"/>, <paramref name="searchEnd"/>] (inclusive; -1 = to the end)
+    /// and which fits inside the sequence is scored; placements containing a non-A/C/G/T/U
+    /// character are skipped. <see cref="SpliceSite.Position"/> is the 0-based index of the branch
+    /// adenosine position, <see cref="SpliceSite.Motif"/> the scored motif (RNA alphabet).
+    /// </para>
+    /// <para>
+    /// <b><see cref="BranchPointModel.HumanYUnAy"/> (default):</b> 5-nt motif <c>yUnAy</c>
+    /// (-3..+1, branch A at 0), scored as the conservation-weighted match fraction of Gao et al.
+    /// (2008) Table 4 (y@-3 0.790, U@-2 0.746, A@0 0.923, y@+1 0.751; -1 uninformative); 1.0 for a
+    /// perfect <c>yUnAy</c>.
+    /// </para>
+    /// <para>
+    /// <b><see cref="BranchPointModel.YeastUACUAAC"/>:</b> 7-nt motif, fraction of positions matching
+    /// the strictly conserved <i>S. cerevisiae</i> branch-point sequence <c>UACUAAC</c> (branch A =
+    /// sixth nucleotide; Langford &amp; Gallwitz 1983).
+    /// </para>
+    /// <see cref="SpliceSite.Confidence"/> = clamp((score - 0.5) / 0.5, 0, 1).
+    /// </remarks>
+    public static IEnumerable<SpliceSite> FindBranchPoints(
+        string sequence,
+        int searchStart,
+        int searchEnd,
+        double minScore,
+        BranchPointModel model)
     {
-        if (string.IsNullOrEmpty(sequence) || sequence.Length < 7)
+        if (!Enum.IsDefined(model))
+            throw new ArgumentOutOfRangeException(nameof(model), model, "Unknown branch-point model.");
+
+        return FindBranchPointsIterator(sequence, searchStart, searchEnd, minScore, model);
+    }
+
+    private static IEnumerable<SpliceSite> FindBranchPointsIterator(
+        string sequence,
+        int searchStart,
+        int searchEnd,
+        double minScore,
+        BranchPointModel model)
+    {
+        if (string.IsNullOrEmpty(sequence))
             yield break;
 
+        bool yeast = model == BranchPointModel.YeastUACUAAC;
+        int motifLength = yeast ? YeastBranchPointConsensus.Length : HumanBranchPointMotifLength;
+        int branchIndex = yeast ? YeastBranchPointBranchIndex : HumanBranchPointBranchIndex;
+
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
-        int end = searchEnd < 0 ? upper.Length - 7 : Math.Min(searchEnd, upper.Length - 7);
+        int lastStart = upper.Length - motifLength;
+        int end = searchEnd < 0 ? lastStart : Math.Min(searchEnd, lastStart);
 
         for (int i = Math.Max(0, searchStart); i <= end; i++)
         {
-            double score = ScoreBranchPoint(upper, i);
+            if (!IsAcgu(upper, i, motifLength))
+                continue;
+
+            double score = yeast
+                ? ConsensusMatchFraction(upper, i, YeastBranchPointConsensus)
+                : ScoreBranchPointConsensus(upper, i + branchIndex);
+
             if (score >= minScore)
             {
                 yield return new SpliceSite(
-                    Position: i + 5, // Position of branch A
+                    Position: i + branchIndex,
                     Type: SpliceSiteType.Branch,
-                    Motif: upper.Substring(i, 7),
+                    Motif: upper.Substring(i, motifLength),
                     Score: score,
                     Confidence: CalculateConfidence(score, 0.5, 1.0));
             }
@@ -636,38 +887,107 @@ public static class SpliceSitePredictor
         _ => -1
     };
 
-    private static double ScoreAcceptorSite(string sequence, int position)
+    /// <summary>
+    /// Shapiro &amp; Senapathy (1987) 3' splice-site score in [0, 1] of the 15-nt subsequence
+    /// -14..+1 around the acceptor whose A of AG (-2) is at <paramref name="agIndex"/>; null when the
+    /// subsequence runs off the sequence, contains a non-A/C/G/U character, or has an AG inside the
+    /// pyrimidine region -14..-5 (eliminated in the paper). <paramref name="sequence"/> must be
+    /// upper-case RNA.
+    /// </summary>
+    private static double? ScoreAcceptorSiteShapiroSenapathy(
+        string sequence, int agIndex, ShapiroSenapathyCategory category)
     {
-        double score = 0;
-        int count = 0;
+        int start = agIndex - ShapiroSenapathyAcceptorUpstream;
+        if (start < 0 || start + ShapiroSenapathyAcceptorRowCount > sequence.Length ||
+            !IsAcgu(sequence, start, ShapiroSenapathyAcceptorRowCount))
+            return null;
 
-        // Score polypyrimidine tract
-        int pptScore = 0;
-        for (int i = position - 15; i < position - 3; i++)
+        for (int k = start; k < start + ShapiroSenapathyAcceptorPyrimidineRows - 1; k++)
         {
-            if (i >= 0 && i < sequence.Length && (sequence[i] == 'C' || sequence[i] == 'U'))
-                pptScore++;
+            if (sequence[k] == 'A' && sequence[k + 1] == 'G')
+                return null;
         }
 
-        score += pptScore / 12.0 * 2; // PPT contribution
+        int[,] table = ShapiroSenapathyAcceptorTables[category];
 
-        // Score AG and context — PWM offsets are relative to splice site (position + 2)
-        foreach (var (offset, weights) in AcceptorPwm)
+        // Pyrimidine region: best 8 of the 10 observed percentages; bounds from the 8 lowest
+        // per-position minima / 8 highest per-position maxima.
+        var observed = new int[ShapiroSenapathyAcceptorPyrimidineRows];
+        var minima = new int[ShapiroSenapathyAcceptorPyrimidineRows];
+        var maxima = new int[ShapiroSenapathyAcceptorPyrimidineRows];
+        for (int row = 0; row < ShapiroSenapathyAcceptorPyrimidineRows; row++)
         {
-            int pos = position + 2 + offset;
-            if (pos >= 0 && pos < sequence.Length)
-            {
-                char b = sequence[pos];
-                if (weights.TryGetValue(b, out double weight))
-                {
-                    score += Math.Log2(weight / 0.25 + 0.01);
-                    count++;
-                }
-            }
+            observed[row] = table[row, NucleotideColumn(sequence[start + row])];
+            (minima[row], maxima[row]) = RowRange(table, row);
         }
 
-        double normalized = (score / (count + 1) + 2) / 4;
-        return Math.Max(0, Math.Min(1, normalized));
+        int t1 = observed.OrderByDescending(v => v).Take(ShapiroSenapathyAcceptorPyrimidineBest).Sum();
+        int l1 = minima.OrderBy(v => v).Take(ShapiroSenapathyAcceptorPyrimidineBest).Sum();
+        int h1 = maxima.OrderByDescending(v => v).Take(ShapiroSenapathyAcceptorPyrimidineBest).Sum();
+
+        // CAGG part: -3, -2, -1, +1.
+        int t2 = 0, l2 = 0, h2 = 0;
+        for (int row = ShapiroSenapathyAcceptorCaggFirstRow; row < ShapiroSenapathyAcceptorRowCount; row++)
+        {
+            t2 += table[row, NucleotideColumn(sequence[start + row])];
+            var (lo, hi) = RowRange(table, row);
+            l2 += lo;
+            h2 += hi;
+        }
+
+        return ((double)(t1 - l1) / (h1 - l1) + (double)(t2 - l2) / (h2 - l2)) / 2;
+    }
+
+    /// <summary>Lowest and highest percentage of a Shapiro &amp; Senapathy table row.</summary>
+    private static (int Min, int Max) RowRange(int[,] table, int row)
+    {
+        int lo = int.MaxValue, hi = int.MinValue;
+        for (int c = 0; c < 4; c++)
+        {
+            lo = Math.Min(lo, table[row, c]);
+            hi = Math.Max(hi, table[row, c]);
+        }
+        return (lo, hi);
+    }
+
+    /// <summary>
+    /// MaxEntScan score3 (bits) of the 23-nt window -20..+3 around the acceptor whose A of AG is at
+    /// <paramref name="agIndex"/>; null when the window runs off the sequence or contains a
+    /// non-A/C/G/U character. <paramref name="sequence"/> must be upper-case RNA.
+    /// </summary>
+    private static double? ScoreAcceptorSiteMaxEnt(string sequence, int agIndex)
+    {
+        int start = agIndex - MaxEntAcceptorAgStart;
+        if (start < 0 || start + MaxEntAcceptorWindowLength > sequence.Length ||
+            !IsAcgu(sequence, start, MaxEntAcceptorWindowLength))
+            return null;
+
+        return ScoreAcceptorMaxEnt(sequence.Substring(start, MaxEntAcceptorWindowLength));
+    }
+
+    /// <summary>True when <paramref name="length"/> characters from <paramref name="start"/> are
+    /// all A/C/G/T/U (upper case).</summary>
+    private static bool IsAcgu(string sequence, int start, int length)
+    {
+        for (int k = start; k < start + length; k++)
+        {
+            if (NucleotideColumn(sequence[k]) < 0)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>Fraction of positions of <paramref name="consensus"/> matched at
+    /// <paramref name="start"/> (caller guarantees bounds).</summary>
+    private static double ConsensusMatchFraction(string sequence, int start, string consensus)
+    {
+        int matches = 0;
+        for (int k = 0; k < consensus.Length; k++)
+        {
+            if (sequence[start + k] == consensus[k])
+                matches++;
+        }
+        return (double)matches / consensus.Length;
     }
 
     /// <summary>
@@ -728,29 +1048,6 @@ public static class SpliceSitePredictor
         return total > 0 ? (double)count / total : 0;
     }
 
-    private static double ScoreBranchPoint(string sequence, int position)
-    {
-        double score = 0;
-        int count = 0;
-
-        foreach (var (offset, weights) in BranchPointPwm)
-        {
-            int pos = position + offset;
-            if (pos >= 0 && pos < sequence.Length)
-            {
-                char b = sequence[pos];
-                if (weights.TryGetValue(b, out double weight))
-                {
-                    score += Math.Log2(weight / 0.25 + 0.01);
-                    count++;
-                }
-            }
-        }
-
-        double normalized = (score / count + 2) / 4;
-        return Math.Max(0, Math.Min(1, normalized));
-    }
-
     /// <summary>
     /// Fraction of the 8 intron positions +1..+8 matching the U12-type 5' splice-site
     /// consensus /RUAUCCUY (Sharp &amp; Burge 1997); null when the 8-nt window runs off the
@@ -771,50 +1068,28 @@ public static class SpliceSitePredictor
         return (double)matches / U12DonorConsensus.Length;
     }
 
-    private static double ScoreU12AcceptorSite(string sequence, int position)
+    /// <summary>
+    /// U12-type acceptor score: best fraction of positions matching the U12 branch-site consensus
+    /// <c>UUCCUUAAC</c> over the placements whose branch A lies
+    /// <see cref="U12BranchToAcceptorMinDistance"/>..<see cref="U12BranchToAcceptorMaxDistance"/> nt
+    /// upstream of <paramref name="lastIntronIndex"/> (the terminal C/G of the intron); placements
+    /// off the sequence or with a non-A/C/G/U character are skipped; null when none is scorable.
+    /// </summary>
+    private static double? ScoreU12AcceptorSite(string sequence, int lastIntronIndex)
     {
-        // U12-type 3' splice site consensus: YCCAC (Hall & Padgett 1994, Jackson 1991)
-        // position = index of A in the AC dinucleotide
-        // Expected upstream: sequence[pos-3]=Y, sequence[pos-2]=C, sequence[pos-1]=C
-        if (position < 3 || position + 1 >= sequence.Length)
-            return 0;
-
-        if (sequence[position] != 'A' || sequence[position + 1] != 'C')
-            return 0;
-
-        double score = 0;
-
-        // YCCAC consensus: check C at position-1 (second C of YCC)
-        if (sequence[position - 1] == 'C')
-            score += 1.0;
-
-        // YCCAC consensus: check C at position-2 (first C of YCC)
-        if (position - 2 >= 0 && sequence[position - 2] == 'C')
-            score += 1.0;
-
-        // YCCAC consensus: check Y (pyrimidine) at position-3
-        if (position - 3 >= 0 && (sequence[position - 3] == 'C' || sequence[position - 3] == 'U'))
-            score += 0.5;
-
-        // Polypyrimidine tract upstream
-        int pptCount = 0;
-        int pptTotal = 0;
-        for (int i = position - 15; i < position - 3; i++)
+        double? best = null;
+        for (int d = U12BranchToAcceptorMinDistance; d <= U12BranchToAcceptorMaxDistance; d++)
         {
-            if (i >= 0 && i < sequence.Length)
-            {
-                pptTotal++;
-                if (sequence[i] == 'C' || sequence[i] == 'U')
-                    pptCount++;
-            }
+            int start = lastIntronIndex - d - U12BranchSiteBranchIndex;
+            if (start < 0 || start + U12BranchSiteConsensus.Length > sequence.Length ||
+                !IsAcgu(sequence, start, U12BranchSiteConsensus.Length))
+                continue;
+
+            double score = ConsensusMatchFraction(sequence, start, U12BranchSiteConsensus);
+            if (best is null || score > best)
+                best = score;
         }
-
-        double pptFraction = pptTotal > 0 ? (double)pptCount / pptTotal : 0;
-        score += pptFraction;
-
-        // Max possible: 1.0 (C at -1) + 1.0 (C at -2) + 0.5 (Y at -3) + 1.0 (PPT) = 3.5
-        double normalized = score / 3.5;
-        return Math.Max(0, Math.Min(1, normalized));
+        return best;
     }
 
     #endregion
@@ -1349,9 +1624,9 @@ public static class SpliceSitePredictor
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This is an opt-in alternative to the default <see cref="FindAcceptorSites"/> PWM +
-    /// polypyrimidine-tract scorer; the existing PWM/branch-point scorers and their defaults
-    /// are unchanged. The returned value is the log<sub>2</sub> ratio of the maximum-entropy
+    /// Also used by <see cref="FindAcceptorSites(string, double, bool, AcceptorScoringModel, ShapiroSenapathyCategory)"/>
+    /// with <see cref="AcceptorScoringModel.MaxEntScan"/> (default there: Shapiro &amp; Senapathy 1987).
+    /// The returned value is the log<sub>2</sub> ratio of the maximum-entropy
     /// probability of the window to its background probability — higher means a stronger 3'
     /// splice site (the canonical documented example scores 2.89 bits).
     /// </para>

@@ -217,9 +217,11 @@ public class SpliceSitePredictor_GeneStructure_Tests
 
         // GU-donor introns paired from a U2-type donor site. (A GU can also be reported as a
         // U12-type /GUAUCCUY candidate — GT-AG U12 introns exist, Dietrich et al. 1997 — and
-        // such pairs are typed U12; this test pins the U2 typing of U2 donor pairs.)
+        // such pairs are typed U12, as are pairs with a U12 branch-site acceptor candidate; this
+        // test pins the U2 typing of U2 donor + U2 acceptor pairs.)
         var guIntrons = introns
-            .Where(i => i.Sequence.StartsWith("GU") && i.DonorSite.Type == SpliceSiteType.Donor)
+            .Where(i => i.Sequence.StartsWith("GU") && i.DonorSite.Type == SpliceSiteType.Donor &&
+                        i.AcceptorSite.Type == SpliceSiteType.Acceptor)
             .ToList();
 
         Assert.That(guIntrons, Is.Not.Empty,

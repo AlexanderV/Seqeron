@@ -2,20 +2,15 @@
   Acceptors: [
     {
       Position: 25,
-      Motif: GCCGCCAUGGCGGUAAG,
-      Score: 0.584601131091784,
-      Confidence: 0.16920226218356804
+      Motif: AAAGCCGCCAUGGCGGUAAGUUU,
+      Score: 0.5362179487179487,
+      Confidence: 0.0724358974358974
     },
     {
       Position: 109,
-      Motif: UUUUUUUUUUUUUUCAG,
-      Score: 0.8392671471600917,
-      Confidence: 0.6785342943201833
-    },
-    {
-      Position: 119,
-      Motif: UUUUCAGGCGAUGAAAG,
-      Score: 0.45534060791428366
+      Motif: UUUUUUUUUUUUUUUUUCAGGCG,
+      Score: 1.0,
+      Confidence: 1.0
     }
   ]
 }

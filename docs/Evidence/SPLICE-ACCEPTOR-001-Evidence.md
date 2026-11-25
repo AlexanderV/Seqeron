@@ -57,14 +57,26 @@
 **Citation:** Shapiro MB, Senapathy P. "RNA splice junctions of different classes of eukaryotes: sequence statistics and functional implications in gene expression." Nucleic Acids Research 15(17):7155–7174, 1987.
 **Authority rank:** 1 (peer-reviewed paper)
 
+**Opened (B11 review, 2026-11-25):** the scanned paper as PDF via WebFetch of
+`europepmc.org/api/getPdf?pmcid=PMC306199`, pages rendered with `pdftoppm` (150/400 dpi) and read visually:
+Methods p. 7157–7158, Table 1 p. 7159 (3' ss subtables), Table 5 p. 7168 (published 3' ss scores).
+
 **Key Extracted Points:**
 
-1. **Nucleotide frequencies at 3' splice site:** Compiled from 3,700+ intron sequences across multiple eukaryotic species.
-2. **Position -2 (A):** 100% conserved — the A of the CAG acceptor is nearly invariant.
-3. **Position -1 (G):** 100% conserved — the G of the CAG acceptor is nearly invariant.
-4. **Position -3:** Strong C preference (~65–70%), followed by U (~20%).
-5. **Upstream positions (-5 to -15):** Enriched in pyrimidines (C+U ≈ 70–80%), reflecting the polypyrimidine tract.
-6. **Position +1 (first exonic nucleotide):** G is most frequent (~50%).
+1. **Table 1 (3' ss, positions −14..+1, A C G T %, 1432 total / 542 primate / 378 rodent / 67 other mammal /
+   202 other vertebrate / 86 invertebrate / 110 plant / 47 viral sites).** Primate: −14 9 31 15 45; −13 9 33 13 45;
+   −12 7 31 11 51; −11 7 35 7 51; −10 10 35 7 47; −9 10 35 11 44; −8 7 43 7 42; −7 9 41 8 42; −6 6 39 6 48;
+   −5 6 40 8 46; −4 23 29 23 24; −3 3 74 1 22; −2 100 0 0 0; −1 0 0 100 0; +1 28 13 49 10. All eight subtables are
+   transcribed in `SpliceSitePredictor.ShapiroSenapathyAcceptorTables`.
+2. **Methods (3' ss score, verbatim):** "to the left of the NCAGG consensus, the best 8 of 10 locations were used,
+   since the total pyrimidine content of these 10 locations is about 80% and most 3' splice sites have at least two
+   purines in these 10 locations. Thus a pyrimidine sequence containing two purines can score as well as one
+   containing no purines. Based on the fact that less than 2% of the 3' splice sites contained an AG within 10 bases
+   upstream of the true 3' ss (Figure 4), an added restriction was made that any sequence containing an AG in those
+   10 locations be eliminated from consideration." `score = 100((t1−l1)/(h1−l1)+(t2−l2)/(h2−l2))/2`; t1 = sum of best
+   8 of 10 percentages at pyrimidine positions; t2 = sum of 4 percentages at CAGG positions; l1 = sum of lowest 8 of
+   lowest 10; l2 = sum of lowest 4 at CAGG; h1 = sum of highest 8 of highest 10; h2 = sum of highest 4 at CAGG.
+3. **Position −2 (A), −1 (G):** 100 %; −3 C 72–79 % (plant 62 %); +1 G 49–66 %.
 
 ---
 
@@ -174,7 +186,7 @@
 | Sequence | `UUUUUUUUUUUUUUUUCAGGG` (21 nt) |
 | PPT region | positions 0–15: continuous U (strong PPT) |
 | AG position | positions 16–17 |
-| Expected | At least 1 acceptor site with Acceptor type |
+| Expected | 1 Acceptor at position 18, S&S primate score 1.0 (best 8 of 10 U + CAG|G all row maxima) |
 
 ### Dataset 2: No AG → empty result
 
@@ -192,7 +204,7 @@
 | Parameter | Value |
 |-----------|-------|
 | Strong PPT | `UUUUUUUUUUUUUUUUCAGGG` — continuous pyrimidines |
-| Weak context | `AAGAAGAAGAAGAAGAACAGGG` — purines interrupt PPT |
+| Weak context | `AAAAAAAAAAAAAAAACAGGG` — all-purine region (0.5171875); `AAGAAG…CAGGG` is eliminated (AG in −14..−5, S&S 1987) |
 | Expected | Strong PPT score > weak context score |
 
 ### Dataset 4: Branch-point detection (yUnAy) — Gao et al. (2008)
@@ -253,17 +265,42 @@ acceptors are scored, not rejected (`…gtACGGA` −5.18, `…gtGGGGA` −5.07).
 
 ---
 
+### Dataset 6: Shapiro & Senapathy 3' ss score, U12 / branch-point models — B11 review oracle (2026-11-25)
+
+**Opened this session:** S&S 1987 (above); Gao et al. 2008 PDF (europepmc getPdf PMC2367711, `pdftotext`: Abstract
+"Yeast carries a strictly conserved branch point sequence (BPS) of UACUAAC"; Table 4 nucleotide frequencies at the 181
+branch sites, positions −5..+3 — A .254 .232 .083 .066 .166 .923 .182 .302 .201; C .210 .227 .470 .160 .448 .033 .331
+.274 .391; G .254 .193 .127 .028 .177 .017 .066 .112 .112; U .282 .348 .320 .746 .210 .028 .420 .313 .296 — confirms the
+0.790/0.746/0.923/0.751 weights; branch points −50..−5, 83 % at −34..−21, PPT +4..+24); Turunen et al. 2013 WIREs RNA
+(europepmc getPdf PMC3584512: U12 introns lack a PPT, BPS-to-3'ss optimum 11–13 nt, AT-AC and GT-AG subtypes);
+Levine thesis ch. 4 (ftp.sanger.ac.uk/pub/resources/theses/levine/chapter4.pdf = Levine & Durbin 2001: branch site
+TTCCTTAA, branch-site-to-acceptor distance 8–21 bp); WebSearch snippets of Brock, Dietrich & Padgett 2008 (PMC2578861:
+"fully consensus branch site sequence (UUCCUUAAC)", branch = second A, NOL1 intron F A90) and of Mount's RNAinfo page
+(U12 5'ss RTATCCTY, branch TCCTRAY; no U12 3'ss consensus). No source supporting the former `YCCAC` U12 3'ss
+consensus was found (WebSearch; Dietrich et al. 2001: penultimate A essential, terminal C most active — no extended
+3'ss motif).
+
+| check | result |
+|---|---|
+| S&S Table 5 published 3' ss scores (41 sites: primate 6, rodent 6, other mammal 6, other vertebrate 6, invertebrate 8, plant 9), formula above, AG rule | 40/41 identical at 1 dp; rabbit MHC intron 3 `AATCTTTCCCTCAG/A` 86.79 vs published 86.9 (Table 1 percentages are rounded) |
+| Independent Python oracle (S&S 8 subtables + AG elimination, maxentpy score3 for MaxEnt mode, U12 UUCCUUAAC 8–21 nt, yUnAy / UACUAAC scanners, FindAcceptorBranchPoint incl. PPT fraction; confidences, motifs, windows, N/IUPAC/`-`, case, U, both overloads) vs C# | 8,104 inputs (8,000 random 0–70 nt with planted motifs + HBB/HBA1/TP53/CFTR genomic (Ensembl REST, GRCh38) × {primate, total, plant, maxent, yUnAy, yeast} + the 40 real acceptors × 2 thresholds): 1,174,365 records (76,918 Acceptor, 161,875 U12Acceptor, 934,141 Branch, 1,431 branch-point results), 0 mismatching inputs; Score / Confidence / PPT fraction bit-identical |
+| Real human acceptors (Ensembl canonical, 40) | primate S&S 0.717–0.992 (mean 0.880; 1 eliminated by an AG in −14..−5); MaxEnt 3.21–13.37 bits (mean 9.19); `yUnAy` ≥ 0.5 found 18–40 nt upstream for 40/40; fraction of all AG with S&S ≥ 0.5: 0.36–0.55 (42–62 % of AG eliminated / unscorable) |
+
 ## Verified Design Decisions
 
 All previously documented assumptions have been audited and resolved:
 
-1. **PWM weights — verified against Shapiro & Senapathy (1987):** The AcceptorPwm values at key positions match published nucleotide frequencies: position -3 C=0.70 (source: C ~65–70%), position -2 A=1.00 (source: 100%), position -1 G=1.00 (source: 100%), position 0 G=0.50 (source: ~50%). Upstream positions reflect documented pyrimidine enrichment (C+U = 0.80, source: 70–80%). **No assumption — values verified.**
+1. **Default acceptor score — Shapiro & Senapathy (1987) 3' ss score (B11 F27, 2026-11-25):** the former 8-offset
+   "PWM" (weights not in any table of the paper; −15/−10 rows invented) + separate 12-nt PPT count + ad-hoc
+   `(score/(count+1)+2)/4` normalisation was replaced by the published Table 1 / Methods score (Dataset 6).
 
-2. **Normalization formula — design decision:** The score normalization `(score/(count+1) + 2) / 4` is a heuristic linear mapping from composite PWM + PPT raw scores to [0, 1]. It preserves monotonic ordering (higher biological signal → higher normalized score) and clamps output to [0, 1]. Behavioral properties verified by tests M5, M6, S5. **Not a biological assumption — implementation design choice.**
+2. **Normalization:** none beyond the published formula (score/100).
 
-3. **U12 acceptor scoring — resolved via YCCAC consensus:** Replaced the previous fixed 0.6 score with proper YCCAC consensus-based scoring per Hall & Padgett (1994) and Jackson (1991). The implementation checks the 3' splice site pattern (Y-C-C-A-C), assessing match quality at positions -3 (Y), -2 (C), -1 (C), plus PPT quality upstream. Normalized to [0, 1]. **No assumption — scoring based on published U12 consensus.**
+3. **U12 acceptor scoring — U12 branch site (B11 F29):** the former `YCCAC` weights (1, 1, 0.5) + PPT fraction /3.5
+   had no source (no `YCCAC` consensus found; U12 introns have no PPT — Turunen 2013). Replaced by the best
+   `UUCCUUAAC` match fraction with the branch A 8–21 nt upstream (Brock 2008; Levine & Durbin 2001), AC or AG terminus.
 
-4. **Branch-point detection (`FindAcceptorBranchPoint`) — sourced from Gao et al. (2008):** the opt-in branch-point detector scans the 18–40 nt window upstream of the acceptor AG for the human `yUnAy` consensus (positions −3..+1, branch A at 0). The per-position conservation weights (y@−3 = 0.790, U@−2 = 0.746, A@0 = 0.923, y@+1 = 0.751) are the Gao (2008) lariat-RT-PCR frequencies; the 18–40 nt envelope brackets the Gao −34..−21 core and is corroborated by Mercer et al. (2015) "19–35 nt". The PPT-fraction window (4–24 nt downstream of the branch point) is also from Gao (2008). **No assumption — all constants are source-traceable.** The default PWM+PPT acceptor scoring (`FindAcceptorSites`) is unchanged and still does not include a branch-point term in the acceptor score itself.
+4. **Branch-point detection (`FindAcceptorBranchPoint`) — sourced from Gao et al. (2008):** the opt-in branch-point detector scans the 18–40 nt window upstream of the acceptor AG for the human `yUnAy` consensus (positions −3..+1, branch A at 0). The per-position conservation weights (y@−3 = 0.790, U@−2 = 0.746, A@0 = 0.923, y@+1 = 0.751) are the Gao (2008) lariat-RT-PCR frequencies; the 18–40 nt envelope brackets the Gao −34..−21 core and is corroborated by Mercer et al. (2015) "19–35 nt". The PPT-fraction window (4–24 nt downstream of the branch point) is also from Gao (2008). **No assumption — all constants are source-traceable.** The acceptor score itself (`FindAcceptorSites`, S&S 1987) has no branch-point term. `FindBranchPoints` (formerly an unsourced YNYURAC PWM) now uses the same yUnAy scorer, plus the yeast UACUAAC model (B11 F30).
 
 5. **MaxEntScan score3ss maximum-entropy acceptor model — IMPLEMENTED (opt-in `ScoreAcceptorMaxEnt`):** the Yeo & Burge (2004) 23-nt maximum-entropy 3' model is now bundled. The precomputed probability tables were retrieved this session from the **MIT-licensed maxentpy port** (`score3_matrix.txt`, 82 560 records) and embedded as `Data/maxent_score3.txt` (provenance + MIT licence in `Data/maxent_score3.LICENSE.md`). The factorisation is the maxentpy `score3` (see source #6 above). The implementation reproduces all three documented worked examples EXACTLY (`2.89`/`8.19`/`-0.08`, full precision `2.886773`/`8.190965`/`-0.080278`), so a wrong table or factorisation would fail the 2.89 cross-check. The original Burge-lab `me2x3acc*` Perl files (academic terms) are NOT used — the bundled artifact is the MIT-licensed equivalent. `CalculateMaxEntScore(motif, Acceptor)` (MCP `maxent_score`) delegates to `ScoreAcceptorMaxEnt` (B11 F21, 2026-11-25; formerly a PWM log-weight sum), and the default `FindAcceptorSites` PWM+PPT scoring is unchanged; `ScoreAcceptorMaxEnt` is a new, additive, opt-in method.
 
@@ -274,19 +311,19 @@ All previously documented assumptions have been audited and resolved:
 1. **MUST Test:** Canonical AG acceptor detected — Evidence: Shapiro & Senapathy (1987)
 2. **MUST Test:** No AG returns empty — Evidence: trivially correct
 3. **MUST Test:** Empty/null input returns empty — Evidence: guard behavior
-4. **MUST Test:** Short sequence (< 20 nt) returns empty — Evidence: implementation guard
+4. **MUST Test:** No full −14..+1 window (e.g. 14 nt) returns empty — Evidence: S&S scores whole subsequences
 5. **MUST Test:** Strong PPT scores higher than weak PPT context — Evidence: Burge et al. (1999)
 6. **MUST Test:** Score in [0, 1] range — Evidence: normalization formula
 7. **MUST Test:** Confidence in [0, 1] range — Evidence: CalculateConfidence contract
 8. **MUST Test:** DNA T↔U equivalence — Evidence: implementation T→U conversion
 9. **MUST Test:** Case insensitivity — Evidence: implementation ToUpperInvariant
 10. **MUST Test:** Multiple AG sites discovered — Evidence: scanning algorithm
-11. **SHOULD Test:** U12 YCCAC acceptor detected with includeNonCanonical=true — Evidence: Hall & Padgett (1994), Patel & Steitz (2003)
-12. **SHOULD Test:** U12 YCCAC excluded with includeNonCanonical=false — Evidence: default parameter
+11. **SHOULD Test:** U12 acceptor (UUCCUUAAC branch site 8–21 nt upstream) detected with includeNonCanonical=true — Evidence: Brock et al. (2008), Levine & Durbin (2001)
+12. **SHOULD Test:** U12 acceptors excluded with includeNonCanonical=false — Evidence: default parameter
 13. **SHOULD Test:** Position reported after AG (i+1) — Evidence: implementation spec
 14. **SHOULD Test:** Motif non-empty and contains AG context — Evidence: implementation
 15. **COULD Test:** Threshold filtering — higher minScore produces fewer results
-16. **COULD Test:** AG at position < 15 not detected — Evidence: implementation scan start
+16. **COULD Test:** AG with < 12 upstream nt not detected — Evidence: S&S window −14..+1
 
 ---
 
@@ -302,6 +339,10 @@ All previously documented assumptions have been audited and resolved:
 8. Dietrich RC, Incorvaia R, Padgett RA (1997). Terminal intron dinucleotide sequences do not distinguish between U2- and U12-dependent introns. Molecular Cell 1(1):151–160.
 9. Gao K, Masuda A, Matsuura T, Ohno K (2008). Human branch point consensus sequence is yUnAy. Nucleic Acids Research 36(7):2257–2267. DOI 10.1093/nar/gkn073.
 10. Mercer TR, Clark MB, Andersen SB, et al. (2015). Genome-wide discovery of human splicing branchpoints. Genome Research 25(2):290–303. DOI 10.1101/gr.182899.114.
+11. Langford CJ, Gallwitz D (1983). Evidence for an intron-contained sequence required for the splicing of yeast RNA polymerase II transcripts. Cell 33:519–527.
+12. Brock JE, Dietrich RC, Padgett RA (2008). Mutational analysis of the U12-dependent branch site consensus sequence. RNA 14:2430–2439.
+13. Levine A, Durbin R (2001). A computational scan for U12-dependent introns in the human genome sequence. Nucleic Acids Res 29:4006–4013.
+14. Turunen JJ, Niemelä EH, Verma B, Frilander MJ (2013). The significant other: splicing by the minor spliceosome. WIREs RNA 4:61–76.
 
 ---
 
@@ -312,3 +353,6 @@ All previously documented assumptions have been audited and resolved:
 - **2026-06-24**: Added explicit branch-point detection (`FindAcceptorBranchPoint`) sourced from Gao et al. (2008) `yUnAy` consensus + Mercer et al. (2015) distribution (refs 9–10, dataset 4). Default PWM+PPT acceptor scoring unchanged.
 - **2026-06-24 (MaxEntScan)**: IMPLEMENTED the Yeo & Burge (2004) MaxEntScan score3ss maximum-entropy 3' acceptor model as the opt-in `ScoreAcceptorMaxEnt`. Embedded the precomputed probability tables (`Data/maxent_score3.txt`, 82 560 records) retrieved verbatim this session from the MIT-licensed maxentpy port; recorded factorisation + provenance + MIT licence (source #6, design decision #5, dataset 5, `Data/maxent_score3.LICENSE.md`). Cross-checked the canonical `score3('...AGgga') == 2.89` plus two further reference values exactly. Default scorers unchanged.
 - **2026-11-25 (B11 SPLICE-MAXENT3-001)**: `CalculateMaxEntScore(Acceptor)` / MCP `maxent_score` → `ScoreAcceptorMaxEnt` (F21); score3 log2 as ln/ln2 (F22). Oracle: 200 025 windows bit-identical to maxentpy, 2-dp identical to the score3.pl CPAN port; table bytes = maxentpy, values = original me2x3acc1-9.
+- **2026-11-25 (B11 SPLICE-ACCEPTOR-001, F27–F31)**: default acceptor score = Shapiro & Senapathy (1987) 3' ss score
+  (Table 1, all eight subtables; primate default; AG elimination); full-window-only scoring; `FindAcceptorSites`
+  MaxEntScan mode; U12 acceptors by branch site; `FindBranchPoints` yUnAy / UACUAAC; Dataset 6 oracle.

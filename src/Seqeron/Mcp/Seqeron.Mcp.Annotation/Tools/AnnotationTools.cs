@@ -1381,11 +1381,7 @@ public class AnnotationTools
                 $"Unknown model '{model}'; expected 'shapiro-senapathy' or 'maxent'.", nameof(model))
         };
 
-        if (string.IsNullOrWhiteSpace(category) || category.Trim().Any(char.IsDigit) ||
-            !Enum.TryParse<SpliceSitePredictor.ShapiroSenapathyCategory>(category.Trim(), ignoreCase: true, out var table))
-            throw new ArgumentException(
-                $"Unknown category '{category}'; expected primate, total, rodent, othermammal, othervertebrate, invertebrate, plant or viral.",
-                nameof(category));
+        var table = ParseShapiroSenapathyCategory(category);
 
         var sites = SpliceSitePredictor
             .FindDonorSites(sequence, minScore, includeNonCanonical, scoringModel, table)
@@ -1394,38 +1390,69 @@ public class AnnotationTools
         return new FindDonorSitesResult(sites);
     }
 
+    private static SpliceSitePredictor.ShapiroSenapathyCategory ParseShapiroSenapathyCategory(string category)
+    {
+        if (string.IsNullOrWhiteSpace(category) || category.Trim().Any(char.IsDigit) ||
+            !Enum.TryParse<SpliceSitePredictor.ShapiroSenapathyCategory>(category.Trim(), ignoreCase: true, out var table))
+            throw new ArgumentException(
+                $"Unknown category '{category}'; expected primate, total, rodent, othermammal, othervertebrate, invertebrate, plant or viral.",
+                nameof(category));
+        return table;
+    }
+
     /// <summary>Find candidate 3' (acceptor) splice sites.</summary>
     [McpServerTool(Name = "find_acceptor_sites", Title = "Splice — Find Acceptor Sites", ReadOnly = true)]
-    [Description("Find candidate 3' (acceptor) splice sites (canonical AG, optional U12 AC).")]
+    [Description("Find candidate 3' (acceptor) splice sites: AG scored with the Shapiro & Senapathy (1987) 3' ss score over positions -14..+1 (pyrimidine region best 8 of 10 + CAGG; published 0-100 score / 100) or with MaxEntScan score3 (bits, 23-nt window -20..+3); optional U12-type acceptors (AC or AG terminus scored by the U12 branch site UUCCUUAAC 8-21 nt upstream). Position = index of the G of AG (last intron nt).")]
     public static FindAcceptorSitesResult FindAcceptorSites(
         [Description("RNA/DNA sequence to scan")] string sequence,
-        [Description("Minimum PWM score [0,1] for a site to be reported")] double minScore = 0.5,
-        [Description("Whether to include non-canonical (U12 AC) acceptor motifs")] bool includeNonCanonical = false)
+        [Description("Minimum score for a site to be reported: [0,1] for shapiro-senapathy (and U12 branch-site match fraction), bits for maxent")] double minScore = 0.5,
+        [Description("Also report U12-type acceptors (AC or AG terminus with a UUCCUUAAC branch site 8-21 nt upstream)")] bool includeNonCanonical = false,
+        [Description("Scoring model for AG acceptors: 'shapiro-senapathy' (default) or 'maxent' (MaxEntScan score3, 23-nt window -20..+3)")] string model = "shapiro-senapathy",
+        [Description("Shapiro & Senapathy (1987) Table 1 subtable: primate (default), total, rodent, othermammal, othervertebrate, invertebrate, plant, viral")] string category = "primate")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
+        var scoringModel = (model ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "shapiro-senapathy" or "shapirosenapathy" or "ss" => SpliceSitePredictor.AcceptorScoringModel.ShapiroSenapathy,
+            "maxent" or "maxentscan" => SpliceSitePredictor.AcceptorScoringModel.MaxEntScan,
+            _ => throw new ArgumentException(
+                $"Unknown model '{model}'; expected 'shapiro-senapathy' or 'maxent'.", nameof(model))
+        };
+
+        var table = ParseShapiroSenapathyCategory(category);
+
         var sites = SpliceSitePredictor
-            .FindAcceptorSites(sequence, minScore, includeNonCanonical)
+            .FindAcceptorSites(sequence, minScore, includeNonCanonical, scoringModel, table)
             .Select(ToDto)
             .ToList();
         return new FindAcceptorSitesResult(sites);
     }
 
-    /// <summary>Find branch-point candidates using a YNYURAC-like PWM.</summary>
+    /// <summary>Find branch-point candidates (human yUnAy or yeast UACUAAC).</summary>
     [McpServerTool(Name = "find_branch_points", Title = "Splice — Find Branch Points", ReadOnly = true)]
-    [Description("Find branch-point candidates using a YNYURAC-like position weight matrix.")]
+    [Description("Find branch-point candidates: human yUnAy (Gao et al. 2008; conservation-weighted match of y@-3, U@-2, A@0, y@+1, score [0,1]) or yeast UACUAAC (match fraction). Position = index of the branch adenosine position; motifs with non-ACGTU characters are skipped.")]
     public static FindBranchPointsResult FindBranchPoints(
         [Description("RNA/DNA sequence to scan")] string sequence,
-        [Description("Inclusive start index of the search window")] int searchStart = 0,
-        [Description("Exclusive-style end index of the search window; -1 scans to end of sequence")] int searchEnd = -1,
-        [Description("Minimum PWM score [0,1] for a branch point to be reported")] double minScore = 0.5)
+        [Description("Smallest motif start index scanned (inclusive)")] int searchStart = 0,
+        [Description("Largest motif start index scanned (inclusive); -1 scans to the end of the sequence")] int searchEnd = -1,
+        [Description("Minimum score [0,1] for a branch point to be reported")] double minScore = 0.5,
+        [Description("Branch-point consensus: 'human' (yUnAy, default) or 'yeast' (UACUAAC)")] string model = "human")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
+        var bpModel = (model ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "human" or "yunay" => SpliceSitePredictor.BranchPointModel.HumanYUnAy,
+            "yeast" or "uacuaac" or "tactaac" => SpliceSitePredictor.BranchPointModel.YeastUACUAAC,
+            _ => throw new ArgumentException(
+                $"Unknown model '{model}'; expected 'human' or 'yeast'.", nameof(model))
+        };
+
         var sites = SpliceSitePredictor
-            .FindBranchPoints(sequence, searchStart, searchEnd, minScore)
+            .FindBranchPoints(sequence, searchStart, searchEnd, minScore, bpModel)
             .Select(ToDto)
             .ToList();
         return new FindBranchPointsResult(sites);

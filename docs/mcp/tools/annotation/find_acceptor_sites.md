@@ -14,51 +14,73 @@ Find candidate 3' (acceptor) splice sites.
 
 ## Description
 
-Scans a sequence for 3' splice acceptor sites at every AG dinucleotide, scoring the upstream
-polypyrimidine tract and `(Y)nNCAG|G` consensus (Shapiro & Senapathy 1987; Burge et al. 1999). Sites
-scoring at least `minScore` are reported with the 0-based position of the G in the AG, motif, PWM score,
-and confidence. Optionally includes non-canonical U12 AC acceptor motifs.
+Scans a sequence (upper-cased, T→U) for 3' splice acceptor sites at every AG dinucleotide.
+
+- **`model = "shapiro-senapathy"` (default):** the Shapiro & Senapathy (1987) 3' ss score of the 15-nt
+  subsequence -14..+1 with the Table 1 subtable `category`:
+  `((t1 − l1)/(h1 − l1) + (t2 − l2)/(h2 − l2)) / 2`, where the pyrimidine region -14..-5 contributes the
+  best 8 of its 10 percentages and the CAGG part the percentages at -3, -2, -1, +1 (position -4 unscored);
+  i.e. the published 0-100 score / 100 (reproduces the paper's Table 5 3' ss scores, 40/41 at 1 dp). A
+  candidate with an AG inside -14..-5 is eliminated (as in the paper); a window that runs off the sequence
+  or contains a non-ACGTU character is not scored. Confidence = clamp((score − 0.5)/0.5, 0, 1).
+- **`model = "maxent"`:** MaxEntScan score3 (Yeo & Burge 2004) of the 23-nt window -20..+3, in bits
+  (`minScore` in bits); confidence = 2^s/(1+2^s).
+- **`includeNonCanonical` (shapiro-senapathy only):** U12-type acceptors (AC or AG terminus), scored as the
+  best match fraction to the U12 branch site `UUCCUUAAC` (branch A = second A; Brock et al. 2008) with the
+  branch A 8-21 nt upstream of the last intron nt (Levine & Durbin 2001); type `U12Acceptor`.
+
+`position` is the 0-based index of the G of AG (last intron nucleotide); `motif` is the -20..+3 context
+(truncated at the sequence ends).
 
 ## Core Documentation Reference
 
-- Source: [SpliceSitePredictor.cs#L264](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L264)
+- Source: [SpliceSitePredictor.cs#L579](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L579)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | RNA/DNA sequence to scan |
-| `minScore` | number | No | Minimum PWM score [0,1] (default 0.5) |
-| `includeNonCanonical` | boolean | No | Include U12 AC acceptors (default false) |
+| `minScore` | number | No | Minimum score (default 0.5): [0,1] for shapiro-senapathy / U12, bits for maxent |
+| `includeNonCanonical` | boolean | No | Also report U12-type acceptors (default false) |
+| `model` | string | No | `shapiro-senapathy` (default) or `maxent` |
+| `category` | string | No | S&S Table 1 subtable: `primate` (default), `total`, `rodent`, `othermammal`, `othervertebrate`, `invertebrate`, `plant`, `viral` |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `sites[].position` | integer | 0-based index of the G of the AG |
-| `sites[].type` | string | `Acceptor` |
-| `sites[].motif` | string | Matched motif |
-| `sites[].score` | number | PWM match score [0,1] |
-| `sites[].confidence` | number | Confidence |
+| `sites[].position` | integer | 0-based index of the G of the AG (last intron nt) |
+| `sites[].type` | string | `Acceptor` or `U12Acceptor` |
+| `sites[].motif` | string | -20..+3 context (RNA alphabet) |
+| `sites[].score` | number | S&S score [0,1], MaxEntScan bits, or U12 branch-site match fraction |
+| `sites[].confidence` | number | Confidence [0,1] |
 
 ## Errors
 
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1002 | Unknown model '...'; expected 'shapiro-senapathy' or 'maxent'. |
+| 1003 | Unknown category '...' |
 
 ## Examples
 
-### Example 1: Strong polypyrimidine tract + CAG
+### Example 1: Published primate 3' ss (S&S 1987 Table 5, HLA intron 6, 95.8)
 
-`UUUUUUUUUUUUUUUUCAGGG` scores a strong acceptor at the AG:
+`TTATTCTACTCCAGG`:
 
 **Response:**
 ```json
-{ "sites": [ { "position": 18, "type": "Acceptor", "score": 0.8393 } ] }
+{ "sites": [ { "position": 13, "type": "Acceptor", "motif": "UUAUUCUACUCCAGG", "score": 0.9578125, "confidence": 0.915625 } ] }
 ```
 
-### Example 2: No AG dinucleotide
+### Example 2: MaxEntScan model
+
+`TTCCAAACGAACTTTTGTAGGGA`, `model = "maxent"`, `minScore = 0` → position 19, score 2.8867730651152104 bits
+(MaxEntScan score3 reference 2.89).
+
+### Example 3: No AG dinucleotide
 
 ```json
 { "sites": [] }
