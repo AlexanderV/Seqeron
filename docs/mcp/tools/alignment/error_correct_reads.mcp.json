@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.ErrorCorrectReads",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs",
-  "description": "Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schmidt & Maskell 2013). k-mers with multiplicity >= minKmerFrequency are trusted. Default: Musket stage 1 (two-sided conservative correction: per iteration, the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted is substituted; ambiguous positions unchanged), iterated to convergence over a forward-strand spectrum. musket=true runs the full Musket 1.1 corrector (canonical both-strand k-mers, -maxiter 2, -maxerr 4: adds the aggressive one-sided stage and the voting stage); countReverseComplement / maxIterations / maxErrorsPerKmer override the chosen preset.",
+  "description": "Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schmidt & Maskell 2013). k-mers with multiplicity >= minKmerFrequency are trusted. Default: Musket stage 1 (two-sided conservative correction: per iteration, the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted is substituted; ambiguous positions unchanged), iterated to convergence over a canonical (both-strand) k-mer spectrum as Musket counts it. musket=true runs the full Musket 1.1 corrector (canonical both-strand k-mers, -maxiter 2, -maxerr 4: adds the aggressive one-sided stage and the voting stage); countReverseComplement=false (forward-strand-only spectrum) / maxIterations / maxErrorsPerKmer override the chosen preset.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -16,17 +16,17 @@
       },
       "kmerSize": {
         "type": "integer",
-        "description": "K-mer size used to build the frequency table (>= 1).",
+        "description": "K-mer size used to build the frequency table (>= 1). Default 21 (Musket -k default).",
         "default": 21
       },
       "minKmerFrequency": {
         "type": "integer",
-        "description": "Trusted cut-off (>= 1): k-mers with multiplicity >= this value are trusted (Musket -minmulti).",
+        "description": "Trusted cut-off (>= 1): k-mers with multiplicity >= this value are trusted (Musket -minmulti). Default 3 = the smallest value Musket's own valley estimator can return.",
         "default": 3
       },
       "musket": {
         "type": "boolean",
-        "description": "Run the full Musket 1.1 corrector (both strands, -maxiter 2, -maxerr 4) instead of the two-sided stage only.",
+        "description": "Run the full Musket 1.1 corrector (both strands, -maxiter 2, -maxerr 4) instead of the two-sided stage only (default).",
         "default": false
       },
       "countReverseComplement": {

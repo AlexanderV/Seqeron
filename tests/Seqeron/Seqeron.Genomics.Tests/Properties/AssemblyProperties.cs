@@ -864,7 +864,7 @@ public class AssemblyProperties
 
     #region ASSEMBLY-TRIM-001: P: trimmed read is a substring no longer than the original; M: higher cutoff → shorter reads; D: deterministic
 
-    // QualityTrimReads applies the cutadapt/BWA running-sum trimming to both ends and drops reads
+    // QualityTrimReads applies the cutadapt/BWA running-sum trimming to the 3' end (single cutoff = cutadapt -q C) and drops reads
     // whose surviving window is shorter than minLength. A higher quality cutoff can only shrink the
     // kept window; a cutoff < 1 disables trimming.
 

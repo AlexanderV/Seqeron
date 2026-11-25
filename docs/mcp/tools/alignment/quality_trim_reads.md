@@ -25,10 +25,10 @@ Trim low-quality read ends with the BWA/cutadapt running-sum algorithm (cutadapt
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `reads` | array<object> | Yes | Reads, each an object with sequence and a quality string of equal length (Phred+phredOffset ASCII). |
-| `minQuality` | integer | No | Quality cutoff subtracted from each Phred score at both ends (values < 1 disable trimming). (default: 20) |
+| `minQuality` | integer | No | Quality cutoff subtracted from each Phred score at the 3' end (values < 1 disable trimming; the 5' end uses `cutoffFront`). (default: 20) |
 | `minLength` | integer | No | Minimum length after trimming for a read to be kept. (default: 50) |
-| `cutoffFront` | integer | No | Optional 5' cutoff overriding minQuality for the 5' end (< 1 leaves the 5' end untrimmed; cutadapt `-q 5',3'`). |
-| `cutoffBack` | integer | No | Optional 3' cutoff overriding minQuality for the 3' end (< 1 leaves the 3' end untrimmed). A single cutadapt `-q C` / BWA `aln -q C` is 3'-only: `cutoffFront: 0, cutoffBack: C`. |
+| `cutoffFront` | integer | No | Optional 5' cutoff (cutadapt `-q 5',3'`); default 0 = 5' end untrimmed (< 1 leaves the 5' end untrimmed). Set `cutoffFront: minQuality` for `-q C,C`. |
+| `cutoffBack` | integer | No | Optional 3' cutoff overriding minQuality for the 3' end (< 1 leaves the 3' end untrimmed). Default = `minQuality`; with `cutoffFront` omitted this is cutadapt `-q 0,C` = single `-q C` / BWA `aln -q C` (3' only). |
 | `phredOffset` | integer | No | ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+) or 64 (Illumina 1.3-1.7), as cutadapt `--quality-base`. (default: 33) |
 
 ## Output Schema

@@ -56,7 +56,7 @@ Under the Lander-Waterman uniform-random placement model the per-base depth is P
 | reference | string | required | Reference sequence; depth reported per position. | Non-null; 0-based positions. |
 | reads | IReadOnlyList&lt;string&gt; | required | Reads to map. | Non-null; a null element throws `ArgumentException`. |
 | minOverlap | int | 20 | Minimum matching characters (length − Hamming distance) to place a read. | ≥ 1, else `ArgumentOutOfRangeException`. Usability default, not a biological constant. |
-| includeReverseComplement | bool | false | Also align each read's reverse complement (both strands; Bowtie 2/BWA default) [7]. | Overload `(reference, reads, minOverlap, includeReverseComplement, excludeMultiMapped = false)`. |
+| includeReverseComplement | bool | true | Also align each read's reverse complement (both strands; Bowtie 2/BWA default) [7]; `false` = forward strand only (Bowtie 2 `--norc`). | 3-argument overload = `true`; 5-argument overload `(reference, reads, minOverlap, includeReverseComplement, excludeMultiMapped = false)` takes it explicitly. |
 | excludeMultiMapped | bool | false | Skip reads whose best score is reached at > 1 distinct locus (Bowtie 2 MAPQ ≤ 1 → `samtools depth -Q 2`) [6][8]. | |
 
 ### 3.2 Output / Return Value
@@ -112,7 +112,6 @@ Returns the exact per-base depth array; average depth and breadth are left to th
 **Intentionally simplified:**
 
 - Read placement: ungapped end-to-end best-Hamming placement (Bowtie 2 `--end-to-end` without gaps, mismatch cost 1, `--score-min` replaced by `minOverlap`); **consequence:** reads requiring gaps, splicing or soft clipping (e.g. overhanging a contig end) are placed differently or not at all (the counting rule is unchanged).
-- Strand default: the 3-argument overload is forward-only for backward compatibility; Bowtie 2/BWA search both strands by default — pass `includeReverseComplement: true`.
 
 **Not implemented:**
 
@@ -123,7 +122,7 @@ Returns the exact per-base depth array; average depth and breadth are left to th
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Read placement model (end-to-end ungapped best Hamming) | Assumption | Determines where reads map; depth arithmetic is unaffected | accepted | ASM-01; cross-checked against `samtools depth` on 2014 cases (Evidence). |
-| 2 | Forward-only default of the 3-argument overload | Deviation | Reverse-strand reads unplaced unless `includeReverseComplement` | accepted | Backward compatibility (same choice as ASSEMBLY-DBG-001). |
+| 2 | 3-argument overload searches both strands (default flipped from forward-only, audit A6-1) | Resolved | Matches Bowtie 2/BWA defaults; forward-only via `includeReverseComplement: false` | resolved | `cover_oracle.py` (pysam `samtools depth -a`) |
 
 ## 6. Edge Cases and Limitations
 
@@ -136,7 +135,7 @@ Returns the exact per-base depth array; average depth and breadth are left to th
 | Read below minOverlap | Contributes 0 | Unaligned read adds no depth [2][3] (INV-05). |
 | Read longer than reference | Contributes 0 (cannot be placed) | End-to-end alignment requires the whole read to align (Bowtie 2 `--end-to-end`) (INV-04). |
 | minOverlap < 1 | `ArgumentOutOfRangeException` | Zero matching bases is not an alignment. |
-| Reverse-strand read | Placed only with `includeReverseComplement` | Bowtie 2 `--nofw/--norc`: both strands by default [7]. |
+| Reverse-strand read | Placed by default; unplaced with `includeReverseComplement: false` | Bowtie 2 `--nofw/--norc`: both strands by default [7]. |
 | Equal-best hits at several loci | Counted once (forward-first, leftmost); skipped with `excludeMultiMapped` | Bowtie 2 one reported alignment; MAPQ ≤ 1 filtered by `samtools depth -Q 2` [6][8]. |
 | Lowercase read vs uppercase reference | Maps; depth counted | Case-insensitive comparison. |
 

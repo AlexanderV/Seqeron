@@ -134,17 +134,15 @@ public class AssemblyTrimFuzzTests
     /// production code MUST agree with for one read. This is a DIFFERENT formulation
     /// than the unit under test (kept here only to fuzz-oracle the production code).
     /// </summary>
-    private static (int start, int end) ReferenceTrim(string quality, int cutoff)
+    private static (int start, int end) ReferenceTrim(string quality, int cutoff, int frontCutoff = -1)
     {
+        // frontCutoff < 0 means "same as the 3' cutoff" (cutadapt -q C,C); 0 = 5' end untouched (-q C).
+        if (frontCutoff < 0) frontCutoff = cutoff;
         int n = quality.Length;
-        if (cutoff < 1)
-        {
-            return (0, n); // BWA trim_qual < 1 guard: no trimming.
-        }
 
-        // 3' end pass → end (exclusive upper bound).
+        // 3' end pass → end (exclusive upper bound). BWA trim_qual < 1 guard: no trimming.
         int sum = 0, min = 0, end = n;
-        for (int i = n - 1; i >= 0; i--)
+        for (int i = n - 1; cutoff >= 1 && i >= 0; i--)
         {
             sum += (quality[i] - PhredAsciiOffset) - cutoff;
             if (sum > 0) break;
@@ -153,9 +151,9 @@ public class AssemblyTrimFuzzTests
 
         // 5' end pass → start (inclusive lower bound).
         sum = 0; min = 0; int start = 0;
-        for (int i = 0; i < n; i++)
+        for (int i = 0; frontCutoff >= 1 && i < n; i++)
         {
-            sum += (quality[i] - PhredAsciiOffset) - cutoff;
+            sum += (quality[i] - PhredAsciiOffset) - frontCutoff;
             if (sum > 0) break;
             if (sum < min) { min = sum; start = i + 1; }
         }
@@ -165,9 +163,9 @@ public class AssemblyTrimFuzzTests
     }
 
     /// <summary>The surviving trimmed sequence for ONE read per the reference oracle, or null if dropped.</summary>
-    private static string? ReferenceSurvivor(string sequence, string quality, int cutoff, int minLength)
+    private static string? ReferenceSurvivor(string sequence, string quality, int cutoff, int minLength, int frontCutoff = -1)
     {
-        var (start, end) = ReferenceTrim(quality, cutoff);
+        var (start, end) = ReferenceTrim(quality, cutoff, frontCutoff);
         int len = end - start;
         return len >= minLength ? sequence.Substring(start, len) : null;
     }
@@ -224,7 +222,7 @@ public class AssemblyTrimFuzzTests
         // Phred: 2,2,2, 40,40,40,40, 2,2  ("###IIII##") over "AAACCCCGG".
         var reads = new List<(string, string)> { ("AAACCCCGG", "###IIII##") };
 
-        IReadOnlyList<string> result = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 1);
+        IReadOnlyList<string> result = SequenceAssembler.QualityTrimReads(reads, cutoffFront: 20, cutoffBack: 20, minLength: 1);
 
         result.Should().ContainSingle().Which.Should().Be("CCCC",
             "both low-quality tails are removed, leaving the high-quality core in sync");
@@ -485,8 +483,8 @@ public class AssemblyTrimFuzzTests
 
             var reads = new List<(string, string)> { (seq, qual) };
 
-            IReadOnlyList<string> result = SequenceAssembler.QualityTrimReads(reads, cutoff, minLength);
-            IReadOnlyList<string> again = SequenceAssembler.QualityTrimReads(reads, cutoff, minLength);
+            IReadOnlyList<string> result = SequenceAssembler.QualityTrimReads(reads, cutoff, cutoff, minLength);
+            IReadOnlyList<string> again = SequenceAssembler.QualityTrimReads(reads, cutoff, cutoff, minLength);
 
             string? expected = ReferenceSurvivor(seq, qual, cutoff, minLength);
 
@@ -504,6 +502,36 @@ public class AssemblyTrimFuzzTests
             }
 
             result.Should().Equal(again, "trimming is deterministic for identical input");
+            AssertWellFormed(result, reads, minLength);
+        }
+    }
+
+    // A8-1 default flip: the 3-argument overload (single cutoff C) equals cutadapt `-q C` = `-q 0,C`
+    // (3' end only; 5' end never trimmed). Same random sweep against the 3'-only reference.
+    [Test]
+    [CancelAfter(60_000)]
+    public void QualityTrimReads_SingleCutoffOverload_MatchesThreePrimeOnlyOracle()
+    {
+        var rng = new Random(148_005);
+        for (int trial = 0; trial < 3000; trial++)
+        {
+            int len = rng.Next(0, 60);
+            string seq = RandomDna(rng, len);
+            int lo = rng.Next(0, 45);
+            int hi = Math.Min(93, lo + rng.Next(0, 45));
+            string qual = RandomQuality(rng, len, lo, hi);
+            int cutoff = rng.Next(-3, 45);
+            int minLength = rng.Next(0, 10);
+            var reads = new List<(string, string)> { (seq, qual) };
+
+            IReadOnlyList<string> result = SequenceAssembler.QualityTrimReads(reads, cutoff, minLength);
+            string? expected = ReferenceSurvivor(seq, qual, cutoff, minLength, frontCutoff: 0);
+
+            if (expected is null)
+                result.Should().BeEmpty("seq='{0}' qual='{1}' C={2} minLen={3}", seq, qual, cutoff, minLength);
+            else
+                result.Should().ContainSingle().Which.Should().Be(expected,
+                    "single cutoff trims the 3' end only; seq='{0}' qual='{1}' C={2} minLen={3}", seq, qual, cutoff, minLength);
             AssertWellFormed(result, reads, minLength);
         }
     }
@@ -530,7 +558,7 @@ public class AssemblyTrimFuzzTests
             int cutoff = rng.Next(-2, 40);
             int minLength = rng.Next(0, 6);
 
-            IReadOnlyList<string> result = SequenceAssembler.QualityTrimReads(reads, cutoff, minLength);
+            IReadOnlyList<string> result = SequenceAssembler.QualityTrimReads(reads, cutoff, cutoff, minLength);
 
             var expected = reads
                 .Select(rd => ReferenceSurvivor(rd.Item1, rd.Item2, cutoff, minLength))

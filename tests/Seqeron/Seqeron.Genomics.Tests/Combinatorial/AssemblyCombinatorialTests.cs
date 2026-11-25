@@ -522,7 +522,7 @@ public class AssemblyCombinatorialTests
         char low = (char)(2 + 33), high = (char)(40 + 33);
         string quality = new string(low, 5) + new string(high, 10) + new string(low, 5);
 
-        var trimmed = SequenceAssembler.QualityTrimReads(new[] { (sequence, quality) }, minQuality: 20, minLength: 1);
+        var trimmed = SequenceAssembler.QualityTrimReads(new[] { (sequence, quality) }, cutoffFront: 20, cutoffBack: 20, minLength: 1);
 
         trimmed.Should().ContainSingle().Which.Should().Be(sequence.Substring(5, 10), "the low-quality ends are trimmed to the core");
     }

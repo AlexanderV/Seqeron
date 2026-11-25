@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.CalculateCoverage",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L1369",
-  "description": "Align each read end-to-end without gaps at its minimum-Hamming position on the reference (placed when >= minOverlap bases match; one placement per read) and return per-base coverage depth (samtools depth semantics) as an integer array of length reference.Length. Optionally search the reverse-complement strand and skip multi-mapped reads.",
+  "description": "Align each read end-to-end without gaps at its minimum-Hamming position on the reference (placed when >= minOverlap bases match; one placement per read) and return per-base coverage depth (samtools depth semantics) as an integer array of length reference.Length. Both strands are searched by default (Bowtie 2/BWA); optionally restrict to the forward strand or skip multi-mapped reads.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -27,8 +27,8 @@
       },
       "includeReverseComplement": {
         "type": "boolean",
-        "description": "Also align each read's reverse complement (both strands, as Bowtie 2/BWA do by default).",
-        "default": false
+        "description": "Also align each read's reverse complement (both strands, as Bowtie 2/BWA do by default; false = forward strand only, Bowtie 2 --norc).",
+        "default": true
       },
       "excludeMultiMapped": {
         "type": "boolean",
@@ -114,8 +114,7 @@
         "reads": [
           "TTGACC"
         ],
-        "minOverlap": 6,
-        "includeReverseComplement": true
+        "minOverlap": 6
       },
       "output": {
         "coverage": [

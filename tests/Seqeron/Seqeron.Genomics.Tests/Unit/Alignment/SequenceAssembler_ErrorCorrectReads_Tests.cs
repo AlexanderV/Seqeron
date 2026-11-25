@@ -343,16 +343,20 @@ public class SequenceAssembler_ErrorCorrectReads_Tests
         const string reverseCopy = "GAAGCCTGTAATC"; // reverse complement of GATTACAGGCTTC
         var reads = new[] { reverseCopy, reverseCopy, reverseCopy, "GATTACGGGCTTC" };
 
-        IReadOnlyList<string> forward = SequenceAssembler.ErrorCorrectReads(reads, 3, 2);
-        IReadOnlyList<string> canonical = SequenceAssembler.ErrorCorrectReads(reads, 3, 2,
-            SequenceAssembler.ErrorCorrectionOptions.TwoSidedForwardStrand with { CountReverseComplement = true });
+        // A9-1 default flip: the 3-argument overload counts canonical k-mers (Musket); the forward-only
+        // spectrum is the explicit opt-out.
+        IReadOnlyList<string> canonical = SequenceAssembler.ErrorCorrectReads(reads, 3, 2);
+        IReadOnlyList<string> forward = SequenceAssembler.ErrorCorrectReads(reads, 3, 2,
+            SequenceAssembler.ErrorCorrectionOptions.TwoSidedForwardStrand);
         IReadOnlyList<string> musket = SequenceAssembler.ErrorCorrectReads(reads, 3, 2,
             SequenceAssembler.ErrorCorrectionOptions.Musket);
 
         Assert.Multiple(() =>
         {
-            Assert.That(forward[3], Is.EqualTo("AATTACGGGCTTC"), "forward-only spectrum (documented)");
-            Assert.That(canonical[3], Is.EqualTo("GATTACAGGCTTC"), "canonical spectrum corrects index 6");
+            Assert.That(forward[3], Is.EqualTo("AATTACGGGCTTC"), "forward-only spectrum (explicit opt-out, documented)");
+            Assert.That(canonical[3], Is.EqualTo("GATTACAGGCTTC"), "canonical spectrum (default) corrects index 6");
+            Assert.That(canonical, Is.EqualTo(SequenceAssembler.ErrorCorrectReads(reads, 3, 2,
+                SequenceAssembler.ErrorCorrectionOptions.TwoSided)), "3-arg overload = TwoSided preset");
             Assert.That(musket[3], Is.EqualTo("GATTACAGGCTTC"), "Musket preset");
             Assert.That(musket.Take(3), Is.All.EqualTo(reverseCopy), "trusted reads unchanged");
         });
@@ -421,7 +425,8 @@ public class SequenceAssembler_ErrorCorrectReads_Tests
     // Oracle table: Python line-by-line transcription of musket-1.1 ParaCorrect (paracorrect.cpp,
     // voting.cpp) with deviations (a)/(b); random 30-bp genomes, 8 reads of 15 bp from both strands with
     // 0-2 substitutions, k=5, cut-off 2 (seed 2026). Musket = canonical, -maxiter 2, -maxerr 4;
-    // Default = three-argument overload (two-sided stage to convergence, forward strand).
+    // Default = three-argument overload (two-sided stage to convergence, canonical spectrum; oracle
+    // canonical=True, max_iters=10**9, num_errors=0); Forward = TwoSidedForwardStrand (canonical=False).
     [TestCase("Musket", "TACCCGGCATATCTT,CCTCTATCCAGCAAA,GACCTCTACCCAGGA,TGCTGGGTAGAGGTC,CAAAGATATGCTGGG,CTTTCAAAGATATGC,CTTTCAAAGACTTGC,AAAGATATTCTGGGT", "TACCCAGCATATCTT,CCTCTACCCAGCAAA,GACCTCTACCCAGCA,TGCTGGGTAGAGGTC,CAAAGATATGCTGGG,CTTTCAAAGATATGC,CTTTCAAAGATATGC,AAAGATATGCTGGGT")]
     [TestCase("Musket", "CATGCGTTTTAGGTA,AGACATACCTAAAAC,AAACGCAAGTTCCGA,CCTAAAACGCAAGTT,CTAGCGTTTTAGGTA,TGTGTTTTAGGGATG,ACCTAAAACGCAAGT,ATACCTAAAACGCAA", "CTTGCGTTTTAGGTA,AGACATACCTAAAAC,AAACGCAAGTTCCGA,CCTAAAACGCAAGTT,CTTGCGTTTTAGGTA,TGCGTTTTAGGTATG,ACCTAAAACGCAAGT,ATACCTAAAACGCAA")]
     [TestCase("Musket", "CACCTAAGCATACCT,AAGGTATGCATAGGT,CACCTAAGCATACCT,GCATACCTTCTGTTT,GCATACCTTTTGTTT,ACCTAAGCATACCTT,CCAGCTAAGCCTACC,AGCATACCTTCTGTT", "CACCTAAGCATACCT,AAGGTATGCATAGGT,CACCTAAGCATACCT,GCATACCTTCTGTTT,GCATACCTTCTGTTT,ACCTAAGCATACCTT,CCACCTAAGCATACC,AGCATACCTTCTGTT")]
@@ -429,14 +434,19 @@ public class SequenceAssembler_ErrorCorrectReads_Tests
     [TestCase("Musket", "GCGTGCACTGAGCCC,GTGCAATGAGACCCG,CGCTTTGGAGTGCAA,TTGCAAGCCAAAGAT,CGGGGCTCATTGCAC,ACGCCAAAGAGGTCC,TTGGCCTGTAATGAG,GGGCCTCTTTGGCGT", "GAGTGCAATGAGCCC,GTGCAATGAGCCCCG,CTCTTTGGAGTGCAA,TTGCAAGCCAAAGAG,CGGGGCTCATTGCAC,ACGCCAAAGAGGTCC,TTGGCCTGCAATGAG,AGGCCTCTTTGGCGT")]
     [TestCase("Musket", "AACGCTCCGATCAAG,TTGACCGGAGCGTTG,AGGTCCTTGCTCGGA,AAGTACCGGGGGTGT,ACGCTCCCATCAAGT,CCCCAGGTACTTGAT,CTCCGATCAAATACT,AGGTACTTGATCGGA", "AACGCTCCGATCAAG,TTGATCGGAGCGTTG,AGGTACTTGATCGGA,AAGTACCGGTGGTGT,ACGCTCCGATCAAGT,CCCCAGGTACTTGAT,CTCCGATCAAGTACT,AGGTACTTGATCGGA")]
     [TestCase("Default", "GCAAGGCCGGCTCCT,GGTCCCCCAAGGCCG,CATGGCCGGCTCCAC,TGGGGGACCGACGGA,CTTGGAGGACCGACG,TCGGTCCCCCAAGGC,CCAAGGCCGGCTCCA,GCTCTGGGGGACCGA", "CCAAGGCCGGCTCCA,GGTCCCCCAAGGCCG,CAAGGCCGGCTCCAC,TGGGGGACCGACGGA,CTTGGAGGACCGACG,TCGGTCCCCCAAGGC,CCAAGGCCGGCTCCA,GCTCTGGGGGACCGA")]
-    [TestCase("Default", "ACAAAGCACCTCAAC,TACCAATCACTTCTA,TTGCGTTACCAACCA,GTGCTTGGGAACGCA,ACGTTACCAAGCACC,TGCTTGTTACCGCAA,CACCTCTACGGGTAT,CGTTACCAAGCACCT", "ACCAAGCACCTCAAC,TACCAATCACTTCTA,TTGCGTTACCAAGCA,GTGCTTGGGAACGCA,ACGTTACCAAGCACC,TGCTTGTTACCGCAA,CACCTCTACGGGTAT,CGTTACCAAGCACCT")]
+    [TestCase("Default", "ACAAAGCACCTCAAC,TACCAATCACTTCTA,TTGCGTTACCAACCA,GTGCTTGGGAACGCA,ACGTTACCAAGCACC,TGCTTGTTACCGCAA,CACCTCTACGGGTAT,CGTTACCAAGCACCT", "ACCAAGCACCTCAAC,TACCAATCACTTCTA,TTGCGTTACCAAGCA,GTGCTTGGTAACGCA,GCGTTACCAAGCACC,TGCTTGTTACCGCAA,CACCTCTACGGGTAA,CGTTACCAAGCACCT")]
+    [TestCase("Forward", "GCAAGGCCGGCTCCT,GGTCCCCCAAGGCCG,CATGGCCGGCTCCAC,TGGGGGACCGACGGA,CTTGGAGGACCGACG,TCGGTCCCCCAAGGC,CCAAGGCCGGCTCCA,GCTCTGGGGGACCGA", "CCAAGGCCGGCTCCA,GGTCCCCCAAGGCCG,CAAGGCCGGCTCCAC,TGGGGGACCGACGGA,CTTGGAGGACCGACG,TCGGTCCCCCAAGGC,CCAAGGCCGGCTCCA,GCTCTGGGGGACCGA")]
+    [TestCase("Forward", "ACAAAGCACCTCAAC,TACCAATCACTTCTA,TTGCGTTACCAACCA,GTGCTTGGGAACGCA,ACGTTACCAAGCACC,TGCTTGTTACCGCAA,CACCTCTACGGGTAT,CGTTACCAAGCACCT", "ACCAAGCACCTCAAC,TACCAATCACTTCTA,TTGCGTTACCAAGCA,GTGCTTGGGAACGCA,ACGTTACCAAGCACC,TGCTTGTTACCGCAA,CACCTCTACGGGTAT,CGTTACCAAGCACCT")]
     public void ErrorCorrectReads_MatchesMusketTranscriptionOracle(string mode, string input, string expected)
     {
         string[] reads = input.Split(',');
 
-        IReadOnlyList<string> result = mode == "Musket"
-            ? SequenceAssembler.ErrorCorrectReads(reads, 5, 2, SequenceAssembler.ErrorCorrectionOptions.Musket)
-            : SequenceAssembler.ErrorCorrectReads(reads, 5, 2);
+        IReadOnlyList<string> result = mode switch
+        {
+            "Musket" => SequenceAssembler.ErrorCorrectReads(reads, 5, 2, SequenceAssembler.ErrorCorrectionOptions.Musket),
+            "Forward" => SequenceAssembler.ErrorCorrectReads(reads, 5, 2, SequenceAssembler.ErrorCorrectionOptions.TwoSidedForwardStrand),
+            _ => SequenceAssembler.ErrorCorrectReads(reads, 5, 2),
+        };
 
         Assert.That(result, Is.EqualTo(expected.Split(',')));
     }
@@ -488,6 +498,36 @@ public class SequenceAssembler_ErrorCorrectReads_Tests
                 Is.EqualTo((true, 2, 4)));
             Assert.That((twoSided.CountReverseComplement, twoSided.MaxIterations, twoSided.MaxErrorsPerKmer),
                 Is.EqualTo((false, int.MaxValue, 0)));
+            var canonicalTwoSided = SequenceAssembler.ErrorCorrectionOptions.TwoSided;
+            Assert.That((canonicalTwoSided.CountReverseComplement, canonicalTwoSided.MaxIterations, canonicalTwoSided.MaxErrorsPerKmer),
+                Is.EqualTo((true, int.MaxValue, 0)), "3-argument overload preset: canonical spectrum, stage 1 only");
+        });
+    }
+
+    // A9-2 — default parameters are the sourced Musket ones: k = 21 (musket-1.1 option.cpp when -k is absent) and
+    //        cut-off 3 (smallest value of the main.cpp valley estimator: valleyIndex starts at 2, then ++); library
+    //        and MCP wrapper use the same values. Reads of 25 bases with 3 identical copies (every 21-mer has
+    //        multiplicity 3 >= 3) plus one copy with a substitution at index 12 (corrected back); with k = 15 /
+    //        cut-off 2 (old library defaults) the result is the same here, so the defaults are pinned by equality
+    //        with the explicit call and by a case where cut-off 2 vs 3 differ.
+    [Test]
+    public void ErrorCorrectReads_DefaultParameters_AreMusketK21AndCutoff3()
+    {
+        const string genome = "ACGTTGCAAGGCTTACCGATGCATG"; // 25 bases
+        string error = genome.Remove(12, 1).Insert(12, genome[12] == 'A' ? "C" : "A");
+        var threeCopies = new[] { genome, genome, genome, error };
+        var twoCopies = new[] { genome, genome, error };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.ErrorCorrectReads(threeCopies),
+                Is.EqualTo(SequenceAssembler.ErrorCorrectReads(threeCopies, 21, 3,
+                    SequenceAssembler.ErrorCorrectionOptions.TwoSided)));
+            Assert.That(SequenceAssembler.ErrorCorrectReads(threeCopies)[3], Is.EqualTo(genome),
+                "21-mers seen 3x are trusted; the unique alternative at index 12 restores the genome");
+            // Two copies: 21-mers have multiplicity 2 < default cut-off 3 -> nothing trusted -> read unchanged.
+            Assert.That(SequenceAssembler.ErrorCorrectReads(twoCopies),
+                Is.EqualTo(twoCopies), "cut-off 3: multiplicity-2 k-mers are untrusted");
         });
     }
 

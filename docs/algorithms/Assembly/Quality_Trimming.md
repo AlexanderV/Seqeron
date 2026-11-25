@@ -57,7 +57,7 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `reads` | `IReadOnlyList<(string sequence, string quality)>` | required | Reads with Phred+offset quality strings | non-null; `quality.Length == sequence.Length`; characters in [offset, `~`] |
-| `minQuality` | `int` | 20 | Quality cutoff `C` for both ends (3-argument overload; cutadapt `-q C,C`) | `< 1` disables trimming [2] |
+| `minQuality` | `int` | 20 | Quality cutoff `C` for the 3' end only (3-argument overload = cutadapt `-q C` = `-q 0,C`; BWA `aln -q C`) | `< 1` disables trimming [2] |
 | `cutoffFront` / `cutoffBack` | `int` | — | Separate 5'/3' cutoffs (5-argument overload; cutadapt `-q 5',3'`) | `< 1` leaves that end untrimmed |
 | `minLength` | `int` | 50 | Reads shorter than this after trimming are dropped (cutadapt `-m`) | any |
 | `phredOffset` | `int` | 33 | Quality ASCII offset (cutadapt `--quality-base`): 33 Sanger, 64 Illumina 1.3–1.7 | [33, 126] |
@@ -101,7 +101,7 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 
 **Implementation location:** [SequenceAssembler.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs)
 
-- `SequenceAssembler.QualityTrimReads(reads, minQuality, minLength)`: both ends with one cutoff, Phred+33 (delegates to the overload below).
+- `SequenceAssembler.QualityTrimReads(reads, minQuality, minLength)`: 3' end only with one cutoff (cutadapt `-q C`), Phred+33 (= `QualityTrimReads(reads, 0, minQuality, minLength)`).
 - `SequenceAssembler.QualityTrimReads(reads, cutoffFront, cutoffBack, minLength, phredOffset = 33)`: cutadapt `-q 5',3' --quality-base N -m minLength`.
 - `SequenceAssembler.QualityTrimIndex(phredScores, cutoffFront, cutoffBack)`: line-by-line port of cutadapt 5.2 `qualtrim.quality_trim_index`, returns `[start, stop)`.
 
@@ -122,8 +122,6 @@ Trimming runs the 5' pass and the 3' pass independently over the full read (cuta
 
 - BWA's fixed `BWA_MIN_RDLEN = 35` floor is omitted; the configurable `minLength` filter plays the corresponding role; **consequence:** trimmed boundaries match cutadapt exactly and reads can be trimmed below 35 bases unless `minLength` forbids it [1][2].
 
-- The 3-argument overload trims **both** ends with one cutoff (cutadapt `-q C,C`), whereas a single cutadapt `-q C` and BWA `aln -q C` trim the 3' end only; kept for backward compatibility, the 3'-only behaviour is `QualityTrimReads(reads, 0, C, minLength)`.
-
 **Not implemented:**
 
 - cutadapt `--nextseq-trim` (two-colour G handling) and `--poly-a`; other trimming models (Trimmomatic SLIDINGWINDOW / LEADING / TRAILING) live in `QualityScoreAnalyzer` (IO).
@@ -134,6 +132,7 @@ Trimming runs the 5' pass and the 3' pass independently over the full read (cuta
 |---|------|------|--------|--------|-------|
 | 1 | Both-end passes run independently over the full read | Resolved | Matches cutadapt `quality_trim_index` exactly | accepted | Cutadapt runs the 5' and 3' passes independently, then drops the read if `start >= stop` [1] |
 | 2 | `minLength` post-trim filter | Assumption | Drops short survivors | accepted | cutadapt min-length semantics |
+| 3 | Single cutoff (3-argument overload) trims the 3' end only | Resolved (audit A8-1) | Equals cutadapt `-q C` = `-q 0,C` ("If only one cutoff is given, it is used for the 3' end only") and BWA `aln -q C`; both ends need both cutoffs (`cutoffFront`, `cutoffBack`) | resolved | cutadapt 5.2 `quality_trim_index(q, 0, C)` oracle `tools/review/oracles/B10/trim_cutadapt_oracle.py`, 20000/20000 identical |
 
 ## 6. Edge Cases and Limitations
 

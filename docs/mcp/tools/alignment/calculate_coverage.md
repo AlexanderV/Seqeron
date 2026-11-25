@@ -27,7 +27,7 @@ Align each read end-to-end without gaps at its minimum-Hamming position on the r
 | `reference` | string | Yes | Reference sequence. |
 | `reads` | array<string> | Yes | Reads to map onto reference. |
 | `minOverlap` | integer | No | Minimum matching bases required to map a read, >= 1. (default: 20) |
-| `includeReverseComplement` | boolean | No | Also align each read's reverse complement (both strands, as Bowtie 2/BWA do by default). (default: false) |
+| `includeReverseComplement` | boolean | No | Also align each read's reverse complement (both strands, as Bowtie 2/BWA do by default; `false` = forward strand only, Bowtie 2 `--norc`). (default: true) |
 | `excludeMultiMapped` | boolean | No | Skip reads whose best score is reached at more than one locus (Bowtie 2 MAPQ <= 1; `samtools depth -Q 2`). (default: false) |
 
 ## Output Schema
@@ -111,10 +111,10 @@ Align each read end-to-end without gaps at its minimum-Hamming position on the r
 
 ```json
 { "tool": "calculate_coverage",
-  "arguments": { "reference": "ACGGTCAATGCC", "reads": ["TTGACC"], "minOverlap": 6, "includeReverseComplement": true } }
+  "arguments": { "reference": "ACGGTCAATGCC", "reads": ["TTGACC"], "minOverlap": 6 } }
 ```
 
-Response: `{ "coverage": [0,0,1,1,1,1,1,1,0,0,0,0] }` (forward strand only: all zeros).
+Response: `{ "coverage": [0,0,1,1,1,1,1,1,0,0,0,0] }` (both strands by default; with `"includeReverseComplement": false` the forward strand only gives all zeros).
 
 ## Errors
 

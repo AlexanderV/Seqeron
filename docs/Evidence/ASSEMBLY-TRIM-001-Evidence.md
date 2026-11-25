@@ -97,7 +97,9 @@
 | `jhZ[GFJCAB` | 10 | 0 | 64 | (0, 10) |
 | (empty) | 10 | 10 | 33 | (0, 0) |
 
-Random oracle: 5000 reads (Python `random.Random(2026)`, length 0–60, base 33/64, cutoffs −3..45 per end, minLength 0..10, mixed-case sequence) → C# `QualityTrimReads(reads, front, back, minLength, base)` 5000/5000 identical survivors; the 3-argument overload identical on every equal-cutoff Phred+33 case.
+Random oracle: 5000 reads (Python `random.Random(2026)`, length 0–60, base 33/64, cutoffs −3..45 per end, minLength 0..10, mixed-case sequence) → C# `QualityTrimReads(reads, front, back, minLength, base)` 5000/5000 identical survivors; the 3-argument overload identical on every equal-cutoff Phred+33 case (pre-A8-1 state).
+
+**Round-1 audit A8-1 (WP3): default flipped to 3'-only.** Source opened: cutadapt docs (`-q [5'CUTOFF,]3'CUTOFF`: "If only one cutoff is given, it is used for the 3' end only"; `--quality-cutoff`) and BWA `bwa_trim_read` (3' only). cutadapt 5.2 `quality_trim_index(q, 0, C, 33)` oracle (`tools/review/oracles/B10/trim_cutadapt_oracle.py`): `$#%,()<;IK`/10 → (0,10) (both ends (10,10) → (6,10)); `IIII##`/10 → (0,4); `KI;<)(,%#$`/10 → (0,4); `##I##`/10 → (0,3) (both (2,3)); `5&&`/20 → (0,1) (both (0,0)); `###IIII##`/20 → (0,7) (both (3,7)). The 3-argument overload and MCP `quality_trim_reads` (default `cutoffFront` 0) now equal `-q 0,C`; 20000 random reads (cutoffs −3..44, Phred 0..88): the running-sum formulation used by the fuzz oracle equals cutadapt (0 mismatches) for front = 0 and front = C.
 
 ### Core `QualitySequence` (canonical FASTQ quality decoder)
 

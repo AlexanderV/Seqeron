@@ -49,8 +49,18 @@ public class QualityTrimReadsTests
                 new[] { new QualityReadInput("ACGTACGTAC", "jhZ[GFJCAB") }, 10, 1, phredOffset: 64).Trimmed,
                 Is.EqualTo(new[] { "ACGT" }));
             Assert.That(AlignmentTools.QualityTrimReads(
-                new[] { new QualityReadInput("ACGTACGTAC", "$#%,()<;IK") }, 10, 1, cutoffBack: 0).Trimmed,
-                Is.EqualTo(new[] { "GTAC" }));
+                new[] { new QualityReadInput("ACGTACGTAC", "$#%,()<;IK") }, 10, 1, cutoffFront: 10, cutoffBack: 0).Trimmed,
+                Is.EqualTo(new[] { "GTAC" }), "5' only (cutadapt -q 10,0)");
+            // A8-1 default flip: a single cutoff is 3'-only (cutadapt -q 10 = -q 0,10; BWA aln -q 10).
+            Assert.That(AlignmentTools.QualityTrimReads(
+                new[] { new QualityReadInput("ACGTACGTAC", "$#%,()<;IK") }, 10, 1).Trimmed,
+                Is.EqualTo(new[] { "ACGTACGTAC" }), "default keeps the low-quality 5' prefix");
+            Assert.That(AlignmentTools.QualityTrimReads(
+                new[] { new QualityReadInput("ACGTAC", "IIII##") }, 10, 1).Trimmed,
+                Is.EqualTo(new[] { "ACGT" }), "default trims the 3' tail (cutadapt (0,4))");
+            Assert.That(AlignmentTools.QualityTrimReads(
+                new[] { new QualityReadInput("ACGTACGTAC", "$#%,()<;IK") }, 10, 1, cutoffFront: 10).Trimmed,
+                Is.EqualTo(new[] { "GTAC" }), "-q 10,10 trims both ends");
             Assert.That(AlignmentTools.QualityTrimReads(
                 new[] { new QualityReadInput("ACGTACGTAC", "$#%,()<;IK") }, 10, 1, cutoffFront: 0).Trimmed,
                 Is.EqualTo(new[] { "ACGTACGTAC" }));

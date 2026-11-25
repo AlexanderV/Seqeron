@@ -42,7 +42,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `local_align` | Performs local pairwise alignment using the Smith–Waterman algorithm (finds best-scoring substring alignment, with zero floor). |
 | `merge_contigs` | Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. |
 | `multiple_align` | Anchor-based progressive multiple sequence alignment: picks a center sequence by 4-mer cosine similarity, builds a suffix tree on it, and… |
-| `quality_trim_reads` | Trims Phred+33 quality-encoded reads from both ends, dropping bases whose decoded quality is below minQuality. |
+| `quality_trim_reads` | Trims the 3' end of Phred+33 quality-encoded reads with the BWA/cutadapt running-sum rule (single cutoff = cutadapt `-q C`; the 5' end only when `cutoffFront` is given). |
 | `scaffold_contigs` | Builds scaffolds by joining contigs using paired-end link records, inserting gapCharacter between linked contigs to span the indicated ga… |
 | `semi_global_align` | Performs semi-global (fitting / glocal) pairwise alignment with free end gaps in sequence2; |
 | `sequence_identity` | Computes percent-identity (fraction in [0,1]) between two equal-length sequences via case-insensitive position-by-position comparison. |

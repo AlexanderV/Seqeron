@@ -47,7 +47,7 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `QualityTrimReads(reads, minQuality, minLength)` | SequenceAssembler | Canonical | Running-sum trim on both ends (cutadapt `-q C,C`) + min-length filter; delegates |
+| `QualityTrimReads(reads, minQuality, minLength)` | SequenceAssembler | Canonical | Running-sum trim of the 3' end only (cutadapt `-q C` = `-q 0,C`; BWA `aln -q C`) + min-length filter; = `QualityTrimReads(reads, 0, minQuality, minLength)` |
 | `QualityTrimReads(reads, cutoffFront, cutoffBack, minLength, phredOffset)` | SequenceAssembler | Canonical | cutadapt `-q 5',3' --quality-base N -m`; decodes via Core `QualitySequence` |
 | `QualityTrimIndex(phredScores, cutoffFront, cutoffBack)` | SequenceAssembler | Canonical | port of cutadapt `quality_trim_index` |
 
@@ -194,4 +194,4 @@ Total in-scope cases: 11. ✅ = 11.
 ## 7. Open Questions / Decisions
 
 1. The prior implementation used a naive per-base hard cutoff (non-conforming to BWA/cutadapt). Decision: replaced with the running-sum algorithm; checklist behavioural intent ("quality trimming") is satisfied by the authoritative algorithm. No open correctness questions remain.
-2. (2026-11 review) The 3-argument overload trims both ends with one cutoff (cutadapt `-q C,C`); cutadapt `-q C` / BWA `-q C` are 3'-only. Kept for backward compatibility; 3'-only is available via `cutoffFront: 0`.
+2. (2026-11 review, resolved by round-1 audit A8-1) The 3-argument overload used to trim both ends with one cutoff; it is now 3'-only like cutadapt `-q C` / BWA `aln -q C`. Both ends: `cutoffFront: C, cutoffBack: C` (cutadapt `-q C,C`). New tests: `QualityTrimReads_SingleCutoff_TrimsThreePrimeEndOnly`, `QualityTrimReads_SingleCutoff_TrimsLowQualityThreePrimeTail`, `QualityTrimReads_SingleCutoffOverload_MatchesThreePrimeOnlyOracle` (fuzz), MCP `QualityTrimReads_CutadaptOptions_DelegateToCore` (default 3'-only); tests of 5'-end behaviour now pass both cutoffs explicitly.

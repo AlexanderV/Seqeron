@@ -1359,10 +1359,12 @@ public static class SequenceAssembler
     private const int DefaultMinOverlap = 20;
 
     /// <summary>
-    /// Calculates per-base sequencing coverage (read depth) along the reference, forward strand
-    /// only. Equivalent to
+    /// Calculates per-base sequencing coverage (read depth) along the reference, searching both
+    /// strands as Bowtie 2 and BWA do by default (<c>--nofw/--norc</c> disable one strand).
+    /// Equivalent to
     /// <see cref="CalculateCoverage(string, IReadOnlyList{string}, int, bool, bool)"/> with
-    /// <c>includeReverseComplement: false, excludeMultiMapped: false</c>.
+    /// <c>includeReverseComplement: true, excludeMultiMapped: false</c>; pass
+    /// <c>includeReverseComplement: false</c> to the five-argument overload for the forward strand only.
     /// </summary>
     /// <param name="reference">Reference sequence; depth is reported per position.</param>
     /// <param name="reads">Reads to map against the reference.</param>
@@ -1372,7 +1374,7 @@ public static class SequenceAssembler
     /// <exception cref="ArgumentException"><paramref name="reads"/> contains a null element.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minOverlap"/> is less than 1.</exception>
     public static int[] CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = DefaultMinOverlap) =>
-        CalculateCoverage(reference, reads, minOverlap, includeReverseComplement: false, excludeMultiMapped: false);
+        CalculateCoverage(reference, reads, minOverlap, includeReverseComplement: true, excludeMultiMapped: false);
 
     /// <summary>
     /// Calculates per-base sequencing coverage (read depth) along the reference.
@@ -1640,19 +1642,22 @@ public static class SequenceAssembler
     private const int PhredAsciiOffset = 33;
 
     /// <summary>
-    /// Quality-trims reads using the BWA / cutadapt running-sum algorithm on both ends with the
-    /// same cutoff (cutadapt <c>-q C,C</c>), then drops reads shorter than <paramref name="minLength"/>.
+    /// Quality-trims the 3' end of reads with the BWA / cutadapt running-sum algorithm (a single
+    /// cutadapt <c>-q C</c> = <c>-q 0,C</c>; BWA <c>aln -q C</c>), then drops reads shorter than
+    /// <paramref name="minLength"/>.
     /// </summary>
     /// <remarks>
     /// Equivalent to <see cref="QualityTrimReads(IReadOnlyList{ValueTuple{string, string}}, int, int, int, int)"/>
-    /// with <c>cutoffFront = cutoffBack = minQuality</c> and Phred+33 qualities. Note that a single
-    /// cutadapt <c>-q C</c> (and BWA <c>aln -q C</c>) trims the 3' end only; use the five-argument
-    /// overload with <c>cutoffFront: 0</c> for that behaviour.
+    /// with <c>cutoffFront = 0, cutoffBack = minQuality</c> and Phred+33 qualities: cutadapt's
+    /// <c>-q [5'CUTOFF,]3'CUTOFF</c> documentation says "If only one cutoff is given, it is used for
+    /// the 3' end only", and BWA <c>bwa_trim_read</c> trims the 3' end only. Pass both cutoffs to the
+    /// five-argument overload (e.g. <c>cutoffFront: C, cutoffBack: C</c> = cutadapt <c>-q C,C</c>)
+    /// to trim both ends.
     /// A cutoff &lt; 1 disables trimming (BWA <c>trim_qual &lt; 1</c> guard; in cutadapt's loop the
     /// first step already makes the sum negative, so nothing is cut).
     /// </remarks>
     /// <param name="reads">Reads as (sequence, Phred+33 quality string) pairs; the two strings must be equal length per read.</param>
-    /// <param name="minQuality">Quality cutoff subtracted from each Phred score at both ends. Values &lt; 1 disable trimming.</param>
+    /// <param name="minQuality">Quality cutoff subtracted from each Phred score at the 3' end. Values &lt; 1 disable trimming.</param>
     /// <param name="minLength">Reads whose trimmed length is below this are dropped (cutadapt <c>-m</c>).</param>
     /// <returns>The surviving trimmed sequences, in input order.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="reads"/> or a read's sequence/quality is null.</exception>
@@ -1662,7 +1667,7 @@ public static class SequenceAssembler
         IReadOnlyList<(string sequence, string quality)> reads,
         int minQuality = 20,
         int minLength = 50)
-        => QualityTrimReads(reads, minQuality, minQuality, minLength, PhredAsciiOffset);
+        => QualityTrimReads(reads, 0, minQuality, minLength, PhredAsciiOffset);
 
     /// <summary>
     /// Quality-trims reads with cutadapt's <c>quality_trim_index</c> (the BWA <c>bwa_trim_read</c>
@@ -1781,13 +1786,15 @@ public static class SequenceAssembler
     // Musket 2-bit code order (kmer.cpp encode/decodeToUpper): A=0, C=1, G=2, T=3; complement = code ^ 3.
     private const string MusketBases = "ACGT";
 
-    // Default k-mer length (kept for backward compatibility; Musket's own default is 21 and it is
-    // data-dependent in practice). Callers should choose k from their genome size and coverage.
-    private const int DefaultErrorCorrectKmerSize = 15;
+    // Default k-mer length: Musket 1.1 option.cpp uses k = 21 when -k is not given
+    // (opt.klist.push_back(make_pair(21, 536870912))).
+    private const int DefaultErrorCorrectKmerSize = 21;
 
-    // Default trusted cut-off (Musket -minmulti; Musket itself estimates it from the valley of the
-    // k-mer histogram and discards singleton k-mers, so its effective cut-off is >= 2).
-    private const int DefaultMinKmerFrequency = 2;
+    // Default trusted cut-off (Musket -minmulti). Musket's default (-minmulti -1) estimates it from the
+    // k-mer histogram valley (main.cpp: valleyIndex starts at 2 and is incremented once more after the
+    // plateau scan, so the estimate is always >= 3). 3 is the smallest cut-off Musket can itself choose;
+    // a data-driven valley estimate is a separate option (not part of this default).
+    private const int DefaultMinKmerFrequency = 3;
 
     // Musket fixErroneousBase is called with minVote = 3 (paracorrect.cpp, ParaCorrect stage 3).
     private const int MusketMinimumVote = 3;
@@ -1825,7 +1832,19 @@ public static class SequenceAssembler
         /// <summary>
         /// The behaviour of the three-argument <see cref="ErrorCorrectReads(IReadOnlyList{string}, int, int)"/>:
         /// Musket stage 1 (two-sided conservative correction) only, iterated until no further unique
-        /// correction exists, over a forward-strand spectrum.
+        /// correction exists, over a canonical (both-strand) spectrum as in Musket.
+        /// </summary>
+        public static ErrorCorrectionOptions TwoSided { get; } = new()
+        {
+            CountReverseComplement = true,
+            MaxIterations = int.MaxValue,
+            MaxErrorsPerKmer = 0,
+        };
+
+        /// <summary>
+        /// Explicit opt-out of canonical counting: the two-sided stage over a forward-strand spectrum
+        /// (the pre-audit default of the three-argument overload). Reads from the opposite strand then
+        /// are not supported by the spectrum, which can leave them uncorrected or miscorrect them.
         /// </summary>
         public static ErrorCorrectionOptions TwoSidedForwardStrand { get; } = new()
         {
@@ -1837,10 +1856,11 @@ public static class SequenceAssembler
 
     /// <summary>
     /// Corrects substitution errors in reads with the conservative two-sided k-mer spectrum rule of
-    /// Musket (stage 1), over a forward-strand spectrum, iterating until no further unique correction
-    /// exists. Equivalent to
+    /// Musket (stage 1), over a canonical (both-strand) k-mer spectrum as Musket counts it, iterating
+    /// until no further unique correction exists. Equivalent to
     /// <see cref="ErrorCorrectReads(IReadOnlyList{string}, int, int, ErrorCorrectionOptions)"/> with
-    /// <see cref="ErrorCorrectionOptions.TwoSidedForwardStrand"/>.
+    /// <see cref="ErrorCorrectionOptions.TwoSided"/>; use
+    /// <see cref="ErrorCorrectionOptions.TwoSidedForwardStrand"/> for the forward-strand-only spectrum.
     /// </summary>
     /// <remarks>
     /// A k-mer is trusted (solid) when its multiplicity is ≥ <paramref name="minKmerFrequency"/>; a base
@@ -1864,7 +1884,7 @@ public static class SequenceAssembler
         IReadOnlyList<string> reads,
         int kmerSize = DefaultErrorCorrectKmerSize,
         int minKmerFrequency = DefaultMinKmerFrequency) =>
-        ErrorCorrectReads(reads, kmerSize, minKmerFrequency, ErrorCorrectionOptions.TwoSidedForwardStrand);
+        ErrorCorrectReads(reads, kmerSize, minKmerFrequency, ErrorCorrectionOptions.TwoSided);
 
     /// <summary>
     /// Corrects substitution errors in reads with the Musket multistage k-mer spectrum corrector
