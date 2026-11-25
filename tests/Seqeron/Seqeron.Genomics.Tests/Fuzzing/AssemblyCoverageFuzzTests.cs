@@ -386,7 +386,7 @@ public class AssemblyCoverageFuzzTests
             for (int r = 0; r < nReads; r++)
                 reads.Add(RandomDna(rng, rng.Next(0, 12))); // includes empty / over-long reads
 
-            int minOverlap = rng.Next(0, 8);
+            int minOverlap = rng.Next(1, 8);      // minOverlap < 1 is rejected (unit test CalculateCoverage_MinOverlapBelowOne_Throws)
 
             int[] depth = SequenceAssembler.CalculateCoverage(reference, reads, minOverlap);
 
@@ -444,6 +444,92 @@ public class AssemblyCoverageFuzzTests
     }
 
     #endregion
+
+    #endregion
+
+    #region BF — Both strands + multi-mapping vs a brute-force end-to-end placement oracle
+
+    // Independent brute-force port of the Python/samtools oracle recorded in the Evidence file
+    // (Bowtie 2 end-to-end ungapped placement; min Hamming, leftmost, forward kept on ties;
+    // equal-best reads at > 1 distinct span skipped when excludeMultiMapped — samtools depth -Q 2
+    // over Bowtie 2 MAPQ). Reads are mutated (reverse-complemented) reference windows plus noise.
+    [Test]
+    [CancelAfter(60_000)]
+    public void CalculateCoverage_BothStrandsAndMultiMapping_MatchBruteForceOracle()
+    {
+        var rng = new Random(142_003);
+        for (int trial = 0; trial < 2000; trial++)
+        {
+            int g = rng.Next(1, 25);
+            string reference = RandomDna(rng, g);
+            var reads = new List<string>();
+            for (int r = rng.Next(0, 6); r > 0; r--)
+            {
+                int len = rng.Next(1, g + 3);
+                string read = len <= g && rng.NextDouble() < 0.6
+                    ? reference.Substring(rng.Next(0, g - len + 1), len)
+                    : RandomDna(rng, len);
+                if (rng.NextDouble() < 0.4) read = Rc(read);
+                var chars = read.ToCharArray();
+                for (int i = 0; i < chars.Length; i++)
+                    if (rng.NextDouble() < 0.1) chars[i] = "ACGT"[rng.Next(4)];
+                read = new string(chars);
+                reads.Add(rng.NextDouble() < 0.2 ? read.ToLowerInvariant() : read);
+            }
+
+            int minOverlap = rng.Next(1, 7);
+            bool both = rng.Next(2) == 0, exclude = rng.Next(2) == 0;
+
+            int[] depth = SequenceAssembler.CalculateCoverage(reference, reads, minOverlap, both, exclude);
+
+            int[] expected = new int[g];
+            foreach (string read in reads)
+            {
+                var placement = OraclePlace(reference, read, minOverlap, both, exclude);
+                if (placement is int p)
+                    for (int i = p; i < p + read.Length; i++) expected[i]++;
+            }
+
+            depth.Should().Equal(expected, $"trial {trial}: ref {reference}, reads [{string.Join(",", reads)}], " +
+                $"minOverlap {minOverlap}, both {both}, exclude {exclude}");
+        }
+    }
+
+    private static string Rc(string s)
+    {
+        var sb = new StringBuilder(s.Length);
+        for (int i = s.Length - 1; i >= 0; i--)
+            sb.Append(char.ToUpperInvariant(s[i]) switch { 'A' => 'T', 'C' => 'G', 'G' => 'C', 'T' => 'A', var c => c });
+        return sb.ToString();
+    }
+
+    private static int? OraclePlace(string reference, string read, int minOverlap, bool both, bool exclude)
+    {
+        string r = reference.ToUpperInvariant(), q = read.ToUpperInvariant();
+        if (q.Length == 0 || q.Length > r.Length) return null;
+
+        List<(int Dist, int Pos)> Hits(string pattern)
+        {
+            var list = new List<(int, int)>();
+            for (int p = 0; p + pattern.Length <= r.Length; p++)
+            {
+                int d = 0;
+                for (int i = 0; i < pattern.Length; i++) if (r[p + i] != pattern[i]) d++;
+                list.Add((d, p));
+            }
+            return list;
+        }
+
+        var fwd = Hits(q);
+        var rev = both ? Hits(Rc(q)) : new List<(int Dist, int Pos)>();
+        var best = fwd.Min();
+        if (rev.Count > 0 && rev.Min().Dist < best.Dist) best = rev.Min();
+        if (q.Length - best.Dist < minOverlap) return null;
+
+        var loci = fwd.Concat(rev).Where(h => h.Dist == best.Dist).Select(h => h.Pos).ToHashSet();
+        if (exclude && loci.Count > 1) return null;
+        return best.Pos;
+    }
 
     #endregion
 }

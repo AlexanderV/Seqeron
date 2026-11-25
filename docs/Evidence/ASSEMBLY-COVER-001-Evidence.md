@@ -122,12 +122,146 @@ Reference `ACGTTGCAAT` (length 10). Reads are distinct 5-mer substrings, each ma
 ## Recommendations for Test Coverage
 
 1. **MUST Test:** Per-base depth array equals the count of reads spanning each position for unambiguous exact-match placements. — Evidence: samtools / Metagenomics Wiki ("number of reads mapping to a specific reference position").
-2. **MUST Test:** Read extending past reference end contributes only its overlapping portion (boundary clipping). — Evidence: per-base counting at reference boundary (implementation contract derived from depth definition).
+2. **MUST Test:** ~~Read extending past reference end contributes only its overlapping portion (boundary clipping).~~ Superseded 2026-11-25: placement is end-to-end (Bowtie 2 default `--end-to-end`, no soft clipping), so a read never overhangs; a read longer than the reference does not align (M4).
 3. **MUST Test:** Unmatched read (below `minOverlap`) contributes 0 to all positions. — Evidence: a read that does not align does not add depth (samtools depth semantics).
 4. **MUST Test:** Empty reads list → all-zero depth array of reference length. — Evidence: no aligned reads → every per-base depth 0 (Daniel Cook / Metagenomics Wiki).
 5. **SHOULD Test:** Average depth = Σ(per-base depth) / reference length on the worked dataset (1.5). — Rationale: Daniel Cook "Sum of Depths / genome size."
 6. **SHOULD Test:** Breadth = (# positions with depth ≥ 1) / reference length on the worked dataset (1.0). — Rationale: Metagenomics Wiki breadth definition.
 7. **COULD Test:** Case-insensitive matching (lowercase read vs uppercase reference still maps). — Rationale: implementation normalizes case; verifies depth is placement-driven, not case-driven.
+
+---
+
+## 2026-11-25 review (B10, Stage A/B) — placement semantics
+
+### Sources opened (fetched with a neutral User-Agent)
+
+| Source | URL | Points used |
+|---|---|---|
+| Bowtie 2 MANUAL | https://raw.githubusercontent.com/BenLangmead/bowtie2/master/MANUAL.markdown | `--end-to-end` "requires that the entire read align from one end to the other, without any trimming (or "soft clipping")… `--end-to-end` is the default mode"; `--nofw/--norc` "Default: both strands enabled"; "Default mode: search for multiple alignments, report the best one"; equally good alignments → pseudo-random choice; MAPQ = uniqueness |
+| Bowtie 2 `unique.h` | https://raw.githubusercontent.com/BenLangmead/bowtie2/master/unique.h | `BowtieMapq2`, end-to-end: `bestdiff == 0` (best AS = second-best AS) → MAPQ 1 or 0; `bestdiff > 0` → MAPQ ≥ 2 |
+| samtools-depth(1) | https://raw.githubusercontent.com/samtools/samtools/develop/doc/samtools-depth.1 | `-a` all positions; `-Q` min MAPQ; default excludes UNMAP,SECONDARY,QCFAIL,DUP (one primary record per read counted); deletions ignored unless `-J` |
+| bwa(1) | https://raw.githubusercontent.com/lh3/bwa/master/bwa.1 | samse: "Repetitive hits will be randomly chosen" (one placement per read) |
+
+### Findings
+
+1. **Reverse-strand reads never placed.** `CalculateCoverage("ACGGTCAATGCC", ["TTGACC"], 6)` → all 0, but `TTGACC` = revcomp(`GGTCAA`) at [2,8); Bowtie 2/BWA search both strands by default → samtools depth `[0,0,1,1,1,1,1,1,0,0,0,0]`. Fix: overload `CalculateCoverage(reference, reads, minOverlap, includeReverseComplement, excludeMultiMapped = false)`; 3-arg overload unchanged (forward only, backward compatible, as ASSEMBLY-DBG-001).
+2. **No multi-mapping handling.** Equal-best reads were silently counted at the leftmost locus with no way to apply the standard MAPQ filter. Default unchanged (Bowtie 2 reports one alignment); opt-in `excludeMultiMapped` drops reads whose best Hamming distance occurs at > 1 distinct start (both strands pooled) = `samtools depth -Q 2` over Bowtie 2 MAPQ. `ACGTACGTAC`, [`ACGTA`,`GTACG`], 5 → `[0,0,1,1,1,1,1,0,0,0]`.
+3. **minOverlap ≤ 0 placed reads with zero matching bases.** `("AAAA", ["GGGG"], 0)` → `[1,1,1,1]`. Now `ArgumentOutOfRangeException` for minOverlap < 1 (ASSEMBLY-OLC-001 F4 precedent); null read element → `ArgumentException` (was `NullReferenceException`).
+4. **Doc/code mismatch (clipping).** XML doc and this Evidence claimed overhanging reads are clipped; the scan never placed an overhanging read (clip branch dead). Doc corrected to Bowtie 2 end-to-end semantics; dead branch removed.
+5. **Duplication.** Private `FindBestAlignment` (char-loop max-matches scan) = `ApproximateMatcher.FindBestMatch` (leftmost min Hamming, case-insensitive) → removed; placement now delegates to `FindBestMatch`/`FindWithMismatches`; RC via Core `TryGetReverseComplement`. MCP `calculate_coverage` delegates (new optional `includeReverseComplement`, `excludeMultiMapped`).
+
+### Numeric oracle
+
+`pysam` 0.24.1 (pip) `samtools depth -a` (with `-Q 2` for `excludeMultiMapped`) over SAM records written by an independent Python placement oracle (flag 16 + reverse-complemented SEQ for reverse-strand hits, MAPQ 0 for equal-best multi-locus reads else 42, CIGAR `<L>M`). 14 hand cases + 2000 random cases (seed 2026; reads = mutated/reverse-complemented/lower-cased reference windows or random, minOverlap 1–6, both flags random): C# result equal on **2014/2014**, and the 3-arg overload equal on every forward-only, non-excluding case. Hand cases (locked in unit tests):
+
+| reference | reads | minOverlap | RC | excl | samtools depth -a |
+|---|---|---|---|---|---|
+| ACGTACGTAC | ACGTA, GTACG | 5 | F | F | 1,1,2,2,2,1,1,0,0,0 |
+| ACGTACGTAC | ACGTA, GTACG | 5 | F | T | 0,0,1,1,1,1,1,0,0,0 |
+| ACGGTCAATGCC | TTGACC | 6 | F | F | 0×12 |
+| ACGGTCAATGCC | TTGACC | 6 | T | F | 0,0,1,1,1,1,1,1,0,0,0,0 |
+| ACGGTCAATGCC | ttgacc, GGTCAA | 6 | T | F | 0,0,2,2,2,2,2,2,0,0,0,0 |
+| TTACGTTT | ACGT | 4 | T | T | 0,0,1,1,1,1,0,0 |
+| AAAAAAAAAA | AAAAA | 5 | F | T | 0×10 |
+| AAAAAAAAAA | AAAAA | 5 | F | F | 1,1,1,1,1,0,0,0,0,0 |
+| GATTACAGATTACA | GATTAC | 6 | T | T | 0×14 |
+| CCCCAGGTCTTTT | AGCTCT | 5 | F | F | 0,0,0,0,1,1,1,1,1,1,0,0,0 |
+| CCCCAGGTCTTTT | AGCTCT | 6 | F | F | 0×13 |
+| ACGTTGCAAT | ACGTT, TTGCA, GCAAT | 5 | T | F | 1,1,1,2,2,2,2,2,1,1 |
+| GGGAAACCC | TTTCC | 4 | T | T | 0,1,1,1,1,1,0,0,0 |
+
+Oracle code (`python3 -I cover_oracle.py cases.json 2000`):
+
+```python
+"""Independent oracle for ASSEMBLY-COVER-001.
+Placement: Bowtie2-style end-to-end ungapped (no soft clip), min Hamming, leftmost, forward kept on ties,
+optional --norc off (both strands); MAPQ 0 when best score attained at >1 distinct locus (bowtie2 unique.h
+BowtieMapq2: bestdiff==0 -> MAPQ<=1). Depth: real samtools depth (pysam) -a, with -Q 2 for excludeMultiMapped.
+"""
+import json, os, random, sys, tempfile
+import pysam
+
+COMP = str.maketrans("ACGTacgt", "TGCAtgca")
+def rc(s): return s.translate(COMP)[::-1]
+def ham(a, b): return sum(x != y for x, y in zip(a, b))
+
+def hits(ref, q):
+    return [(ham(ref[p:p+len(q)], q), p) for p in range(len(ref) - len(q) + 1)]
+
+def place(ref, read, minov, both):
+    R, Q = ref.upper(), read.upper()
+    if not R or not Q or len(Q) > len(R): return None
+    f = hits(R, Q); bf = min(f)            # (dist, pos) -> leftmost among min
+    best, strand = bf, 0
+    r = hits(R, rc(Q)) if both else []
+    if r:
+        br = min(r)
+        if br[0] < bf[0]: best, strand = br, 16
+    if len(Q) - best[0] < minov: return None
+    loci = {p for d, p in f if d == best[0]} | {p for d, p in r if d == best[0]}
+    return best[1], strand, len(loci) > 1
+
+def samtools_depth(ref, reads, minov, both, excl):
+    d = tempfile.mkdtemp()
+    sam = os.path.join(d, "a.sam")
+    with open(sam, "w") as fh:
+        fh.write(f"@HD\tVN:1.6\tSO:unsorted\n@SQ\tSN:ref\tLN:{len(ref)}\n")
+        for i, read in enumerate(reads):
+            pl = place(ref, read, minov, both)
+            if pl is None: continue
+            pos, flag, multi = pl
+            seq = read.upper() if flag == 0 else rc(read.upper())
+            fh.write(f"r{i}\t{flag}\tref\t{pos+1}\t{0 if multi else 42}\t{len(read)}M\t*\t0\t0\t{seq}\t*\n")
+    bam = os.path.join(d, "a.bam")
+    pysam.sort("-o", bam, sam); pysam.index(bam)
+    args = ["-a"] + (["-Q", "2"] if excl else []) + [bam]
+    out = pysam.depth(*args)
+    depth = [0] * len(ref)
+    for line in out.splitlines():
+        _, p, c = line.split("\t"); depth[int(p) - 1] = int(c)
+    return depth
+
+if __name__ == "__main__":
+    cases = []
+    hand = [
+        ("ACGTACGTAC", ["ACGTA", "GTACG"], 5, False, False),
+        ("ACGTACGTAC", ["ACGTA", "GTACG"], 5, False, True),
+        ("ACGGTCAATGCC", ["TTGACC"], 6, False, False),
+        ("ACGGTCAATGCC", ["TTGACC"], 6, True, False),
+        ("ACGGTCAATGCC", ["ttgacc", "GGTCAA"], 6, True, False),
+        ("TTACGTTT", ["ACGT"], 4, True, True),
+        ("AAAAAAAAAA", ["AAAAA"], 5, False, True),
+        ("AAAAAAAAAA", ["AAAAA"], 5, False, False),
+        ("GATTACAGATTACA", ["GATTAC"], 6, True, True),
+        ("CCCCAGGTCTTTT", ["AGGTCT"], 5, True, False),
+        ("CCCCAGGTCTTTT", ["AGCTCT"], 5, False, False),
+        ("CCCCAGGTCTTTT", ["AGCTCT"], 6, False, False),
+        ("ACGTTGCAAT", ["ACGTT", "TTGCA", "GCAAT"], 5, True, False),
+        ("GGGAAACCC", ["TTTCC"], 4, True, True),
+    ]
+    for ref, reads, mo, b, e in hand:
+        cases.append(dict(reference=ref, reads=reads, minOverlap=mo, rc=b, excl=e,
+                          depth=samtools_depth(ref, reads, mo, b, e)))
+    rng = random.Random(2026)
+    for t in range(int(sys.argv[2]) if len(sys.argv) > 2 else 400):
+        g = rng.randint(1, 24); ref = "".join(rng.choice("ACGT") for _ in range(g))
+        reads = []
+        for _ in range(rng.randint(0, 5)):
+            L = rng.randint(1, g + 2)
+            if rng.random() < 0.6 and L <= g:
+                s = rng.randint(0, g - L); rd = ref[s:s+L]
+                if rng.random() < 0.4: rd = rc(rd)
+                rd = "".join(c if rng.random() > 0.1 else rng.choice("ACGT") for c in rd)
+            else:
+                rd = "".join(rng.choice("ACGT") for _ in range(L))
+            if rng.random() < 0.2: rd = rd.lower()
+            reads.append(rd)
+        mo = rng.randint(1, 6); b = rng.random() < 0.5; e = rng.random() < 0.5
+        cases.append(dict(reference=ref, reads=reads, minOverlap=mo, rc=b, excl=e,
+                          depth=samtools_depth(ref, reads, mo, b, e)))
+    json.dump(cases, open(sys.argv[1], "w"))
+    for c in cases[:len(hand)]: print(c["reference"], c["reads"], c["minOverlap"], c["rc"], c["excl"], c["depth"])
+```
 
 ---
 
@@ -144,3 +278,4 @@ Reference `ACGTTGCAAT` (length 10). Reads are distinct 5-mer substrings, each ma
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-25**: B10 review — Bowtie 2 / samtools / BWA sources, placement findings, samtools-depth oracle (2014/2014).

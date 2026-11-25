@@ -2,7 +2,7 @@
 
 MCP server — **Gene/ORF/promoter annotation, variant calling & effect, epigenetics, miRNA, splicing, SVs, transcriptomics.**
 
-Exposes **97 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **100 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/annotation/`](../../../../docs/mcp/tools/annotation). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -41,6 +41,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `coding_potential` | Score the coding potential of a DNA sequence using the CPAT hexamer usage-bias log-likelihood (Wang et al. |
 | `codon_usage` | Count codon occurrences (in-frame, 5'→3') for a coding sequence. |
 | `compare_seed_regions` | Compare seed regions of two miRNAs and report Hamming-style match counts and seed-family identity. |
+| `cpat_coding_probability` | CPAT (Wang et al. 2013): ORF candidates scored by transcript length, ORF length, Fickett TESTCODE and hexamer score; logistic coding probability. |
 | `cpg_observed_expected` | Compute CpG observed/expected ratio for a sequence. |
 | `create_mirna` | Build a MiRna record (T→U normalized) with seed metadata. |
 | `detect_alternative_splicing` | Detect candidate alternative splicing patterns (exon skipping, alternative 5'/3' splice sites). |
@@ -49,6 +50,8 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `differential_expression` | Run a simple two-group differential-expression analysis using log2 fold change, Welch-style t-test p-values, and Benjamini–Hochberg FDR c… |
 | `enrichment_score` | Compute a GSEA-like running-sum enrichment score for a gene set against a ranked gene list. |
 | `epigenetic_age` | Estimate epigenetic age (Horvath-clock-style) from methylation values at clock CpGs. |
+| `fickett_scan` | Sliding-window Fickett (1982) TESTCODE with coding calls, as EMBOSS tcode. |
+| `fickett_score` | Fickett (1982) TESTCODE coding statistic of a whole DNA sequence (published or CPAT table set). |
 | `filter_svs` | Filter structural variants by quality, supporting-read count, and length bounds. |
 | `find_acceptor_sites` | Find candidate 3' (acceptor) splice sites (canonical AG, optional U12 AC). |
 | `find_accessible_regions` | Identify accessible chromatin regions (ATAC-seq-like peaks) from per-position accessibility signal. |

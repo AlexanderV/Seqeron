@@ -139,8 +139,18 @@ public record CorrectedReadsResult(string[] Corrected);
 // Input DTOs
 // ================================
 
-/// <summary>Paired-end link between two contigs with estimated gap size.</summary>
-public record ContigLinkInput(int Contig1, int Contig2, int GapSize);
+/// <summary>
+/// Scaffolding link: Contig1 (reverse-complemented when Contig1Reversed) is followed by Contig2
+/// (reverse-complemented when Contig2Reversed) after GapSize characters (negative = overlap);
+/// Weight = number of supporting mate pairs (≥ 1).
+/// </summary>
+public record ContigLinkInput(
+    int Contig1,
+    int Contig2,
+    int GapSize,
+    bool Contig1Reversed = false,
+    bool Contig2Reversed = false,
+    int Weight = 1);
 
 /// <summary>Read with sequence and matching Phred+33 quality string.</summary>
 public record QualityReadInput(string Sequence, string Quality);

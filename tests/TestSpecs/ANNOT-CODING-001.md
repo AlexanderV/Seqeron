@@ -2,10 +2,10 @@
 
 **Test Unit ID:** ANNOT-CODING-001
 **Area:** Annotation
-**Algorithm:** Coding Potential Calculation (CPAT hexamer usage-bias score)
+**Algorithm:** Coding Potential Calculation (CPAT hexamer usage-bias score, Fickett TESTCODE, CPAT coding probability)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -36,7 +36,7 @@
 - Sequence shorter than word size → 0 (Source 2).
 - Hexamer in only one table → skipped (Source 2).
 - coding>0 & noncoding==0 → +1; coding==0 & noncoding>0 → −1 (Source 2).
-- No scorable hexamer → reference returns −1 (caught division); C# port returns 0 (see §6 ASSUMPTION-1).
+- No scorable hexamer → −1, exactly as the reference (caught division; F11, 2026-11-25).
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -87,7 +87,9 @@
 | M12 | Null noncoding table | noncoding = null | `ArgumentNullException` | validation contract |
 | M13 | Non-positive wordSize | wordSize = 0 | `ArgumentOutOfRangeException` | validation contract |
 | M14 | Non-positive stepSize | stepSize = 0 | `ArgumentOutOfRangeException` | validation contract |
-| M15 | No scorable hexamer | all hexamers missing from tables | 0.0 (see ASSUMPTION-1) | Source 2 + §6 |
+| M15 | No scorable hexamer | all hexamers missing from tables | −1.0 | Source 2 (`except: return -1`) |
+| M16 | Only both-zero hexamers | every word in both tables with 0/0 | −1.0 | Source 2 |
+| M17 | All-N sequence ≥ wordSize / < wordSize | `NNNNNNNNN` / `NNNNN` | −1.0 / 0.0 | Source 2 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -171,7 +173,9 @@
 | M12 | ✅ Covered | CalculateCodingPotential_NullNoncodingTable_Throws |
 | M13 | ✅ Covered | CalculateCodingPotential_NonPositiveWordSize_Throws |
 | M14 | ✅ Covered | CalculateCodingPotential_NonPositiveStepSize_Throws |
-| M15 | ✅ Covered | CalculateCodingPotential_NoScorableHexamer_ReturnsZero |
+| M15 | ✅ Covered | CalculateCodingPotential_NoScorableHexamer_ReturnsMinusOne |
+| M16 | ✅ Covered | CalculateCodingPotential_OnlyBothZeroHexamers_ReturnsMinusOne |
+| M17 | ✅ Covered | CalculateCodingPotential_AllNSequence_ReturnsMinusOne_TooShortReturnsZero |
 | S1 | ✅ Covered | CalculateCodingPotential_LowercaseSequence_MatchesUppercase |
 | S2 | ✅ Covered | CalculateCodingPotential_EmptySequence_ReturnsZero |
 | C1 | ✅ Covered | CalculateCodingPotential_BothTablesZero_HexamerIsSkipped |
@@ -184,13 +188,55 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| ASSUMPTION-1 | No-scorable-hexamer returns 0 (port choice) instead of the reference −1 sentinel; only affects inputs with zero scorable hexamers | M15, §1.3 |
+| ~~ASSUMPTION-1~~ | Resolved 2026-11-25 (F11): no-scorable-hexamer now returns the reference −1 | M15–M17 |
 | ASSUMPTION-2 | Both frequency tables must use the same units (counts or proportions); the score is unit-invariant only within consistent units | Contract, Evidence dataset |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. **Decision:** The Registry title "hexamer frequency bias" maps to the CPAT hexamer usage-bias log-likelihood (Wang et al. 2013), not the Fickett TESTCODE composite. TESTCODE is recorded as a related, not-implemented alternative.
+1. **Decision:** The Registry title "hexamer frequency bias" maps to the CPAT hexamer usage-bias log-likelihood (Wang et al. 2013). Fickett TESTCODE and the full CPAT logistic probability were added 2026-11-25 (F12, F13) as additional methods (§8).
 2. **Decision:** The prior single-argument `CalculateCodingPotential(string)` used invented weights (0.7, 0.6) with no authoritative basis; per the implementation conformance policy it was a defect and was replaced by the table-based CPAT method (correctness-affecting constants removed). The MCP `coding_potential` tool now accepts the two hexamer tables.
 3. **Decision:** Hexamer tables are algorithm **inputs** (training data), so they are passed as parameters rather than hard-coded; this matches CPAT, where tables are organism-specific and supplied separately.
+
+---
+
+## 8. Additional methods (B11 review 2026-11-25)
+
+Sources: Fickett (1982) NAR 10(17):5303 via EMBOSS `Etcode.dat`; EMBOSS 6.6.0 `tcode.c` / `tcode.acd` (binary run);
+CPAT 3.0.5 `fickett.py`, `find_orfs.py`, `__init__.py`, `utils.py`, prebuilt Human logit model (run with R). Oracle numbers:
+Evidence § "B11 review".
+
+### 8.1 Fickett TESTCODE — `CalculateFickettScore`, `ClassifyFickettScore`, `ScanFickettScore`
+
+| ID | Test | Expected | Evidence |
+|---|---|---|---|
+| F-M1 | 5 sequences (t1, t3, N-containing, lowercase, `AC`) both table sets | exact 1982 value; CPAT `fickett_value` bit-exact | Fractions + CPAT run |
+| F-M2 | content < 0.17 (t3, G = 0.16) | CPAT − 1982 = 0.006 (0.19 missing in CPAT) | fickett.py vs Etcode.dat |
+| F-M3 | CPAT len < 2 → 0; 1982 `A` → 0.3458 | as stated | fickett.py guard; exact |
+| F-M4 | no A/C/G/T → 0 (1982); CPAT `NNNN` → 0.4099 | as stated | port convention / CPAT run |
+| F-M5 | call limits 0.95 / 0.9499 / 0.74 / 0.7399 | Coding / NoOpinion / NoOpinion / NonCoding | tcode_report |
+| F-M6 | exact-boundary human windows (0.95, 0.74) | Coding / NoOpinion (EMBOSS float32 says No opinion / Non-coding) | EMBOSS + float32 emulation |
+| F-M7 | scan t1, window 200 step 3 | 63 windows 0..186, scores = EMBOSS rows | EMBOSS tcode |
+| F-M8 | window = length → none; window+1 → 1 | EMBOSS `pos + window < len` | tcode.c |
+| F-M9 | null / unknown table set / window < 200 / step 0 | throws | tcode.acd minimum 200 / 1 |
+| F-S1 | case-insensitive | equal | — |
+
+### 8.2 CPAT probability — `CpatModel`, `PredictCodingProbability`, `PredictBestCodingOrf`
+
+| ID | Test | Expected | Evidence |
+|---|---|---|---|
+| C-M1 | 5 transcripts, sense, synthetic table + Human coefficients | all `ORF_prob.tsv` rows (coords, Fickett, Hexamer, probability) | `cpat` CLI |
+| C-M2 | same with antisense | all rows incl. '−' coordinates (Start > End) | `cpat --antisense` |
+| C-M3 | no qualifying ORF (t3) | empty / null | `no_ORF.txt` |
+| C-M4 | unterminated ORF | runs to transcript end | ORFFinder |
+| C-M5 | best by probability / by length | `ORF_prob.best.tsv` (`-p`, `--best-orf l`) | `cpat` |
+| C-M6 | custom start/stop + top 2 | `cpat --start ATG,GTG,TTG --stop TAA,TAG --top-orf 2` rows | `cpat` |
+| C-M7 | empty start list | ORFFinder `start_coden=[]` candidates | find_orfs.py |
+| C-M8 | features delegate to `CalculateFickettScore(Cpat)` / `CalculateCodingPotential` / logistic | equal | design |
+| C-M9 | `ParseHexamerTable` (header, blank, whitespace, errors) | CPAT reader semantics | `__init__.py` |
+| C-M10 | invalid arguments | throws | contract |
+
+Files: `GenomeAnnotator_FickettScore_Tests.cs`, `GenomeAnnotator_CpatCodingProbability_Tests.cs`; MCP:
+`CodingPotentialTests.cs` (`fickett_score`, `fickett_scan`, `cpat_coding_probability`).
+

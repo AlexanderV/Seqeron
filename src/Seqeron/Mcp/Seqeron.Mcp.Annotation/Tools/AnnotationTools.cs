@@ -147,6 +147,81 @@ public class AnnotationTools
         return new CodingPotentialResult(score);
     }
 
+    /// <summary>Fickett (1982) TESTCODE of a whole sequence.</summary>
+    [McpServerTool(Name = "fickett_score", Title = "Annotation — Fickett TESTCODE", ReadOnly = true)]
+    [Description("Fickett (1982) TESTCODE coding statistic of a whole DNA sequence (position asymmetry + base composition look-up tables). Call: < 0.74 non-coding, >= 0.95 coding, else no opinion. tableSet 'fickett1982' (published / EMBOSS tables, default) or 'cpat' (CPAT fickett_value, the feature of CPAT's logistic model).")]
+    public static FickettScoreResult FickettScore(
+        [Description("DNA sequence")] string sequence,
+        [Description("'fickett1982' (default) or 'cpat'")] string tableSet = "fickett1982")
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var tables = tableSet?.Trim().ToLowerInvariant() switch
+        {
+            "fickett1982" => GenomeAnnotator.FickettTableSet.Fickett1982,
+            "cpat" => GenomeAnnotator.FickettTableSet.Cpat,
+            _ => throw new ArgumentException("tableSet must be 'fickett1982' or 'cpat'", nameof(tableSet)),
+        };
+        double score = GenomeAnnotator.CalculateFickettScore(sequence, tables);
+        return new FickettScoreResult(score, GenomeAnnotator.ClassifyFickettScore(score).ToString());
+    }
+
+    /// <summary>Sliding-window Fickett TESTCODE (EMBOSS tcode).</summary>
+    [McpServerTool(Name = "fickett_scan", Title = "Annotation — Fickett TESTCODE Scan", ReadOnly = true)]
+    [Description("Slide a window along a DNA sequence and report the Fickett (1982) TESTCODE and coding call of each window, as EMBOSS tcode (window >= 200, default 200; step default 3). Coordinates are 0-based half-open.")]
+    public static FickettScanResult FickettScan(
+        [Description("DNA sequence")] string sequence,
+        [Description("Window length (>= 200)")] int windowSize = 200,
+        [Description("Window step (>= 1)")] int stepSize = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var windows = GenomeAnnotator.ScanFickettScore(sequence, windowSize, stepSize)
+            .Select(w => new FickettWindowDto(w.Start, w.End, w.Score, w.Call.ToString()))
+            .ToList();
+        return new FickettScanResult(windows);
+    }
+
+    /// <summary>CPAT coding probability of a transcript.</summary>
+    [McpServerTool(Name = "cpat_coding_probability", Title = "Annotation — CPAT Coding Probability", ReadOnly = true)]
+    [Description("CPAT (Wang et al. 2013): find ORF candidates in a transcript, score each by transcript length, ORF length, Fickett TESTCODE and hexamer score, and return the logistic coding probability (coding when >= cutoff) plus the best candidate. Requires the hexamer tables and logistic coefficients of a CPAT model (e.g. CPAT's Human model: intercept -7.8284881840360567, mRNA -5.4831277888113823e-05, ORF 0.011187815405519514, Fickett 3.4471695641643225, Hexamer 6.068275924110611, cutoff 0.364).")]
+    public static CpatCodingProbabilityResult CpatCodingProbability(
+        [Description("Transcript DNA sequence (T, not U)")] string sequence,
+        [Description("Coding hexamer table: 6-mer -> frequency")] IReadOnlyDictionary<string, double> codingHexamerFrequencies,
+        [Description("Non-coding hexamer table: 6-mer -> frequency (same units)")] IReadOnlyDictionary<string, double> noncodingHexamerFrequencies,
+        [Description("Logistic intercept")] double intercept,
+        [Description("Coefficient of transcript length")] double mrnaLengthCoefficient,
+        [Description("Coefficient of ORF length")] double orfLengthCoefficient,
+        [Description("Coefficient of the Fickett score")] double fickettCoefficient,
+        [Description("Coefficient of the hexamer score")] double hexamerCoefficient,
+        [Description("Coding-probability cutoff (e.g. 0.364 for CPAT Human)")] double codingProbabilityCutoff,
+        [Description("Also search the antisense strand (CPAT --antisense)")] bool searchAntisense = false,
+        [Description("Number of longest ORF candidates scored (CPAT --top-orf, default 5)")] int topOrfCount = 5,
+        [Description("ORFs must be longer than this many nt (CPAT --min-orf, default 75)")] int minOrfLength = 75,
+        [Description("Start codons (default ATG); an empty list lets any non-stop codon open an ORF")] IReadOnlyList<string>? startCodons = null,
+        [Description("Stop codons (default TAG, TAA, TGA)")] IReadOnlyList<string>? stopCodons = null,
+        [Description("Pick the best candidate by length instead of probability (CPAT --best-orf l)")] bool bestByLength = false)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var model = new GenomeAnnotator.CpatModel(codingHexamerFrequencies, noncodingHexamerFrequencies,
+            intercept, mrnaLengthCoefficient, orfLengthCoefficient, fickettCoefficient, hexamerCoefficient,
+            codingProbabilityCutoff);
+        var options = new GenomeAnnotator.CpatOptions { SearchAntisense = searchAntisense, TopOrfCount = topOrfCount, MinOrfLength = minOrfLength };
+        if (startCodons is not null) options = options with { StartCodons = startCodons };
+        if (stopCodons is not null) options = options with { StopCodons = stopCodons };
+
+        var candidates = GenomeAnnotator.PredictCodingProbability(sequence, model, options);
+        var best = GenomeAnnotator.PredictBestCodingOrf(sequence, model, options, bestByLength);
+        var dtos = candidates.Select(p => new CpatOrfDto(p.Strand.ToString(), p.Frame, p.Start, p.End, p.OrfLength,
+            p.OrfSequence, p.MrnaLength, p.FickettScore, p.HexamerScore, p.CodingProbability, p.IsCoding)).ToList();
+        int bestIndex = best is null ? -1 : candidates.ToList().IndexOf(best);
+        return new CpatCodingProbabilityResult(dtos, bestIndex);
+    }
+
     /// <summary>Find tandem and inverted repeats.</summary>
     [McpServerTool(Name = "find_repetitive_elements", Title = "Annotation — Find Repetitive Elements", ReadOnly = true)]
     [Description("Find tandem and inverted repeats in a DNA sequence.")]

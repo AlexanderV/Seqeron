@@ -57,6 +57,139 @@
 
 ---
 
+### B10 review (2026-11-25) — sources opened and reference numbers
+
+**Huson, Reinert & Myers (2002), "The greedy path-merging algorithm for contig scaffolding", J. ACM 49(5):603–615.**
+PDF opened in full: https://publications.mpi-cbg.de/Huson_2002_6349.pdf (rank 1).
+- §2.1: each contig gives two nodes (its ends) joined by a contig edge; a mate-edge joins ends of two
+  contigs and "induces a relative orientation and approximate distance"; "l(e) may be negative, which
+  indicates that the two contigs should overlap by approximately −l(e) base pairs". Weight = evidence (§2, §2.2).
+- Algorithm 5.1: "Select all contig edges. for each mate-edge e in descending order of weight: … if P1 ≠ P2
+  and we can merge P1 and P2 …"; invariant "every node is adjacent to at most two selected edges";
+  merging that interleaves paths ("zipper", Algorithm 5.2) and the happy/unhappy test need σ(e).
+
+**ABySS `MergePaths/MergeContigs.cpp`** (raw.githubusercontent.com/bcgsc/abyss/master, read): `mergeContigs`
+asserts d < 0, overlap = −d, takes the last −d bases of the merged sequence and the first −d bases of the
+next contig, `createConsensus` (equal ignoring case; N yields to the other base; IUPAC subset → OR; else
+fail); on success collapses the overlap; else a gapped `alignOverlap`, else appends `'n'` + contig.
+
+**SSPACE-Basic** (raw.githubusercontent.com/nsoranzo/sspace_basic/master, `SSPACE_Basic.pl`
+`mergeContigs`, `bin/PairingAndScaffolding.pl` `computeLayout`, read): `reverseComplement($seq) if
+($orient eq "r")`; negative estimate → overlap search (≥ −n 15) and merge, otherwise a single `n`;
+positive → `"N" x distance`; ratio rule `-a 0.7` between the two best links, `-k 5` minimum links;
+"Reverse all contigs if the whole scaffold is a reverse complement".
+
+**Python oracle** (independent; Biopython 1.8x `Seq.reverse_complement`). Rule: links sorted by
+descending weight (stable); link (c1,o1)→(c2,o2) joins end exit(c1) = 3′ if `+` else 5′ and entry(c2)
+= 5′ if `+` else 3′; selected iff both ends free and c1, c2 on different paths; each path read from a
+terminal, keep the reading with more forward contigs (tie: lowest-index contig forward); gaps: d > 0 →
+d N; d < 0 and the −d bases (since the last gap) agree (case-insensitive, N wildcard) → collapse;
+otherwise 100 N (AGP). Scaffolds ordered by lowest contig index.
+
+| Case | contigs | links (c1,c2,gap[,rev1,rev2,weight]) | Oracle = C# |
+|---|---|---|---|
+| link into lower index | AA, TT | (1,0,2) | `TTNNAA` (old code: `AA`,`TT` — link lost) |
+| predecessor of contig 0 | AA, CC, GG | (2,0,1),(0,1,1) | `GGNAANCC` (old: `AANCC`,`GG`) |
+| second successor of a joined end | AA, CC, GG | (1,0,1),(1,2,1) | `CCNAA`, `GG` (old: `AA`,`CCNGG`) |
+| heavier wins | AAAA, CCCC, GGGG | (0,1,2,w1),(0,2,3,w5) | `AAAANNNGGGG`, `CCCC` |
+| cycle | AA, CC, GG | (2,0,1),(0,1,1),(1,2,1) | `GGNAANCC` |
+| orientation 0+ 1- | AACG, TTGC | (0,1,3,F,T) | `AACGNNNGCAA` |
+| orientation 0- 1+ | AACG, TTGC | (0,1,3,T,F) | `GCAANNNAACG` |
+| orientation 0- 1- | AACG, TTGC | (0,1,3,T,T) | `TTGCNNNAACG` |
+| oriented chain | ACCA, GGTT, CATG | (0,1,2,F,T),(1,2,4,T,F) | `ACCANNAACCNNNNCATG` |
+| inconsistent orientation | ACCA, GGTT, CATG | (0,1,2,F,T),(1,2,4,F,F) | `ACCANNAACC`, `CATG` |
+| overlap agrees | ACGTAC, TACGGA | (0,1,−3) | `ACGTACGGA` |
+| overlap with N | ACGTNC, TACGGA | (0,1,−3) | `ACGTACGGA` |
+| overlap disagrees | ACGTAC, TTCGGA | (0,1,−3) | `ACGTAC`+100N+`TTCGGA` |
+| overlap on RC | GGATCC, TTTGG | (0,1,−2,F,T) | `GGATCCAAA` |
+| overlap then gap | AAACG, CGTTT, GGGG | (0,1,−2),(1,2,3) | `AAACGTTTNNNGGGG` |
+| singleton ordering | AAA, CCC, GGG | (2,1,4) | `AAA`, `GGGNNNNCCC` |
+| MCP example | AAAA, CCCC, GGTT | (0,1,2),(0,2,3,F,T,w4) | `AAAANNNAACC`, `CCCC` |
+
+Differential run: 5000 random cases (3000 unconstrained: 1–7 contigs over ACGT/N incl. empty, up to 3n
+links with out-of-range/self indices, gaps in {0, −6..−1, 1..9}, random orientations, weights 1–4;
+2000 genome-derived: 2–6 overlapping pieces, random RC and shuffling, gaps −o / mismatched −o / 0..5)
+— C# `Scaffold` = oracle in **5000/5000** (600 cases fully collapse into one gap-free scaffold).
+Oracle (verbatim):
+
+<details><summary>scaffold_oracle.py</summary>
+
+```python
+"""Independent oracle for ASSEMBLY-SCAFFOLD-001.
+Greedy (Huson, Reinert & Myers 2002, Alg. 5.1, end-to-end merges; Bambus 'most links first'):
+mate-edges in descending weight (stable on input order); an edge joins two contig END nodes;
+accepted iff both end nodes still have no selected mate-edge and they lie in different selected
+paths. Paths are reverse-complemented with Biopython. Negative distance d: ABySS MergeContigs
+(the -d bases of the tail must agree, N matching anything) -> collapse; otherwise AGP 'U' 100.
+"""
+from Bio.Seq import Seq
+
+UNKNOWN = 100
+
+def rc(s): return str(Seq(s).reverse_complement())
+
+def scaffold(contigs, links, gap='N'):
+    n = len(contigs)
+    # link = (c1, c2, gap, rev1, rev2, weight)
+    L = [l if len(l) == 6 else (l[0], l[1], l[2], False, False, 1) for l in links]
+    order = sorted(range(len(L)), key=lambda i: -L[i][5])
+    partner = {}  # (contig,'L'/'R') -> ((contig,end), gap)
+    comp = list(range(n))
+    def find(x):
+        while comp[x] != x: x = comp[x]
+        return x
+    for i in order:
+        c1, c2, g, r1, r2, w = L[i]
+        if not (0 <= c1 < n and 0 <= c2 < n) or c1 == c2: continue
+        a = (c1, 'L' if r1 else 'R'); b = (c2, 'R' if r2 else 'L')
+        if a in partner or b in partner: continue
+        if find(c1) == find(c2): continue
+        partner[a] = (b, g); partner[b] = (a, g); comp[find(c1)] = find(c2)
+    groups = {}
+    for c in range(n): groups.setdefault(find(c), []).append(c)
+    out = []
+    for members in groups.values():
+        # terminal: contig with a free end; walk from it with free end on the left
+        def walk(start):
+            path = []; c = start
+            o = '+' if (c, 'L') not in partner else '-'
+            g = None
+            while True:
+                path.append((c, o, g))
+                ex = (c, 'R' if o == '+' else 'L')
+                if ex not in partner: break
+                (nc, ne), g = partner[ex]
+                c, o = nc, ('+' if ne == 'L' else '-')
+            return path
+        terms = [c for c in members if (c, 'L') not in partner or (c, 'R') not in partner]
+        cands = [walk(t) for t in terms]
+        lo = min(members)
+        def key(p):
+            fwd = sum(1 for (_, o, _) in p if o == '+')
+            lo_fwd = any(c == lo and o == '+' for (c, o, _) in p)
+            return (-fwd, 0 if lo_fwd else 1)
+        best = min(cands, key=key)
+        s = ''; since = 0
+        for (c, o, g) in best:
+            seq = contigs[c] if o == '+' else rc(contigs[c])
+            if g is None:
+                s = seq; since = len(seq); continue
+            if g > 0:
+                s += gap * g + seq; since = len(seq); continue
+            ov = -g if g < 0 else 0
+            if g < 0 and ov <= since and ov <= len(seq) and all(
+                    x.upper() == y.upper() or x.upper() == 'N' or y.upper() == 'N'
+                    for x, y in zip(s[len(s)-ov:], seq[:ov])):
+                tail = s[len(s)-ov:]
+                merged = ''.join(y if x.upper() == 'N' else x for x, y in zip(tail, seq[:ov]))
+                s = s[:len(s)-ov] + merged + seq[ov:]; since = since - ov + len(seq)
+            else:
+                s += gap * UNKNOWN + seq; since = len(seq)
+        out.append((lo, s))
+    return [s for _, s in sorted(out)]
+```
+</details>
+
 ## Documented Corner Cases and Failure Modes
 
 ### From NCBI AGP Specification
@@ -130,4 +263,7 @@
 
 ## Change History
 
+- **2026-11-25** (B10 review): greedy path merging (Huson et al. 2002), orientation, weights, overlap
+  collapse (ABySS MergeContigs); sources, oracle and reference table added above. The earlier
+  "unresolved-overlap placeholder" assumption is narrowed to overlaps that are not confirmed.
 - **2026-06-13**: Initial documentation.

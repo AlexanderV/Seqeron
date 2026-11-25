@@ -1606,25 +1606,30 @@ public class AnnotationFuzzTests
 
     /// <summary>
     /// BE: the +1 (coding-only) and −1 (non-coding-only) sentinel branches (INV-03) are the
-    /// degenerate-table boundary. A hexamer present ONLY in the coding table contributes +1; one
-    /// present ONLY in the non-coding table contributes −1. We build a 2-hexamer sequence where
-    /// the first hexamer is coding-only and the second non-coding-only, so the mean is
-    /// (+1 + −1)/2 = 0 exactly — pinning that the sentinel branches are reached and combined per
-    /// INV-01 without crashing or producing NaN/Infinity (no log of zero is taken on these paths).
+    /// degenerate-table boundary. In kmer_ratio "coding-only" means present in BOTH tables with
+    /// non-coding value 0 (a hexamer missing from either table is skipped by the has_key guard).
+    /// A 2-hexamer sequence with ATGAAA {5, 0} and AAACCC {0, 5} gives (+1 + −1)/2 = 0 exactly;
+    /// the same sequence with each hexamer present in only ONE table scores nothing, so the
+    /// reference returns its −1 sentinel. Both values are the output of CPAT 3.0.5 kmer_ratio
+    /// (run in the ANNOT-CODING-001 review: 0.0 and −1).
     /// </summary>
     [Test]
     [CancelAfter(5000)]
     public void CalculateCodingPotential_TablePresenceSentinels_ProducePlusOneAndMinusOne()
     {
         const string seq = "ATGAAACCC"; // in-frame hexamers ATGAAA (i=0), AAACCC (i=3)
-        var coding = new Dictionary<string, double> { ["ATGAAA"] = 5.0 };   // coding-only ⇒ +1
-        var noncoding = new Dictionary<string, double> { ["AAACCC"] = 5.0 }; // non-coding-only ⇒ −1
+        var coding = new Dictionary<string, double> { ["ATGAAA"] = 5.0, ["AAACCC"] = 0.0 };    // ATGAAA coding-only ⇒ +1
+        var noncoding = new Dictionary<string, double> { ["ATGAAA"] = 0.0, ["AAACCC"] = 5.0 }; // AAACCC non-coding-only ⇒ −1
 
         double score = GenomeAnnotator.CalculateCodingPotential(seq, coding, noncoding);
 
         double.IsNaN(score).Should().BeFalse("the ±1 sentinel branches take no logarithm, so no NaN arises");
         score.Should().BeApproximately(0.0, 1e-12,
             "INV-03: coding-only ⇒ +1 and non-coding-only ⇒ −1; INV-01 mean = (+1 + −1)/2 = 0");
+
+        double absent = GenomeAnnotator.CalculateCodingPotential(seq,
+            new Dictionary<string, double> { ["ATGAAA"] = 5.0 }, new Dictionary<string, double> { ["AAACCC"] = 5.0 });
+        absent.Should().Be(-1.0, "hexamers missing from a table are skipped; nothing scored ⇒ kmer_ratio −1");
     }
 
     #endregion

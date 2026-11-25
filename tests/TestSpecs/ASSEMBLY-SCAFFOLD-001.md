@@ -5,7 +5,7 @@
 **Algorithm:** Scaffolding (joining ordered contigs into scaffolds with N-gaps)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25 (B10 review)
 
 ---
 
@@ -19,6 +19,9 @@
 | 2 | NCBI AGP Specification v2.1 | 2 | https://www.ncbi.nlm.nih.gov/assembly/agp/AGP_Specification/ | 2026-06-13 |
 | 3 | Sahlin et al. (2012). Improved gap size estimation. *Bioinformatics* 28(17):2215–2222 | 1 | https://academic.oup.com/bioinformatics/article/28/17/2215/246308 | 2026-06-13 |
 | 4 | Pop, Kosack & Salzberg (2004). Hierarchical Scaffolding With Bambus. *Genome Research* 14(1):149–159 | 4→primary | https://en.wikipedia.org/wiki/Scaffolding_(bioinformatics) | 2026-06-13 |
+| 5 | Huson, Reinert & Myers (2002). The greedy path-merging algorithm for contig scaffolding. *J. ACM* 49(5):603–615 | 1 | https://publications.mpi-cbg.de/Huson_2002_6349.pdf | 2026-11-25 |
+| 6 | ABySS `MergePaths/MergeContigs.cpp` (overlap merge for negative distances) | 1 (reference code) | https://github.com/bcgsc/abyss | 2026-11-25 |
+| 7 | SSPACE-Basic (Boetzer et al. 2011) `SSPACE_Basic.pl`, `PairingAndScaffolding.pl` | 1 (reference code) | https://github.com/nsoranzo/sspace_basic | 2026-11-25 |
 
 ### 1.2 Key Evidence Points
 
@@ -28,11 +31,14 @@
 4. For negative / unknown gaps, "use ... 100 as the gap size, since 100 is the GenBank/EMBL/DDBJ standard for gaps of unknown size." — NCBI AGP Spec v2.1
 5. A negative estimate indicates contigs should overlap (frequently one k-mer length for de Bruijn assemblers). — Jackman et al. (2017); Sahlin et al. (2012)
 6. Scaffolding orders/orients contigs into a path of distinct contigs (greedy linkage). — Pop et al. (2004) / Bambus
+7. Greedy path merging: mate-edges in descending weight; an edge is selected only if its end nodes lie on different selected paths and every node keeps ≤ 2 selected edges (contig edge + one link). — Huson et al. (2002) Alg. 5.1
+8. A negative distance whose −d bases agree (case-insensitive, N wildcard) is merged; otherwise ABySS emits a gap. — ABySS MergeContigs; Jackman et al. (2017)
 
 ### 1.3 Documented Corner Cases
 
 - Zero-length gap line is invalid (AGP) → a zero estimate maps to the unknown-gap default, not "0 N".
-- Negative estimate = overlap (AGP/Jackman/Sahlin) → mapped to unknown-gap default (100 N) when overlap is not resolved.
+- Negative estimate = overlap (AGP/Jackman/Sahlin) → collapsed when the −d bases agree; else unknown-gap default (100 N).
+- Link into a lower-index contig, branching ends, cycles, reverse-strand links (Huson et al. 2002).
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -45,7 +51,9 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `Scaffold(IReadOnlyList<string> contigs, IReadOnlyList<(int,int,int)> links, char gapCharacter='N')` | SequenceAssembler | Canonical | Deep evidence-based testing |
+| `Scaffold(IReadOnlyList<string> contigs, IReadOnlyList<(int,int,int)> links, char gapCharacter='N')` | SequenceAssembler | Delegate | forward links, weight 1 |
+| `Scaffold(IReadOnlyList<string> contigs, IReadOnlyList<ScaffoldLink> links, char gapCharacter='N')` | SequenceAssembler | Canonical | oriented, weighted links; deep evidence-based testing |
+| MCP `scaffold_contigs` | AlignmentTools | Wrapper | delegates |
 
 ---
 
@@ -54,10 +62,11 @@
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
 | INV-1 | Between two linked contigs the scaffold contains a contiguous run of exactly `gapSize` gap characters when `gapSize > 0` | Yes | Jackman et al. (2017) — run length = distance estimate |
-| INV-2 | A non-positive estimate (`gapSize ≤ 0`) emits exactly 100 gap characters | Yes | NCBI AGP Spec v2.1 (unknown-gap = 100) |
-| INV-3 | Scaffold length for a followed path = Σ(contig lengths) + Σ(emitted gap lengths) | Yes | Jackman et al. (2017) — concatenation + gaps |
+| INV-2 | `gapSize = 0`, or a negative estimate whose overlap does not agree, emits exactly 100 gap characters; an agreeing overlap is collapsed | Yes | NCBI AGP Spec v2.1; ABySS MergeContigs |
+| INV-3 | Scaffold length for a path = Σ(contig lengths) + Σ(emitted gap lengths) − Σ(collapsed overlaps) | Yes | Jackman et al. (2017) — concatenation + gaps |
 | INV-4 | Each contig appears in exactly one scaffold (no contig used twice) | Yes | Pop et al. (2004) path-of-distinct-contigs model |
-| INV-5 | The original contig substrings are preserved verbatim and in link order within their scaffold | Yes | Jackman et al. (2017) — "sequences ... are concatenated" |
+| INV-5 | The original contig substrings (reverse-complemented for `-`) are preserved verbatim and in path order | Yes | Jackman et al. (2017) — "sequences ... are concatenated" |
+| INV-6 | ≤ 1 selected link per contig end; no cycle; links considered in descending weight, ties by input order | Yes | Huson et al. (2002) Alg. 5.1 |
 
 ---
 
@@ -90,6 +99,23 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Empty contigs | `Scaffold([], links)` | empty result | trivial identity |
+
+### 4.4 B10 review additions (oracle values, Evidence table)
+
+| ID | Test Case | Expected | Evidence |
+|----|-----------|----------|----------|
+| R1 | `AA,TT`, `(1,0,2)` | `TTNNAA` | Huson Alg. 5.1 (F16) |
+| R2 | `AA,CC,GG`, `(2,0,1),(0,1,1)` | `GGNAANCC` | F16 |
+| R3 | `AA,CC,GG`, `(1,0,1),(1,2,1)` | `CCNAA`, `GG` | ≤ 1 link per end |
+| R4 | weights 1 vs 5 | heavier link wins | descending weight |
+| R5 | cycle `2→0→1→2` | `GGNAANCC` | P1 ≠ P2 |
+| R6 | orientation `+-`, `-+`, `--` | `AACGNNNGCAA`, `GCAANNNAACG`, `TTGCNNNAACG` | F17 |
+| R7 | oriented chain / inconsistent orientation | `ACCANNAACCNNNNCATG`; `ACCANNAACC`,`CATG` | F17 |
+| R8 | overlap agrees / with N / on RC / then gap | `ACGTACGGA` ×2, `GGATCCAAA`, `AAACGTTTNNNGGGG` | F18 |
+| R9 | overlap disagrees | 100 N | AGP |
+| R10 | ordering by lowest index | `AAA`, `GGGNNNNCCC` | documented order |
+| R11 | weight 0 | `ArgumentOutOfRangeException` | weight = mate pairs |
+| R12 | fuzz: oriented overlapping genome pieces | genome or its RC (1000 trials) | F17/F18 |
 
 ---
 
@@ -175,10 +201,11 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Unresolved-overlap / non-positive estimate falls back to the AGP unknown-gap length (100 N) rather than resolving overlap (constant itself is source-backed; only the scoping fallback is assumed) | M3, M4, INV-2 |
+| 1 | A zero estimate, or a negative estimate whose overlap is not confirmed, uses the AGP unknown-gap length (100 N); ABySS/SSPACE would emit a single `n` (AGP chosen as the submission format) | M3, M4, INV-2 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. Decision: This unit consumes a supplied gap estimate; the upstream maximum-likelihood distance estimator (Jackman et al. 2017; Sahlin et al. 2012) is out of scope. Overlap resolution for negative estimates is out of scope and replaced by the AGP unknown-gap placeholder.
+1. Decision: This unit consumes a supplied gap estimate; the upstream maximum-likelihood distance estimator (Jackman et al. 2017; Sahlin et al. 2012) is out of scope.
+2. Decision (B10): Huson's interleaving ("zipper") merge and happy/unhappy test need per-link σ, not in the input; such links are conflicts. Bundling, SSPACE ratio filter and ABySS gapped-overlap fallback not implemented (see Scaffolding.md §5.3).

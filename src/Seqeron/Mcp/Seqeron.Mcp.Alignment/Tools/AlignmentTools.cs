@@ -524,20 +524,20 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "scaffold_contigs", Title = "Assembly — Scaffold by Paired Links", ReadOnly = true)]
-    [Description("Builds scaffolds by joining contigs using paired-end link records, inserting gapCharacter between linked contigs to span the indicated gap size.")]
+    [Description("Orders and orients contigs into scaffolds from paired-end links with the greedy path-merging rule (Huson, Reinert & Myers 2002): links in descending weight; a link is used only if both contig ends it joins are still free and it does not close a cycle. Each link says contig2 follows contig1 (each optionally reverse-complemented) after gapSize characters: a positive gap emits that many gapCharacter; a negative gap collapses the overlap when the -gapSize bases agree (N matches anything), otherwise — and for a zero gap — the AGP unknown gap of 100 is emitted. Unlinked contigs are singleton scaffolds; scaffolds are listed by their lowest contig index.")]
     public static ScaffoldsResult ScaffoldContigs(
         [Description("Contig sequences.")] string[] contigs,
-        [Description("Paired-end links between contigs (by index).")] ContigLinkInput[] links,
+        [Description("Links {contig1, contig2, gapSize, contig1Reversed?, contig2Reversed?, weight?} (indices into contigs; weight ≥ 1, default 1).")] ContigLinkInput[] links,
         [Description("Single-character gap filler (e.g. \"N\").")] string gapCharacter = "N")
     {
         if (string.IsNullOrEmpty(gapCharacter) || gapCharacter.Length != 1)
             throw new ArgumentException("gapCharacter must be exactly one character.", nameof(gapCharacter));
 
-        var srcLinks = new List<(int contig1, int contig2, int gapSize)>(links?.Length ?? 0);
+        var srcLinks = new List<global::Seqeron.Genomics.Alignment.SequenceAssembler.ScaffoldLink>(links?.Length ?? 0);
         if (links != null)
         {
             foreach (var l in links)
-                srcLinks.Add((l.Contig1, l.Contig2, l.GapSize));
+                srcLinks.Add(new(l.Contig1, l.Contig2, l.GapSize, l.Contig1Reversed, l.Contig2Reversed, l.Weight));
         }
 
         var scaffolds = global::Seqeron.Genomics.Alignment.SequenceAssembler.Scaffold(
@@ -550,14 +550,17 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "calculate_coverage", Title = "Assembly — Per-Base Coverage Depth", ReadOnly = true)]
-    [Description("Maps each read to its best-matching position on the reference (≥ minOverlap matching bases) and returns per-base coverage depth as an integer array of length reference.Length.")]
+    [Description("Aligns each read end-to-end without gaps at its minimum-Hamming position on the reference (placed when ≥ minOverlap bases match; one placement per read) and returns per-base coverage depth (samtools depth semantics) as an integer array of length reference.Length. Optional: search the reverse-complement strand too, and skip reads whose best score is reached at more than one locus.")]
     public static CoverageResult CalculateCoverage(
         [Description("Reference sequence.")] string reference,
         [Description("Reads to map onto reference.")] string[] reads,
-        [Description("Minimum matching bases required to map a read.")] int minOverlap = 20)
+        [Description("Minimum matching bases required to map a read (≥ 1).")] int minOverlap = 20,
+        [Description("Also align each read's reverse complement (both strands, as Bowtie 2/BWA do by default). Default false (forward strand only).")] bool includeReverseComplement = false,
+        [Description("Skip multi-mapped reads whose best score is reached at more than one locus (Bowtie 2 MAPQ ≤ 1; samtools depth -Q 2). Default false (counted once at the leftmost locus).")] bool excludeMultiMapped = false)
     {
         var arr = global::Seqeron.Genomics.Alignment.SequenceAssembler.CalculateCoverage(
-            reference ?? string.Empty, reads ?? Array.Empty<string>(), minOverlap);
+            reference ?? string.Empty, reads ?? Array.Empty<string>(), minOverlap,
+            includeReverseComplement, excludeMultiMapped);
         return new CoverageResult(arr);
     }
 

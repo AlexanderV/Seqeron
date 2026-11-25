@@ -4,7 +4,7 @@
 **Title:** Stem-Loop Detection  
 **Area:** RnaStructure  
 **Created:** 2026-02-05  
-**Status:** Complete
+**Status:** Complete (re-validated 2026-11-25, B12)
 
 ---
 
@@ -18,11 +18,12 @@ Testing stem-loop (hairpin) detection algorithms for RNA sequences. This include
 
 | Method | Class | Type | Priority |
 |--------|-------|------|----------|
-| `FindStemLoops(sequence, minStem, minLoop, maxLoop, allowWobble)` | RnaSecondaryStructure | Canonical | Must |
-| `FindHairpins(sequence, params)` | RnaSecondaryStructure | Variant | Should |
-| `FindPseudoknots(sequence)` | RnaSecondaryStructure | Structural | Should |
+| `FindStemLoops(sequence, minStem, minLoop, maxLoop, allowWobble, maxInternalLoopSize = 0)` | RnaSecondaryStructure | Canonical | Must |
+| `CalculateStemEnergy(sequence, basePairs)` | RnaSecondaryStructure | Energy helper (Stem.FreeEnergy) | Must |
+| `CalculateHairpinLoopEnergy(loop, c5, c3, specialGU)` | RnaSecondaryStructure | Energy helper (shared with MFE) | Must |
+| `DetectPseudoknots(basePairs)` | RnaSecondaryStructure | Structural | Should |
 
-**Note:** `FindStemLoops` is the canonical method. `FindHairpins` is semantically equivalent (hairpin = stem-loop). `FindPseudoknots(sequence)` extends existing `DetectPseudoknots(basePairs)`.
+**Note (B12 review 2026-11):** `FindHairpins(sequence, params)` and `FindPseudoknots(sequence)` listed earlier do **not exist** — `FindStemLoops` is the hairpin finder and pseudoknots are detected from base pairs (`DetectPseudoknots`); sequence-level pseudoknot prediction is `PredictStructurePseudoknot` (separate unit). MCP: `find_stem_loops`, `stem_energy`, `hairpin_loop_energy` delegate.
 
 ---
 
@@ -73,6 +74,19 @@ Testing stem-loop (hairpin) detection algorithms for RNA sequences. This include
 | TL-001 | GNRA tetraloop found | `GGGCGAAAGCCC` | Loop.Size = 4, Loop.Sequence = GAAA |
 | TL-002 | GNRA pattern verified | GAAA loop | Matches G-N-R-A pattern (Wikipedia Tetraloop) |
 
+#### Turner 2004 energies vs NNDB / ViennaRNA (Evidence §11; tests `RnaSecondaryStructure_StemLoop_Tests.cs`)
+
+| Test ID | Description | Input | Expected (source) |
+|---------|-------------|-------|----------|
+| SL-E1 | NNDB worked examples (hairpin page §5.3) | `CACAAAAAAAUGUG`, `CACAGAAAGUGUG`, `CACCCGAGGGUG`, `CACACCCCCCUGUG`, `CGGGGAAAGUCCG` | −1.41, −1.91, −4.11, +2.09, −4.80 (NNDB −1.4/−1.9/−4.1/+2.1/−4.8) |
+| SL-E2 | A-U-closed special hexaloop: no extra AU end penalty | `GGGACAGUGUUCCC` `((((......))))`; `CGACAGUACUCG` `(((......)))` | −7.07; −1.91 (ViennaRNA eval_structure) |
+| SL-E3 | N first mismatch = ViennaRNA N (max over A/C/G/U); DNA T / lower case | `GGGAAANCCC`, `GGGNAAANCCC`, `GGGCNNNNGCCC`; `("AAAN",G,C)`, `("ttcg",c,g)` | −2.02, −1.32, −5.14; 4.50, 3.7 |
+| SL-E4 | `CalculateStemEnergy` normalises bases, AU/GU from bases | g·c,g·c; A·T,A·T; G·U labelled WatsonCrick | −3.26; −0.03; = Wobble-labelled value |
+| SL-U1 | Opt-in bulge stems = MFE unbranched chain | `GGGACAGGAAACUGCCC`, M = 1 | `(((.(((....))))))` −7.23 (= RNA.fold MFE); M = 0 → `(((....)))` −1.09 |
+| SL-U2 | Unbranched optimum per hairpin = ViennaRNA-loop-function DP | `GCAUGCUACGUAGCAUCGAUCAGCUAGCUAGC`, M = 8 | 5 locked rows (e.g. loop 14–21 → −8.86) |
+| SL-U3 | Backward compatibility | M = 0 vs legacy call | identical lists |
+| SL-U4 | Invalid option | M = −1 | `ArgumentOutOfRangeException` |
+
 ### 2.2 Should Tests (Recommended)
 
 #### Multiple Structures (Evidence: RNA biology)
@@ -113,6 +127,8 @@ Testing stem-loop (hairpin) detection algorithms for RNA sequences. This include
 3. `stemLoop.Loop.Size >= minLoopSize` and `<= maxLoopSize`
 4. `stemLoop.DotBracketNotation.Length > 0` for valid structures
 5. All base pairs in stem are valid (WatsonCrick or Wobble if allowed)
+6. `TotalFreeEnergy == EvaluateStructureEnergy(seq[Start..End], DotBracketNotation)` (ViennaRNA `eval_structure` counterpart of the isolated motif)
+7. With `maxInternalLoopSize = M > 0`: the reported stem is the minimum-energy unbranched chain closing that hairpin loop
 
 ### 3.2 Boundary Conditions
 
@@ -192,16 +208,21 @@ All edge case tests are implemented in the existing file:
 
 ## 6. Deviations and Assumptions
 
-None.
+- Hairpin loops > 30 nt: NNDB formula 6.4 + 1.75·RT·ln(n/9) unrounded; ViennaRNA truncates to integer dcal/mol (≤ 0.01 kcal/mol).
+- NNDB-only terms that ViennaRNA lacks are kept (special GU closure, all-C loops, GGUC/CUGG 3-stack, 1-nt bulge degeneracy / special C).
+- Isolated-motif energy: no exterior dangles.
 
 All implementation details are verified against external authoritative sources:
 
 | Aspect | Source | Verification |
 |--------|--------|--------------|
 | Minimum loop size ≥ 3 nt | Wikipedia Stem-loop: "sterically impossible" | Default `minLoopSize=3` |
-| Optimal loop 4–8 nt | Wikipedia Stem-loop: "4-8 bases long" | Default `maxLoopSize=10` (conservative upper bound) |
+| Optimal loop 4–8 nt | Wikipedia Stem-loop: "4-8 bases long" | Default `maxLoopSize=10` is a parameter default, not a biological limit |
 | GNRA tetraloop = G-N-R-A | Wikipedia Tetraloop | Test uses GAAA loop, verified pattern |
 | GNRA stability via GA mismatch bonus | NNDB Turner 2004 hairpin-special-parameters | No GNRA in special loop table; GA bonus (−0.9) applies |
+| Helix = consecutive stacked pairs, AU/GU end 0.45 | NNDB Turner 2004 WC/GU helix pages, hairpin §5.3 | `CalculateStemEnergy`, perfect-stem mode |
+| Stem with bulges / internal loops | Zuker & Stiegler 1981 V(i,j) without multiloops; ViennaRNA MAXLOOP | opt-in `maxInternalLoopSize` |
+| Energies | ViennaRNA 2.7.2 `eval_structure`, `vrna_E_hairpin` (special loop = total), `mismatchH37` N = max | `EvaluateStructureEnergy`, `HairpinTerm`, `CalculateHairpinLoopEnergy` |
 | UNCG most stable tetraloop | Wikipedia Tetraloop, Antao 1991 | NNDB CUUCGG = 3.7 kcal/mol |
 | Special loop table (16 tetra + 2 tri + 4 hexa) | NNDB Turner 2004 | All 22 entries verified against source |
 | Watson-Crick pairs: A-U, G-C | IUPAC, Wikipedia Base pair | Implemented in `CanPair` |

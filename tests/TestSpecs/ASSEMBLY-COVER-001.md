@@ -5,7 +5,7 @@
 **Algorithm:** Coverage (Depth) Calculation — per-base sequencing depth over a reference
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -20,6 +20,10 @@
 | 3 | Metagenomics Wiki — SAMtools: get breadth of coverage | 3 | https://www.metagenomics.wiki/tools/samtools/breadth-of-coverage | 2026-06-13 |
 | 4 | Daley et al. (2020) — Predicting Bases for Sufficient Coverage (PMC7398442) | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC7398442/ | 2026-06-13 |
 | 5 | Lander & Waterman (1988) Genomics 3:231-239 | 1 | https://doi.org/10.1016/0888-7543(88)90007-9 | 2026-06-13 (restatement) |
+| 6 | Bowtie 2 MANUAL (`--end-to-end`, `--nofw/--norc`, default reporting) | 2 | https://raw.githubusercontent.com/BenLangmead/bowtie2/master/MANUAL.markdown | 2026-11-25 |
+| 7 | Bowtie 2 `unique.h` (BowtieMapq2) | 2 | https://raw.githubusercontent.com/BenLangmead/bowtie2/master/unique.h | 2026-11-25 |
+| 8 | samtools-depth(1) | 2 | https://raw.githubusercontent.com/samtools/samtools/develop/doc/samtools-depth.1 | 2026-11-25 |
+| 9 | pysam 0.24.1 `samtools depth -a [-Q 2]` (numeric oracle) | 2 | Evidence §2026-11-25 | 2026-11-25 |
 
 ### 1.2 Key Evidence Points
 
@@ -27,11 +31,12 @@
 2. Average depth (coverage) = sum of per-base depths / genome size; also expressible as C = LN/G — Cook [2]; Illumina [1].
 3. Breadth of coverage = fraction of reference bases covered by at least one read — Metagenomics Wiki [3]; Cook [2].
 4. Under Lander-Waterman uniform-Poisson placement, P(base uncovered) = e^−c and breadth = 1 − e^−c — Lander & Waterman [5]; PMC7398442 [4].
+5. Default aligner placement is end-to-end (no soft clipping), on both strands, one reported alignment per read; equal-best multi-locus reads get MAPQ ≤ 1 — [6][7]; samtools depth counts each primary record over its aligned span, `-Q` filters MAPQ — [8].
 
 ### 1.3 Documented Corner Cases
 
 - Position with zero overlapping reads → depth 0 (does not count toward breadth) [2][3].
-- Read extending past reference end → only the overlapping portion contributes to per-base depth (boundary clipping) [3].
+- Read extending past reference end → cannot align end-to-end (Bowtie 2 default, no soft clipping) [6]; contributes 0 (M4).
 - No reads aligned → all per-base depths 0; average depth 0; breadth 0 [2][3].
 
 ### 1.4 Known Failure Modes / Pitfalls
@@ -45,8 +50,8 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = 20)` | SequenceAssembler | Canonical | Returns `int[]` of length `reference.Length`; element i = number of placed reads spanning position i. |
-| `FindBestAlignment(reference, read, minOverlap)` | SequenceAssembler | Internal | Read-placement helper; tested indirectly via `CalculateCoverage`. |
+| `CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = 20)` | SequenceAssembler | Canonical | Returns `int[]` of length `reference.Length`; element i = number of placed reads spanning position i. Forward strand. |
+| `CalculateCoverage(reference, reads, minOverlap, bool includeReverseComplement, bool excludeMultiMapped = false)` | SequenceAssembler | Canonical | Both strands / multi-mapping filter. Placement delegates to `ApproximateMatcher.FindBestMatch` / `FindWithMismatches`. |
 
 ---
 
@@ -57,7 +62,7 @@
 | INV-1 | Returned array length = `reference.Length`. | Yes | Per-base depth defined per reference position [3]. |
 | INV-2 | Every element ≥ 0. | Yes | Depth is a count of reads [2][3]. |
 | INV-3 | Σ(depth) = Σ over placed reads of (overlap length with reference). | Yes | Σ per-base depths = total bases mapped [2]. |
-| INV-4 | A read placed at pos p (length L) increments exactly positions [p, min(p+L, refLen)). | Yes | Per-base depth = reads spanning the position, clipped at reference end [3]. |
+| INV-4 | A read placed at pos p (length L) increments exactly positions [p, p+L) ⊆ [0, refLen). | Yes | Per-base depth = reads spanning the position [3][8]; end-to-end placement [6]. |
 | INV-5 | A read that fails to place (best match < minOverlap) contributes 0 everywhere. | Yes | Unaligned reads add no depth [2][3]. |
 | INV-6 | Breadth = #{i : depth[i] ≥ 1} / refLen ∈ [0,1]; average = Σ(depth)/refLen. | Yes | Breadth and average-depth definitions [2][3]. |
 
@@ -72,7 +77,7 @@
 | M1 | Worked dataset depth array | ref `ACGTTGCAAT`, reads `ACGTT`/`TTGCA`/`GCAAT` (unique, place at 0/3/5), minOverlap 5 | `[1,1,1,2,2,2,2,2,1,1]` | Per-base depth = reads spanning position [3]; Evidence dataset |
 | M2 | Array length = reference length | Any reference, any reads | `result.Length == reference.Length` | INV-1 [3] |
 | M3 | Single read overlap interval | ref len 10, one read `AAAAA` at pos 2, minOverlap 5 | depth 1 on [2,7), 0 elsewhere | INV-4 [3] |
-| M4 | Read longer than reference | ref len 4 `AAAA`, one read `AAAAAA` (len 6), minOverlap 4 | all-zero array; read cannot be placed (best-match scan requires the read to fit) | INV-4/INV-5 boundary [3] |
+| M4 | Read longer than reference | ref len 4 `AAAA`, one read `AAAAAA` (len 6), minOverlap 4 | all-zero array; read cannot align end-to-end | INV-4/INV-5 boundary [3][6] |
 | M5 | Unmatched read contributes 0 | ref `AAAAAAAAAA`, read `GGGGG`, minOverlap 5 | all-zero array | INV-5 [2][3] |
 | M6 | Empty reads list | ref `AAAAAAAAAA`, no reads | all-zero array length 10 | INV-5 / no aligned reads → 0 depth [2][3] |
 | M7 | Average depth from array | M1 dataset | Σ=15, average = 15/10 = 1.5 | Average = Σ depth / genome size [2] |
@@ -90,6 +95,20 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Case-insensitive placement | ref `AAAAAAAAAA`, read `aaaaa` minOverlap 5 | maps; depth 1 over its interval | Implementation upper-cases both sides |
+
+### 4.4 Placement tests (2026-11-25, samtools depth oracle [8][9])
+
+| ID | Test Case | Expected | Evidence | Test |
+|----|-----------|----------|----------|------|
+| P1 | Reverse-strand read `TTGACC` on `ACGGTCAATGCC`, minOverlap 6 | forward-only all 0; both strands `[0,0,1,1,1,1,1,1,0,0,0,0]`; + `GGTCAA` lower/upper → 2× | [6][9] | `CalculateCoverage_ReverseStrandRead_PlacedOnlyWhenBothStrandsSearched` |
+| P2 | RC strictly better (`TTTCC` on `GGGAAACCC`) | `[0,1,1,1,1,1,0,0,0]` | [6][9] | `CalculateCoverage_ReverseComplementStrictlyBetter_IsChosen` |
+| P3 | Multi-mapped reads counted once / excluded | see Evidence table | [6][7][8][9] | `CalculateCoverage_MultiMappedRead_CountedOnceOrExcluded` |
+| P4 | Reverse palindrome `ACGT` both strands same span = 1 locus | `[0,0,1,1,1,1,0,0]` | [7][9] | `CalculateCoverage_ReversePalindrome_BothStrandsSameSpan_IsUnique` |
+| P5 | Mismatch tolerance = length − Hamming ≥ minOverlap | `AGCTCT`: 5 → [4,10); 6 → 0 | [9] | `CalculateCoverage_MismatchedRead_PlacedWhenMatchesReachMinOverlap` |
+| P6 | minOverlap < 1 throws (0, −3) | `ArgumentOutOfRangeException` | zero matches ≠ alignment | `CalculateCoverage_MinOverlapBelowOne_Throws` |
+| P7 | Null read element | `ArgumentException` | validation | `CalculateCoverage_NullReadElement_ThrowsArgumentException` |
+| P8 | 2000 random cases, both flags | equals brute-force oracle (port of the samtools-checked Python oracle) | [9] | Fuzzing `CalculateCoverage_BothStrandsAndMultiMapping_MatchBruteForceOracle` |
+| P9 | MCP delegation of options + validation | as P1/P3/P6 | — | Mcp `CalculateCoverage_StrandAndMultiMapOptions_DelegateToCore` |
 
 ---
 
@@ -172,7 +191,7 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Read placement uses an ungapped best-match scan (≥ minOverlap matching chars); tests use exact-match reads so placement is unambiguous and isolates the source-defined depth-counting rule. This is implementation-level (where a read maps), not the depth arithmetic. | Read placement in all MUST/SHOULD cases |
+| 1 | Read placement is ungapped end-to-end (Bowtie 2 `--end-to-end` without gaps; mismatch cost 1; `--score-min` replaced by `minOverlap` matches); tie → forward strand, leftmost (Bowtie 2: pseudo-random). Cross-checked against samtools depth on 2014 cases. | Read placement in all cases |
 
 ---
 

@@ -24,4 +24,16 @@ public class CalculateCoverageTests
         var r = AlignmentTools.CalculateCoverage("ACGTACGTAC", new[] { "ACGTA", "GTACG" }, 5);
         Assert.That(r.Coverage, Is.EqualTo(new[] { 1, 1, 2, 2, 2, 1, 1, 0, 0, 0 }));
     }
+
+    [Test]
+    public void CalculateCoverage_StrandAndMultiMapOptions_DelegateToCore()
+    {
+        // samtools depth -a oracle (Evidence): TTGACC = revcomp(GGTCAA at [2,8)).
+        Assert.That(AlignmentTools.CalculateCoverage("ACGGTCAATGCC", new[] { "TTGACC" }, 6, includeReverseComplement: true).Coverage,
+            Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0 }));
+        // ACGTA hits loci 0 and 4 → skipped with excludeMultiMapped (samtools depth -Q 2).
+        Assert.That(AlignmentTools.CalculateCoverage("ACGTACGTAC", new[] { "ACGTA", "GTACG" }, 5, excludeMultiMapped: true).Coverage,
+            Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 1, 0, 0, 0 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.CalculateCoverage("ACGT", new[] { "ACGT" }, 0));
+    }
 }
