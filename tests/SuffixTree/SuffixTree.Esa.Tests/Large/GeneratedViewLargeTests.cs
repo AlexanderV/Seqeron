@@ -441,7 +441,7 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
     private static readonly long[] EndRanks = [0, 1, 2, 17, 255, 256, 1000, 4094, 4095];
 
     [Test]
-    public void TheViewsOfAContainerOfIntMaxValueSymbols_AreTheWideForms_AndTheEngineRefusesThem()
+    public void TheViewsOfAContainerOfIntMaxValueSymbols_AreTheWideForms_AndTheLongEngineServesThem()
     {
         // 2^31 - 1 symbols: n + 1 = 2^31 entries, one more than a 32-bit count holds: the boundary of the 32-bit forms
         long n = int.MaxValue;
@@ -455,7 +455,7 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         Assert.That(file.Child.Mapped.Length, Is.EqualTo(TwoTo31));
         foreach (long r in new long[] { 0, 1, n - 1, n }) Assert.That(file.Sa[r], Is.EqualTo(f.SuffixAt(r)), $"SA[{r}]");
         Assert.That(file.Lcp[n], Is.EqualTo(n - 1));
-        Assert.That(() => EsaIndex.FromFile(file), Throws.TypeOf<NotSupportedException>());
+        Assert.That(EsaIndex.FromFile(file).TextLength, Is.EqualTo(n), "the long engine of S2.4 serves the text that the 32-bit engine refused at S2.3");
     }
 
     [Test]
@@ -487,12 +487,12 @@ public unsafe class GeneratedViewLargeTests : LargeFixtureBase
         Assert.That(() => file.Child.Mapped.FirstLIndex(n + 1, 0, true), Throws.TypeOf<InvalidDataException>());
         Assert.That(() => file.TextView[n], Throws.TypeOf<InvalidDataException>());
         // the int surface says what it cannot hold, it does not read a null
-        Assert.That(() => file.Statistics, Throws.TypeOf<NotSupportedException>().With.Message.Contains("32-bit"), "the statistics of the header are 32-bit until S2.4: they say so, they do not wrap");
+        Assert.That(file.Statistics.Length, Is.EqualTo(n), "the statistics of the header are 64-bit since S2.4");
         SesaSection saSection = file.Parsed.Sa;
         Assert.That(saSection.Length, Is.GreaterThan(int.MaxValue));
         Assert.That(() => file.Payload(saSection), Throws.TypeOf<NotSupportedException>().With.Message.Contains("blocks"), "a section above 2^31 bytes is never one span (risk R8)");
         Assert.That(file.Payload(file.Parsed.Alphabet).Length, Is.EqualTo(file.Parsed.Alphabet.Length));
-        Assert.That(() => EsaIndex.FromFile(file), Throws.TypeOf<NotSupportedException>().With.Message.Contains("32-bit"), "the 32-bit engine refuses the text with the exception that names its limit (S2.4 lifts it); it does not meet a null");
+        Assert.That(EsaIndex.FromFile(file).TextLength, Is.EqualTo(n), "the long engine of S2.4 serves the text (the 32-bit engine of S2.3 refused it by name)");
     }
 
     /// <summary>A sparse shell mapped read-only without the header reader (which refuses a width of 5 until S2.7): the pointers of its sections, from the layout that the writer made.</summary>
