@@ -126,6 +126,7 @@ The current intron-pairing and classification rules are:
 
 - `SpliceSitePredictor.PredictGeneStructure(string, int, int, double)`
 - `SpliceSitePredictor.PredictIntrons(string, int, int, double)`
+- `SpliceSitePredictor.PredictGeneStructureDp(...)` (opt-in dynamic program, [SpliceSitePredictor.GeneStructureDp.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.GeneStructureDp.cs))
 - `SpliceSitePredictor.SelectNonOverlappingIntrons(...)` (private helper)
 - `SpliceSitePredictor.DeriveExons(...)` (private helper)
 - `SpliceSitePredictor.GenerateSplicedSequence(...)` (private helper)
@@ -146,13 +147,13 @@ The current intron-pairing and classification rules are:
 
 **Intentionally simplified:**
 
-- Intron selection is greedy rather than globally optimized; **consequence:** a high-scoring intron can block an alternative combination with better global structure.
+- The default `PredictGeneStructure` intron selection is greedy rather than globally optimized; **consequence:** a high-scoring intron can block an alternative combination with better global structure (use `PredictGeneStructureDp`, section 5.5).
 - Intron scoring is a simple arithmetic mean of site scores and optional branch-point score; **consequence:** scores are heuristic rather than probabilistic likelihoods.
 - Exon derivation uses only intron gaps and minimum-length filtering; **consequence:** untranslated regions and richer transcript models are not represented.
 
 **Not implemented:**
 
-- HMM or generalized-HMM gene finders such as GenScan/Augustus-style dynamic programming; **users should rely on:** no current alternative.
+- Trained generalized-HMM gene finders (GENSCAN/AUGUSTUS parameter sets: length distributions, composition, promoter / UTR states): their trained parameters are not published in a form this library can bundle. The splice + open-reading-frame dynamic program of section 5.5 (`PredictGeneStructureDp`) is the implemented structure model (the greedy method above is kept as the default).
 - Transcript-evidence based intron retention (RI, defined by intron-body read coverage, PIR; Braunschweig 2014): not derivable from sequence. `FindRetainedIntronCandidates(sequence, RetainedIntronCriteria, minScore)` reports predicted introns that satisfy sequence-level criteria: reading-frame compatibility (length multiple of 3 and no stop codon in some phase of the surrounding frame, `GeneticCode.Standard`; Jacob & Smith 2017) by default, plus optional `MaxIntronLength`, `MaxIntronScore` (weak sites), `MinGcFraction` (Braunschweig 2014: retained introns are shorter, more C/G-rich, with weaker 5'/3' splice sites; AUC 0.79). The paper gives directions only, so these three cut-offs have no default (off unless set).
 
 ### 5.4 Deviations and Assumptions
@@ -161,6 +162,17 @@ The current intron-pairing and classification rules are:
 |---|------|------|--------|--------|-------|
 | 1 | The intron score has no published form; a fixed term set (branch term 0 when absent) is used. | Behavior | A branch point can only raise the score. | accepted | B11 F33. |
 | 2 | The U12 site-score cut-off 0.75 is a heuristic (the former 500 nt / 0.8 retained-intron cut-offs were removed, B11 F43). | Behavior | Tunable (`u12MinSiteScore` overload). | accepted | No published cut-off for fraction-of-consensus scores. |
+
+### 5.5 Splice-site + open-reading-frame dynamic program (`PredictGeneStructureDp`, B11 A3 / F45)
+
+`PredictGeneStructureDp(sequence, startPosition?, minExonLength = 3, minIntronLength = 60, maxIntronLength = 100000, minDonorScore = 0, minAcceptorScore = 0, exonCodingScore?, intronPenalty = 12)` returns `GeneStructureDpResult` (structure, CDS start, spliced CDS, intron / coding score) or `null` (no start, no reachable open reading frame). MCP: `predict_gene_structure` `model = splice_dp`.
+
+- **Model** (GENSCAN, Burge & Karlin 1997; GeneSplicer, Pertea et al. 2001): 5' UTR | initial exon from the start codon | (intron, internal exon)* | final exon holding the stop | 3' UTR; UTRs intron-free. The coding frame carries over every junction (phase states 0/1/2; a codon, also the stop, may be split by an intron); the spliced CDS must be open from the start codon to the first in-frame stop with no premature stop (stops from `GeneticCode.Standard`).
+- **Objective:** maximise the sum over the selected introns of `score5 + score3 - intronPenalty` (MaxEntScan, bits, `ScoreDonorMaxEnt` on GT/GC donors, `ScoreAcceptorMaxEnt` on AG acceptors; log-odds of true sites) plus the optional `exonCodingScore(exonDna, firstCodonOffset)` per coding exon (e.g. CPAT hexamer log-ratios, `GenomeAnnotator.CpatModel` tables). The default coding term is the open-reading-frame constraint only.
+- **Exactness:** Bellman recursion over states (acceptor, partial codon = 31 states) with a sliding-window maximum over donors per state and an exon relaxation over the donors inside the open reading-frame window of the exon; time O(acceptors x donors-in-ORF-window), memory O(acceptors). Equals exhaustive search over all intron sets (1,200 random cases, 0 mismatches). TP53 (19 kb): ~0.1 s.
+- **Constraints:** GT-AG / GC-AG introns, non-overlapping, `minIntronLength`..`maxIntronLength` (>= 4); every exon >= `minExonLength` (effective >= 2, first exon counted from the start codon, >= 3); no intron before the start codon or after the stop. U12 introns, 5'/3' UTR introns and alternative isoforms are not modelled.
+- **`intronPenalty`:** no published value exists (GENSCAN and GeneSplicer use trained transition / length priors). Without it the plain sum adds every frame-preserving GT..AG pair (CFTR exons 2-5: 121 introns for 3 annotated). 12 bits was chosen on 12 non-evaluation human genes (see the Evidence file) and is tunable.
+- **Accuracy (Ensembl GRCh38 coding introns, exact coordinates):** HBB 2/2, TP53 6/9, CFTR exons 2-5 0/3 (donors 3/3, acceptors 3/3 individually) with the open-frame constraint only (8/14; the greedy method 0/14); with a hexamer exon score trained on 12 other genes 10/14 (HBB 2/2, TP53 8/9, CFTR 0/3). The TP53 5' UTR intron 1 is outside the model (UTRs intron-free). Precision is low (HBB 2/2 predicted, TP53 10-13 predicted for 9, CFTR 17-20 for 3): splice scores plus an open frame do not suffice without trained length / composition models.
 
 ## 6. Edge Cases and Limitations
 
@@ -176,7 +188,7 @@ The current intron-pairing and classification rules are:
 
 ### 6.2 Limitations
 
-This implementation is a splice-site-driven heuristic structure predictor. It does not use a full gene-finding model, does not optimize globally over transcript structures, and, being splice-motif only, ranks many false GT-AG pairs: on Ensembl HBB / TP53 / CFTR (exons 2-5) all 15 annotated introns are among the candidates (typed U2) but the greedy selection recovers none of them (see the Evidence file).
+`PredictGeneStructure` (default) is a splice-site-driven greedy heuristic: being splice-motif only, it ranks many false GT-AG pairs: on Ensembl HBB / TP53 / CFTR (exons 2-5) all 15 annotated introns are among the candidates (typed U2) but the greedy selection recovers none of them (see the Evidence file). `PredictGeneStructureDp` (section 5.5) is the globally optimal splice + open-reading-frame structure; it still lacks trained length / composition priors, so precision is low (see 5.5).
 
 ## 7. Examples and Related Material
 
@@ -195,3 +207,6 @@ This implementation is a splice-site-driven heuristic structure predictor. It do
 5. Sakharkar MK et al. 2002. ExInt: an Exon Intron Database. Nucleic Acids Research. doi:10.1093/nar/30.1.191
 6. Alberts B et al. 2002. Molecular Biology of the Cell. N/A
 7. Test specification: [SPLICE-PREDICT-001.md](../../../tests/TestSpecs/SPLICE-PREDICT-001.md)
+8. Burge C, Karlin S. 1997. Prediction of complete gene structures in human genomic DNA. J Mol Biol 268:78-94. doi:10.1006/jmbi.1997.0951
+9. Pertea M, Lin X, Salzberg SL. 2001. GeneSplicer: a new computational method for splice site prediction. Nucleic Acids Res 29:1185-1190 Not opened in this review (cited from memory / the audit brief).
+10. Yeo G, Burge CB. 2004. Maximum entropy modeling of short sequence motifs with applications to RNA splicing signals. J Comput Biol 11:377-394.

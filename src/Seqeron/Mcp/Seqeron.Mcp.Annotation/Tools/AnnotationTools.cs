@@ -1867,20 +1867,46 @@ public class AnnotationTools
 
     /// <summary>Predict exon/intron gene structure.</summary>
     [McpServerTool(Name = "predict_gene_structure", Title = "Splice — Predict Gene Structure", ReadOnly = true)]
-    [Description("Predict exon/intron gene structure (splice-motif model, not coding-aware): greedy non-overlapping intron selection by score; exons >= minExonLength, exons + introns tile the sequence.")]
+    [Description("Predict exon/intron gene structure. model=greedy (default): splice-motif model, not coding-aware (greedy non-overlapping intron selection by score; exons >= minExonLength; exons + introns tile the sequence). model=splice_dp: exact dynamic program (GENSCAN/GeneSplicer style) maximising MaxEntScan 5'+3' splice scores (bits, minus intronPenalty per intron) subject to an open reading frame from the start codon (startPosition, default first AUG) to the first in-frame stop with no premature stop; returns the CDS and scores, errors when no open reading frame is reachable.")]
     public static PredictGeneStructureResult PredictGeneStructure(
         [Description("RNA/DNA sequence to analyze")] string sequence,
-        [Description("Minimum exon length (nt)")] int minExonLength = 30,
+        [Description("Minimum exon length (nt); for splice_dp the effective minimum is 2 (default 30 for greedy, 3 for splice_dp when omitted)")] int? minExonLength = null,
         [Description("Minimum intron length (nt)")] int minIntronLength = 60,
-        [Description("Minimum combined score for an intron to be considered")] double minScore = 0.5)
+        [Description("greedy only: minimum combined score for an intron to be considered")] double minScore = 0.5,
+        [Description("Model: greedy (default) or splice_dp")] string model = "greedy",
+        [Description("splice_dp: 0-based first coding nucleotide (start codon); omitted = first AUG")] int? startPosition = null,
+        [Description("splice_dp: maximum intron length (nt)")] int maxIntronLength = 100000,
+        [Description("splice_dp: minimum MaxEntScan score5 (bits) of a donor")] double minDonorScore = 0.0,
+        [Description("splice_dp: minimum MaxEntScan score3 (bits) of an acceptor")] double minAcceptorScore = 0.0,
+        [Description("splice_dp: bits subtracted per intron (default 12)")] double intronPenalty = 12.0)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var gs = SpliceSitePredictor.PredictGeneStructure(sequence, minExonLength, minIntronLength, minScore);
-        var exons = gs.Exons.Select(ToDto).ToList();
-        var introns = gs.Introns.Select(ToDto).ToList();
-        return new PredictGeneStructureResult(exons, introns, gs.SplicedSequence, gs.OverallScore);
+        switch (model?.Trim().ToLowerInvariant())
+        {
+            case "greedy":
+            {
+                var gs = SpliceSitePredictor.PredictGeneStructure(sequence, minExonLength ?? 30, minIntronLength, minScore);
+                var exons = gs.Exons.Select(ToDto).ToList();
+                var introns = gs.Introns.Select(ToDto).ToList();
+                return new PredictGeneStructureResult(exons, introns, gs.SplicedSequence, gs.OverallScore);
+            }
+            case "splice_dp":
+            {
+                var dp = SpliceSitePredictor.PredictGeneStructureDp(sequence, startPosition, minExonLength ?? 3,
+                    minIntronLength, maxIntronLength, minDonorScore, minAcceptorScore, null, intronPenalty)
+                    ?? throw new ArgumentException(
+                        "No open reading frame from the start codon to a stop codon is reachable with the splice candidates.",
+                        nameof(sequence));
+                var gs = dp.Structure;
+                return new PredictGeneStructureResult(
+                    gs.Exons.Select(ToDto).ToList(), gs.Introns.Select(ToDto).ToList(), gs.SplicedSequence, gs.OverallScore,
+                    dp.CdsStart, dp.CodingSequence, dp.IntronScore);
+            }
+            default:
+                throw new ArgumentException($"Unknown model '{model}'; use greedy or splice_dp.", nameof(model));
+        }
     }
 
     /// <summary>Detect candidate alternative splicing patterns.</summary>
