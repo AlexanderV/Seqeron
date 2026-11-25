@@ -72,6 +72,8 @@ SERVER_PROJECT: Dict[str, str] = {
     "Phylogenetics": "src/Seqeron/Mcp/Seqeron.Mcp.Phylogenetics",
     "Population": "src/Seqeron/Mcp/Seqeron.Mcp.Population",
     "Core": "src/SuffixTree/Mcp/SuffixTree.Mcp.Core",
+    # separately licensed servers (GPL / LGPL ports): docs/Validation/review-2026-09/LICENSES.md
+    "MultipleAlignment": "src/Seqeron/Mcp/Seqeron.Mcp.MultipleAlignment",
 }
 
 PROTOCOL_VERSION = "2024-11-05"

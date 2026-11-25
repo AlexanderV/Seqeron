@@ -87,43 +87,6 @@ public class NeedleWaterGuideTreeBlastToolTests
         Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.WaterAlign(A, B, gapOpen: 101));
     }
 
-    [Test]
-    public void ClustalWGuideTree_TwoSequences_WritesHalfTheDistanceOnBothBranches()
-    {
-        var r = AlignmentTools.ClustalWGuideTree(["a", "b"], [[0, 0.5], [0.5, 0]]);
-        Assert.Multiple(() =>
-        {
-            Assert.That(r.Tree, Does.StartWith("(a:0.25,b:0.25)"));
-            Assert.That(r.Sequences, Is.EqualTo(2));
-        });
-    }
-
-    [Test]
-    public void ClustalWGuideTree_FourSequences_EqualsTheLibrary()
-    {
-        string[] names = ["s1", "s2", "s3", "s4"];
-        double[][] d = [[0, 0.1, 0.5, 0.6], [0.1, 0, 0.55, 0.62], [0.5, 0.55, 0, 0.2], [0.6, 0.62, 0.2, 0]];
-        var matrix = new double[4, 4];
-        for (int i = 0; i < 4; i++)
-            for (int j = 0; j < 4; j++)
-                matrix[i, j] = d[i][j];
-        var r = AlignmentTools.ClustalWGuideTree(names, d);
-        Assert.Multiple(() =>
-        {
-            Assert.That(r.Tree, Is.EqualTo(SequenceAligner.ClustalWGuideTreeText(names, matrix)));
-            Assert.That(r.Tree, Does.Contain("s1").And.Contain("s4"));
-        });
-    }
-
-    [Test]
-    public void ClustalWGuideTree_Validation()
-    {
-        Assert.Throws<ArgumentException>(() => AlignmentTools.ClustalWGuideTree(["only"], [[0]]));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.ClustalWGuideTree(["a", "b"], [[0, 1]]));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.ClustalWGuideTree(["a", "b"], [[0, 1], [1]]));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.ClustalWGuideTree(null!, [[0]]));
-    }
-
     private const string BlastpXml =
         "<BlastOutput><BlastOutput_iterations>" +
         "<Iteration><Iteration_iter-num>1</Iteration_iter-num><Iteration_hits>" +
@@ -131,53 +94,4 @@ public class NeedleWaterGuideTreeBlastToolTests
         "<Hsp_qseq>ACDEF</Hsp_qseq><Hsp_hseq>ACD-F</Hsp_hseq></Hsp></Hit_hsps></Hit></Iteration_hits></Iteration>" +
         "<Iteration><Iteration_iter-num>2</Iteration_iter-num><Iteration_hits></Iteration_hits></Iteration>" +
         "</BlastOutput_iterations></BlastOutput>";
-
-    [Test]
-    public void TCoffeeBlastMsaLibrary_EqualsTheLibrary_WeightIsTheTruncatedPercentIdentity()
-    {
-        string[] names = ["a", "b"];
-        string[] seqs = ["ACDEF", "ACDF"];
-        var tool = AlignmentTools.TCoffeeBlastMsaLibrary(names, seqs, BlastpXml);
-        var lib = SequenceAligner.TCoffeeBlastMsaLibraryEntries(names, seqs, BlastpXml);
-        Assert.Multiple(() =>
-        {
-            Assert.That(tool.Count, Is.EqualTo(lib.Count));
-            Assert.That(tool.Entries.Select(e => (e.SeqA, e.PosA, e.SeqB, e.PosB, e.Weight, e.Count)), Is.EqualTo(lib.Select(e => (e.SeqA, e.PosA, e.SeqB, e.PosB, e.Weight, e.Count))));
-            // columns with a residue in both rows: A-A, C-C, D-D, F-F at 4 / 5 identity = 80
-            Assert.That(tool.Entries, Is.Not.Empty);
-            Assert.That(tool.Entries.All(e => e.Weight == 80 && e.SeqA < e.SeqB), Is.True);
-            Assert.That(tool.Entries.Select(e => (e.PosA, e.PosB)), Is.EquivalentTo(new[] { (0, 0), (1, 1), (2, 2), (4, 3) }));
-        });
-    }
-
-    [Test]
-    public void TCoffeeTblastxLibrary_EqualsTheLibrary_OnAMinimalSearch()
-    {
-        string[] seqs = ["ACGTACGTACGT", "ACGTACGTACGT"];
-        const string xml =
-            "<BlastOutput><BlastOutput_iterations>" +
-            "<Iteration><Iteration_iter-num>1</Iteration_iter-num><Iteration_query-len>12</Iteration_query-len><Iteration_hits>" +
-            "<Hit><Hit_num>1</Hit_num><Hit_accession>1</Hit_accession><Hit_len>12</Hit_len><Hit_hsps><Hsp><Hsp_query-from>1</Hsp_query-from><Hsp_query-to>6</Hsp_query-to><Hsp_query-frame>1</Hsp_query-frame>" +
-            "<Hsp_hit-from>1</Hsp_hit-from><Hsp_hit-to>6</Hsp_hit-to><Hsp_hit-frame>1</Hsp_hit-frame><Hsp_identity>2</Hsp_identity><Hsp_align-len>2</Hsp_align-len></Hsp></Hit_hsps></Hit>" +
-            "</Iteration_hits></Iteration></BlastOutput_iterations></BlastOutput>";
-        var tool = AlignmentTools.TCoffeeTblastxLibrary(seqs, xml);
-        var lib = SequenceAligner.TCoffeeTblastxLibraryEntries(seqs, xml);
-        Assert.Multiple(() =>
-        {
-            Assert.That(tool.Count, Is.EqualTo(lib.Count));
-            Assert.That(tool.Entries.Select(e => (e.SeqA, e.PosA, e.SeqB, e.PosB, e.Weight)), Is.EqualTo(lib.Select(e => (e.SeqA, e.PosA, e.SeqB, e.PosB, e.Weight))));
-            Assert.That(tool.Entries, Is.Not.Empty);
-            Assert.That(tool.Entries.All(e => e.Weight == 100), Is.True);
-        });
-    }
-
-    [Test]
-    public void TCoffeeBlastLibraries_Validation()
-    {
-        Assert.Throws<ArgumentException>(() => AlignmentTools.TCoffeeBlastMsaLibrary(["a"], [], BlastpXml));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.TCoffeeBlastMsaLibrary(["a", "b"], ["ACD"], BlastpXml));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.TCoffeeBlastMsaLibrary(["a"], ["ACD"], null!));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.TCoffeeTblastxLibrary([], "<x/>"));
-        Assert.Throws<ArgumentException>(() => AlignmentTools.TCoffeeTblastxLibrary(["ACGT", ""], "<x/>"));
-    }
 }

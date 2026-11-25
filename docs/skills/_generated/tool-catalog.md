@@ -4,7 +4,7 @@
 
 <!-- BEGIN generated: do not edit by hand -->
 
-## Alignment (92 tools)
+## Alignment (67 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -17,12 +17,6 @@
 | `assembly_stats` | `SequenceAssembler.CalculateStats` | [doc](../../mcp/tools/alignment/assembly_stats.md) |
 | `banded_align` | `SequenceAligner.BandedAlign` | [doc](../../mcp/tools/alignment/banded_align.md) |
 | `calculate_coverage` | `SequenceAssembler.CalculateCoverage` | [doc](../../mcp/tools/alignment/calculate_coverage.md) |
-| `clustalw_command` | `ClustalWProgram.Run` | [doc](../../mcp/tools/alignment/clustalw_command.md) |
-| `clustalw_guide_tree` | `SequenceAligner.ClustalWGuideTreeText` | [doc](../../mcp/tools/alignment/clustalw_guide_tree.md) |
-| `clustalw_pairwise_align` | `SequenceAligner.ClustalWPairwiseAlign` | [doc](../../mcp/tools/alignment/clustalw_pairwise_align.md) |
-| `clustalw_profile_align` | `SequenceAligner.AlignClustalWProfiles` | [doc](../../mcp/tools/alignment/clustalw_profile_align.md) |
-| `clustalw_quick_pairwise_align` | `SequenceAligner.ClustalWQuickPairwiseAlign` | [doc](../../mcp/tools/alignment/clustalw_quick_pairwise_align.md) |
-| `clustalw_sequences_to_profile` | `SequenceAligner.AlignClustalWSequencesToProfile` | [doc](../../mcp/tools/alignment/clustalw_sequences_to_profile.md) |
 | `codon_aligner` | `CodonAligner.Align` | [doc](../../mcp/tools/alignment/codon_aligner.md) |
 | `compute_consensus` | `SequenceAssembler.ComputeConsensus` | [doc](../../mcp/tools/alignment/compute_consensus.md) |
 | `damerau_alignment` | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../mcp/tools/alignment/damerau_alignment.md) |
@@ -44,7 +38,6 @@
 | `global_align` | `SequenceAligner.GlobalAlign` | [doc](../../mcp/tools/alignment/global_align.md) |
 | `global_align_affine` | `SequenceAligner.GlobalAlignAffine` | [doc](../../mcp/tools/alignment/global_align_affine.md) |
 | `global_align_co_optimal` | `SequenceAligner.GlobalAlignCoOptimal` | [doc](../../mcp/tools/alignment/global_align_co_optimal.md) |
-| `kalign_command` | `KalignProgram.Run` | [doc](../../mcp/tools/alignment/kalign_command.md) |
 | `ksw2_extend` | `Ksw2Aligner` | [doc](../../mcp/tools/alignment/ksw2_extend.md) |
 | `local_align` | `SequenceAligner.LocalAlign` | [doc](../../mcp/tools/alignment/local_align.md) |
 | `local_align_affine` | `SequenceAligner.LocalAlignAffine` | [doc](../../mcp/tools/alignment/local_align_affine.md) |
@@ -58,17 +51,9 @@
 | `minimap2_map` | `Minimap2Program.Run` | [doc](../../mcp/tools/alignment/minimap2_map.md) |
 | `multiple_align` | `SequenceAligner.MultipleAlign` | [doc](../../mcp/tools/alignment/multiple_align.md) |
 | `multiple_align_anchored` | `SequenceAligner.MultipleAlignAnchored` | [doc](../../mcp/tools/alignment/multiple_align_anchored.md) |
-| `multiple_align_clustalw` | `SequenceAligner.MultipleAlignClustalW` | [doc](../../mcp/tools/alignment/multiple_align_clustalw.md) |
-| `multiple_align_consistency` | `SequenceAligner.MultipleAlignConsistency` | [doc](../../mcp/tools/alignment/multiple_align_consistency.md) |
 | `multiple_align_exact` | `SequenceAligner.MultipleAlignExact` | [doc](../../mcp/tools/alignment/multiple_align_exact.md) |
-| `multiple_align_iterative` | `SequenceAligner.MultipleAlignIterative` | [doc](../../mcp/tools/alignment/multiple_align_iterative.md) |
-| `multiple_align_kalign` | `SequenceAligner.KalignRun` | [doc](../../mcp/tools/alignment/multiple_align_kalign.md) |
 | `multiple_align_mafft` | `SequenceAligner.MultipleAlignMafft` | [doc](../../mcp/tools/alignment/multiple_align_mafft.md) |
 | `multiple_align_muscle` | `SequenceAligner.MultipleAlignMuscle` | [doc](../../mcp/tools/alignment/multiple_align_muscle.md) |
-| `multiple_align_poa` | `SequenceAligner.PoaRun` | [doc](../../mcp/tools/alignment/multiple_align_poa.md) |
-| `multiple_align_probcons` | `SequenceAligner.ProbConsRun` | [doc](../../mcp/tools/alignment/multiple_align_probcons.md) |
-| `multiple_align_progressive` | `SequenceAligner.MultipleAlignProgressive` | [doc](../../mcp/tools/alignment/multiple_align_progressive.md) |
-| `multiple_align_tcoffee` | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../mcp/tools/alignment/multiple_align_tcoffee.md) |
 | `multiple_seq_alignment` | `MultipleSeqAlignment` | [doc](../../mcp/tools/alignment/multiple_seq_alignment.md) |
 | `muscle_msa_command` | `SequenceAligner.MuscleProfileAlign` | [doc](../../mcp/tools/alignment/muscle_msa_command.md) |
 | `needle_align` | `SequenceAligner.NeedleAlign` | [doc](../../mcp/tools/alignment/needle_align.md) |
@@ -77,8 +62,6 @@
 | `parasail_score` | `ParasailAligner.Run` | [doc](../../mcp/tools/alignment/parasail_score.md) |
 | `parse_big_alignment` | `AlignmentCoordinateFormats.ParseBigBed / ParseBigMaf / ParseBigPsl` | [doc](../../mcp/tools/alignment/parse_big_alignment.md) |
 | `parse_coordinate_alignment` | `AlignmentCoordinateFormats.Parse` | [doc](../../mcp/tools/alignment/parse_coordinate_alignment.md) |
-| `poa_command` | `PoaProgram.Run` | [doc](../../mcp/tools/alignment/poa_command.md) |
-| `probcons_command` | `ProbConsProgram.Run` | [doc](../../mcp/tools/alignment/probcons_command.md) |
 | `quality_trim_reads` | `SequenceAssembler.QualityTrimReads` | [doc](../../mcp/tools/alignment/quality_trim_reads.md) |
 | `scaffold_contigs` | `SequenceAssembler.Scaffold` | [doc](../../mcp/tools/alignment/scaffold_contigs.md) |
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
@@ -88,14 +71,6 @@
 | `stretcher_align` | `SequenceAligner.StretcherAlign` | [doc](../../mcp/tools/alignment/stretcher_align.md) |
 | `sum_of_pairs_score` | `SequenceAligner.SumOfPairsScore` | [doc](../../mcp/tools/alignment/sum_of_pairs_score.md) |
 | `supermatcher_align` | `SequenceAligner.Supermatcher` | [doc](../../mcp/tools/alignment/supermatcher_align.md) |
-| `tcoffee_blast_msa_library` | `SequenceAligner.TCoffeeBlastMsaLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_blast_msa_library.md) |
-| `tcoffee_evaluate` | `SequenceAligner.TCoffeeEvaluate` | [doc](../../mcp/tools/alignment/tcoffee_evaluate.md) |
-| `tcoffee_guide_tree` | `SequenceAligner.TCoffeeGuideTree` | [doc](../../mcp/tools/alignment/tcoffee_guide_tree.md) |
-| `tcoffee_ktup_similarity` | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../mcp/tools/alignment/tcoffee_ktup_similarity.md) |
-| `tcoffee_lalign_top_alignments` | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../mcp/tools/alignment/tcoffee_lalign_top_alignments.md) |
-| `tcoffee_primary_library` | `SequenceAligner.TCoffeePrimaryLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_primary_library.md) |
-| `tcoffee_slow_pair_align` | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/alignment/tcoffee_slow_pair_align.md) |
-| `tcoffee_tblastx_library` | `SequenceAligner.TCoffeeTblastxLibraryEntries` | [doc](../../mcp/tools/alignment/tcoffee_tblastx_library.md) |
 | `water_align` | `SequenceAligner.WaterAlign` | [doc](../../mcp/tools/alignment/water_align.md) |
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/alignment/write_alignment.md) |
 | `write_big_alignment` | `AlignmentCoordinateFormats.WriteBigBed / WriteBigMaf / WriteBigPsl` | [doc](../../mcp/tools/alignment/write_big_alignment.md) |
@@ -593,6 +568,36 @@
 | `sticky_cutters` | `RestrictionAnalyzer.GetStickyCutters` | [doc](../../mcp/tools/moltools/sticky_cutters.md) |
 | `three_prime_stability` | `PrimerDesigner.Calculate3PrimeStability` | [doc](../../mcp/tools/moltools/three_prime_stability.md) |
 | `validate_probe` | `ProbeDesigner.ValidateProbe` | [doc](../../mcp/tools/moltools/validate_probe.md) |
+
+## MultipleAlignment (25 tools)
+
+| tool | Method ID | doc |
+|------|-----------|-----|
+| `clustalw_command` | `ClustalWProgram.Run` | [doc](../../mcp/tools/multiplealignment/clustalw_command.md) |
+| `clustalw_guide_tree` | `SequenceAligner.ClustalWGuideTreeText` | [doc](../../mcp/tools/multiplealignment/clustalw_guide_tree.md) |
+| `clustalw_pairwise_align` | `SequenceAligner.ClustalWPairwiseAlign` | [doc](../../mcp/tools/multiplealignment/clustalw_pairwise_align.md) |
+| `clustalw_profile_align` | `SequenceAligner.AlignClustalWProfiles` | [doc](../../mcp/tools/multiplealignment/clustalw_profile_align.md) |
+| `clustalw_quick_pairwise_align` | `SequenceAligner.ClustalWQuickPairwiseAlign` | [doc](../../mcp/tools/multiplealignment/clustalw_quick_pairwise_align.md) |
+| `clustalw_sequences_to_profile` | `SequenceAligner.AlignClustalWSequencesToProfile` | [doc](../../mcp/tools/multiplealignment/clustalw_sequences_to_profile.md) |
+| `kalign_command` | `KalignProgram.Run` | [doc](../../mcp/tools/multiplealignment/kalign_command.md) |
+| `multiple_align_clustalw` | `SequenceAligner.MultipleAlignClustalW` | [doc](../../mcp/tools/multiplealignment/multiple_align_clustalw.md) |
+| `multiple_align_consistency` | `SequenceAligner.MultipleAlignConsistency` | [doc](../../mcp/tools/multiplealignment/multiple_align_consistency.md) |
+| `multiple_align_iterative` | `SequenceAligner.MultipleAlignIterative` | [doc](../../mcp/tools/multiplealignment/multiple_align_iterative.md) |
+| `multiple_align_kalign` | `SequenceAligner.KalignRun` | [doc](../../mcp/tools/multiplealignment/multiple_align_kalign.md) |
+| `multiple_align_poa` | `SequenceAligner.PoaRun` | [doc](../../mcp/tools/multiplealignment/multiple_align_poa.md) |
+| `multiple_align_probcons` | `SequenceAligner.ProbConsRun` | [doc](../../mcp/tools/multiplealignment/multiple_align_probcons.md) |
+| `multiple_align_progressive` | `SequenceAligner.MultipleAlignProgressive` | [doc](../../mcp/tools/multiplealignment/multiple_align_progressive.md) |
+| `multiple_align_tcoffee` | `SequenceAligner.MultipleAlignTCoffeeProgram` | [doc](../../mcp/tools/multiplealignment/multiple_align_tcoffee.md) |
+| `poa_command` | `PoaProgram.Run` | [doc](../../mcp/tools/multiplealignment/poa_command.md) |
+| `probcons_command` | `ProbConsProgram.Run` | [doc](../../mcp/tools/multiplealignment/probcons_command.md) |
+| `tcoffee_blast_msa_library` | `SequenceAligner.TCoffeeBlastMsaLibraryEntries` | [doc](../../mcp/tools/multiplealignment/tcoffee_blast_msa_library.md) |
+| `tcoffee_evaluate` | `SequenceAligner.TCoffeeEvaluate` | [doc](../../mcp/tools/multiplealignment/tcoffee_evaluate.md) |
+| `tcoffee_guide_tree` | `SequenceAligner.TCoffeeGuideTree` | [doc](../../mcp/tools/multiplealignment/tcoffee_guide_tree.md) |
+| `tcoffee_ktup_similarity` | `SequenceAligner.TCoffeeKtupSimilarity` | [doc](../../mcp/tools/multiplealignment/tcoffee_ktup_similarity.md) |
+| `tcoffee_lalign_top_alignments` | `SequenceAligner.TCoffeeLalignTopAlignments` | [doc](../../mcp/tools/multiplealignment/tcoffee_lalign_top_alignments.md) |
+| `tcoffee_primary_library` | `SequenceAligner.TCoffeePrimaryLibraryEntries` | [doc](../../mcp/tools/multiplealignment/tcoffee_primary_library.md) |
+| `tcoffee_slow_pair_align` | `SequenceAligner.TCoffeeSlowPairAlign` | [doc](../../mcp/tools/multiplealignment/tcoffee_slow_pair_align.md) |
+| `tcoffee_tblastx_library` | `SequenceAligner.TCoffeeTblastxLibraryEntries` | [doc](../../mcp/tools/multiplealignment/tcoffee_tblastx_library.md) |
 
 ## Parsers (41 tools)
 

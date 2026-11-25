@@ -15,7 +15,7 @@ public static partial class GenomicAnalyzer
 {
     #region megamerger (merge of two large sequences by word-match anchors)
 
-    internal sealed class MegaMatch(int start1, int start2, int length)
+    public sealed class MegaMatch(int start1, int start2, int length)
     {
         public int Start1 { get; set; } = start1;
 
@@ -105,7 +105,7 @@ public static partial class GenomicAnalyzer
     // that overlap it and sorts the list again when a match was shortened. Same result here (and the same exceptions in the same order: every remaining match is examined against every taken one),
     // without the O(k) shift of RemoveAt(0) / RemoveAt(i) and without sorting the whole list again (A4-6): the head is an index, one pass compacts the survivors in place, and the shortened matches
     // (whose key changed) are sorted on their own and merged back into the sorted survivors.
-    internal static void MinimalMatchSet(List<MegaMatch> matchlist, int wordLength, CancellationToken cancellationToken = default)
+    public static void MinimalMatchSet(List<MegaMatch> matchlist, int wordLength, CancellationToken cancellationToken = default)
     {
         var comparer = Comparer<MegaMatch>.Create(MegaOrder);
         matchlist.Sort(comparer);

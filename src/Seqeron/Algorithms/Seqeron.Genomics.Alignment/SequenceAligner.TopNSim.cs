@@ -28,7 +28,7 @@ public static partial class SequenceAligner
     /// <c>matcher_SmallPass</c>, <c>matcher_Addnode</c>, <c>matcher_NoCross</c>, <c>matcher_Findmax</c>, <c>matcher_Diff</c>, <c>matcher_Calcons</c>).
     /// The program aborts ("The number of alignments computed is too large") when fewer than K local alignments exist; this port then returns the alignments found so far.
     /// </summary>
-    internal static IReadOnlyList<AlignmentResult> LocalTopNSimCore(string a, string b, PairScoring scoring, bool affine, int maxAlignments, long minScaled, long maxVertices = TopNSimMaxVertices)
+    public static IReadOnlyList<AlignmentResult> LocalTopNSimCore(string a, string b, PairScoring scoring, bool affine, int maxAlignments, long minScaled, long maxVertices = TopNSimMaxVertices)
     {
         if (maxAlignments < 1)
             throw new ArgumentOutOfRangeException(nameof(maxAlignments), maxAlignments, "maxAlignments must be at least 1.");

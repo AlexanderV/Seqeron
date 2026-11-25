@@ -11,6 +11,12 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class TestData_Size_Tests
 {
+    private static IEnumerable<string> DataDirectories()
+    {
+        string tests = Path.GetDirectoryName(Path.GetDirectoryName(DataDirectory()))!;
+        return Directory.EnumerateDirectories(tests).Select(d => Path.Combine(d, "TestData")).Where(Directory.Exists);
+    }
+
     private static string DataDirectory()
     {
         var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
@@ -26,9 +32,10 @@ public class TestData_Size_Tests
     public void NoPlainTextOracleAboveOneMebibyte_IsCommitted()
     {
         string[] text = [".tsv", ".csv", ".jsonl", ".json", ".txt", ".fa", ".fasta"];
-        var big = Directory.EnumerateFiles(DataDirectory(), "*", SearchOption.AllDirectories)
+        // every test project (the tests of the separately licensed assemblies keep their own oracle data, B09 WP79)
+        var big = DataDirectories().SelectMany(dir => Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
             .Where(f => text.Contains(Path.GetExtension(f).ToLowerInvariant()) && new FileInfo(f).Length > 1 << 20)
-            .Select(f => $"{Path.GetRelativePath(DataDirectory(), f)} ({new FileInfo(f).Length / 1048576} MB)")
+            .Select(f => $"{Path.GetRelativePath(Path.GetDirectoryName(Path.GetDirectoryName(DataDirectory()))!, f)} ({new FileInfo(f).Length / 1048576} MB)")
             .ToList();
         Assert.That(big, Is.Empty, "gzip it: python3 scripts/alignment/compress_test_data.py");
     }

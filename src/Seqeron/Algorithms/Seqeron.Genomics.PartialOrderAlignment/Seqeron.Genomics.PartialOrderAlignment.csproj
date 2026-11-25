@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Copyleft assembly (GPL-2.0-or-later); NOT part of the MIT-licensed Seqeron assemblies.
+       Licence text: LICENSE in this directory; inventory: docs/Validation/review-2026-09/LICENSES.md. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Seqeron.Genomics.PartialOrderAlignment</RootNamespace>
+    <PackageLicenseExpression>GPL-2.0-or-later</PackageLicenseExpression>
+    <Description>Port of POA 2.0 (partial order alignment, Lee et al.). Licensed under GPL-2.0-or-later.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Seqeron.Genomics.PartialOrderAlignment.Tests" />
+  </ItemGroup>
+
+</Project>

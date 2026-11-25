@@ -317,6 +317,7 @@ public static partial class SequenceAligner
     /// (such a path has at least |n - m| + 2(w + 1) gap columns, so it scores at most ((m + n - G) / 2) * maxPair + G * gapExtend with G that number), or the band is the whole matrix. The result then equals
     /// <see cref="GlobalAlign(string, string, ScoringMatrix?)"/> / <see cref="GlobalAlignAffine(string, string, ScoringMatrix?)"/> row for row, in O(s · min(m, n)) time for an alignment of s gap columns.
     /// </summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static BandedAlignment GlobalAlignBandedExact(string sequence1, string sequence2, ScoringMatrix? scoring = null, bool affine = false, int initialBandWidth = 16)
     {
         ArgumentNullException.ThrowIfNull(sequence1);

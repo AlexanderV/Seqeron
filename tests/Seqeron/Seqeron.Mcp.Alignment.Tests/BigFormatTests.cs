@@ -68,20 +68,4 @@ public class BigFormatTests
             Assert.That(() => AlignmentTools.WriteBigAlignment([Pair], Chromosomes, "psl"), Throws.ArgumentException);
         });
     }
-
-    [Test]
-    public void TCoffeeEvaluate_AsTheProgram()
-    {
-        var r = AlignmentTools.TCoffeeEvaluate(["a", "b", "c"], ["ACGTACGTTAGCTAGCTAGGATCGATCGA-T", "ACGTACGATAGCTAGCTA-GATCGATCGATC", "ACGTTCGTTAGCTCGCTAGGATCGATCGA-T"]);
-        const string expected = "T-COFFEE, Version_13.41.0.28bdc39 (2019-11-30 10:21:53 - Revision 5d5a1c1 - Build 465)\nCedric Notredame \nCPU TIME:0 sec.\nSCORE=97\n*\n BAD AVG GOOD\n*\n"
-            + "a   :  97\nb   :  97\nc   :  97\nc   :   9\n\n"
-            + "a   99999999999999999967999999999-9\nb   999999999999999999-799999999979\nc   99999999999999999967999999999-9\nc   9999999999999999995699999999939\n\n\n\n\n\n";
-        Assert.Multiple(() =>
-        {
-            Assert.That(r.AlignmentScore, Is.EqualTo(97));
-            Assert.That(r.SequenceScores, Is.EqualTo(new[] { 97, 97, 97 }));
-            Assert.That(r.ScoreAscii, Is.EqualTo(expected));
-            Assert.That(() => AlignmentTools.TCoffeeEvaluate(["a"], ["ACGT"]), Throws.Exception);
-        });
-    }
 }

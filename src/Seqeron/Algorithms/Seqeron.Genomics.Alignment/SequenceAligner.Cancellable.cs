@@ -73,6 +73,7 @@ public static partial class SequenceAligner
     /// <summary><see cref="GlobalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
     /// <inheritdoc cref="GlobalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> GlobalAlignCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
@@ -82,6 +83,7 @@ public static partial class SequenceAligner
     /// <summary><see cref="GlobalAlignAffineCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
     /// <inheritdoc cref="GlobalAlignAffineCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> GlobalAlignAffineCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
@@ -109,6 +111,7 @@ public static partial class SequenceAligner
     /// <summary><see cref="LocalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
     /// <inheritdoc cref="LocalAlignCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);
@@ -118,6 +121,7 @@ public static partial class SequenceAligner
     /// <summary><see cref="LocalAlignAffineCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/> that observes <paramref name="cancellationToken"/> (audit R14-15): the dynamic programs poll it at their row / iteration boundaries and the call throws <see cref="OperationCanceledException"/> without a partial result.</summary>
     /// <inheritdoc cref="LocalAlignAffineCoOptimal(string, string, ScoringMatrix?, GapScoreProfile, int)"/>
     /// <param name="cancellationToken">The token to observe; <c>CancellationToken.None</c> = never cancelled (the ambient scope of an outer call still applies).</param>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments, CancellationToken cancellationToken)
     {
         using var cancelScope = AlignmentCancellation.Enter(cancellationToken);

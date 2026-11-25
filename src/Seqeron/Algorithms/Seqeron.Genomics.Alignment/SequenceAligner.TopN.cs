@@ -363,7 +363,7 @@ public static partial class SequenceAligner
     /// <param name="fullMatrixCells">Inputs of at most this many cells use the in-memory declumper, larger ones the linear-space
     /// program (tests lower it to force the linear path on small inputs).</param>
     /// <param name="baseCells">Base-case size of the linear-space program's divide and conquer.</param>
-    internal static IReadOnlyList<AlignmentResult> LocalTopNCore(
+    public static IReadOnlyList<AlignmentResult> LocalTopNCore(
         string a, string b, PairScoring scoring, bool affine, int maxAlignments, long minScaled,
         long fullMatrixCells = TopNMaxCells, long baseCells = LinearSpaceBaseCells)
     {

@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 662 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 662 MCP tools across 12 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -20,7 +20,7 @@
 | Core | SuffixTree.Mcp.Core | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 | Sequence | Seqeron.Mcp.Sequence | 35 | 35/35 | 35/35 | 35/35 | ✅ done |
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
-| Alignment | Seqeron.Mcp.Alignment | 92 | 92/92 | 92/92 | 92/92 | ✅ done |
+| Alignment | Seqeron.Mcp.Alignment | 67 | 67/67 | 67/67 | 67/67 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 238 | 238/238 | 238/238 | 238/238 | ✅ done |
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
@@ -28,6 +28,7 @@
 | MolTools | Seqeron.Mcp.MolTools | 59 | 59/59 | 59/59 | 59/59 | ✅ done |
 | Phylogenetics | Seqeron.Mcp.Phylogenetics | 13 | 13/13 | 13/13 | 13/13 | ✅ done |
 | Population | Seqeron.Mcp.Population | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
+| MultipleAlignment | Seqeron.Mcp.MultipleAlignment | 25 | 25/25 | 25/25 | 25/25 | ✅ done |
 
 ## Per-tool ledger
 
@@ -140,7 +141,7 @@
 | 40 | `vcf_variant_length` | ☑ | ☑ | ☑ |
 | 41 | `vcf_write` | ☑ | ☑ | ☑ |
 
-### Alignment (Seqeron.Mcp.Alignment) — 92 tools
+### Alignment (Seqeron.Mcp.Alignment) — 67 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -174,68 +175,73 @@
 | 28 | `merge_contigs` | ☑ | ☑ | ☑ |
 | 29 | `multiple_align` | ☑ | ☑ | ☑ |
 | 30 | `multiple_align_anchored` | ☑ | ☑ | ☑ |
-| 31 | `multiple_align_clustalw` | ☑ | ☑ | ☑ |
-| 32 | `multiple_align_consistency` | ☑ | ☑ | ☑ |
-| 33 | `multiple_align_exact` | ☑ | ☑ | ☑ |
-| 34 | `multiple_align_iterative` | ☑ | ☑ | ☑ |
-| 35 | `multiple_align_muscle` | ☑ | ☑ | ☑ |
-| 36 | `multiple_align_progressive` | ☑ | ☑ | ☑ |
-| 37 | `multiple_align_tcoffee` | ☑ | ☑ | ☑ |
-| 38 | `muscle_msa_command` | ☑ | ☑ | ☑ |
-| 39 | `quality_trim_reads` | ☑ | ☑ | ☑ |
-| 40 | `scaffold_contigs` | ☑ | ☑ | ☑ |
-| 41 | `semi_global_align` | ☑ | ☑ | ☑ |
-| 42 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
-| 43 | `sequence_identity` | ☑ | ☑ | ☑ |
-| 44 | `clustalw_pairwise_align` | ☑ | ☑ | ☑ |
-| 45 | `clustalw_quick_pairwise_align` | ☑ | ☑ | ☑ |
-| 46 | `tcoffee_slow_pair_align` | ☑ | ☑ | ☑ |
-| 47 | `tcoffee_lalign_top_alignments` | ☑ | ☑ | ☑ |
-| 48 | `tcoffee_primary_library` | ☑ | ☑ | ☑ |
-| 49 | `tcoffee_guide_tree` | ☑ | ☑ | ☑ |
-| 50 | `tcoffee_ktup_similarity` | ☑ | ☑ | ☑ |
-| 51 | `sum_of_pairs_score` | ☑ | ☑ | ☑ |
-| 52 | `clustalw_profile_align` | ☑ | ☑ | ☑ |
-| 53 | `clustalw_sequences_to_profile` | ☑ | ☑ | ☑ |
-| 54 | `clustalw_command` | ☑ | ☑ | ☑ |
-| 55 | `multiple_align_kalign` | ☑ | ☑ | ☑ |
-| 56 | `kalign_command` | ☑ | ☑ | ☑ |
-| 57 | `multiple_align_mafft` | ☑ | ☑ | ☑ |
-| 58 | `stretcher_align` | ☑ | ☑ | ☑ |
-| 59 | `write_alignment` | ☑ | ☑ | ☑ |
-| 60 | `dual_affine_align` | ☑ | ☑ | ☑ |
-| 61 | `supermatcher_align` | ☑ | ☑ | ☑ |
-| 62 | `needleall_align` | ☑ | ☑ | ☑ |
-| 63 | `ksw2_extend` | ☑ | ☑ | ☑ |
-| 64 | `multiple_align_probcons` | ☑ | ☑ | ☑ |
-| 65 | `probcons_command` | ☑ | ☑ | ☑ |
-| 66 | `multiple_align_poa` | ☑ | ☑ | ☑ |
-| 67 | `poa_command` | ☑ | ☑ | ☑ |
-| 68 | `align_gap_profile` | ☑ | ☑ | ☑ |
-| 69 | `merger` | ☑ | ☑ | ☑ |
-| 70 | `needle_align` | ☑ | ☑ | ☑ |
-| 71 | `water_align` | ☑ | ☑ | ☑ |
-| 72 | `clustalw_guide_tree` | ☑ | ☑ | ☑ |
-| 73 | `tcoffee_blast_msa_library` | ☑ | ☑ | ☑ |
-| 74 | `tcoffee_tblastx_library` | ☑ | ☑ | ☑ |
-| 75 | `minimap2_chains` | ☑ | ☑ | ☑ |
-| 76 | `dotmatcher` | ☑ | ☑ | ☑ |
-| 77 | `minimap2_map` | ☑ | ☑ | ☑ |
-| 78 | `write_coordinate_alignment` | ☑ | ☑ | ☑ |
-| 79 | `parse_coordinate_alignment` | ☑ | ☑ | ☑ |
-| 80 | `spoa_command` | ☑ | ☑ | ☑ |
-| 81 | `write_big_alignment` | ☑ | ☑ | ☑ |
-| 82 | `parse_big_alignment` | ☑ | ☑ | ☑ |
-| 83 | `tcoffee_evaluate` | ☑ | ☑ | ☑ |
-| 84 | `local_align_zscore` | ☑ | ☑ | ☑ |
-| 85 | `pairwise_aligner` | ☑ | ☑ | ☑ |
-| 86 | `alignment_counts` | ☑ | ☑ | ☑ |
-| 87 | `alignment_operation` | ☑ | ☑ | ☑ |
-| 88 | `parasail_score` | ☑ | ☑ | ☑ |
-| 89 | `banded_align` | ☑ | ☑ | ☑ |
-| 90 | `codon_aligner` | ☑ | ☑ | ☑ |
-| 91 | `multiple_seq_alignment` | ☑ | ☑ | ☑ |
-| 92 | `mafft_command` | ☑ | ☑ | ☑ |
+| 31 | `multiple_align_exact` | ☑ | ☑ | ☑ |
+| 32 | `multiple_align_muscle` | ☑ | ☑ | ☑ |
+| 33 | `muscle_msa_command` | ☑ | ☑ | ☑ |
+| 34 | `quality_trim_reads` | ☑ | ☑ | ☑ |
+| 35 | `scaffold_contigs` | ☑ | ☑ | ☑ |
+| 36 | `semi_global_align` | ☑ | ☑ | ☑ |
+| 37 | `semi_global_align_affine` | ☑ | ☑ | ☑ |
+| 38 | `sequence_identity` | ☑ | ☑ | ☑ |
+| 39 | `sum_of_pairs_score` | ☑ | ☑ | ☑ |
+| 40 | `multiple_align_mafft` | ☑ | ☑ | ☑ |
+| 41 | `stretcher_align` | ☑ | ☑ | ☑ |
+| 42 | `write_alignment` | ☑ | ☑ | ☑ |
+| 43 | `dual_affine_align` | ☑ | ☑ | ☑ |
+| 44 | `supermatcher_align` | ☑ | ☑ | ☑ |
+| 45 | `needleall_align` | ☑ | ☑ | ☑ |
+| 46 | `ksw2_extend` | ☑ | ☑ | ☑ |
+| 47 | `align_gap_profile` | ☑ | ☑ | ☑ |
+| 48 | `merger` | ☑ | ☑ | ☑ |
+| 49 | `needle_align` | ☑ | ☑ | ☑ |
+| 50 | `water_align` | ☑ | ☑ | ☑ |
+| 51 | `minimap2_chains` | ☑ | ☑ | ☑ |
+| 52 | `dotmatcher` | ☑ | ☑ | ☑ |
+| 53 | `minimap2_map` | ☑ | ☑ | ☑ |
+| 54 | `write_coordinate_alignment` | ☑ | ☑ | ☑ |
+| 55 | `parse_coordinate_alignment` | ☑ | ☑ | ☑ |
+| 56 | `spoa_command` | ☑ | ☑ | ☑ |
+| 57 | `write_big_alignment` | ☑ | ☑ | ☑ |
+| 58 | `parse_big_alignment` | ☑ | ☑ | ☑ |
+| 59 | `local_align_zscore` | ☑ | ☑ | ☑ |
+| 60 | `pairwise_aligner` | ☑ | ☑ | ☑ |
+| 61 | `alignment_counts` | ☑ | ☑ | ☑ |
+| 62 | `alignment_operation` | ☑ | ☑ | ☑ |
+| 63 | `parasail_score` | ☑ | ☑ | ☑ |
+| 64 | `banded_align` | ☑ | ☑ | ☑ |
+| 65 | `codon_aligner` | ☑ | ☑ | ☑ |
+| 66 | `multiple_seq_alignment` | ☑ | ☑ | ☑ |
+| 67 | `mafft_command` | ☑ | ☑ | ☑ |
+
+### MultipleAlignment (Seqeron.Mcp.MultipleAlignment) — 25 tools
+
+| # | tool | B | T | D |
+|---:|---|:--:|:--:|:--:|
+| 1 | `multiple_align_clustalw` | ☑ | ☑ | ☑ |
+| 2 | `multiple_align_consistency` | ☑ | ☑ | ☑ |
+| 3 | `multiple_align_iterative` | ☑ | ☑ | ☑ |
+| 4 | `multiple_align_progressive` | ☑ | ☑ | ☑ |
+| 5 | `multiple_align_tcoffee` | ☑ | ☑ | ☑ |
+| 6 | `clustalw_pairwise_align` | ☑ | ☑ | ☑ |
+| 7 | `clustalw_quick_pairwise_align` | ☑ | ☑ | ☑ |
+| 8 | `tcoffee_slow_pair_align` | ☑ | ☑ | ☑ |
+| 9 | `tcoffee_lalign_top_alignments` | ☑ | ☑ | ☑ |
+| 10 | `tcoffee_primary_library` | ☑ | ☑ | ☑ |
+| 11 | `tcoffee_guide_tree` | ☑ | ☑ | ☑ |
+| 12 | `tcoffee_ktup_similarity` | ☑ | ☑ | ☑ |
+| 13 | `clustalw_profile_align` | ☑ | ☑ | ☑ |
+| 14 | `clustalw_sequences_to_profile` | ☑ | ☑ | ☑ |
+| 15 | `clustalw_command` | ☑ | ☑ | ☑ |
+| 16 | `multiple_align_kalign` | ☑ | ☑ | ☑ |
+| 17 | `kalign_command` | ☑ | ☑ | ☑ |
+| 18 | `multiple_align_probcons` | ☑ | ☑ | ☑ |
+| 19 | `probcons_command` | ☑ | ☑ | ☑ |
+| 20 | `multiple_align_poa` | ☑ | ☑ | ☑ |
+| 21 | `poa_command` | ☑ | ☑ | ☑ |
+| 22 | `clustalw_guide_tree` | ☑ | ☑ | ☑ |
+| 23 | `tcoffee_blast_msa_library` | ☑ | ☑ | ☑ |
+| 24 | `tcoffee_tblastx_library` | ☑ | ☑ | ☑ |
+| 25 | `tcoffee_evaluate` | ☑ | ☑ | ☑ |
 
 ### Analysis (Seqeron.Mcp.Analysis) — 238 tools
 

@@ -53,26 +53,6 @@ public class GlobalCoOptimalAndExactMsaTests
     }
 
     [Test]
-    public void MultipleAlignExact_BeatsOrEqualsHeuristics_AndReportsTheProblemSize()
-    {
-        string[] seqs = ["ACGTTGCA", "ACGTGCA", "ACTTGCAA", "ACGTTCA"];
-        foreach (var model in new[] { "linear", "affine" })
-        {
-            var exact = AlignmentTools.MultipleAlignExact(seqs, 2, -3, -5, -2, model);
-            var star = AlignmentTools.MultipleAlign(seqs, 2, -3, -5, -2, model);
-            var prog = AlignmentTools.MultipleAlignProgressive(seqs, 2, -3, -5, -2, gapModel: model);
-            Assert.That(exact.TotalScore, Is.GreaterThanOrEqualTo(star.TotalScore), model);
-            Assert.That(exact.TotalScore, Is.GreaterThanOrEqualTo(prog.TotalScore), model);
-            Assert.That(exact.AlignedSequences.Select(r => r.Replace("-", "")), Is.EqualTo(seqs));
-            Assert.That(exact.LowerBound, Is.LessThanOrEqualTo(exact.TotalScore));
-            Assert.That(exact.LatticeCells, Is.EqualTo(9L * 8 * 9 * 8));
-            Assert.That(exact.VisitedCells, Is.LessThanOrEqualTo(exact.LatticeCells));
-            // the full lattice gives the same optimum
-            Assert.That(AlignmentTools.MultipleAlignExact(seqs, 2, -3, -5, -2, model, carrilloLipman: false).TotalScore, Is.EqualTo(exact.TotalScore), model);
-        }
-    }
-
-    [Test]
     public void MultipleAlignExact_TwoSequences_AreGlobalAlign_AndHandExample()
     {
         var two = AlignmentTools.MultipleAlignExact(["TTTTTTTTTTACGT", "ACGT"], 2, -3, -5, -2, "affine");

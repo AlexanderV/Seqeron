@@ -105,7 +105,7 @@ public static class MummerShowTiling
         public bool Circular, RandomRepeats, Promer;
         public long MaxGap, MinContigLength;
         public float MinCoverage, MinCoverageDiff, MinPidy;
-        public SequenceAligner.GlibcRandom Rand = null!;
+        public GlibcRandom Rand = null!;
     }
 
     private static long RevC(long coord, long len)
@@ -204,7 +204,7 @@ public static class MummerShowTiling
         bool isdefDiff = o.MinCoverageDifference.HasValue;
         if (o.RandomRepeats)
         {
-            cx.Rand = new SequenceAligner.GlibcRandom(o.RandomSeed ?? (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            cx.Rand = new GlibcRandom(o.RandomSeed ?? (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
             minCovDiff = 0;
             isdefDiff = true;
         }

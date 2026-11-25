@@ -165,15 +165,12 @@ public static partial class SequenceAligner
         int lowerBound = int.MinValue;
         if (opts.ExactCarrilloLipman)
         {
-            // Lower bound: the best of the heuristic aligners of this class under the same objective.
+            // Lower bound: the best of the heuristic aligners of this assembly (the star alignment) under the same objective, and the bound the caller
+            // supplied (the guide-tree aligners of Seqeron.Genomics.ClustalW compute their own through ExactLowerBoundHint).
             var heuristicOptions = new MsaOptions { GapModel = gapModel };
-            foreach (var h in new[]
-            {
-                StarAlignCore(raw, sc, heuristicOptions),
-                ProgressiveAlignCore(raw, sc, heuristicOptions),
-                IterativeAlignCore(raw, sc, heuristicOptions, DefaultMaxRefinementIterations),
-            })
-                lowerBound = Math.Max(lowerBound, ComputeSumOfPairsScore(h.AlignedSequences, sc, gapModel));
+            lowerBound = ComputeSumOfPairsScore(StarAlignCore(raw, sc, heuristicOptions).AlignedSequences, sc, gapModel);
+            if (opts.ExactLowerBoundHint is int hint)
+                lowerBound = Math.Max(lowerBound, hint);
         }
 
         var engine = new ExactMsaEngine(raw, sc, affine, opts.ExactCarrilloLipman, lowerBound, opts.ExactMaxStateCells);

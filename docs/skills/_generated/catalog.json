@@ -63,48 +63,6 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs#L772"
   },
   {
-    "tool": "clustalw_command",
-    "server": "Alignment",
-    "methodId": "ClustalWProgram.Run",
-    "docPath": "docs/mcp/tools/alignment/clustalw_command.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ClustalWProgram.cs"
-  },
-  {
-    "tool": "clustalw_guide_tree",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.ClustalWGuideTreeText",
-    "docPath": "docs/mcp/tools/alignment/clustalw_guide_tree.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWTrees.cs"
-  },
-  {
-    "tool": "clustalw_pairwise_align",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.ClustalWPairwiseAlign",
-    "docPath": "docs/mcp/tools/alignment/clustalw_pairwise_align.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalW.cs"
-  },
-  {
-    "tool": "clustalw_profile_align",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.AlignClustalWProfiles",
-    "docPath": "docs/mcp/tools/alignment/clustalw_profile_align.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWProfile.cs"
-  },
-  {
-    "tool": "clustalw_quick_pairwise_align",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.ClustalWQuickPairwiseAlign",
-    "docPath": "docs/mcp/tools/alignment/clustalw_quick_pairwise_align.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWQuick.cs"
-  },
-  {
-    "tool": "clustalw_sequences_to_profile",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.AlignClustalWSequencesToProfile",
-    "docPath": "docs/mcp/tools/alignment/clustalw_sequences_to_profile.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWProfile.cs"
-  },
-  {
     "tool": "codon_aligner",
     "server": "Alignment",
     "methodId": "CodonAligner.Align",
@@ -252,13 +210,6 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.GlobalCoOptimal.cs"
   },
   {
-    "tool": "kalign_command",
-    "server": "Alignment",
-    "methodId": "KalignProgram.Run",
-    "docPath": "docs/mcp/tools/alignment/kalign_command.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/KalignProgram.cs"
-  },
-  {
     "tool": "ksw2_extend",
     "server": "Alignment",
     "methodId": "Ksw2Aligner",
@@ -350,39 +301,11 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L1821"
   },
   {
-    "tool": "multiple_align_clustalw",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.MultipleAlignClustalW",
-    "docPath": "docs/mcp/tools/alignment/multiple_align_clustalw.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ClustalWMultiple.cs#L69"
-  },
-  {
-    "tool": "multiple_align_consistency",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.MultipleAlignConsistency",
-    "docPath": "docs/mcp/tools/alignment/multiple_align_consistency.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L3011"
-  },
-  {
     "tool": "multiple_align_exact",
     "server": "Alignment",
     "methodId": "SequenceAligner.MultipleAlignExact",
     "docPath": "docs/mcp/tools/alignment/multiple_align_exact.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.MultipleExact.cs"
-  },
-  {
-    "tool": "multiple_align_iterative",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.MultipleAlignIterative",
-    "docPath": "docs/mcp/tools/alignment/multiple_align_iterative.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2684"
-  },
-  {
-    "tool": "multiple_align_kalign",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.KalignRun",
-    "docPath": "docs/mcp/tools/alignment/multiple_align_kalign.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Kalign.cs"
   },
   {
     "tool": "multiple_align_mafft",
@@ -397,34 +320,6 @@
     "methodId": "SequenceAligner.MultipleAlignMuscle",
     "docPath": "docs/mcp/tools/alignment/multiple_align_muscle.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Muscle.cs#L67"
-  },
-  {
-    "tool": "multiple_align_poa",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.PoaRun",
-    "docPath": "docs/mcp/tools/alignment/multiple_align_poa.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Poa.cs"
-  },
-  {
-    "tool": "multiple_align_probcons",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.ProbConsRun",
-    "docPath": "docs/mcp/tools/alignment/multiple_align_probcons.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.ProbCons.cs"
-  },
-  {
-    "tool": "multiple_align_progressive",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.MultipleAlignProgressive",
-    "docPath": "docs/mcp/tools/alignment/multiple_align_progressive.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2275"
-  },
-  {
-    "tool": "multiple_align_tcoffee",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.MultipleAlignTCoffeeProgram",
-    "docPath": "docs/mcp/tools/alignment/multiple_align_tcoffee.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeLibrary.cs#L446"
   },
   {
     "tool": "multiple_seq_alignment",
@@ -481,20 +376,6 @@
     "methodId": "AlignmentCoordinateFormats.Parse",
     "docPath": "docs/mcp/tools/alignment/parse_coordinate_alignment.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.cs"
-  },
-  {
-    "tool": "poa_command",
-    "server": "Alignment",
-    "methodId": "PoaProgram.Run",
-    "docPath": "docs/mcp/tools/alignment/poa_command.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/PoaProgram.cs"
-  },
-  {
-    "tool": "probcons_command",
-    "server": "Alignment",
-    "methodId": "ProbConsProgram.Run",
-    "docPath": "docs/mcp/tools/alignment/probcons_command.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ProbConsProgram.cs"
   },
   {
     "tool": "quality_trim_reads",
@@ -558,62 +439,6 @@
     "methodId": "SequenceAligner.Supermatcher",
     "docPath": "docs/mcp/tools/alignment/supermatcher_align.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.Supermatcher.cs"
-  },
-  {
-    "tool": "tcoffee_blast_msa_library",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.TCoffeeBlastMsaLibraryEntries",
-    "docPath": "docs/mcp/tools/alignment/tcoffee_blast_msa_library.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeBlast.cs"
-  },
-  {
-    "tool": "tcoffee_evaluate",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.TCoffeeEvaluate",
-    "docPath": "docs/mcp/tools/alignment/tcoffee_evaluate.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeEvaluate.cs"
-  },
-  {
-    "tool": "tcoffee_guide_tree",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.TCoffeeGuideTree",
-    "docPath": "docs/mcp/tools/alignment/tcoffee_guide_tree.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeTree.cs"
-  },
-  {
-    "tool": "tcoffee_ktup_similarity",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.TCoffeeKtupSimilarity",
-    "docPath": "docs/mcp/tools/alignment/tcoffee_ktup_similarity.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeTree.cs"
-  },
-  {
-    "tool": "tcoffee_lalign_top_alignments",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.TCoffeeLalignTopAlignments",
-    "docPath": "docs/mcp/tools/alignment/tcoffee_lalign_top_alignments.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeePrimary.cs"
-  },
-  {
-    "tool": "tcoffee_primary_library",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.TCoffeePrimaryLibraryEntries",
-    "docPath": "docs/mcp/tools/alignment/tcoffee_primary_library.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeLibrary.cs"
-  },
-  {
-    "tool": "tcoffee_slow_pair_align",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.TCoffeeSlowPairAlign",
-    "docPath": "docs/mcp/tools/alignment/tcoffee_slow_pair_align.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeePrimary.cs"
-  },
-  {
-    "tool": "tcoffee_tblastx_library",
-    "server": "Alignment",
-    "methodId": "SequenceAligner.TCoffeeTblastxLibraryEntries",
-    "docPath": "docs/mcp/tools/alignment/tcoffee_tblastx_library.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.TCoffeeBlast.cs"
   },
   {
     "tool": "water_align",
@@ -3883,6 +3708,181 @@
     "methodId": "ProbeDesigner.ValidateProbe",
     "docPath": "docs/mcp/tools/moltools/validate_probe.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2155"
+  },
+  {
+    "tool": "clustalw_command",
+    "server": "MultipleAlignment",
+    "methodId": "ClustalWProgram.Run",
+    "docPath": "docs/mcp/tools/multiplealignment/clustalw_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.ClustalW/ClustalWProgram.cs"
+  },
+  {
+    "tool": "clustalw_guide_tree",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.ClustalWGuideTreeText",
+    "docPath": "docs/mcp/tools/multiplealignment/clustalw_guide_tree.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.ClustalW/ClustalWAligner.Trees.cs"
+  },
+  {
+    "tool": "clustalw_pairwise_align",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.ClustalWPairwiseAlign",
+    "docPath": "docs/mcp/tools/multiplealignment/clustalw_pairwise_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.ClustalW/ClustalWAligner.cs"
+  },
+  {
+    "tool": "clustalw_profile_align",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.AlignClustalWProfiles",
+    "docPath": "docs/mcp/tools/multiplealignment/clustalw_profile_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.ClustalW/ClustalWAligner.Profile.cs"
+  },
+  {
+    "tool": "clustalw_quick_pairwise_align",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.ClustalWQuickPairwiseAlign",
+    "docPath": "docs/mcp/tools/multiplealignment/clustalw_quick_pairwise_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.ClustalW/ClustalWAligner.Quick.cs"
+  },
+  {
+    "tool": "clustalw_sequences_to_profile",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.AlignClustalWSequencesToProfile",
+    "docPath": "docs/mcp/tools/multiplealignment/clustalw_sequences_to_profile.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.ClustalW/ClustalWAligner.Profile.cs"
+  },
+  {
+    "tool": "kalign_command",
+    "server": "MultipleAlignment",
+    "methodId": "KalignProgram.Run",
+    "docPath": "docs/mcp/tools/multiplealignment/kalign_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Kalign/KalignProgram.cs"
+  },
+  {
+    "tool": "multiple_align_clustalw",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.MultipleAlignClustalW",
+    "docPath": "docs/mcp/tools/multiplealignment/multiple_align_clustalw.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.ClustalW/ClustalWAligner.Multiple.cs#L69"
+  },
+  {
+    "tool": "multiple_align_consistency",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.MultipleAlignConsistency",
+    "docPath": "docs/mcp/tools/multiplealignment/multiple_align_consistency.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L3011"
+  },
+  {
+    "tool": "multiple_align_iterative",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.MultipleAlignIterative",
+    "docPath": "docs/mcp/tools/multiplealignment/multiple_align_iterative.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2684"
+  },
+  {
+    "tool": "multiple_align_kalign",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.KalignRun",
+    "docPath": "docs/mcp/tools/multiplealignment/multiple_align_kalign.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Kalign/KalignAligner.cs"
+  },
+  {
+    "tool": "multiple_align_poa",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.PoaRun",
+    "docPath": "docs/mcp/tools/multiplealignment/multiple_align_poa.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.PartialOrderAlignment/PoaAligner.cs"
+  },
+  {
+    "tool": "multiple_align_probcons",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.ProbConsRun",
+    "docPath": "docs/mcp/tools/multiplealignment/multiple_align_probcons.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/ProbConsAligner.cs"
+  },
+  {
+    "tool": "multiple_align_progressive",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.MultipleAlignProgressive",
+    "docPath": "docs/mcp/tools/multiplealignment/multiple_align_progressive.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs#L2275"
+  },
+  {
+    "tool": "multiple_align_tcoffee",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.MultipleAlignTCoffeeProgram",
+    "docPath": "docs/mcp/tools/multiplealignment/multiple_align_tcoffee.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Library.cs#L446"
+  },
+  {
+    "tool": "poa_command",
+    "server": "MultipleAlignment",
+    "methodId": "PoaProgram.Run",
+    "docPath": "docs/mcp/tools/multiplealignment/poa_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.PartialOrderAlignment/PoaProgram.cs"
+  },
+  {
+    "tool": "probcons_command",
+    "server": "MultipleAlignment",
+    "methodId": "ProbConsProgram.Run",
+    "docPath": "docs/mcp/tools/multiplealignment/probcons_command.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/ProbConsProgram.cs"
+  },
+  {
+    "tool": "tcoffee_blast_msa_library",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.TCoffeeBlastMsaLibraryEntries",
+    "docPath": "docs/mcp/tools/multiplealignment/tcoffee_blast_msa_library.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Blast.cs"
+  },
+  {
+    "tool": "tcoffee_evaluate",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.TCoffeeEvaluate",
+    "docPath": "docs/mcp/tools/multiplealignment/tcoffee_evaluate.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Evaluate.cs"
+  },
+  {
+    "tool": "tcoffee_guide_tree",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.TCoffeeGuideTree",
+    "docPath": "docs/mcp/tools/multiplealignment/tcoffee_guide_tree.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Tree.cs"
+  },
+  {
+    "tool": "tcoffee_ktup_similarity",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.TCoffeeKtupSimilarity",
+    "docPath": "docs/mcp/tools/multiplealignment/tcoffee_ktup_similarity.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Tree.cs"
+  },
+  {
+    "tool": "tcoffee_lalign_top_alignments",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.TCoffeeLalignTopAlignments",
+    "docPath": "docs/mcp/tools/multiplealignment/tcoffee_lalign_top_alignments.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Primary.cs"
+  },
+  {
+    "tool": "tcoffee_primary_library",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.TCoffeePrimaryLibraryEntries",
+    "docPath": "docs/mcp/tools/multiplealignment/tcoffee_primary_library.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Library.cs"
+  },
+  {
+    "tool": "tcoffee_slow_pair_align",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.TCoffeeSlowPairAlign",
+    "docPath": "docs/mcp/tools/multiplealignment/tcoffee_slow_pair_align.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Primary.cs"
+  },
+  {
+    "tool": "tcoffee_tblastx_library",
+    "server": "MultipleAlignment",
+    "methodId": "SequenceAligner.TCoffeeTblastxLibraryEntries",
+    "docPath": "docs/mcp/tools/multiplealignment/tcoffee_tblastx_library.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.TCoffee/TCoffeeAligner.Blast.cs"
   },
   {
     "tool": "bed_filter",

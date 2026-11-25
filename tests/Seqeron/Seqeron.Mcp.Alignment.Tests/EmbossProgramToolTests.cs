@@ -103,18 +103,6 @@ public class EmbossProgramToolTests
     }
 
     [Test]
-    public void FormatParameter_MultipleAlignmentTools_WriteTheCanonicalFormats()
-    {
-        var r = AlignmentTools.MultipleAlign(["ACGT", "ACGA", "ACGT"], format: "phylip");
-        Assert.That(r.Formatted, Does.StartWith("3 4\nseq1      "));
-        var s = AlignmentTools.MultipleAlign(["ACGT", "ACGA", "ACGT"], format: "stockholm", names: ["a", "b", "c"]);
-        Assert.That(s.Formatted, Does.StartWith("# STOCKHOLM 1.0\n#=GF SQ   3\n"));
-        var m = AlignmentTools.MultipleAlign(["ACGT", "ACGA", "ACGT"], format: "msf");
-        Assert.That(m.Formatted, Does.Contain("MSF: 4"));
-        Assert.That(AlignmentTools.MultipleAlign(["ACGT", "ACGA"]).Formatted, Is.Null);
-    }
-
-    [Test]
     public void WriteAlignment_BiopythonDialect_WritesTheBioAlignFiles()
     {
         var r = AlignmentTools.WriteAlignment(["AC-T", "ACGT"], "fasta", ["s1", "s2"], descriptions: ["first", ""], dialect: "biopython");

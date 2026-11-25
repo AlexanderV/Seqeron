@@ -47,10 +47,12 @@ public static partial class SequenceAligner
     }
 
     /// <summary>Every co-optimal linear-gap global alignment under the gap scores of a <see cref="GapScoreProfile"/> (see <see cref="GlobalAlign(string, string, ScoringMatrix?, GapScoreProfile)"/>); capped at <paramref name="maxAlignments"/>.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> GlobalAlignCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments = 1000) =>
         CoOptimalProfile(sequence1, sequence2, scoring, null, gapScores, affine: false, local: false, maxAlignments);
 
     /// <summary>Every co-optimal affine-gap global alignment under the gap scores of a <see cref="GapScoreProfile"/>.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> GlobalAlignAffineCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments = 1000) =>
         CoOptimalProfile(sequence1, sequence2, scoring, null, gapScores, affine: true, local: false, maxAlignments);
 
@@ -63,10 +65,12 @@ public static partial class SequenceAligner
         CoOptimalProfile(sequence1, sequence2, null, scoring, gapScores, affine: true, local: false, maxAlignments);
 
     /// <summary>Every co-optimal linear-gap local alignment under the interior gap scores of a <see cref="GapScoreProfile"/> (the start / end members have no effect on local alignments).</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments = 1000) =>
         CoOptimalProfile(sequence1, sequence2, scoring, null, gapScores, affine: false, local: true, maxAlignments);
 
     /// <summary>Every co-optimal affine-gap local alignment under the interior gap scores of a <see cref="GapScoreProfile"/>.</summary>
+    [System.Runtime.CompilerServices.OverloadResolutionPriority(1)]
     public static IReadOnlyList<AlignmentResult> LocalAlignAffineCoOptimal(string sequence1, string sequence2, ScoringMatrix? scoring, GapScoreProfile gapScores, int maxAlignments = 1000) =>
         CoOptimalProfile(sequence1, sequence2, scoring, null, gapScores, affine: true, local: true, maxAlignments);
 

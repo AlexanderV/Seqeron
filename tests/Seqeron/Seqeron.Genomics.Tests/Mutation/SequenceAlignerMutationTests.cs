@@ -248,39 +248,4 @@ public class SequenceAlignerMutationTests
         r.Consensus.Should().Be("ACGT");
         r.TotalScore.Should().Be(0);
     }
-
-    // ── Progressive MSA (MultipleAlignProgressive): guide tree + profile alignment ────
-
-    [Test]
-    public void MultipleAlignProgressive_IdenticalSequences_ExactConsensusAndSumOfPairs()
-    {
-        var seqs = new[] { new DnaSequence("ACGTACGT"), new DnaSequence("ACGTACGT"), new DnaSequence("ACGTACGT") };
-        var r = SequenceAligner.MultipleAlignProgressive(seqs, SequenceAligner.SimpleDna);
-
-        r.AlignedSequences.Should().OnlyContain(s => s == "ACGTACGT");
-        r.Consensus.Should().Be("ACGTACGT");
-        r.TotalScore.Should().Be(24);
-    }
-
-    [Test]
-    public void MultipleAlignProgressive_DivergentSequences_RowsValid_AndTotalScoreIsTrueSumOfPairs()
-    {
-        var inputs = new[] { "ACGTACGT", "ACGTTACGT", "ACGACGT", "ACGTACGA" };
-        var seqs = inputs.Select(s => new DnaSequence(s)).ToArray();
-        var r = SequenceAligner.MultipleAlignProgressive(seqs, SequenceAligner.SimpleDna);
-
-        r.AlignedSequences.Should().HaveCount(4);
-        r.AlignedSequences.Select(x => x.Length).Distinct().Should().ContainSingle();
-        // rows are reprojected to input order
-        for (int i = 0; i < inputs.Length; i++)
-            DeGap(r.AlignedSequences[i]).Should().Be(inputs[i]);
-        r.TotalScore.Should().Be(SumOfPairs(r.AlignedSequences, SequenceAligner.SimpleDna));
-    }
-
-    [Test]
-    public void MultipleAlignProgressive_EmptyInput_ReturnsEmpty()
-    {
-        SequenceAligner.MultipleAlignProgressive(System.Array.Empty<DnaSequence>())
-            .Should().Be(MultipleAlignmentResult.Empty);
-    }
 }

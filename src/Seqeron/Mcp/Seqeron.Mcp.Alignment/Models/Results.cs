@@ -84,23 +84,6 @@ public record ClustalWCommandResultDto(
     Dictionary<string, string> Files,
     string[] Messages);
 
-/// <summary>Kalign 3.3.5 alignment: the rows of the sequences that were aligned, which input sequences those are and the alphabet the program detected.</summary>
-public record KalignResultDto(
-    string[] AlignedSequences,
-    string Consensus,
-    int TotalScore,
-    double ExactTotalScore,
-    int[] KeptIndices,
-    string Alphabet,
-    int[][] GuideTree);
-
-/// <summary>Kalign 3.3.5 command: exit code, standard output, the files the program wrote (name to text) and what it printed to the error stream.</summary>
-public record KalignCommandResultDto(
-    int ExitCode,
-    string Stdout,
-    Dictionary<string, string> Files,
-    string[] Messages);
-
 /// <summary>The result of one run of the <c>mafft</c> script: return code, standard output (the alignment in the requested format), standard error (messages of the script and the programs it runs) and the files the run wrote.</summary>
 public record MafftCommandResultDto(
     int ExitCode,
@@ -124,16 +107,6 @@ public record ProbConsCommandResultDto(
     string Stdout,
     string Stderr,
     Dictionary<string, string> Files);
-
-/// <summary>POA 2.0 alignment: the rows (sequences in the program's output order, then the consensus sequences of -hb), the input index of every row (-1 for a consensus), and the PO, PIR and CLUSTAL texts.</summary>
-public record PoaResultDto(
-    string[] Names,
-    string[] AlignedSequences,
-    int[] Order,
-    string Po,
-    string Pir,
-    string Clustal,
-    string Stdout);
 
 /// <summary>POA 2.0 command: exit code, standard output, standard error, and the files the program wrote (name to text).</summary>
 public record PoaCommandResultDto(
@@ -310,7 +283,6 @@ public record StructureAlignerOutputInput(string Method, int First, int Second, 
 /// <summary>Read with sequence and matching Phred+33 quality string.</summary>
 public record QualityReadInput(string Sequence, string Quality);
 
-
 // ================================
 // Ported program stages (ClustalW 2.1 pairwise, T-Coffee 13.41 library / tree, sum of pairs)
 // ================================
@@ -358,7 +330,6 @@ public record EmbossProgramAlignResult(PairAlignmentItem[] Alignments, int Count
 
 /// <summary>Result of <c>ksw2_extend</c>: the fields of ksw_extz_t and the CIGAR.</summary>
 public record Ksw2ExtendResult(int Max, bool ZDropped, int MaxQ, int MaxT, int Mqe, int MqeT, int Mte, int MteQ, int Score, bool ReachEnd, string Cigar);
-
 
 /// <summary>A conflict line of <c>merger</c> (positions 1-based; '.' = gap).</summary>
 public record MergerConflictDto(int PositionA, string BaseA, int PositionB, string BaseB, string Using);

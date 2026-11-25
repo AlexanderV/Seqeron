@@ -453,6 +453,7 @@ src/
     │                        #   Oncology, Reports) + the Seqeron.Genomics meta-package
     └── Mcp/                 # One MCP server per domain (Sequence, Parsers, Alignment, Analysis,
                              #   Annotation, Phylogenetics, Population, Metagenomics, Chromosome, MolTools)
+                             #   + the servers of the separately licensed assemblies (MultipleAlignment, ...)
 tests/                       # Per-module + per-server test suites (the bulk of the codebase)
 apps/                        # Benchmarks, stress/verification harness, genome demo
 docs/                        # Algorithms, MCP guide, skills strategy, validation ledger
@@ -775,4 +776,23 @@ full test suite runs on every push/PR, so run `dotnet build` and `dotnet test` b
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+**MIT for the main assemblies** — see [LICENSE](LICENSE). That covers every project under `src/` and `tests/` that is not listed below,
+including the ports of permissive programs (MAFFT, MUSCLE, SPOA, minimap2 / ksw2, Mash, parasail, Biopython behaviour, ...). Their
+copyright notices and licence texts are retained in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+**Separate assemblies under their own licences.** Code that was derived from the source of GPL / LGPL programs lives in assemblies of its
+own, named by their subject, each with its own `LICENSE` file, an SPDX header in every source file, its own test project and (for the MCP
+tools) its own MCP server. The MIT assemblies never reference them; they reference the MIT assemblies. The full list, the licence of each
+assembly, the inventory of every third-party program the repository was built from or checked against, and the items that still need a
+licensing decision are in [docs/Validation/review-2026-09/LICENSES.md](docs/Validation/review-2026-09/LICENSES.md). The guard
+`LicenceSeparationTests` fails the build of the test suite if an MIT project, assembly or source file references one of them.
+
+| Assembly | Licence | Holds |
+|---|---|---|
+| `Seqeron.Genomics.Kalign` | GPL-3.0-or-later | Kalign 3.3.5 |
+| `Seqeron.Genomics.PartialOrderAlignment` | GPL-2.0-or-later | POA 2.0 |
+| `Seqeron.Genomics.ClustalW` | LGPL-3.0-or-later | ClustalW 2.1 and the guide-tree progressive / iterative MSA family |
+| `Seqeron.Genomics.TCoffee` | GPL-2.0-or-later | T-Coffee 13.41, the consistency aligner, ProbCons 1.12 |
+| `Seqeron.Mcp.MultipleAlignment` | GPL-3.0-or-later | the MCP tools of the four assemblies above |
+
+(See LICENSES.md for the complete, generated list — further assemblies are added there as ports are separated.)

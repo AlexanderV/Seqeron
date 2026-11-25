@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests (and oracle data) of the copyleft assembly Seqeron.Genomics.Kalign. The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the embedded resource names (Seqeron.Genomics.Tests.TestData.*) and the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Kalign.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\TestDataResource.cs" Link="TestDataResource.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Helpers\OracleEscapes.cs" Link="OracleEscapes.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Unit\Alignment\PollCancellation.cs" Link="PollCancellation.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.IO" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.Kalign" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ALIGN-MULTI-001 (audit A2-20, B09 F118): Kalign 3.3.5 (installed Debian kalign 1:3.3.5-1, AVX2 build): rows of every committed run (DNA / RNA / protein, every type and gap-penalty option, 1 / 2 / 4 threads,
+         long sets, >= 100 / 1000 sequences); scripts/alignment/generate_kalign_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\kalign_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-20, B09 F118): whole Kalign 3.3.5 command lines (argument parser quirks, types, gap options, thread counts, formats, input files, refusals) and the text the program writes;
+         scripts/alignment/generate_kalign_command_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\kalign_command_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-20b, B09 F222): Kalign 3.3.5 formats msf / clu, MSF / Clustal inputs, several inputs, non-quiet output (time shim); scripts/alignment/generate_kalign_formats_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\kalign_formats_oracle.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Kalign\Seqeron.Genomics.Kalign.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,127 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests (and oracle data) of the copyleft assembly Seqeron.Genomics.ClustalW. The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the embedded resource names (Seqeron.Genomics.Tests.TestData.*) and the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.ClustalW.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\TestDataResource.cs" Link="TestDataResource.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Helpers\OracleEscapes.cs" Link="OracleEscapes.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Unit\Alignment\PollCancellation.cs" Link="PollCancellation.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.IO" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.ClustalW" />
+    <Using Include="Seqeron.Genomics.Phylogenetics" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ALIGN-MULTI-001 (audit A1-15, B09 F51): ClustalW 2.1 pairwise stage (`clustalw -ALIGN` "Score:" = truncated percent identity)
+         on 3 600 DNA/IUPAC pairs and the progressive / iterative MSA driven by it (independent Python);
+         scripts/alignment/generate_clustalw_pairwise_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_pairwise_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_msa_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-15b, B09 F55): ClustalW 2.1 FAST pairwise stage (`clustalw -QUICKTREE -ALIGN` "Score:", %lg of the k-tuple
+         fragment percent) on DNA / IUB pairs with ktuple/window/topdiags/pairgap/score variants;
+         scripts/alignment/generate_clustalw_quick_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_quick_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-10b, B09 F56): ClustalW 2.1 multiple alignment of DNA (`clustalw -TYPE=DNA -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT`)
+         with option variants on 1 000 sets; scripts/alignment/generate_clustalw_msa_full_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_msa_full_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A1-12, B09 F53): ClustalW 2.1 neighbour-joining guide tree (.dnd) + progressive step order on 420
+         DNA sets (scripts/alignment/generate_clustalw_guidetree_oracle.py); Biopython 1.88 UPGMA / NJ on 400 random distance
+         matrices (scripts/alignment/generate_guidetree_biopython_oracle.py). -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_guidetree_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\biopython_guidetree_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-15b part b, B09 F62): ClustalW 2.1 PROTEIN pairwise stages - `clustalw -TYPE=PROTEIN -ALIGN` Score lines (GONNET / BLOSUM / PAM /
+         ID matrices, -PWGAPOPEN / -PWGAPEXT variants; = the Python port of FullPairwiseAlign with the matrices.h tables) and `-QUICKTREE` (-KTUPLE / -WINDOW /
+         -TOPDIAGS / -PAIRGAP / -SCORE), the protein MSA rows driven by those distances, and the canonical references of the matrix tables (EMBOSS EBLOSUM30,
+         Biopython GONNET1992); scripts/alignment/generate_clustalw_protein_pairwise_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_protein_pairwise_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_protein_quick_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\msa_matrix_clustalw_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_protein_matrices_reference.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-10c part b, B09 F63): ClustalW 2.1 multiple alignment of PROTEIN (`clustalw -TYPE=PROTEIN -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT`;
+         -MATRIX / -PWMATRIX / -GAPOPEN / -GAPEXT / -PWGAPOPEN / -PWGAPEXT / -MAXDIV / -NOWEIGHTS / -NEGATIVE / -QUICKTREE / -NOPGAP / -NOHGAP / -NOVGAP / -GAPDIST /
+         -HGAPRESIDUES / -ENDGAPS variants) on 1 000 sets and the EMBOSS references of the matrix series tables;
+         scripts/alignment/generate_clustalw_protein_msa_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_protein_msa_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\clustalw_protein_series_reference.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-10d, B09 F64): ClustalW 2.1 user-defined matrix files (`-MATRIX=file`, `-PWMATRIX=file`, CLUSTAL_SERIES files) -
+         `clustalw -TYPE=PROTEIN -ALIGN -OUTPUT=FASTA -OUTORDER=INPUT` rows + "Sequences (i:j) Aligned. Score:" lines on 240 sets with the matrix files embedded;
+         scripts/alignment/generate_clustalw_user_matrix_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_user_matrix_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A1-10d part 2, B09 F67): ClustalW 2.1 end-gap options of the profile stage (UserParameters::useEndGaps / endGapPenalties, reachable only through the
+         patched `-ENDGAPS` handler of the Docker package docs/Validation/review-2026-09/handoff/A1-10d, run by the user): 340 sets x 4 modes (control / useendgaps / endgappen / both),
+         34 sets x 2 modes abort (no output file); scripts/alignment/build_clustalw_end_gaps_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_end_gaps_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A1-10d part 3, B09 F68): ClustalW 2.1 nucleotide matrices (`-DNAMATRIX` / `-PWDNAMATRIX` = IUB, CLUSTALW or a file; `-TRANSWEIGHT`) - the command line
+         (a file is read and validated but not used: PROTEIN-slot defect) and the interactive menu (the file is used), rows + pairwise scores + first-pass group scores, matrix files embedded;
+         scripts/alignment/generate_clustalw_dna_matrix_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_dna_matrix_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14, B09 F92): ClustalW 2.1 residue-type guess (-TYPE omitted), 500 sets; scripts/alignment/generate_clustalw_type_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_type_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14, B09 F101): ClustalW 2.1 `-CLUSTERING=UPGMA -ALIGN` (unmodified Debian source built at -O0 by the user in a docker package; the installed binary and the -O2 build crash on
+         every UPGMA run), 600 sets; scripts/alignment/generate_clustalw_upgma_oracle.py, handoff/A2-14-clustalw-upgma/returned. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_upgma_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14d, B09 F297): ClustalW 2.1 `-CLUSTERING=UPGMA` with `-ITERATION=alignment | tree`, `-PROFILE` and `-SEQUENCES` (same -O0 build, user-run docker package), 800 sets;
+         scripts/alignment/generate_clustalw_upgma_iteration_oracle.py, handoff/A2-14-upgma-iteration/returned. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_upgma_iteration_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14, B09 F102): ClustalW 2.1 `-ITERATION=TREE | ALIGNMENT -NUMITER` (rows + the "FINAL score" lines), 700 sets (350 DNA, 350 protein);
+         scripts/alignment/generate_clustalw_iteration_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_iteration_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14, B09 F103): ClustalW 2.1 profile alignment commands (-PROFILE1 -PROFILE2 -PROFILE and -SEQUENCES), 1 200 sets (600 DNA, 600 protein);
+         scripts/alignment/generate_clustalw_profile_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_profile_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A2-14b, B09 F104): ClustalW 2.1 guide-tree files (-NEWTREE, -USETREE, -NEWTREE1/2, -USETREE1/2) and -OUTORDER=ALIGNED|INPUT, 3 300 sets
+         (align / newtree / usetree incl. malformed trees / profile / sequences, DNA and protein); scripts/alignment/generate_clustalw_commands_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_commands_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-14d, B09 F105): the seven ClustalW 2.1 alignment file formats (-OUTPUT CLUSTAL / GCG / GDE / PHYLIP / PIR / NEXUS / FASTA with -CASE -SEQNOS -SEQNO_RANGE -RANGE -OUTORDER), 2 310 files
+         compared byte for byte; scripts/alignment/generate_clustalw_output_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_output_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-14c, B09 F106): ClustalW 2.1 secondary-structure gap-penalty masks of -PROFILE / -SEQUENCES (CLUSTAL and GDE profile files with !SS_ / !GM_ / "SS_ lines), 1 200 sets, output files compared
+         byte for byte; scripts/alignment/generate_clustalw_structure_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\clustalw_structure_oracle.tsv.gz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_baseline_wp78.tsv.gz" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_baseline_wp78.tsv.gz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.ClustalW\Seqeron.Genomics.ClustalW.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -46,7 +46,16 @@ public class EmbossProsite_Returned_Oracle_Tests
             foreach (var p in j.GetProperty("files").EnumerateObject())
                 files[p.Name] = p.Value.GetString()!;
             int rc = j.GetProperty("rc").GetInt32();
-            var clock = new EmbossRunEnvironment(j.TryGetProperty("epoch", out var epoch) ? DateTimeOffset.FromUnixTimeSeconds(epoch.GetInt64()).UtcDateTime : null);
+            // A row without an epoch was recorded on a real day (the GFF header prints "#!Date yyyy-MM-dd"): the clock of the port is set to that day, not to today (the test was date dependent: audit WP79).
+            DateTime? recorded = null;
+            foreach (var of in j.GetProperty("outfiles").EnumerateObject())
+            {
+                var dm = System.Text.RegularExpressions.Regex.Match(of.Value.GetString() ?? "", @"#!Date (\d{4})-(\d{2})-(\d{2})");
+                if (dm.Success)
+                    recorded = new DateTime(int.Parse(dm.Groups[1].Value), int.Parse(dm.Groups[2].Value), int.Parse(dm.Groups[3].Value), 12, 0, 0, DateTimeKind.Utc);
+            }
+
+            var clock = new EmbossRunEnvironment(j.TryGetProperty("epoch", out var epoch) ? DateTimeOffset.FromUnixTimeSeconds(epoch.GetInt64()).UtcDateTime : recorded);
             string id = $"row {j.GetProperty("id")} [{string.Join(' ', args)}]";
             var r = EmbossProgramRunner.Run("patmatmotifs", args, files, clock);
             var expectedFiles = new SortedDictionary<string, string>(StringComparer.Ordinal);

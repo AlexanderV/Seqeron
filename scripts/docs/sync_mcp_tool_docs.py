@@ -15,7 +15,7 @@ SCOPE: every tool of the Alignment server and the Analysis-server tools whose do
   python3 scripts/docs/sync_mcp_tool_docs.py            regenerate
   python3 scripts/docs/sync_mcp_tool_docs.py --check    exit 1 and list every difference (CI / the contract test of Seqeron.Mcp.*.Tests does the same over reflection)
   python3 scripts/docs/sync_mcp_tool_docs.py --dump f   use a metadata dump written earlier (skips the dotnet run)
-Needs the MCP projects built (`dotnet build src/Seqeron/Mcp/Seqeron.Mcp.Alignment src/Seqeron/Mcp/Seqeron.Mcp.Analysis -c Debug`); python3 stdlib only.
+Needs the MCP projects built (`dotnet build src/Seqeron/Mcp/Seqeron.Mcp.Alignment src/Seqeron/Mcp/Seqeron.Mcp.Analysis src/Seqeron/Mcp/Seqeron.Mcp.MultipleAlignment src/Seqeron/Mcp/Seqeron.Mcp.Emboss -c Debug`); python3 stdlib only.
 """
 import argparse
 import glob
@@ -30,6 +30,12 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 TOOLS = os.path.join(ROOT, 'docs', 'mcp', 'tools')
 DUMPER = os.path.join(ROOT, 'scripts', 'docs', 'McpToolDump')
 B09_CLASSES = ('EmbossReportPrograms.', 'SequenceAligner.', 'GenomicAnalyzer.', 'MultipleAlignment', 'AnchorBasedAligner.', 'DotMatcher.', 'Minimap2Chaining.', 'NucmerClusters.', 'Ksw2Aligner.', 'AlignmentFormats.', 'MashCommands.', 'MashTaxScreen.', 'MotifFinder.GenerateEmbossAmbiguousConsensus', 'Mummer', 'PromerProgram.', 'EmbossEst2genomePrograms.', 'EmbossFeaturePrograms.', 'EmbossSeqretPrograms.', 'EmbossMaskfeatPrograms.', 'EmbossDescseqPrograms.', 'EmbossUnionProgram.', 'EmbossEntretProgram.', 'EmbossExtractfeatProgram.', 'EmbossCoderetProgram.', 'EmbossShowfeatProgram.', 'EmbossFeatreportProgram.', 'EmbossTwofeatProgram.', 'EmbossProgramRunner.', 'SummaryInfo', 'ConservationScores', 'CodonAligner.', 'MultipleSeqAlignment')
+
+
+# lowercase docs directory -> assembly suffix (Seqeron.Mcp.<Name>); the copyleft servers (B09 WP79) are listed here too
+SERVER_NAMES = {'alignment': 'Alignment', 'analysis': 'Analysis', 'multiplealignment': 'MultipleAlignment', 'emboss': 'Emboss'}
+# servers whose every tool is owned by B09 (the Analysis server is shared with other batches)
+OWNED_SERVERS = ('alignment', 'multiplealignment', 'emboss')
 
 
 def run_dump(servers):
@@ -171,13 +177,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--check', action='store_true')
     ap.add_argument('--dump', help='metadata dump (JSON) written earlier')
-    ap.add_argument('--server', action='append', help='alignment | analysis (default: both)')
+    ap.add_argument('--server', action='append', help='alignment | analysis | multiplealignment | emboss (default: all four)')
     ap.add_argument('--tool', action='append')
     ap.add_argument('--all-owned', action='store_true', help='(default) every Alignment tool + the Analysis tools of the B09 classes')
     ap.add_argument('--all', action='store_true', help='every tool of the selected servers, whatever its owner')
     a = ap.parse_args()
-    servers = a.server or ['alignment', 'analysis']
-    tools = json.load(open(a.dump, encoding='utf-8')) if a.dump else run_dump([s.capitalize() for s in servers])
+    servers = a.server or ['alignment', 'analysis', 'multiplealignment', 'emboss']
+    tools = json.load(open(a.dump, encoding='utf-8')) if a.dump else run_dump([SERVER_NAMES[s] for s in servers])
     changed, stale = 0, []
     for tool in sorted(tools, key=lambda t: (t['server'], t['name'])):
         server = tool['server'].lower()
@@ -190,7 +196,7 @@ def main():
             continue
         raw = open(jpath, encoding='utf-8', newline='').read()
         doc = json.loads(raw)
-        if server != 'alignment' and not a.all and not str(doc.get('methodId', '')).startswith(B09_CLASSES):
+        if server not in OWNED_SERVERS and not a.all and not str(doc.get('methodId', '')).startswith(B09_CLASSES):
             continue
         style = style_of(raw, doc)
         old_description = doc.get('description')

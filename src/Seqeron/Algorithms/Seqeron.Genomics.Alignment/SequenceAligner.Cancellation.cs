@@ -11,23 +11,23 @@ namespace Seqeron.Genomics.Alignment;
 /// and nested calls inherit the token of the outermost cancellable scope. A cancelled call throws
 /// <see cref="OperationCanceledException"/> and returns no partial result (the result objects are built after the last poll).
 /// </summary>
-internal static class AlignmentCancellation
+public static class AlignmentCancellation
 {
     private static readonly AsyncLocal<CancellationToken> Current = new();
     private static readonly AsyncLocal<Action?> PollProbe = new();
 
     /// <summary>The token of the innermost cancellable scope (<c>default</c> = never cancelled).</summary>
-    internal static CancellationToken Token => Current.Value;
+    public static CancellationToken Token => Current.Value;
 
     /// <summary>Throws <see cref="OperationCanceledException"/> when the scope's token is cancelled (a plain field read when no scope is active).</summary>
-    internal static void ThrowIfRequested()
+    public static void ThrowIfRequested()
     {
         PollProbe.Value?.Invoke();
         Current.Value.ThrowIfCancellationRequested();
     }
 
     /// <summary>Polls a local token (a <c>cancellationToken</c> parameter of an overload) and the ambient scope token.</summary>
-    internal static void Poll(CancellationToken local)
+    public static void Poll(CancellationToken local)
     {
         PollProbe.Value?.Invoke();
         local.ThrowIfCancellationRequested();
@@ -38,7 +38,7 @@ internal static class AlignmentCancellation
     /// Test seam (audit A5-4): <paramref name="probe"/> runs at the start of EVERY poll of the calling flow (the execution context flows to the worker threads of <c>Parallel.For</c>, other tests are not affected),
     /// so a test cancels its source at the n-th poll deterministically instead of after a wall-clock delay. Dispose to remove it.
     /// </summary>
-    internal static IDisposable OnPoll(Action probe)
+    public static IDisposable OnPoll(Action probe)
     {
         var previous = PollProbe.Value;
         PollProbe.Value = probe;
@@ -53,7 +53,7 @@ internal static class AlignmentCancellation
     }
 
     /// <summary>Enters a scope for <paramref name="token"/> (a token that cannot be cancelled keeps the surrounding scope); dispose to leave it.</summary>
-    internal static Scope Enter(CancellationToken token)
+    public static Scope Enter(CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         var previous = Current.Value;
@@ -62,7 +62,7 @@ internal static class AlignmentCancellation
         return new Scope(previous);
     }
 
-    internal readonly struct Scope : IDisposable
+    public readonly struct Scope : IDisposable
     {
         private readonly CancellationToken _previous;
         internal Scope(CancellationToken previous) => _previous = previous;
@@ -98,7 +98,7 @@ public static partial class SequenceAligner
     /// rethrows the exception of the LOWEST failing index with its original type (never an <see cref="AggregateException"/>; the sequential
     /// path of the same method throws the same exception: <c>ExceptionDispatchInfo</c> keeps the stack). Honours the ambient token and
     /// <paramref name="maxDegreeOfParallelism"/> (-1 = the runtime's choice, 1 = sequential).</summary>
-    internal static void ParallelFor(int fromInclusive, int toExclusive, Action<int> body, int maxDegreeOfParallelism = -1)
+    public static void ParallelFor(int fromInclusive, int toExclusive, Action<int> body, int maxDegreeOfParallelism = -1)
     {
         if (maxDegreeOfParallelism == 0 || maxDegreeOfParallelism < -1)
             throw new ArgumentOutOfRangeException(nameof(maxDegreeOfParallelism), maxDegreeOfParallelism, "MaxDegreeOfParallelism must be -1 (unbounded) or at least 1.");

@@ -1,0 +1,161 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "toolName": "clustalw_pairwise_align",
+ "serverName": "MultipleAlignment",
+ "version": "1.0.0",
+ "stability": "stable",
+ "methodId": "SequenceAligner.ClustalWPairwiseAlign",
+ "docRef": "Seqeron.Genomics.ClustalW/ClustalWAligner.cs",
+ "description": "The full pairwise stage of ClustalW 2.1 (clustalw -ALIGN: FullPairwiseAlign::pairwiseAlign, the step that gives the guide-tree distances), ported step by step: an affine local (Smith-Waterman-Gotoh) alignment under ClustalW's matrix whose co-optimal choice follows the program's Myers-Miller midpoint rule, with the percent identity (identities / the shorter sequence, truncated as the program prints it) and the guide-tree distance 1 - identities / shorter length. type 'dna' (default; -PWDNAMATRIX IUB (default) or CLUSTALW, -PWGAPOPEN 15, -PWGAPEXT 6.66, -TRANSWEIGHT 0.5; IUB nucleotide codes) or 'protein' (-PWMATRIX gonnet (default, GONNET250), blosum (BLOSUM30), pam (PAM350) or id; -PWGAPOPEN 10, -PWGAPEXT 0.1). Verified against the installed clustalw 2.1 on 11 000+ DNA pairs. start / end are 0-based inclusive coordinates of the aligned region (-1 when no positive-scoring alignment exists). The multi-sequence pipeline is multiple_align_clustalw.",
+ "inputSchema": {
+  "type": "object",
+  "properties": {
+   "sequence1": {
+    "type": "string",
+    "description": "First sequence: DNA (A, C, G, T/U, IUB codes) or protein (letters A-Z except J), case-insensitive."
+   },
+   "sequence2": {
+    "type": "string",
+    "description": "Second sequence."
+   },
+   "type": {
+    "type": "string",
+    "description": "'dna' (default) or 'protein' (ClustalW -TYPE).",
+    "default": "dna"
+   },
+   "gapOpen": {
+    "type": "number",
+    "description": "ClustalW -PWGAPOPEN (a penalty, positive; default 15 for DNA, 10 for protein)."
+   },
+   "gapExtend": {
+    "type": "number",
+    "description": "ClustalW -PWGAPEXT (default 6.66 for DNA, 0.1 for protein)."
+   },
+   "transitionWeight": {
+    "type": "number",
+    "description": "DNA only, ClustalW -TRANSWEIGHT: weight of transitions in the pairwise matrix (default 0.5).",
+    "default": 0.5
+   },
+   "dnaMatrix": {
+    "type": "string",
+    "description": "type='dna': ClustalW -PWDNAMATRIX built-in, 'iub' (default) or 'clustalw'."
+   },
+   "pwMatrix": {
+    "type": "string",
+    "description": "type='protein': ClustalW -PWMATRIX, 'gonnet' (default), 'blosum', 'pam' or 'id'."
+   }
+  },
+  "required": [
+   "sequence1",
+   "sequence2"
+  ]
+ },
+ "outputSchema": {
+  "type": "object",
+  "properties": {
+   "score": {
+    "type": "integer"
+   },
+   "identities": {
+    "type": "integer"
+   },
+   "percentIdentity": {
+    "type": "number"
+   },
+   "distance": {
+    "type": "number"
+   },
+   "clustalWScore": {
+    "type": "integer"
+   },
+   "alignedSequence1": {
+    "type": "string"
+   },
+   "alignedSequence2": {
+    "type": "string"
+   },
+   "start1": {
+    "type": "integer"
+   },
+   "end1": {
+    "type": "integer"
+   },
+   "start2": {
+    "type": "integer"
+   },
+   "end2": {
+    "type": "integer"
+   }
+  },
+  "required": [
+   "score",
+   "identities",
+   "percentIdentity",
+   "distance",
+   "clustalWScore",
+   "alignedSequence1",
+   "alignedSequence2",
+   "start1",
+   "end1",
+   "start2",
+   "end2"
+  ]
+ },
+ "errors": [
+  {
+   "code": 1001,
+   "message": "Sequence is required"
+  },
+  {
+   "code": 1001,
+   "message": "type must be dna or protein"
+  },
+  {
+   "code": 1001,
+   "message": "A symbol is not a valid ClustalW residue code"
+  }
+ ],
+ "examples": [
+  {
+   "name": "DNA pair",
+   "input": {
+    "sequence1": "ACGTACGTTTGACCAGTAGGCATCGAT",
+    "sequence2": "ACGTACGATTGACCAGTAGCCATCGAT"
+   },
+   "output": {
+    "score": 23200,
+    "identities": 25,
+    "percentIdentity": 92.5925925925926,
+    "distance": 0.07407407407407407,
+    "clustalWScore": 92,
+    "alignedSequence1": "ACGTACGTTTGACCAGTAGGCATCGAT",
+    "alignedSequence2": "ACGTACGATTGACCAGTAGCCATCGAT",
+    "start1": 0,
+    "end1": 26,
+    "start2": 0,
+    "end2": 26
+   }
+  },
+  {
+   "name": "Protein pair (globin fragments)",
+   "input": {
+    "sequence1": "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF",
+    "sequence2": "MVHLTPEEKSAVTALWGKVNVDEVGGEALGRLLVVYPWTQRFFESFGDLSTPDAVMGNPKV",
+    "type": "protein"
+   },
+   "output": {
+    "score": 9147,
+    "identities": 19,
+    "percentIdentity": 40.42553191489362,
+    "distance": 0.5957446808510638,
+    "clustalWScore": 40,
+    "alignedSequence1": "LSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF",
+    "alignedSequence2": "LTPEEKSAVTALWGKV--NVDEVGGEALGRLLVVYPWTQRFFESF",
+    "start1": 2,
+    "end1": 46,
+    "start2": 3,
+    "end2": 45
+   }
+  }
+ ]
+}

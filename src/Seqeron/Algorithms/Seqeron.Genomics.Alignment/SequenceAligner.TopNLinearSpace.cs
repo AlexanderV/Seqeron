@@ -26,7 +26,7 @@ namespace Seqeron.Genomics.Alignment;
 /// forbidden: stored per row as sorted column arrays so that a DP row can be scanned with a forward-moving cursor
 /// (<see cref="ForbiddenRow"/>) at no cost for rows without forbidden pairs.
 /// </summary>
-internal sealed class ForbiddenPairs
+public sealed class ForbiddenPairs
 {
     /// <summary>Diagonal candidate of a forbidden cell: far below every reachable value, never equal to a cell value.</summary>
     internal const int NoDiagonal = int.MinValue / 2;

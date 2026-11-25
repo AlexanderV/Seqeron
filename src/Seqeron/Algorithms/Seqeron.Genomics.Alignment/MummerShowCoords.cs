@@ -229,7 +229,7 @@ public static class MummerShowCoords
         if (isBrief || isKnockout)
             SimplifyAlignments(stats, isBrief, isKnockout);
         if (isLas)
-            FlagLas(stats, isWLas, new SequenceAligner.GlibcRandom(o.RandomSeed ?? (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+            FlagLas(stats, isWLas, new GlibcRandom(o.RandomSeed ?? (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
 
         if (isSortByReference)
             LibstdcxxSort.Sort(stats, (a, b) => IdASAIdBSBLess(a, b));
@@ -382,7 +382,7 @@ public static class MummerShowCoords
         }
     }
 
-    private static void FlagLas(List<AlignStats> stats, bool isWLas, SequenceAligner.GlibcRandom rand)
+    private static void FlagLas(List<AlignStats> stats, bool isWLas, GlibcRandom rand)
     {
         int sp = 0;
         while (sp < stats.Count)

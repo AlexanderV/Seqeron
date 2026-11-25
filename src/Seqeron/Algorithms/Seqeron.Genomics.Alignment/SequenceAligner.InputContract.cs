@@ -19,7 +19,7 @@ namespace Seqeron.Genomics.Alignment;
 public static partial class SequenceAligner
 {
     /// <summary>The one message of the program ports for an empty member (the programs refuse empty input; the Seqeron aligners do not).</summary>
-    internal static string EmptyMemberMessage(string program, int index) =>
+    public static string EmptyMemberMessage(string program, int index) =>
         $"{program} cannot align an empty sequence (sequence {index} is empty): the program refuses empty input. " +
         "MultipleAlign, MultipleAlignProgressive, MultipleAlignIterative, MultipleAlignConsistency, MultipleAlignExact and MultipleAlignAnchored accept empty members and return an all-gap row for them.";
 
@@ -34,14 +34,14 @@ public static partial class SequenceAligner
         "MultipleAlignMafft and the Seqeron aligners (MultipleAlign, MultipleAlignProgressive, MultipleAlignIterative, MultipleAlignConsistency, MultipleAlignExact, MultipleAlignAnchored) return an empty result.";
 
     /// <summary>Throws the shared <see cref="EmptyInputMessage"/> <see cref="ArgumentException"/> for an empty list.</summary>
-    internal static void RequireProgramInput(int count, string program, string programsOwnText, string paramName)
+    public static void RequireProgramInput(int count, string program, string programsOwnText, string paramName)
     {
         if (count == 0)
             throw new ArgumentException(EmptyInputMessage(program, programsOwnText), paramName);
     }
 
     /// <summary>Materialises <paramref name="sequences"/>; a null element is an <see cref="ArgumentNullException"/> naming its index.</summary>
-    internal static List<T> ToListNoNull<T>(IEnumerable<T> sequences, string paramName) where T : class
+    public static List<T> ToListNoNull<T>(IEnumerable<T> sequences, string paramName) where T : class
     {
         if (sequences is null)
             throw new ArgumentNullException(paramName);
@@ -57,11 +57,11 @@ public static partial class SequenceAligner
     }
 
     /// <summary>The residue strings of <paramref name="sequences"/> (null element -> <see cref="ArgumentNullException"/>).</summary>
-    internal static List<string> DnaStringsNoNull(IEnumerable<DnaSequence> sequences, string paramName) =>
+    public static List<string> DnaStringsNoNull(IEnumerable<DnaSequence> sequences, string paramName) =>
         ToListNoNull(sequences, paramName).Select(s => s.Sequence).ToList();
 
     /// <summary>A null list or a null element is an <see cref="ArgumentNullException"/> naming the parameter (and the index of the element): the one check of the entry points that take rows / arguments as given (audit A5-3).</summary>
-    internal static void RequireNoNullElements<T>(IReadOnlyList<T?>? items, string paramName, string what = "Row") where T : class
+    public static void RequireNoNullElements<T>(IReadOnlyList<T?>? items, string paramName, string what = "Row") where T : class
     {
         if (items is null)
             throw new ArgumentNullException(paramName);
@@ -92,7 +92,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>The argument list and the text "files" of a program runner (<c>KalignProgram</c>, <c>PoaProgram</c>, <c>ProbConsProgram</c>): a null list, null argument or null file text is an <see cref="ArgumentNullException"/> (an argv entry of a real program is never null).</summary>
-    internal static void RequireProgramCall(IReadOnlyList<string?>? arguments, IReadOnlyDictionary<string, string>? files)
+    public static void RequireProgramCall(IReadOnlyList<string?>? arguments, IReadOnlyDictionary<string, string>? files)
     {
         RequireNoNullElements(arguments, "arguments", "Argument");
         if (files is null)
@@ -103,7 +103,7 @@ public static partial class SequenceAligner
     }
 
     /// <summary>Null element -> <see cref="ArgumentNullException"/>, empty element -> the shared <see cref="EmptyMemberMessage"/> <see cref="ArgumentException"/>.</summary>
-    internal static void RequireProgramMembers(IReadOnlyList<string?> sequences, string program, string paramName)
+    public static void RequireProgramMembers(IReadOnlyList<string?> sequences, string program, string paramName)
     {
         for (int i = 0; i < sequences.Count; i++)
         {

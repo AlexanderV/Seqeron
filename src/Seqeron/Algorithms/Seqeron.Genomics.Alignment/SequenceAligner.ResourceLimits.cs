@@ -19,9 +19,6 @@ public static partial class SequenceAligner
     /// <summary><see cref="Supermatcher"/>: cells ((target length + 1) x <c>width</c>) of the banded float path and int compass matrices (8 bytes per cell): 2^28 cells = 2 GiB.</summary>
     public const long SupermatcherMaxPathCells = 1L << 28;
 
-    /// <summary><see cref="MultipleAlignPoa"/> / <see cref="PoaRun"/>: cells (graph nodes x sequence length) of the score rows (8 bytes) and the two move matrices (1 byte each): 2^27 cells = 1.25 GiB.</summary>
-    public const long PoaMaxMatrixCells = 1L << 27;
-
     /// <summary><see cref="MultipleAlignProbCons"/>: cells ((columns of profile 1 + 1) x (columns of profile 2 + 1)) of the posterior matrix and the dynamic program of the profile alignment: 2^26 cells (about 1 GiB with the DP).</summary>
     public const long ProbConsProfileMaxCells = 1L << 26;
 
@@ -46,13 +43,13 @@ public static partial class SequenceAligner
     /// <summary>
     /// The one exception of a resource limit: "&lt;program&gt; &lt;what it keeps&gt;: &lt;size&gt; exceeds the limit of &lt;limit&gt; (&lt;constant&gt;). &lt;what the program itself does&gt;; &lt;what to use instead&gt;."
     /// </summary>
-    internal static ArgumentException ResourceLimit(string program, string keeps, string size, long limit, string constant, string programNote, string alternative, string? paramName = null) =>
+    public static ArgumentException ResourceLimit(string program, string keeps, string size, long limit, string constant, string programNote, string alternative, string? paramName = null) =>
         new(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{program} {keeps}: {size} exceeds the limit of {limit:N0} ({constant}). {programNote}; {alternative}."), paramName);
 
-    private static void RequireCells(long cells, long limit, string constant, string program, string keeps, string size, string programNote, string alternative)
+    public static void RequireCells(long cells, long limit, string constant, string program, string keeps, string size, string programNote, string alternative, string? owner = null)
     {
         if (cells > limit)
-            throw ResourceLimit(program, keeps, size, limit, nameof(SequenceAligner) + "." + constant, programNote, alternative);
+            throw ResourceLimit(program, keeps, size, limit, (owner ?? nameof(SequenceAligner)) + "." + constant, programNote, alternative);
     }
 
     /// <summary>A needle / water / supermatcher / needleall penalty: a finite number inside the program's range (NaN passes a plain <c>x &lt; min || x &gt; max</c> test).</summary>

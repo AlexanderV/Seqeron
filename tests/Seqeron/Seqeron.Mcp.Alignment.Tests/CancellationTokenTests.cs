@@ -16,25 +16,6 @@ public class CancellationTokenTests
     private const string B = "ACGTCGTTAGCACGTAGCTTAGCTAGGATC";
 
     [Test]
-    public void EveryPortedProgramTool_StopsWithACancelledToken()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.StretcherAlign(A, B, cancellationToken: Cancelled), "stretcher_align");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.DualAffineAlign(A, B, cancellationToken: Cancelled), "dual_affine_align");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.SupermatcherAlign([A], [A], cancellationToken: Cancelled), "supermatcher_align");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.NeedleallAlign([A], [B], cancellationToken: Cancelled), "needleall_align");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.Ksw2Extend(A, B, cancellationToken: Cancelled), "ksw2_extend");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.Ksw2Extend(A, B, variant: "extz", cancellationToken: Cancelled), "ksw2_extend extz");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.TCoffeeSlowPairAlign(A, B, cancellationToken: Cancelled), "tcoffee_slow_pair_align");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.TCoffeePrimaryLibrary([A, B, A[..20]], cancellationToken: Cancelled), "tcoffee_primary_library");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.MultipleAlignTCoffee([A, B, A[..20]], cancellationToken: Cancelled), "multiple_align_tcoffee");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.MultipleAlignMuscle([A, B, A[..20]], maxIters: 4, cancellationToken: Cancelled), "multiple_align_muscle (refinement)");
-            Assert.Catch<OperationCanceledException>(() => AlignmentTools.MultipleAlignAnchored([A, B, A[..20]], cancellationToken: Cancelled), "multiple_align_anchored");
-        });
-    }
-
-    [Test]
     public void AnUncancelledToken_GivesTheSameResultAsNoToken()
     {
         using var cts = new CancellationTokenSource();

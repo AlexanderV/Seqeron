@@ -62,29 +62,6 @@ public class SequenceAligner_NullContract_Tests
         ThrowsNull(() => SequenceAligner.MuscleRun(new[] { "ACGT", null! }), "sequences");
     }
 
-    // ------------------------------------------------------------------ (2) the program runners: a null element of the argument list
-
-    [Test]
-    public void KalignPoaProbConsRunners_NullArgumentOrNullFileText_IsAnArgumentNullException()
-    {
-        string?[] args = ["-i", null];
-        var files = new Dictionary<string, string> { ["in.fa"] = null! };
-        Assert.Multiple(() =>
-        {
-            ThrowsNull(() => KalignProgram.Parse(args!), "arguments");
-            ThrowsNull(() => KalignProgram.Run(args!), "arguments");
-            ThrowsNull(() => KalignProgram.Run(["-i", "in.fa"], files), "files");
-            ThrowsNull(() => PoaProgram.Run(args!), "arguments");
-            ThrowsNull(() => PoaProgram.Run(["-read_fasta", "in.fa"], files), "files");
-            ThrowsNull(() => ProbConsProgram.Parse(args!), "arguments");
-            ThrowsNull(() => ProbConsProgram.Run(args!), "arguments");
-            ThrowsNull(() => ProbConsProgram.Run(["in.fa"], files), "files");
-            // the programs' own argument handling is untouched: an empty list is the usage screen, an unknown option is the program's error text
-            Assert.That(PoaProgram.Run([]).ExitCode, Is.EqualTo(255));
-            Assert.That(KalignProgram.Run(["--no-such-option"]).ExitCode, Is.EqualTo(1));
-        });
-    }
-
     // ------------------------------------------------------------------ (3) minimap2 Map: a null target
 
     [Test]
@@ -93,44 +70,6 @@ public class SequenceAligner_NullContract_Tests
         ThrowsNull(() => Minimap2Chaining.Map(["ACGTACGTACGTACGTACGTAC", null!], "ACGTACGTACGTACGTACGTAC"), "targets");
         ThrowsNull(() => Minimap2Chaining.Map(null!, "ACGT"), "targets");
         ThrowsNull(() => Minimap2Chaining.Map(["ACGT"], null!), "query");
-    }
-
-    // ------------------------------------------------------------------ (4) T-Coffee k-tuple similarity and the primary library: a null list / element
-
-    [Test]
-    public void TCoffeeKtupSimilarityAndPrimaryLibrary_NullListOrElement_IsAnArgumentNullException()
-    {
-        Assert.Multiple(() =>
-        {
-            ThrowsNull(() => SequenceAligner.TCoffeeKtupSimilarity(null!), "sequences");
-            ThrowsNull(() => SequenceAligner.TCoffeeKtupSimilarity(["ACGTACGT", null!]), "sequences");
-            ThrowsNull(() => SequenceAligner.TCoffeePrimaryLibraryEntries(null!, [TCoffeePairMethod.SlowPair]), "sequences");
-            ThrowsNull(() => SequenceAligner.TCoffeePrimaryLibraryEntries(["ACGTACGT", null!], [TCoffeePairMethod.SlowPair]), "sequences");
-            ThrowsNull(() => SequenceAligner.TCoffeePrimaryLibraryEntries(["ACGTACGT", "ACGTACGA"], null!), "methods");
-            Assert.That(SequenceAligner.TCoffeePrimaryLibraryEntries(["ACGTACGT", "ACGTACGA"], [TCoffeePairMethod.SlowPair]), Is.Not.Empty);
-        });
-    }
-
-    // ------------------------------------------------------------------ (5) the T-Coffee pair stages: a character that is not a letter
-
-    [TestCase("*")]
-    [TestCase(" ")]
-    [TestCase("-")]
-    [TestCase("é")]
-    [TestCase("中")]
-    public void TCoffeePairStages_ACharacterThatIsNotALetter_IsAnArgumentException(string odd)
-    {
-        // measured: t_coffee 13.41 drops '*', '-' and blanks when it reads a sequence (rows of the cleaned sequence) and dies with "ERROR: COREDUMP" for U+00E9
-        string bad = "ACGTAC" + odd + "GTTACG", good = "ACGTACGTTACG";
-        Assert.Multiple(() =>
-        {
-            Assert.That(Assert.Throws<ArgumentException>(() => SequenceAligner.TCoffeeSlowPairAlign(bad, good))!.ParamName, Is.EqualTo("sequenceA"));
-            Assert.That(Assert.Throws<ArgumentException>(() => SequenceAligner.TCoffeeBiphasicPairAlign(good, bad))!.ParamName, Is.EqualTo("sequenceB"));
-            Assert.That(Assert.Throws<ArgumentException>(() => SequenceAligner.TCoffeeLalignTopAlignments(bad, good))!.ParamName, Is.EqualTo("sequenceA"));
-            Assert.That(Assert.Throws<ArgumentException>(() => SequenceAligner.TCoffeeSlowPairAlign(bad, good))!.Message, Does.Contain("index 6").And.Contain($"U+{(int)odd[0]:X4}"));
-        });
-        // the whole-program entry point refuses the same input (its contract: strings of letters)
-        Assert.Throws<ArgumentException>(() => SequenceAligner.MultipleAlignTCoffeeProgram([bad, good], TCoffeeProgramOptions.FromCommandLine("-method slow_pair")));
     }
 
     // ------------------------------------------------------------------ (6) ksw2 SimpleMatrix
@@ -170,20 +109,5 @@ public class SequenceAligner_NullContract_Tests
         Assert.Throws<ArgumentException>(() => AlignmentFormats.Format(number, AlignmentFileFormat.A2m));
         var ok = new BioAlignment { Records = alignment.Records, ColumnAnnotations = new JsonObject { ["state"] = "DDDD" } };
         Assert.That(AlignmentFormats.Format(ok, AlignmentFileFormat.A2m), Is.EqualTo(">a\nAC-T\n>b\nACGT\n"));
-    }
-
-    // ------------------------------------------------------------------ (8) POA: a nameless sequence and a matrix beyond the char-indexed table
-
-    [Test]
-    public void Poa_NamelessSequence_AndMatrixBeyondTheCharIndexedTable_AreArgumentExceptions()
-    {
-        ThrowsNull(() => SequenceAligner.PoaRun([new PoaSequence(null!, null, "ACGT")]), "sequences");
-        ThrowsNull(() => SequenceAligner.PoaRun([new PoaSequence("a", null, null!)]), "sequences");
-        ThrowsNull(() => SequenceAligner.PoaRun([null!]), "sequences");
-        var tooMany = Assert.Throws<ArgumentException>(() => PoaScoreMatrix.Parse(new string('A', 129) + "\n"))!;
-        Assert.That(tooMany.Message, Does.Contain("129 symbols").And.Contain("at most 128"));
-        var wide = Assert.Throws<ArgumentException>(() => PoaScoreMatrix.Parse("Aé\n"))!;
-        Assert.That(wide.Message, Does.Contain("U+00E9"));
-        Assert.That(PoaScoreMatrix.Parse(new string('A', 128) + "\n").Symbols, Has.Length.EqualTo(128));
     }
 }

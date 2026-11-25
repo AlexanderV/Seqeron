@@ -1,0 +1,107 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests (and oracle data) of the copyleft assembly Seqeron.Genomics.TCoffee. The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the embedded resource names (Seqeron.Genomics.Tests.TestData.*) and the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.TCoffee.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\TestDataResource.cs" Link="TestDataResource.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Helpers\OracleEscapes.cs" Link="OracleEscapes.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Unit\Alignment\PollCancellation.cs" Link="PollCancellation.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.IO" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.ClustalW" />
+    <Using Include="Seqeron.Genomics.TCoffee" />
+    <Using Include="Seqeron.Genomics.Phylogenetics" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ALIGN-MULTI-001 (audit A1-13, B09 F58): T-Coffee 13.41 progressive stage (library relaxation + sparse linked-pair-wise DP) for an explicit library and guide tree;
+         rows of the installed `t_coffee` (Debian t-coffee 13.45.0.4846264+really13.41.0.28bdc39+dfsg-1); scripts/alignment/generate_tcoffee_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-14, B09 F61): the same program on 160 random PROTEIN sets (explicit library: "rand" = this repository's identity
+         alignments, "binary" = the program's own protein library of `-method slow_pair,lalign_id_pair`) -
+         `generate_tcoffee_oracle.py OUT 160 17 ACDEFGHIKLMNPQRSTVWY`. -->
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_protein_oracle.tsv" />
+    <!-- ALIGN-MULTI-001 (audit A1-13b, B09 F66): the program's OWN pipeline (primary libraries proba_pair / slow_pair / lalign_id_pair and their merges, k-tuple NJ guide tree,
+         progressive stage) on random DNA and PROTEIN sets - `generate_tcoffee_program_oracle.py` (library oracle: `-lib_only -out_lib` of 820 small sets; msa oracle: tree + rows of
+         1 480 sets of 2-8 sequences; big oracle: 100 and 101 sequences = the fast neighbour joining). -->
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_program_library_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_program_msa_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_program_big_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_program_options_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-9 / A2-10, B09): the program's methods that run an EXTERNAL program (TMalign_pair, mustang_pair on synthetic CA-only PDB files, blastp_msa on a local BLAST database) together with
+         what the external program wrote - `generate_tcoffee_external_oracle.py`. -->
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_external_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_options_ub_cases.tsv" />
+    <!-- ProbCons 1.12 (B09 A2-23): 400+ runs of the installed program (arguments, input files, stdout, stderr, written files); scripts/alignment/generate_probcons_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\probcons_oracle.tsv" />
+    <!-- T-Coffee score_ascii evaluation (B09 A2-27d, F237): runs of the installed t_coffee 13.41; scripts/alignment/generate_tcoffee_score_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_score_oracle.tsv" />
+    <EmbeddedResource Include="TestData\Alignment\tcoffee_sap_dali_runs_oracle.tsv.gz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_baseline_wp78.tsv.gz" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_baseline_wp78.tsv.gz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_exact_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_exact_oracle.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Seqeron.Genomics.ClustalW.Tests\TestData\Alignment\biopython_guidetree_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.biopython_guidetree_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.ClustalW.Tests\TestData\Alignment\clustalw_guidetree_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.clustalw_guidetree_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.ClustalW.Tests\TestData\Alignment\clustalw_msa_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.clustalw_msa_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.ClustalW.Tests\TestData\Alignment\clustalw_pairwise_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.clustalw_pairwise_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.ClustalW.Tests\TestData\Alignment\clustalw_protein_matrices_reference.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.clustalw_protein_matrices_reference.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.ClustalW.Tests\TestData\Alignment\clustalw_protein_pairwise_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.clustalw_protein_pairwise_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.ClustalW.Tests\TestData\Alignment\clustalw_protein_quick_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.clustalw_protein_quick_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.ClustalW.Tests\TestData\Alignment\msa_matrix_clustalw_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_matrix_clustalw_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_affine_exact_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_affine_exact_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_affine_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_affine_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_affine_sp_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_affine_sp_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_matrix_exact_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_matrix_exact_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_matrix_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_matrix_oracle.tsv" />
+    <EmbeddedResource Include="..\Seqeron.Genomics.Tests\TestData\Alignment\msa_matrix_sp_oracle.tsv" LogicalName="Seqeron.Genomics.Tests.TestData.Alignment.msa_matrix_sp_oracle.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.ClustalW\Seqeron.Genomics.ClustalW.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.TCoffee\Seqeron.Genomics.TCoffee.csproj" />
+  </ItemGroup>
+
+</Project>

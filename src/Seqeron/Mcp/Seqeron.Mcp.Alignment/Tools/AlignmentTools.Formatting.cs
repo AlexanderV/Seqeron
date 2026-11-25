@@ -7,13 +7,13 @@ namespace Seqeron.Mcp.Alignment.Tools;
 // B09 A2-27b: the `format` parameter of the pairwise and multiple-alignment tools, mapped to the canonical alignment writers (AlignmentFormats = Biopython Bio.Align, EmbossAlignmentWriter = EMBOSS -aformat).
 public partial class AlignmentTools
 {
-    private const string FormatParamDescription = "Optional output format; the alignment written in that format is returned in the result field 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name). EMBOSS -aformat names: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee (two rows) and msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon (any number of rows; EMBOSS prints the run date: now, UTC). Omit for no formatted text.";
+    public const string FormatParamDescription = "Optional output format; the alignment written in that format is returned in the result field 'formatted'. Biopython Bio.Align names: fasta, a2m, clustal, phylip, nexus, stockholm (byte for byte as Bio.Align.write; 'emboss:' + name selects the EMBOSS writer of the same name). EMBOSS -aformat names: pair, simple, srspair, srs, markx0, markx1, markx2, markx3, markx10, match, score, sam, tcoffee (two rows) and msf, mega, meganon, nexusnon, paup, paupnon, phylipnon, selex, treecon (any number of rows; EMBOSS prints the run date: now, UTC). Omit for no formatted text.";
 
     private const string PairFormatParamDescription = FormatParamDescription + " This pairwise tool (it knows its sequences) also writes the alignment in the COORDINATE formats of Biopython 1.88 Alignment.format, byte for byte: bed (bed3 ... bed12), psl, chain, maf, sam (sam:md adds the MD tag), exonerate (exonerate:cigar), and the strings cigar (cigar:eqx = extended = / X; soft clips for the unaligned query), md (SAM MD tag) and cs (cs:long; minimap2 difference string). In those formats sequence1 is the target (reference) and sequence2 the query, except for the semi-global tools where sequence2 is the reference (target); the plain name sam is the Biopython SAM line (the EMBOSS one is 'emboss:sam'); a 'bio:' prefix forces the coordinate writer.";
 
     private const string TrimEndGapsParamDescription = "Coordinate formats (bed, psl, chain, maf, sam, exonerate, cigar, md, cs): drop the leading and trailing columns that have a gap in one row (the free end gaps of a semi-global result), so that the record starts and ends with an aligned pair (Biopython alignment[:, first:last]); false (default) keeps them as D / I blocks as Biopython's PairwiseAligner does (2D4M2D).";
 
-    private const string NamesParamDescription = "Optional names of the rows for the formatted output (default seq1, seq2, ...).";
+    public const string NamesParamDescription = "Optional names of the rows for the formatted output (default seq1, seq2, ...).";
 
     // the Biopython Bio.Align writers (AlignmentFormats) for rows; a2m gets all-match states, nexus the molecule type guessed from the residues
     private static string WriteBiopythonFormat(AlignmentFileFormat bio, string[] rows, string[]? names, string[]? descriptions)
@@ -50,7 +50,7 @@ public partial class AlignmentTools
         return AlignmentFormats.Write([new BioAlignment { Records = records, ColumnAnnotations = column }], bio);
     }
 
-    private static string? FormatRowsForOutput(string? format, string[] rows, string[]? names, double score, int[]? offsets = null, int[]? offends = null, string program = "needle")
+    public static string? FormatRowsForOutput(string? format, string[] rows, string[]? names, double score, int[]? offsets = null, int[]? offends = null, string program = "needle")
     {
         if (string.IsNullOrWhiteSpace(format))
             return null;
@@ -101,13 +101,5 @@ public partial class AlignmentTools
         string name2 = names is not null && names.Length > 1 && !string.IsNullOrWhiteSpace(names[1]) ? names[1] : "seq2";
         var options = new global::Seqeron.Genomics.Alignment.AlignmentBridgeOptions { FirstIsQuery = queryFirst, TrimEndGaps = trimEndGaps };
         return global::Seqeron.Genomics.Alignment.AlignmentResultCoordinates.Format(result, format, name1, sequence1.ToUpperInvariant(), name2, sequence2.ToUpperInvariant(), options);
-    }
-
-    private static MultipleAlignmentResultDto FormatMultiple(MultipleAlignmentResultDto d, string? format, string[]? names)
-    {
-        if (string.IsNullOrWhiteSpace(format))
-            return d;
-        double score = d.ExactTotalScore != 0 ? d.ExactTotalScore : d.TotalScore;
-        return d with { Formatted = FormatRowsForOutput(format, d.AlignedSequences, names, score) };
     }
 }

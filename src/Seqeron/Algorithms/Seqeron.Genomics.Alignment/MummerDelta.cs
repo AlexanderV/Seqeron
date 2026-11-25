@@ -354,7 +354,7 @@ public sealed class MummerDeltaGraph
     /// <summary><c>NUCMER</c> or <c>PROMER</c>.</summary>
     public string DataType { get; private set; } = string.Empty;
 
-    private readonly SequenceAligner.GlibcRandom _rand = new(1);
+    private readonly GlibcRandom _rand = new(1);
 
     /// <summary><c>DeltaGraph_t::build</c>.</summary>
     public static MummerDeltaGraph Build(string deltaText, bool readDeltas = true)

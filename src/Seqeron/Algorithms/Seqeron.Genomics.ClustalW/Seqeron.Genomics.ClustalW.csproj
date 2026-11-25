@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Copyleft assembly (LGPL-3.0-or-later); NOT part of the MIT-licensed Seqeron assemblies.
+       Licence text: LICENSE in this directory; inventory: docs/Validation/review-2026-09/LICENSES.md. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Seqeron.Genomics.ClustalW</RootNamespace>
+    <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+    <Description>Port of ClustalW 2.1 (multiple sequence alignment). Licensed under LGPL-3.0-or-later.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Seqeron.Genomics.ClustalW.Tests" />
+    <InternalsVisibleTo Include="Seqeron.Genomics.TCoffee.Tests" />
+    <InternalsVisibleTo Include="Seqeron.Genomics.TCoffee" />
+  </ItemGroup>
+
+</Project>
