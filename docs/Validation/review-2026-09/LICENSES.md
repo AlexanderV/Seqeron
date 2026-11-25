@@ -17,6 +17,7 @@ I am not a lawyer: this is the technical separation the owner asked for ("varian
 
 | Assembly | SPDX | Source files | Lines | Test project(s) / MCP server | Holds |
 |---|---|---|---|---|---|
+| `Seqeron.Genomics.AlignmentConsensus` | GPL-3.0-only | 1 | 437 | `tests/Seqeron/Seqeron.Genomics.AlignmentConsensus.Tests` | (see the F-entry of the batch report) |
 | `Seqeron.Genomics.ClustalW` | LGPL-3.0-or-later | 23 | 11,685 | `tests/Seqeron/Seqeron.Genomics.ClustalW.Tests` | ClustalW 2.1 (`ClustalWAligner`: pairwise / quick / profile / multiple stages, trees, command line, output formats, matrices) and the guide-tree progressive / iterative MSA family (`MultipleAlignProgressive`, `MultipleAlignIterative`, `ProgressiveMsaOptions`, guide trees, distances) |
 | `Seqeron.Genomics.Kalign` | GPL-3.0-or-later | 4 | 3,115 | `tests/Seqeron/Seqeron.Genomics.Kalign.Tests` | Kalign 3.3.5 (`KalignAligner`, `KalignProgram`, MSF / Clustal / FASTA I/O) |
 | `Seqeron.Genomics.PartialOrderAlignment` | GPL-2.0-or-later | 4 | 2,424 | `tests/Seqeron/Seqeron.Genomics.PartialOrderAlignment.Tests` | POA 2.0 (`PoaAligner`, `PoaProgram`, score matrices, PO / PIR / CLUSTAL output) |
@@ -24,6 +25,7 @@ I am not a lawyer: this is the technical separation the owner asked for ("varian
 
 | MCP server | SPDX | Source files | Tool docs | Tests |
 |---|---|---|---|---|
+| `Seqeron.Mcp.AlignmentConsensus` | GPL-3.0-only | 3 | 1 (docs/mcp/tools/alignmentconsensus) | `tests/Seqeron/Seqeron.Mcp.AlignmentConsensus.Tests` |
 | `Seqeron.Mcp.MultipleAlignment` | GPL-3.0-or-later | 12 | 25 (docs/mcp/tools/multiplealignment) | `tests/Seqeron/Seqeron.Mcp.MultipleAlignment.Tests` |
 
 The MIT assemblies are listed in the root `LICENSE` file context: every other project under `src/` and `tests/` is MIT.
@@ -72,7 +74,7 @@ Evidence = the batch report / Evidence document of the unit (`docs/Evidence/<UNI
 | Program | Upstream licence (as stated) | What the repository did (evidence) | Class | Action |
 |---|---|---|---|---|
 | primer3 / primer3-py `thal.c` (ntthal) | GNU GPL version 2 (LICENSE of primer3-org/primer3 and libnano/primer3-py) | `MolTools/NtthalDimer.cs`, `NtthalHairpin.cs`: "faithful port" / "bit-faithful port of primer3-py 2.3.1 thal.c" (PRIMER-TM-001-SPECIAL-LOOP-Evidence) | strong copyleft | NOT YET SEPARATED (assembly planned, see section 6) |
-| DECIPHER 3.9.4 `ConsensusSequence` | GPL-3 (DESCRIPTION of the Bioconductor package) | `Analysis/MotifFinder.DecipherConsensus.cs`: "a line-by-line port of DECIPHER 3.9.4" | strong copyleft | NOT YET SEPARATED (assembly planned, see section 6) |
+| DECIPHER 3.9.4 `ConsensusSequence` | GPL-3 (DESCRIPTION of the Bioconductor package) | `Analysis/MotifFinder.DecipherConsensus.cs`: "a line-by-line port of DECIPHER 3.9.4" | strong copyleft | SEPARATED: `Seqeron.Genomics.AlignmentConsensus` (GPL-3.0-only), MCP `Seqeron.Mcp.AlignmentConsensus` |
 | RSAT `oligo-analysis` v1.169, `dyad-analysis` v1.78, `RSA.disco.lib` (rsa-tools/rsat-code 10043f2) | GNU Affero General Public License v3 (LICENSE.txt of rsa-tools/rsat-code) | `Analysis/MotifFinder.OligoAnalysis*.cs`, `MotifFinder.DyadAnalysis.cs`, `MotifFinder.SharedMotifsDegenerate.cs`, `MotifFinder.OligoSequenceType.cs`: "Ported from rsa-tools/rsat-code" | strong copyleft (network clause) | NOT YET SEPARATED (assembly planned, see section 6) |
 | Ckmeans.1d.dp (R package) | LGPL (>= 3) (DESCRIPTION) | `Oncology/OncologyAnalyzer.Clonality.cs`: "a line-by-line port" of the optimal 1-D k-means | weak copyleft | NOT YET SEPARATED (assembly planned, see section 6) |
 | ASCAT / Battenberg (VanLoo-lab) | GNU GPL v3 (LICENSE of VanLoo-lab/ascat; Battenberg is GPL-3 as well) | `Oncology/OncologyAnalyzer.CopyNumberPloidy.cs`: ASCAT `ascat.aspcf`, `ascat.runAscat`, `determine_copynumber`, Battenberg clonal-state arithmetic ported function by function (ONCO-ASCAT-001-Evidence, F58 ...) | strong copyleft | NOT YET SEPARATED (assembly planned, see section 6) |
@@ -145,7 +147,7 @@ Done in this work package (commit "B09 WP79 ..."): Kalign, POA, ClustalW (+ the 
 Shared MIT building blocks made `public` for the copyleft assemblies: `AlignmentCancellation`, `SequenceAligner.RequireProgramInput` / `RequireProgramCall` / `RequireNoNullElements` / `RequireCells(..., owner)`, `BuildConsensus`, `PairScoring` and its helper types, `ParallelFor`, `LinearAlignCore` and the other helpers the compiler reported (they carry XML documentation).
 Behaviour changes to MIT APIs forced by the separation (documented in B09.md F363): `MsaOptions` keeps only the generic members (`GapModel`, `ExactMaxStateCells`, `ExactCarrilloLipman`, `ExactLowerBoundHint`, `MaxDegreeOfParallelism`, `CancellationToken`); the guide-tree members moved to `ProgressiveMsaOptions` (ClustalW assembly) and `ConsistencyMsaOptions` (T-Coffee assembly); `MultipleAlignExact` uses the star alignment as its Carrillo-Lipman lower bound unless `ExactLowerBoundHint` is given (the optimum does not depend on it).
 
-Registered, not yet separated (each is a straight application of the same procedure; the lead schedules them): see B09.md "Leftovers" of WP79 - EMBOSS (6.6.0, the largest port: assemblies by area SequenceInput / PairwiseAlignment / Motifs / Orf / Repeats / ReportFormats), and the ports of other batches that the inventory above classifies as copyleft (primer3 ntthal, DECIPHER ConsensusSequence, RSAT oligo / dyad analysis, Ckmeans.1d.dp, ASCAT / Battenberg). Until they are moved they are the only copyleft-derived code that sits in an MIT assembly; `LICENSES.md` is the list the guard test will be extended with.
+Registered, not yet separated (each is a straight application of the same procedure; the lead schedules them): see B09.md "Leftovers" of WP79 - EMBOSS (6.6.0, the largest port: assemblies by area SequenceInput / PairwiseAlignment / Motifs / Orf / Repeats / ReportFormats), and the ports of other batches that the inventory above classifies as copyleft (primer3 ntthal, RSAT oligo / dyad analysis, Ckmeans.1d.dp, ASCAT / Battenberg). DECIPHER ConsensusSequence was separated too: `Seqeron.Genomics.AlignmentConsensus` (GPL-3.0-only; the R package states "License: GPL-3"), its tests, and the MCP server `Seqeron.Mcp.AlignmentConsensus` (1 tool). Until they are moved they are the only copyleft-derived code that sits in an MIT assembly; `LICENSES.md` is the list the guard test will be extended with.
 
 ## Appendix A. Apache License 2.0 (text)
 

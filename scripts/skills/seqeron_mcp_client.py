@@ -74,6 +74,7 @@ SERVER_PROJECT: Dict[str, str] = {
     "Core": "src/SuffixTree/Mcp/SuffixTree.Mcp.Core",
     # separately licensed servers (GPL / LGPL ports): docs/Validation/review-2026-09/LICENSES.md
     "MultipleAlignment": "src/Seqeron/Mcp/Seqeron.Mcp.MultipleAlignment",
+    "AlignmentConsensus": "src/Seqeron/Mcp/Seqeron.Mcp.AlignmentConsensus",
 }
 
 PROTOCOL_VERSION = "2024-11-05"

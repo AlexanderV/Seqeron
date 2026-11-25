@@ -15,7 +15,7 @@ public class EmbossReportSingleSearchTests
     {
         var type = typeof(global::Seqeron.Genomics.Alignment.SequenceAligner).Assembly.GetType("Seqeron.Genomics.Alignment.AlignmentCancellation")!;
         int polls = 0;
-        using var scope = (IDisposable)type.GetMethod("OnPoll", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [(Action)(() => polls++)])!;
+        using var scope = (IDisposable)type.GetMethod("OnPoll", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [(Action)(() => polls++)])!;
         work();
         return polls;
     }

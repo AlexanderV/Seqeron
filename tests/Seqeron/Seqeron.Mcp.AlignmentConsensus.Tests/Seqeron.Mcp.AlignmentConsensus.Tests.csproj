@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Seqeron.Mcp.AlignmentConsensus.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Mcp.AlignmentConsensus.Tests</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.AlignmentConsensus\Seqeron.Mcp.AlignmentConsensus.csproj" />
+    <ProjectReference Include="..\Seqeron.Mcp.Tests.Contracts\Seqeron.Mcp.Tests.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

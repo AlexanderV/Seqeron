@@ -6,7 +6,7 @@ Bioconductor DECIPHER `ConsensusSequence` consensus (DNA, RNA or protein).
 
 | Property | Value |
 |----------|-------|
-| **Server** | Analysis |
+| **Server** | AlignmentConsensus |
 | **Tool Name** | `generate_decipher_consensus` |
 | **Method ID** | `MotifFinder.GenerateDecipherConsensus` |
 | **Version** | 1.0.0 |
@@ -18,20 +18,20 @@ Line-by-line port of DECIPHER 3.9.4 `ConsensusSequence` (`R/ConsensusSequence.R`
 
 ## Core Documentation Reference
 
-- Source: [Seqeron.Genomics.Analysis/MotifFinder.DecipherConsensus.cs#L110](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.DecipherConsensus.cs#L110)
+- Source: [Seqeron.Genomics.AlignmentConsensus/DecipherConsensus.cs#L110](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.AlignmentConsensus/DecipherConsensus.cs#L110)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequences` | array<string> | Yes | Aligned sequences (unequal lengths allowed) |
-| `sequenceType` | string | No | 'dna' (default), 'rna' or 'protein' |
-| `threshold` | number | No | Fraction of information that may be lost per position, in [0, 1) (default 0.05) |
-| `ambiguity` | boolean | No | Split IUPAC degeneracy codes between their residues (default true) |
-| `noConsensusChar` | string | No | Single character of the alphabet for positions without consensus (default '+') |
-| `minInformation` | number | No | Minimum fraction of information in (0, 1]; default 1 − threshold |
-| `includeNonLetters` | boolean | No | DECIPHER includeNonLetters (default false: gaps/masks counted; true: left out) |
-| `includeTerminalGaps` | boolean | No | Count leading/trailing gaps (default false) |
+| `sequences` | array<string> | Yes | Aligned sequences (unequal lengths allowed, as in DECIPHER). |
+| `sequenceType` | string | No | Sequence type: 'dna' (default), 'rna' or 'protein'. |
+| `threshold` | number | No | Fraction of sequence information that may be lost at a position, in [0, 1) (default 0.05). |
+| `ambiguity` | boolean | No | Split IUPAC degeneracy codes between their residues (default true). |
+| `noConsensusChar` | string | No | Single character from the alphabet for positions without consensus (default '+'). |
+| `minInformation` | number | No | Minimum fraction of information in (0, 1]; default 1 - threshold. |
+| `includeNonLetters` | boolean | No | DECIPHER includeNonLetters (default false: gaps/masks are counted; true: they are left out, as DECIPHER's own examples show). |
+| `includeTerminalGaps` | boolean | No | Count leading/trailing gaps (default false). |
 
 ## Output Schema
 
@@ -124,6 +124,6 @@ A, A, A, T: A = 0.75 < 0.95, T alone fails; W (A + T = 1 ≥ 0.95, both above C 
 
 ## References
 
-- Algorithm source: [Seqeron.Genomics.Analysis/MotifFinder.DecipherConsensus.cs#L110](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.DecipherConsensus.cs#L110)
+- Algorithm source: [Seqeron.Genomics.AlignmentConsensus/DecipherConsensus.cs#L110](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.AlignmentConsensus/DecipherConsensus.cs#L110)
 - Binding: [AnalysisTools.cs](../../../../src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.cs)
 - Wright E.S. DECIPHER `ConsensusSequence` (Bioconductor), source `src/ConsensusSequence.c`.

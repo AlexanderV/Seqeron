@@ -1,5 +1,6 @@
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
+
 /// <summary>
 /// Heavy-tier fuzz tests for the review 2026-09 B05 audit additions (docs/Validation/review-2026-09/B05.md F27–F35):
 /// weighted edit / Damerau distances and alignments, PWM p-values (DNA, Markov, alphabet) with random options,
@@ -136,30 +137,6 @@ public class B05AuditFuzzTests
                     _ = MotifFinder.AlphabetPwmScorePValue(pwm, (pwm.MaxScore + pwm.MinScore) / 2);
                     _ = MotifFinder.AlphabetPwmScoreThresholdForPValue(pwm, 0.01);
                 }
-            });
-        }
-    }
-
-    [Test]
-    public void DecipherAndEmbossAuto_RandomInput_OnlyDocumentedExceptions()
-    {
-        var rng = new Random(350_104);
-        const string pool = "ACGTUNRYKMSWBDHVacgtu-.+~*?XEFILPQZJO 1é";
-        for (int trial = 0; trial < 1000; trial++)
-        {
-            var rows = Enumerable.Range(0, rng.Next(0, 8)).Select(_ => RandomString(rng, rng.Next(0, 20), pool)).ToArray();
-            int maxLen = rows.Length == 0 ? 0 : rows.Max(r => r.Length);
-            Documented(() =>
-            {
-                string c = MotifFinder.GenerateDecipherConsensus(rows, (DecipherSequenceType)rng.Next(0, 4), rng.NextDouble() * 1.2 - 0.1,
-                    rng.Next(2) == 0, "+-NX#"[rng.Next(5)], rng.Next(3) == 0 ? null : rng.NextDouble() * 1.2, rng.Next(2) == 0, rng.Next(2) == 0);
-                Assert.That(c.Length, Is.EqualTo(maxLen));
-            });
-            Documented(() =>
-            {
-                string c = MotifFinder.GenerateEmbossConsensus(rows, true, ConsensusResidueType.Auto, rng.Next(3) == 0 ? null : rng.Next(-1, 5));
-                // the rows are read as EMBOSS reads an alignment row (A4-3): digits, blanks and other characters are dropped before the padding
-                Assert.That(c.Length, Is.EqualTo(rows.Length == 0 ? 0 : rows.Max(r => Seqeron.Genomics.Infrastructure.EmbossSequenceReader.CleanGapped(r).Length)));
             });
         }
     }

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Derived from DECIPHER 3.9.4 (Bioconductor), ConsensusSequence, Copyright (C) Erik Wright; GPL-3.0-only.
+// Part of Seqeron.Genomics.AlignmentConsensus, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the project directory).
+// This file is NOT covered by the MIT licence of the other Seqeron assemblies.
 // MOTIF-GENERATE-001 — Bioconductor DECIPHER ConsensusSequence (B05 audit group C)
 // Evidence: docs/Evidence/MOTIF-GENERATE-001-Evidence.md
 // Source (opened): DECIPHER 3.9.4 R/ConsensusSequence.R, src/ConsensusSequence.c,
@@ -8,6 +12,8 @@
 // Decipher_* cases are a stratified sample of that run (seed 20261001).
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
+
+using Seqeron.Genomics.AlignmentConsensus;
 
 [TestFixture]
 public class MotifFinder_DecipherConsensus_Tests
@@ -112,7 +118,7 @@ public class MotifFinder_DecipherConsensus_Tests
         double? minInformation, bool includeNonLetters, bool includeTerminalGaps, string expected)
     {
         Assert.That(
-            MotifFinder.GenerateDecipherConsensus(rows, type, threshold, ambiguity, noConsensusChar,
+            DecipherConsensus.GenerateDecipherConsensus(rows, type, threshold, ambiguity, noConsensusChar,
                 minInformation, includeNonLetters, includeTerminalGaps),
             Is.EqualTo(expected));
     }
@@ -124,36 +130,36 @@ public class MotifFinder_DecipherConsensus_Tests
         string[] aaat = { "A", "A", "A", "T" };
         Assert.Multiple(() =>
         {
-            Assert.That(MotifFinder.GenerateDecipherConsensus(aaat), Is.EqualTo("W"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(aaat, threshold: 0.3), Is.EqualTo("A"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(aaat, threshold: 0.3, minInformation: 0.8), Is.EqualTo("+"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(aaat, threshold: 0.3, minInformation: 0.8, noConsensusChar: 'N'), Is.EqualTo("N"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(aaat), Is.EqualTo("W"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(aaat, threshold: 0.3), Is.EqualTo("A"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(aaat, threshold: 0.3, minInformation: 0.8), Is.EqualTo("+"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(aaat, threshold: 0.3, minInformation: 0.8, noConsensusChar: 'N'), Is.EqualTo("N"));
 
             string[] majority = { "GTT", "GAA", "CTG" };
-            Assert.That(MotifFinder.GenerateDecipherConsensus(majority), Is.EqualTo("SWD"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(majority, threshold: 0.5), Is.EqualTo("GTD"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(majority, threshold: 0.5, minInformation: 0.75), Is.EqualTo("++D"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(majority), Is.EqualTo("SWD"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(majority, threshold: 0.5), Is.EqualTo("GTD"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(majority, threshold: 0.5, minInformation: 0.75), Is.EqualTo("++D"));
 
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "A", "T" }), Is.EqualTo("W"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "A", "T" }, threshold: 0.5), Is.EqualTo("W"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "A", "T" }, DecipherSequenceType.AminoAcid), Is.EqualTo("X"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "A", "T" }, DecipherSequenceType.AminoAcid, 0.5), Is.EqualTo("X"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "I", "L" }, DecipherSequenceType.AminoAcid), Is.EqualTo("J"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "I", "L" }, DecipherSequenceType.AminoAcid, 0.5), Is.EqualTo("J"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "A", "T" }), Is.EqualTo("W"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "A", "T" }, threshold: 0.5), Is.EqualTo("W"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "A", "T" }, DecipherSequenceType.AminoAcid), Is.EqualTo("X"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "A", "T" }, DecipherSequenceType.AminoAcid, 0.5), Is.EqualTo("X"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "I", "L" }, DecipherSequenceType.AminoAcid), Is.EqualTo("J"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "I", "L" }, DecipherSequenceType.AminoAcid, 0.5), Is.EqualTo("J"));
 
             string[] dna = { "ANGCT-", "-ACCT-" };
-            Assert.That(MotifFinder.GenerateDecipherConsensus(dna), Is.EqualTo("ANSCT-"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(dna, includeTerminalGaps: true), Is.EqualTo("+NSCT-"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(dna), Is.EqualTo("ANSCT-"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(dna, includeTerminalGaps: true), Is.EqualTo("+NSCT-"));
 
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "ANQIH-", "ADELW." }, DecipherSequenceType.AminoAcid), Is.EqualTo("ABZJX-"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "ANQIH-", "ADELW." }, DecipherSequenceType.AminoAcid), Is.EqualTo("ABZJX-"));
 
             string[] nonLetters = { "A-+.A", "AAAAA" };
-            Assert.That(MotifFinder.GenerateDecipherConsensus(nonLetters, noConsensusChar: 'N'), Is.EqualTo("ANNNA"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(nonLetters, includeNonLetters: true), Is.EqualTo("AAAAA"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(nonLetters, noConsensusChar: 'N'), Is.EqualTo("ANNNA"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(nonLetters, includeNonLetters: true), Is.EqualTo("AAAAA"));
 
             string[] degenerate = { "AWNDA", "AAAAA" };
-            Assert.That(MotifFinder.GenerateDecipherConsensus(degenerate), Is.EqualTo("AWNDA"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(degenerate, ambiguity: false), Is.EqualTo("AAAAA"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(degenerate), Is.EqualTo("AWNDA"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(degenerate, ambiguity: false), Is.EqualTo("AAAAA"));
         });
     }
 
@@ -163,11 +169,11 @@ public class MotifFinder_DecipherConsensus_Tests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "ACGU", "ACGU", "UCGA" }, DecipherSequenceType.Rna), Is.EqualTo("WCGW"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "ACGTAC", "AC", "ACG" }), Is.EqualTo("ACGTAC"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "ACGTAC", "AC", "ACG" }, includeTerminalGaps: true), Is.EqualTo("ACGTAC"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(new[] { "acd", "ACD" }, DecipherSequenceType.AminoAcid), Is.EqualTo("ACD"));
-            Assert.That(MotifFinder.GenerateDecipherConsensus(Array.Empty<string>()), Is.EqualTo(""));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "ACGU", "ACGU", "UCGA" }, DecipherSequenceType.Rna), Is.EqualTo("WCGW"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "ACGTAC", "AC", "ACG" }), Is.EqualTo("ACGTAC"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "ACGTAC", "AC", "ACG" }, includeTerminalGaps: true), Is.EqualTo("ACGTAC"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(new[] { "acd", "ACD" }, DecipherSequenceType.AminoAcid), Is.EqualTo("ACD"));
+            Assert.That(DecipherConsensus.GenerateDecipherConsensus(Array.Empty<string>()), Is.EqualTo(""));
         });
     }
 
@@ -180,12 +186,12 @@ public class MotifFinder_DecipherConsensus_Tests
     public void GenerateDecipherConsensus_HandDerived_SourceOrder()
     {
         string[] sixFour = { "A", "A", "A", "C", "C", "A", "A", "C", "C", "A" };
-        Assert.That(MotifFinder.GenerateDecipherConsensus(sixFour), Is.EqualTo("M"));
+        Assert.That(DecipherConsensus.GenerateDecipherConsensus(sixFour), Is.EqualTo("M"));
 
         var rows = Enumerable.Repeat("A", 45).Concat(Enumerable.Repeat("C", 3)).Concat(Enumerable.Repeat("G", 2)).ToArray();
-        Assert.That(MotifFinder.GenerateDecipherConsensus(rows), Is.EqualTo("M"));
+        Assert.That(DecipherConsensus.GenerateDecipherConsensus(rows), Is.EqualTo("M"));
         // Threshold 0.1 → t = 0.9: A alone (0.9) passes.
-        Assert.That(MotifFinder.GenerateDecipherConsensus(rows, threshold: 0.1), Is.EqualTo("A"));
+        Assert.That(DecipherConsensus.GenerateDecipherConsensus(rows, threshold: 0.1), Is.EqualTo("A"));
     }
 
     [Test]
@@ -193,22 +199,22 @@ public class MotifFinder_DecipherConsensus_Tests
     {
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => MotifFinder.GenerateDecipherConsensus(null!));
-            Assert.Throws<ArgumentException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "AC", null! }));
-            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "A" }, threshold: 1));
-            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "A" }, threshold: -0.01));
-            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "A" }, threshold: double.NaN));
-            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "A" }, minInformation: 0));
-            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "A" }, minInformation: 1.01));
-            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "A" }, (DecipherSequenceType)7));
+            Assert.Throws<ArgumentNullException>(() => DecipherConsensus.GenerateDecipherConsensus(null!));
+            Assert.Throws<ArgumentException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "AC", null! }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "A" }, threshold: 1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "A" }, threshold: -0.01));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "A" }, threshold: double.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "A" }, minInformation: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "A" }, minInformation: 1.01));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "A" }, (DecipherSequenceType)7));
             // noConsensusChar must be in the alphabet (pmatch against DNA_/RNA_/AA_ALPHABET).
-            Assert.Throws<ArgumentException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "A" }, noConsensusChar: 'Z'));
-            Assert.Throws<ArgumentException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "A" }, DecipherSequenceType.Rna, noConsensusChar: 'T'));
-            Assert.DoesNotThrow(() => MotifFinder.GenerateDecipherConsensus(new[] { "A" }, DecipherSequenceType.AminoAcid, noConsensusChar: '*'));
+            Assert.Throws<ArgumentException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "A" }, noConsensusChar: 'Z'));
+            Assert.Throws<ArgumentException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "A" }, DecipherSequenceType.Rna, noConsensusChar: 'T'));
+            Assert.DoesNotThrow(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "A" }, DecipherSequenceType.AminoAcid, noConsensusChar: '*'));
             // Characters outside the Biostrings alphabet.
-            Assert.Throws<ArgumentException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "ACZ" }));
-            Assert.Throws<ArgumentException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "ACT" }, DecipherSequenceType.Rna));
-            Assert.Throws<ArgumentException>(() => MotifFinder.GenerateDecipherConsensus(new[] { "AC~" }));
+            Assert.Throws<ArgumentException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "ACZ" }));
+            Assert.Throws<ArgumentException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "ACT" }, DecipherSequenceType.Rna));
+            Assert.Throws<ArgumentException>(() => DecipherConsensus.GenerateDecipherConsensus(new[] { "AC~" }));
         });
     }
 }

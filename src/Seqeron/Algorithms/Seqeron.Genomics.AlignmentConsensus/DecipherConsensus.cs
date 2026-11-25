@@ -1,8 +1,15 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Derived from DECIPHER 3.9.4 (Bioconductor), ConsensusSequence, Copyright (C) Erik Wright; GPL-3.0-only.
+// Part of Seqeron.Genomics.AlignmentConsensus, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the project directory).
+// This file is NOT covered by the MIT licence of the other Seqeron assemblies.
 using System.Text;
 
-namespace Seqeron.Genomics.Analysis;
+namespace Seqeron.Genomics.AlignmentConsensus;
 
-/// <summary>Sequence alphabet of the input to <see cref="MotifFinder.GenerateDecipherConsensus"/>.</summary>
+using Seqeron.Genomics.Analysis;
+using static Seqeron.Genomics.Analysis.MotifFinder;
+
+/// <summary>Sequence alphabet of the input to <see cref="DecipherConsensus.GenerateDecipherConsensus"/>.</summary>
 public enum DecipherSequenceType
 {
     /// <summary>DNA (Biostrings <c>DNAStringSet</c>, <c>DNA_ALPHABET</c>).</summary>
@@ -19,7 +26,7 @@ public enum DecipherSequenceType
 /// Bioconductor DECIPHER <c>ConsensusSequence</c> (Erik Wright): degeneracy-code consensus that
 /// loses less than a <c>threshold</c> fraction of the sequence information at every position.
 /// </summary>
-public static partial class MotifFinder
+public static partial class DecipherConsensus
 {
     // Biostrings alphabets (DNA_ALPHABET, RNA_ALPHABET, AA_ALPHABET).
     private const string DecipherDnaAlphabet = "ACGTMRWSYKVHDBN-+.";

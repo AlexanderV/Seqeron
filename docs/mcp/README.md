@@ -32,13 +32,14 @@ guessing a number. Same math as the C# API; the tool call is just a different fr
 ## The servers
 
 Tools are split into focused, per-domain servers so you attach only what a task needs — a smaller
-tool surface loads faster and is easier for the model to reason about. **662 tools across 12 servers:**
+tool surface loads faster and is easier for the model to reason about. **662 tools across 13 servers:**
 
 | Server | What it's for | Tools |
 |--------|---------------|------:|
 | [`Seqeron.Mcp.Sequence`](../../src/Seqeron/Mcp/Seqeron.Mcp.Sequence) | DNA/RNA/Protein models, composition, complexity, k-mers, Tm | 35 |
 | [`Seqeron.Mcp.Parsers`](../../src/Seqeron/Mcp/Seqeron.Mcp.Parsers) | FASTA/FASTQ/GenBank/GFF/VCF/BED/EMBL parsing & utilities | 41 |
 | [`Seqeron.Mcp.Alignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.Alignment) | Pairwise & multiple sequence alignment | 67 |
+| [`Seqeron.Mcp.AlignmentConsensus`](../../src/Seqeron/Mcp/Seqeron.Mcp.AlignmentConsensus) | Alignment consensus (DECIPHER ConsensusSequence port) - separately licensed (GPL-3.0-only) | 1 |
 | [`Seqeron.Mcp.MultipleAlignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.MultipleAlignment) | Multiple sequence alignment programs (Kalign, POA, ClustalW, T-Coffee, ProbCons) - separately licensed (GPL / LGPL) | 25 |
 | [`Seqeron.Mcp.Analysis`](../../src/Seqeron/Mcp/Seqeron.Mcp.Analysis) | K-mer, motif, repeat, complexity, comparative & structural genomics | 127 |
 | [`Seqeron.Mcp.Annotation`](../../src/Seqeron/Mcp/Seqeron.Mcp.Annotation) | Genes/ORFs/promoters, variants, epigenetics, miRNA, splicing, SVs, transcriptomics | 97 |

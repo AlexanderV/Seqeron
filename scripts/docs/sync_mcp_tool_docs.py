@@ -33,9 +33,9 @@ B09_CLASSES = ('EmbossReportPrograms.', 'SequenceAligner.', 'GenomicAnalyzer.', 
 
 
 # lowercase docs directory -> assembly suffix (Seqeron.Mcp.<Name>); the copyleft servers (B09 WP79) are listed here too
-SERVER_NAMES = {'alignment': 'Alignment', 'analysis': 'Analysis', 'multiplealignment': 'MultipleAlignment', 'emboss': 'Emboss'}
+SERVER_NAMES = {'alignment': 'Alignment', 'analysis': 'Analysis', 'multiplealignment': 'MultipleAlignment', 'alignmentconsensus': 'AlignmentConsensus', 'emboss': 'Emboss'}
 # servers whose every tool is owned by B09 (the Analysis server is shared with other batches)
-OWNED_SERVERS = ('alignment', 'multiplealignment', 'emboss')
+OWNED_SERVERS = ('alignment', 'multiplealignment', 'alignmentconsensus', 'emboss')
 
 
 def run_dump(servers):
@@ -182,7 +182,7 @@ def main():
     ap.add_argument('--all-owned', action='store_true', help='(default) every Alignment tool + the Analysis tools of the B09 classes')
     ap.add_argument('--all', action='store_true', help='every tool of the selected servers, whatever its owner')
     a = ap.parse_args()
-    servers = a.server or ['alignment', 'analysis', 'multiplealignment', 'emboss']
+    servers = a.server or ['alignment', 'analysis', 'multiplealignment', 'alignmentconsensus', 'emboss']
     tools = json.load(open(a.dump, encoding='utf-8')) if a.dump else run_dump([SERVER_NAMES[s] for s in servers])
     changed, stale = 0, []
     for tool in sorted(tools, key=lambda t: (t['server'], t['name'])):

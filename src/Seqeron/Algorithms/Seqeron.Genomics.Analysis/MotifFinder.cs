@@ -510,7 +510,7 @@ public static partial class MotifFinder
     /// any other cut is available through <see cref="GenerateConsensus(IEnumerable{string}, double)"/>.
     /// It is not the Cavener (1987) / TRANSFAC / Biopython <c>degenerate_consensus</c> rule (use
     /// <see cref="GenerateCavenerConsensus"/>) nor DECIPHER's <c>ConsensusSequence</c> (use
-    /// <see cref="GenerateDecipherConsensus"/>).
+    /// <c>GenerateDecipherConsensus</c> (assembly Seqeron.Genomics.AlignmentConsensus)).
     /// Characters other than A/C/G/T (gaps, N, IUPAC codes) are not counted but still count
     /// towards the number of sequences <c>n</c>. Case-insensitive.
     /// </remarks>
@@ -675,7 +675,7 @@ public static partial class MotifFinder
     /// NC-IUB 1984 (Cornish-Bowden, NAR 13(9):3021). The per-base 0.25 cut with a strict '&gt;'
     /// boundary is the default of the parameterless overload: it belongs to the threshold-consensus
     /// family but is NOT Bioconductor DECIPHER's rule (implemented as
-    /// <see cref="GenerateDecipherConsensus"/>) nor the Cavener 1987 rule (implemented as
+    /// <c>GenerateDecipherConsensus</c> (assembly Seqeron.Genomics.AlignmentConsensus)) nor the Cavener 1987 rule (implemented as
     /// <see cref="GenerateCavenerConsensus"/>). Any other cut is available through
     /// <see cref="GenerateConsensus(IEnumerable{string}, double)"/> (MCP <c>generate_consensus</c>
     /// parameter <c>inclusionThreshold</c>). See docs/Evidence/MOTIF-GENERATE-001-Evidence.md.

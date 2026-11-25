@@ -99,7 +99,6 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "generate_all_kmers",
         "generate_cavener_consensus",
         "generate_consensus",
-        "generate_decipher_consensus",
         "generate_dot_plot",
         "generate_dumb_consensus",
         "generate_emboss_consensus",

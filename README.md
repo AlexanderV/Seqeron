@@ -794,5 +794,7 @@ licensing decision are in [docs/Validation/review-2026-09/LICENSES.md](docs/Vali
 | `Seqeron.Genomics.ClustalW` | LGPL-3.0-or-later | ClustalW 2.1 and the guide-tree progressive / iterative MSA family |
 | `Seqeron.Genomics.TCoffee` | GPL-2.0-or-later | T-Coffee 13.41, the consistency aligner, ProbCons 1.12 |
 | `Seqeron.Mcp.MultipleAlignment` | GPL-3.0-or-later | the MCP tools of the four assemblies above |
+| `Seqeron.Genomics.AlignmentConsensus` | GPL-3.0-only | DECIPHER 3.9.4 `ConsensusSequence` |
+| `Seqeron.Mcp.AlignmentConsensus` | GPL-3.0-only | its MCP tool |
 
 (See LICENSES.md for the complete, generated list — further assemblies are added there as ports are separated.)

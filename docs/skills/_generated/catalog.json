@@ -469,6 +469,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AlignmentCoordinateFormats.cs"
   },
   {
+    "tool": "generate_decipher_consensus",
+    "server": "AlignmentConsensus",
+    "methodId": "MotifFinder.GenerateDecipherConsensus",
+    "docPath": "docs/mcp/tools/alignmentconsensus/generate_decipher_consensus.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.AlignmentConsensus/DecipherConsensus.cs#L110"
+  },
+  {
     "tool": "alignment_distance_matrix",
     "server": "Analysis",
     "methodId": "MultipleAlignmentStatistics.CalculateDistanceMatrix",
@@ -1216,13 +1223,6 @@
     "methodId": "MotifFinder.GenerateConsensus",
     "docPath": "docs/mcp/tools/analysis/generate_consensus.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs#L441"
-  },
-  {
-    "tool": "generate_decipher_consensus",
-    "server": "Analysis",
-    "methodId": "MotifFinder.GenerateDecipherConsensus",
-    "docPath": "docs/mcp/tools/analysis/generate_decipher_consensus.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.DecipherConsensus.cs#L110"
   },
   {
     "tool": "generate_dot_plot",

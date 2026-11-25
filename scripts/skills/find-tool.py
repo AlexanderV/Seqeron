@@ -40,7 +40,7 @@ WIKI_DIR = os.path.join(REPO_ROOT, "wiki")
 SERVERS = [
     "core", "sequence", "parsers", "alignment", "analysis", "annotation",
     "chromosome", "metagenomics", "moltools", "phylogenetics", "population",
-    "multiplealignment",  # the separately licensed MCP servers (docs/Validation/review-2026-09/LICENSES.md)
+    "multiplealignment", "alignmentconsensus",  # the separately licensed MCP servers (docs/Validation/review-2026-09/LICENSES.md)
 ]
 
 # Match rows like: | **Server** | MolTools |  and | **Method ID** | `Foo.Bar` |

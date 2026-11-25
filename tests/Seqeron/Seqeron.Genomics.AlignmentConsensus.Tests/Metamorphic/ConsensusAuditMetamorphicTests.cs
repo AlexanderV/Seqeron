@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Derived from DECIPHER 3.9.4 (Bioconductor), ConsensusSequence, Copyright (C) Erik Wright; GPL-3.0-only.
+// Part of Seqeron.Genomics.AlignmentConsensus, licensed under the GNU General Public License, version 3 (only) (see LICENSE in the project directory).
+// This file is NOT covered by the MIT licence of the other Seqeron assemblies.
+using Seqeron.Genomics.AlignmentConsensus;
 namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
@@ -31,7 +36,7 @@ public class ConsensusAuditMetamorphicTests
 
     private static string Decipher(IEnumerable<string> rows, (double Threshold, bool Ambiguity, bool NonLetters, bool Terminal) o,
         DecipherSequenceType type = DecipherSequenceType.Dna) =>
-        MotifFinder.GenerateDecipherConsensus(rows, type, o.Threshold, o.Ambiguity, '+', null, o.NonLetters, o.Terminal);
+        Seqeron.Genomics.AlignmentConsensus.DecipherConsensus.GenerateDecipherConsensus(rows, type, o.Threshold, o.Ambiguity, '+', null, o.NonLetters, o.Terminal);
 
     private static (double, bool, bool, bool) RandomOptions(Random rng) =>
         (new[] { 0.0, 0.05, 0.1, 0.25, 0.4, 0.6 }[rng.Next(6)], rng.Next(2) == 0, rng.Next(2) == 0, rng.Next(2) == 0);
