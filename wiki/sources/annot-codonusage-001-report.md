@@ -13,6 +13,9 @@ updated: 2026-07-10
 
 # Validation report: ANNOT-CODONUSAGE-001
 
+> **Superseded in part by B11 (2026-11-25), F18, F40: RNA codons counted, canonical delegation, `pooled_rscu`.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The two-stage **validation write-up** for test unit **ANNOT-CODONUSAGE-001** (Relative Synonymous
 Codon Usage — RSCU), validated 2026-06-15. This is the *report* artifact that feeds one row of the
 [[validation-ledger]]; it records the validator's **verdict** on both the algorithm description and

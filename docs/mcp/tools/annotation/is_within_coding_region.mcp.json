@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.IsWithinCodingRegion",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L980",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1728",
   "description": "Heuristic check whether a sequence position lies in a coding region downstream of an in-frame start codon.",
   "inputSchema": {
     "type": "object",

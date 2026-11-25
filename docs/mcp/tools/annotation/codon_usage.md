@@ -22,7 +22,7 @@ partial trailing codon is ignored. Returns a map from each observed codon to its
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L1863](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1863)
+- Source: [GenomeAnnotator.cs#L2239](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L2239)
 
 ## Input Schema
 

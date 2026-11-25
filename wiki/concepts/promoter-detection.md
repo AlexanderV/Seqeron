@@ -7,9 +7,10 @@ mcp_tools:
 sources:
   - docs/Validation/reports/ANNOT-PROM-001.md
   - docs/algorithms/Annotation/Promoter_Detection.md
-source_commit: 7323bb6a053866cc257942f0e337f7990122c62e
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: alternative_to
@@ -28,8 +29,17 @@ graph:
 
 # Promoter detection (scored −10 / −35 box motif scan)
 
+> **Updated 2026-11-25 (B11 F7) — the scoring/variant-library description below is historical.**
+> `GenomeAnnotator.FindPromoterMotifs` now delegates to `MotifFinder.FindSigma70Promoters`: it reports only **paired**
+> σ70 −35 (`TTGACA`) / −10 (`TATAAT`) boxes (each ≤ 2 mismatches, spacer 15–21 bp, forward strand; Harley & Reynolds 1987),
+> every box once, `score = 1 − mismatches/6`. The 8-variant prefix/suffix library, the position-frequency score and the
+> "no spacing check / exact substring only" limits no longer apply; an overload exposes the mismatch and spacer limits.
+> For strand/spacer detail use `find_sigma70_promoters`; for a free-energy score `predict_sigma70_promoters`.
+> Source of truth: `docs/algorithms/Annotation/Promoter_Detection.md`, `docs/Validation/review-2026-09/B11.md` (F7).
+
+
 **Promoter detection** here is `GenomeAnnotator.FindPromoterMotifs(string dnaSequence)`
-(`GenomeAnnotator.cs:584-638`): a **bacterial motif-search helper**, not a full
+(delegates to `MotifFinder.FindSigma70Promoters` since B11 F7; the description from here to the scope-limits section is the pre-B11 behaviour): a **bacterial motif-search helper**, not a full
 transcription-start-site predictor. It scans DNA for the prokaryotic **−35 box (`TTGACA`)**
 and **−10 box / Pribnow box (`TATAAT`)** consensus substrings plus a small set of derived
 prefix/suffix variants, and assigns each match a **literature-based score** derived from

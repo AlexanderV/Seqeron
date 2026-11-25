@@ -449,6 +449,7 @@ sentence, B05 D3 rationale.
 - ~~B04: `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` generator can draw w = k = 5 → draw w from [k+1, 60] (flaky ~1/30).~~ Done R2 (84cbf060).
 - B24.md "## Leftovers" → open requests to B17/B19/B21/B22/B23/B25 + Phase 2 (Median, MAD, KMeans advisory); orchestrator notes for consolidation: ALGORITHMS_CHECKLIST_V2 rows (ONCO-ASCAT-001 method table, l.4784 ONCO-CCF-001 Ckmeans, l.4808 ONCO-HETERO-001 citation), stale Oncology wiki pages, non-B24 Oncology docs linking the pre-split `OncologyAnalyzer.cs`.
 - B06 report "Cross-batch requests" (B01, B04, B05, B07, B09, B10, B17, B18, MCP owner) — k-mer counting routed to canonical KmerAnalyzer.
+- B11 -> B20 (B20 not yet finished): `GffParser` duplicates GFF3 line parsing/escaping of `GenomeAnnotator.ParseGff3/ToGff3` with spec deviations; once PARSE-GFF-001 settles, expose a spec-complete GFF3 parser + encoder in IO and make the Annotation methods thin adapters. Repros in `B11.md` "Cross-batch dedup requests" (B20 bullet); also appended to `B20.md` "Cross-batch dedup requests". Move to the "Requests to finished batches" register if B20 finishes with it still open.
 - Stray branch `claude/stoic-maxwell-0olr2z-wip-TEST` (proxy cannot delete it) — ignore or delete in the GitHub UI.
 
 ## Log

@@ -8,9 +8,10 @@ mcp_tools:
 sources:
   - docs/algorithms/Splicing/Gene_Structure_Prediction.md
   - docs/Evidence/SPLICE-PREDICT-001-Evidence.md
-source_commit: 2659a0374ef4d725033e34bd75a63dfb05662201
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-10
-updated: 2026-07-17
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: depends_on
@@ -34,6 +35,14 @@ graph:
 ---
 
 # Gene structure prediction (intron/exon)
+
+> **Updated 2026-11-25 (B11 F32–F38, F45) — where the text below differs, this note wins.**
+> - Introns are typed U12 only when **both** a U12 donor (/RTATCCTY) and a UUCCUUAAC branch-site acceptor score ≥ 0.75; GT-AG → U2, GC-AG → GcAg; one intron per (start, end) (F32).
+> - Branch point = canonical `FindAcceptorBranchPoint` (Gao 2008 yUnAy, 18–40 nt); intron score = (donor + acceptor + branch)/3, branch 0 when absent (U12: mean of two) (F33). Donor/acceptor scores are the sourced Shapiro & Senapathy 1987 scores (or MaxEntScan) (F23, F27).
+> - Greedy selection rejects an intron that would leave an exon shorter than `max(1, minExonLength)`, so exons + introns **tile** the sequence and the spliced sequence is exactly the input minus the selected introns — the "dropped from `Exons` yet present in `SplicedSequence`" caveat is gone (F34).
+> - `DetectAlternativeSplicing` reports SE / A5SS / A3SS / MXE relative to the reference introns (F35); `IsWithinCodingRegion` has ORF semantics (AUG → first in-frame stop) (F36); gene-scale input is handled (lazy `PredictIntrons`, F37); `FindRetainedIntronCandidates` = reading-frame-preserving introns (Jacob & Smith 2017), optional Braunschweig 2014 filters (F38, F43).
+> - New opt-in coding-aware model `PredictGeneStructureDp` / MCP `model=splice_dp` (F45): exact DP over MaxEntScan 5'+3' scores minus `intronPenalty` (12 bits) subject to an open reading frame; recall on Ensembl coding introns HBB 2/2, TP53 6/9, CFTR exons 2–5 0/3 (greedy 0/14), precision 23–34 %. Greedy remains the default.
+
 
 Where [[splice-donor-site-prediction|donor]] and [[splice-acceptor-site-prediction|acceptor]]
 detection each *score one boundary*, **gene structure prediction** is the **umbrella /

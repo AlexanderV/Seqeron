@@ -6,9 +6,10 @@ sources:
   - docs/algorithms/Splicing/Donor_Site_Detection.md
   - docs/Evidence/SPLICE-DONOR-001-Evidence.md
   - docs/Evidence/SPLICE-PREDICT-001-Evidence.md
-source_commit: 3cad94055a016af83c3c5582ff3780863189e9c2
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-10
-updated: 2026-07-17
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: relates_to
@@ -26,6 +27,11 @@ graph:
 ---
 
 # Splice donor site prediction (5' splice site)
+
+> **Updated 2026-11-25 (B11 F19, F23–F26).** `FindDonorSites` default score is the sourced **Shapiro & Senapathy 1987** 5' ss score (positions −2..+6, published 0–100 / 100), not a binary consensus fraction;
+> only full windows with ACGT/U are scored (no shrinking divisor); U12 donors are /RTATCCTY (+1..+8, AT or GT start); an opt-in MaxEntScan score5 mode and MCP `model`/`category` parameters exist;
+> `CalculateMaxEntScore(Donor)` / MCP `maxent_score` = real MaxEntScan score5 (bits; log2 as ln/ln2, bit-identical to maxentpy). Older PWM/binary-fraction wording below is historical.
+
 
 The **donor site** (**5' splice site**, 5'ss) is the intron *start* — the
 [spliceosome](https://en.wikipedia.org/wiki/Spliceosome) cleaves the exon-intron

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.CalculateMaxEntScore",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L935",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1698",
   "description": "Score a splice motif. Donor: MaxEntScan score5 (Yeo & Burge 2004) in bits on the 9-nt window (3 exon + 6 intron nt, GT at positions 4-5), e.g. CAGGTAAGT = 10.86. Acceptor: MaxEntScan score3 in bits on the 23-nt window (20 intron + 3 exon nt, AG at positions 19-20), e.g. TTCCAAACGAACTTTTGTAGGGA = 2.89.",
   "inputSchema": {
     "type": "object",

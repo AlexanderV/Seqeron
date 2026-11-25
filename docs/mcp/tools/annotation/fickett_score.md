@@ -22,7 +22,7 @@ NonCoding, `>= 0.95` Coding, otherwise NoOpinion. `tableSet = "fickett1982"` (de
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs) — `CalculateFickettScore`
+- Source: [GenomeAnnotator.cs#L1230](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1230) — `CalculateFickettScore`
 - Algorithm: [Coding_Potential_Calculation.md §9](../../../algorithms/Extended_Annotation/Coding_Potential_Calculation.md)
 
 ## Input Schema

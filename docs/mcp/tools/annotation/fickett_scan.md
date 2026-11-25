@@ -20,7 +20,7 @@ default 200), `stepSize >= 1` (default 3). Coordinates are 0-based half-open (EM
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs) — `ScanFickettScore`
+- Source: [GenomeAnnotator.cs#L1263](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1263) — `ScanFickettScore`
 - Algorithm: [Coding_Potential_Calculation.md §9](../../../algorithms/Extended_Annotation/Coding_Potential_Calculation.md)
 
 ## Input Schema

@@ -28,7 +28,7 @@ negative start, an end before the start or the interval `[0, 0)` is rejected. Th
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L752](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L752)
+- Source: [GenomeAnnotator.cs#L738](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L738)
 
 ## Input Schema
 

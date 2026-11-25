@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.ToGff3",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L752",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L738",
   "description": "Serialize gene annotations to GFF3 lines (with header).",
   "inputSchema": {
     "type": "object",

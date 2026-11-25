@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.DetectAlternativeSplicing",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L864",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1487",
   "description": "Detect candidate alternative splicing patterns (exon skipping, alternative 5'/3' splice sites).",
   "inputSchema": {
     "type": "object",

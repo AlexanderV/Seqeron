@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.PredictIntrons",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L625",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1159",
   "description": "Predict introns by pairing donor and acceptor splice sites and locating branch points.",
   "inputSchema": {
     "type": "object",

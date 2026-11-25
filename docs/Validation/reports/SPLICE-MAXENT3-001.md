@@ -114,3 +114,5 @@ to Yeo & Burge / maxentpy, not code echoes.
 - Test added: ME10 (non-AG window scored, not rejected). Full suite: `Seqeron.Genomics.Tests`
   18762 passed / 0 failed; solution-wide Failed: 0.
 - No defects logged.
+
+> **Superseded by B11 (2026-11-25), F22 / F21:** the score3 final `log2` is now `Math.Log(x)/Math.Log(2)` instead of `Math.Log2`, giving **bit-identical** agreement with maxentpy on 200,025 23-mers (no longer the "<5e-7" tolerance quoted above), and `CalculateMaxEntScore(motif, Acceptor)` / MCP `maxent_score` now return this score3 instead of a PWM log-weight sum. Statements above describe the code as of the validation date. See `docs/Validation/review-2026-09/B11.md`.

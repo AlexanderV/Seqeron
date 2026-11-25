@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fickett_scan",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.ScanFickettScore",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1263",
+  "description": "Slide a window along a DNA sequence and report the Fickett (1982) TESTCODE and coding call of each window, as EMBOSS tcode (window >= 200, default 200; step default 3). Coordinates are 0-based half-open.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "Window length (>= 200)",
+        "minimum": 200,
+        "default": 200
+      },
+      "stepSize": {
+        "type": "integer",
+        "description": "Window step (>= 1)",
+        "minimum": 1,
+        "default": 3
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "windows": {
+        "type": "array",
+        "description": "Per-window results",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "score": {
+              "type": "number"
+            },
+            "call": {
+              "type": "string",
+              "enum": [
+                "NonCoding",
+                "NoOpinion",
+                "Coding"
+              ]
+            }
+          },
+          "required": [
+            "start",
+            "end",
+            "score",
+            "call"
+          ]
+        }
+      }
+    },
+    "required": [
+      "windows"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "windowSize < 200 or stepSize < 1"
+    }
+  ],
+  "examples": [
+    {
+      "name": "240-nt sequence, defaults",
+      "input": {
+        "sequence": "(240-nt DNA)"
+      },
+      "output": {
+        "windows": "14 windows, [0,200) ... [39,239)"
+      }
+    }
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "cpat_coding_probability",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.PredictCodingProbability",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1900",
+  "description": "CPAT (Wang et al. 2013): find ORF candidates in a transcript, score each by transcript length, ORF length, Fickett TESTCODE and hexamer score, and return the logistic coding probability (coding when >= cutoff) plus the best candidate. Requires the hexamer tables and logistic coefficients of a CPAT model (e.g. CPAT's Human model: intercept -7.8284881840360567, mRNA -5.4831277888113823e-05, ORF 0.011187815405519514, Fickett 3.4471695641643225, Hexamer 6.068275924110611, cutoff 0.364).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Transcript DNA sequence (T, not U)",
+        "minLength": 1
+      },
+      "codingHexamerFrequencies": {
+        "type": "object",
+        "description": "Coding hexamer table: 6-mer -> frequency",
+        "additionalProperties": {
+          "type": "number"
+        }
+      },
+      "noncodingHexamerFrequencies": {
+        "type": "object",
+        "description": "Non-coding hexamer table: 6-mer -> frequency (same units)",
+        "additionalProperties": {
+          "type": "number"
+        }
+      },
+      "intercept": {
+        "type": "number",
+        "description": "Logistic intercept"
+      },
+      "mrnaLengthCoefficient": {
+        "type": "number",
+        "description": "Coefficient of transcript length"
+      },
+      "orfLengthCoefficient": {
+        "type": "number",
+        "description": "Coefficient of ORF length"
+      },
+      "fickettCoefficient": {
+        "type": "number",
+        "description": "Coefficient of the Fickett score"
+      },
+      "hexamerCoefficient": {
+        "type": "number",
+        "description": "Coefficient of the hexamer score"
+      },
+      "codingProbabilityCutoff": {
+        "type": "number",
+        "description": "Coding-probability cutoff (e.g. 0.364 for CPAT Human)",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "searchAntisense": {
+        "type": "boolean",
+        "description": "Also search the antisense strand (CPAT --antisense)",
+        "default": false
+      },
+      "topOrfCount": {
+        "type": "integer",
+        "description": "Number of longest ORF candidates scored (CPAT --top-orf)",
+        "default": 5
+      },
+      "minOrfLength": {
+        "type": "integer",
+        "description": "ORFs must be longer than this many nt (CPAT --min-orf)",
+        "default": 75
+      },
+      "startCodons": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Start codons (default ATG); an empty list lets any non-stop codon open an ORF"
+      },
+      "stopCodons": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Stop codons (default TAG, TAA, TGA)"
+      },
+      "bestByLength": {
+        "type": "boolean",
+        "description": "Pick the best candidate by length instead of probability (CPAT --best-orf l)",
+        "default": false
+      }
+    },
+    "required": [
+      "sequence",
+      "codingHexamerFrequencies",
+      "noncodingHexamerFrequencies",
+      "intercept",
+      "mrnaLengthCoefficient",
+      "orfLengthCoefficient",
+      "fickettCoefficient",
+      "hexamerCoefficient",
+      "codingProbabilityCutoff"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "candidates": {
+        "type": "array",
+        "description": "Scored ORF candidates (1-based coordinates; antisense ORFs have start > end)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "strand": {
+              "type": "string"
+            },
+            "frame": {
+              "type": "integer"
+            },
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "orfLength": {
+              "type": "integer"
+            },
+            "orfSequence": {
+              "type": "string"
+            },
+            "mrnaLength": {
+              "type": "integer"
+            },
+            "fickettScore": {
+              "type": "number"
+            },
+            "hexamerScore": {
+              "type": "number"
+            },
+            "codingProbability": {
+              "type": "number"
+            },
+            "isCoding": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "strand",
+            "frame",
+            "start",
+            "end",
+            "orfLength",
+            "orfSequence",
+            "mrnaLength",
+            "fickettScore",
+            "hexamerScore",
+            "codingProbability",
+            "isCoding"
+          ]
+        }
+      },
+      "bestIndex": {
+        "type": "integer",
+        "description": "Index into candidates of the best candidate, -1 if none"
+      }
+    },
+    "required": [
+      "candidates",
+      "bestIndex"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "invalid coefficients / cutoff / options"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Schema only",
+      "input": {
+        "sequence": "(transcript DNA)",
+        "codingProbabilityCutoff": 0.364
+      },
+      "output": {
+        "candidates": [],
+        "bestIndex": -1
+      }
+    }
+  ]
+}

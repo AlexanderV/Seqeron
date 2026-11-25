@@ -22,7 +22,7 @@ translated length excluding the stop), and `translation` (the protein, ending wi
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L402](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L402)
+- Source: [GenomeAnnotator.cs#L426](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L426)
 
 ## Input Schema
 

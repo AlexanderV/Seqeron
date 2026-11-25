@@ -7,9 +7,10 @@ mcp_tools:
 sources:
   - docs/algorithms/Annotation/Gene_Prediction.md
   - docs/Validation/reports/ANNOT-GENE-001.md
-source_commit: ec9209f6a267e376a0cd93f5b2e02d3576035966
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-10
-updated: 2026-07-11
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: relates_to
@@ -33,6 +34,10 @@ graph:
 ---
 
 # Prokaryotic gene prediction & Shine-Dalgarno RBS detection
+
+> **Updated 2026-11-25 (B11 F4–F6, F44).** Shine–Dalgarno search includes the GGAG sub-motif and reports one maximal SD hit per site (F4, F5); `PredictGenes` emits one gene per stop codon, longest-ORF start by default (F6).
+> Opt-in Prodigal V2.6.3 model (F44): `TrainRbsModel`, `RbsScoreMode.LogOdds` (28-bin motif/spacer log-odds trained on the input genome, ≥ 20000 nt) and `StartSelection.ProdigalScore` / `ProdigalDynamicProgramming` — 4314/4314 genes identical to Prodigal. Default score stays `motif length / 6`. ORFs now come from `Translator` (F41).
+
 
 **Prokaryotic gene prediction** here is ORF-based gene finding in the annotation layer:
 `GenomeAnnotator.PredictGenes(dna, minOrfLength, prefix)` scans all three frames on **both

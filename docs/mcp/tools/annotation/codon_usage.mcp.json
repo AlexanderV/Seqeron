@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.GetCodonUsage",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1863",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L2239",
   "description": "Count codon occurrences (in-frame from position 0, non-overlapping, 5'->3') for a coding sequence. DNA or RNA, case-insensitive: U is read as T and keys are upper-case DNA codons; a triplet with any other symbol (N, IUPAC code, gap) is skipped without shifting the frame; a partial trailing codon is ignored (CodonW / EMBOSS cusp convention).",
   "inputSchema": {
     "type": "object",

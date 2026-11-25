@@ -9,9 +9,10 @@ sources:
   - docs/algorithms/Analysis/Open_Reading_Frame_Detection.md
   - docs/algorithms/Annotation/ORF_Detection.md
   - docs/Validation/reports/ANNOT-ORF-001.md
-source_commit: 4b5d552f8c5b1c17259004d5ed2428dd2de237e8
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-09
-updated: 2026-07-13
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: relates_to
@@ -23,6 +24,9 @@ graph:
 ---
 
 # Open reading frame detection (six-frame ATG→stop enumeration)
+
+> **Updated 2026-11-25 (B11 F1–F3, F41).** `GenomeAnnotator.FindOrfs` no longer has its own ORF engine: it delegates to `Translator.FindOrfs` (stop-to-stop, = EMBOSS `getorf -find 0`) / `Translator.FindStartToStopOrfs`; alternative initiators translate as Met, `requireStartCodon=false` keeps leading/stop-less regions, duplicate sub-ORFs are gone.
+
 
 **ORF detection** enumerates candidate protein-coding spans in a DNA sequence: each
 begins at a start codon (**ATG**) and ends at the **first in-frame stop** codon

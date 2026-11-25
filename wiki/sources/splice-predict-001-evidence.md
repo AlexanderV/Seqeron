@@ -13,6 +13,9 @@ updated: 2026-07-10
 
 # Evidence: SPLICE-PREDICT-001
 
+> **Superseded in part by B11 (2026-11-25), F32–F38, F45: U12 typing, fixed-term score, exon tiling, SE/A5SS/A3SS/MXE, ORF semantics, retained introns, opt-in splice DP.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The validation-evidence artifact for test unit **SPLICE-PREDICT-001** — **Gene Structure
 Prediction (Intron/Exon)**. The **composite / umbrella member of the splicing family**: it
 assembles the two boundary detectors (SPLICE-DONOR-001 + SPLICE-ACCEPTOR-001) into a whole

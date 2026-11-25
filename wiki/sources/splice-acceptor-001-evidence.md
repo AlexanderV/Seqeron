@@ -13,6 +13,9 @@ updated: 2026-07-10
 
 # Evidence: SPLICE-ACCEPTOR-001
 
+> **Superseded in part by B11 (2026-11-25), F21–F22, F27–F31: Shapiro & Senapathy 1987 3' score, U12 branch site, yUnAy branch points, MaxEntScan score3 mode.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The validation-evidence artifact for test unit **SPLICE-ACCEPTOR-001** — **Acceptor Site
 Detection** (3' splice site prediction). The **first ingested member of the splicing
 family** and one instance of the templated per-algorithm

@@ -23,7 +23,7 @@ hit — this is the natural default of the underlying value-type lookup.
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L236](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L236)
+- Source: [GenomeAnnotator.cs#L173](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L173)
 - Algorithm: [ORF_Detection.md](../../../algorithms/Annotation/ORF_Detection.md)
 
 ## Input Schema

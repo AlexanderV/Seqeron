@@ -8,9 +8,10 @@ sources:
   - docs/Evidence/ANNOT-CODING-001-Evidence.md
   - docs/algorithms/Extended_Annotation/Coding_Potential_Calculation.md
   - docs/Validation/reports/ANNOT-CODING-001.md
-source_commit: e748206486a14ab05fe3c14e312e74cd77874af2
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: relates_to
@@ -22,6 +23,9 @@ graph:
 ---
 
 # Coding potential (CPAT hexamer usage-bias score)
+
+> **Updated 2026-11-25 (B11 F11–F13, F42).** No scorable hexamer → score `−1` (CPAT's sentinel, not 0). Added: Fickett TESTCODE (1982 and CPAT tables; MCP `fickett_score`, `fickett_scan` = EMBOSS tcode window scan) and the full CPAT coding probability (ORF finder + logistic model; MCP `cpat_coding_probability`), plus `CpatModel.Train` (Wang 2013 hexamer table + logit fit). CPAT's prebuilt tables are GPL and not bundled.
+
 
 A sequence-level **coding-potential** measure: how strongly a DNA sequence's in-frame
 hexamer usage resembles known coding vs. noncoding sequence. It is the hexamer feature of

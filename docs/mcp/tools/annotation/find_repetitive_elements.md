@@ -32,7 +32,7 @@ repeats (by left-arm start, then right-arm start).
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L1682](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1682)
+- Source: [GenomeAnnotator.cs#L2059](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L2059)
 
 ## Input Schema
 

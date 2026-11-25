@@ -26,7 +26,7 @@ Coordinates follow CPAT: 1-based; antisense ORFs have `start > end`.
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs) — `PredictCodingProbability`
+- Source: [GenomeAnnotator.cs#L1900](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1900) — `PredictCodingProbability`
 - Algorithm: [Coding_Potential_Calculation.md §10](../../../algorithms/Extended_Annotation/Coding_Potential_Calculation.md)
 
 ## Input Schema

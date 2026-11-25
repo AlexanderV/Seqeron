@@ -276,8 +276,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | C# deconvolution numeric kernels (Gaussian elim, Pearson, z-score, RMSE) | REF: hand-derived closed-form values | exact within 1e-10 (1e-9 for 3×3 solve) |
 | 248 | ☐ | META-CHECKM-001 | Metagenomics | C# CheckM formula | CheckM markerSets.py | completeness/contamination exact on synthetic bin |
 | 249 | ☐ | META-TETRA-001 | Metagenomics | C# TETRA z-score | TETRA reference (Teeling) | z-vector ±1e-6 |
-| 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | C# score3 | MaxEntScan score3.pl | exact score |
-| 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | C# score5 | MaxEntScan score5.pl | exact score |
+| 250 | ☑ | SPLICE-MAXENT3-001 | Splicing | C# score3 | MaxEntScan score3.pl (CPAN port) + maxentpy | 200 025 windows identical to score3.pl (max abs Δ 1.4e-14), bit-identical to maxentpy (B11 F22; `docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md` Dataset 5) |
+| 251 | ☑ | SPLICE-MAXENT5-001 | Splicing | C# score5 | MaxEntScan score5.pl (CPAN port) + maxentpy | 262 144 windows identical to score5.pl (max abs Δ 7.1e-15), bit-identical to maxentpy (B11 F20; `docs/Evidence/SPLICE-DONOR-001-Evidence.md`) |
 | 252 | ☑ | MIRNA-CONTEXT-001 | MiRNA | C# context++ kernels + 3′-pairing scorer | REF: Agarwal-2015 coefficients + Grimson-2007 run rule (hand-derived) | exact within 1e-9 |
 | 253 | ☐ | MIRNA-PCT-001 | MiRNA | C# PCT | Friedman 2009 logistic worked example | PCT within tolerance |
 | 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | C# classifier | held-out miRBase vs shuffled (AUC) | AUC ≈ 1.0 on held-out set |

@@ -29,7 +29,7 @@ Score a splice-site motif: Donor = MaxEntScan score5, Acceptor = MaxEntScan scor
 
 ## Core Documentation Reference
 
-- Source: [SpliceSitePredictor.cs#L935](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L935)
+- Source: [SpliceSitePredictor.cs#L1698](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1698)
 
 ## Input Schema
 

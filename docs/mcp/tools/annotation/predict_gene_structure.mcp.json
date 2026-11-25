@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.PredictGeneStructure",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L625",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1337",
   "description": "Predict exon/intron gene structure with greedy non-overlapping intron selection.",
   "inputSchema": {
     "type": "object",

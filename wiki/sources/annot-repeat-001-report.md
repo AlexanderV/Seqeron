@@ -13,6 +13,9 @@ updated: 2026-07-10
 
 # Validation report: ANNOT-REPEAT-001
 
+> **Superseded in part by B11 (2026-11-25), F14–F17, F39: maximal tandem runs and inverted stems via `RepeatFinder`, both-strand classification, SW-Gotoh classification, arm ≥ 1.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The two-stage **validation write-up** for test unit **ANNOT-REPEAT-001** (repetitive element
 detection and classification — tandem repeats, inverted repeats, repeat-class assignment),
 validated 2026-06-15. This is the *report* artifact that feeds one row of the

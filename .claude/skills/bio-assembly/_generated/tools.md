@@ -119,6 +119,9 @@
 | `pwm_score_thresholds` | Analysis | `PositionWeightMatrix.ScoreDistribution` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_thresholds.md) |
 | `reversal_distance` | Analysis | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../../../docs/mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | Analysis | `RnaSecondaryStructure.GetComplement` | [doc](../../../../docs/mcp/tools/analysis/rna_complement_base.md) |
+| `rna_mfe_structure` | Analysis | `RnaSecondaryStructure.PredictStructureMfe` | [doc](../../../../docs/mcp/tools/analysis/rna_mfe_structure.md) |
+| `rna_partition_function` | Analysis | `RnaSecondaryStructure.CalculatePartitionFunction` | [doc](../../../../docs/mcp/tools/analysis/rna_partition_function.md) |
+| `rna_structure_energy` | Analysis | `RnaSecondaryStructure.CalculateFreeEnergy` | [doc](../../../../docs/mcp/tools/analysis/rna_structure_energy.md) |
 | `scan_with_alphabet_pwm` | Analysis | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |

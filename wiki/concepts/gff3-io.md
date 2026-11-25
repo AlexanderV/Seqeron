@@ -7,9 +7,10 @@ mcp_tools:
   - to_gff3
 sources:
   - docs/algorithms/Annotation/GFF3_IO.md
-source_commit: d4bfbd6d7b77287fda1b9ce616720a53312b9779
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-11
-updated: 2026-07-13
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: relates_to
@@ -21,6 +22,9 @@ graph:
 ---
 
 # GFF3 I/O — annotation-layer lightweight parser/exporter
+
+> **Updated 2026-11-25 (B11 F8–F10).** `ParseGff3` keeps multi-valued attributes (`AttributeValues`) and seqid/source, stops at `##FASTA`, skips spec-invalid lines (≠ 9 columns, bad start/end/strand/phase), no value trimming; `ToGff3` writes spec-valid GFF3 (seqid/tag/control-char percent-encoding, CDS phase per gene, no duplicate ID/product, multi-value export, rejects bad strand/empty intervals). Lossless-roundtrip remarks below that predate this are historical.
+
 
 **GFF3** (Generic Feature Format v3, Sequence Ontology, Stein 2020) is the tab-delimited genome
 **annotation** interchange format: one feature per line, nine ordered columns, `#`/`##` comment

@@ -19,9 +19,10 @@ sources:
   - docs/Evidence/RNA-INVERT-001-Evidence.md
   - docs/algorithms/RnaStructure/Inverted_Repeats.md
   - docs/Validation/reports/GENOMIC-REPEAT-001.md
-source_commit: dcff97a15ba5042bb3f682fd1ac76aa760fae741
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-09
-updated: 2026-07-16
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: relates_to
@@ -51,6 +52,12 @@ graph:
 ---
 
 # Repetitive element detection and classification
+
+> **Updated 2026-11-25 (B11 F14–F17, F39).** `FindRepetitiveElements` now delegates to `RepeatFinder`: tandem repeats are **maximal runs** of a primitive ACGT unit
+> (1–60 bp; one report per run, not per rotation; runs of N excluded) via `FindMicrosatellites` (F14); inverted repeats are **maximal stems** (EMBOSS `palindrome` model, arm ≤ 100, loop 0–100; no
+> sub-stems, N never pairs) via `FindInvertedRepeats` (F15), with minimum arm 1 as in EMBOSS (F39); `ClassifyRepeat` checks both strands with an ACGT simple-repeat fallback (F16) and has a
+> Smith-Waterman-Gotoh scored-homology overload (F17). The exact-substring / 50-nt-loop-cap statements below describe the pre-B11 code. Report: `docs/Validation/review-2026-09/B11.md`.
+
 
 Finding and typing the repeated substrings that make up a large fraction of genomes. Seqeron's
 repeat analyzer covers three distinct sub-problems, each with its own source-backed definition,

@@ -13,6 +13,9 @@ updated: 2026-07-09
 
 # Evidence: ANNOT-REPEAT-001
 
+> **Superseded in part by B11 (2026-11-25), F14–F17, F39: maximal tandem runs and inverted stems via `RepeatFinder`, both-strand classification, SW-Gotoh classification, arm ≥ 1.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The validation-evidence artifact for test unit **ANNOT-REPEAT-001** (Repetitive Element
 Detection and Classification — tandem repeats, inverted repeats, repeat-class assignment). One
 instance of the templated per-algorithm [[algorithm-validation-evidence|evidence artifact]]

@@ -13,6 +13,9 @@ updated: 2026-07-09
 
 # Evidence: ANNOT-CODING-001
 
+> **Superseded in part by B11 (2026-11-25), F11–F13, F42: −1 sentinel, Fickett, CPAT probability and training.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The validation-evidence artifact for test unit **ANNOT-CODING-001** (Coding Potential
 Calculation — the CPAT hexamer usage-bias score). One instance of the templated per-algorithm
 [[algorithm-validation-evidence|evidence artifact]] pattern; the algorithm itself is

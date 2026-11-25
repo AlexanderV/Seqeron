@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.PredictGenes",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L402",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L426",
   "description": "Predict gene annotations from a DNA sequence using ORF-based heuristics.",
   "inputSchema": {
     "type": "object",

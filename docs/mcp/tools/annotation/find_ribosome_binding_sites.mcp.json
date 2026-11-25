@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.FindRibosomeBindingSites",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L280",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L229",
   "description": "Locate Shine-Dalgarno (ribosome binding site) motifs upstream of forward-strand ORFs.",
   "inputSchema": {
     "type": "object",

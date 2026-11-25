@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 483 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 487 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 483 | 483 |
-| Schema+Binding tests | 483 | 483 |
-| Docs (.md + .mcp.json) | 483 | 483 |
+| Gold-standard binding | 487 | 487 |
+| Schema+Binding tests | 487 | 487 |
+| Docs (.md + .mcp.json) | 487 | 487 |
 
 ## Per-server summary
 
@@ -22,7 +22,7 @@
 | Parsers | Seqeron.Mcp.Parsers | 41 | 41/41 | 41/41 | 41/41 | ✅ done |
 | Alignment | Seqeron.Mcp.Alignment | 27 | 27/27 | 27/27 | 27/27 | ✅ done |
 | Analysis | Seqeron.Mcp.Analysis | 127 | 127/127 | 127/127 | 127/127 | ✅ done |
-| Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
+| Annotation | Seqeron.Mcp.Annotation | 101 | 101/101 | 101/101 | 101/101 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
 | MolTools | Seqeron.Mcp.MolTools | 56 | 56/56 | 56/56 | 56/56 | ✅ done |
@@ -303,7 +303,7 @@
 | 125 | `validate_dot_bracket` | ☑ | ☑ | ☑ |
 | 126 | `windowed_complexity` | ☑ | ☑ | ☑ |
 | 127 | `windowed_gc_skew` | ☑ | ☑ | ☑ |
-### Annotation (Seqeron.Mcp.Annotation) — 97 tools
+### Annotation (Seqeron.Mcp.Annotation) — 101 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -329,81 +329,85 @@
 | 20 | `coding_potential` | ☑ | ☑ | ☑ |
 | 21 | `codon_usage` | ☑ | ☑ | ☑ |
 | 22 | `compare_seed_regions` | ☑ | ☑ | ☑ |
-| 23 | `cpg_observed_expected` | ☑ | ☑ | ☑ |
-| 24 | `create_mirna` | ☑ | ☑ | ☑ |
-| 25 | `detect_alternative_splicing` | ☑ | ☑ | ☑ |
-| 26 | `detect_differential_splicing` | ☑ | ☑ | ☑ |
-| 27 | `detect_isoform_switching` | ☑ | ☑ | ☑ |
-| 28 | `differential_expression` | ☑ | ☑ | ☑ |
-| 29 | `enrichment_score` | ☑ | ☑ | ☑ |
-| 30 | `epigenetic_age` | ☑ | ☑ | ☑ |
-| 31 | `filter_svs` | ☑ | ☑ | ☑ |
-| 32 | `find_acceptor_sites` | ☑ | ☑ | ☑ |
-| 33 | `find_accessible_regions` | ☑ | ☑ | ☑ |
-| 34 | `find_branch_points` | ☑ | ☑ | ☑ |
-| 35 | `find_conserved_elements` | ☑ | ☑ | ☑ |
-| 36 | `find_cpg_islands` | ☑ | ☑ | ☑ |
-| 37 | `find_cpg_sites` | ☑ | ☑ | ☑ |
-| 38 | `find_deletions` | ☑ | ☑ | ☑ |
-| 39 | `find_discordant_pairs` | ☑ | ☑ | ☑ |
-| 40 | `find_dmrs` | ☑ | ☑ | ☑ |
-| 41 | `find_dominant_isoforms` | ☑ | ☑ | ☑ |
-| 42 | `find_donor_sites` | ☑ | ☑ | ☑ |
-| 43 | `find_indels` | ☑ | ☑ | ☑ |
-| 44 | `find_insertions` | ☑ | ☑ | ☑ |
-| 45 | `find_methylation_sites` | ☑ | ☑ | ☑ |
-| 46 | `find_microhomology` | ☑ | ☑ | ☑ |
-| 47 | `find_mirna_target_sites` | ☑ | ☑ | ☑ |
-| 48 | `find_orfs` | ☑ | ☑ | ☑ |
-| 49 | `find_pre_mirna_hairpins` | ☑ | ☑ | ☑ |
-| 50 | `find_promoter_motifs` | ☑ | ☑ | ☑ |
-| 51 | `find_repetitive_elements` | ☑ | ☑ | ☑ |
-| 52 | `find_retained_intron_candidates` | ☑ | ☑ | ☑ |
-| 53 | `find_ribosome_binding_sites` | ☑ | ☑ | ☑ |
-| 54 | `find_similar_mirnas` | ☑ | ☑ | ☑ |
-| 55 | `find_skipped_exon_events` | ☑ | ☑ | ☑ |
-| 56 | `find_snps` | ☑ | ☑ | ☑ |
-| 57 | `find_snps_direct` | ☑ | ☑ | ☑ |
-| 58 | `find_split_reads` | ☑ | ☑ | ☑ |
-| 59 | `format_vcf_info` | ☑ | ☑ | ☑ |
-| 60 | `generate_seed_variants` | ☑ | ☑ | ☑ |
-| 61 | `genotype_sv` | ☑ | ☑ | ☑ |
-| 62 | `group_by_seed_family` | ☑ | ☑ | ☑ |
-| 63 | `identify_cnvs` | ☑ | ☑ | ☑ |
-| 64 | `impact_level` | ☑ | ☑ | ☑ |
-| 65 | `is_within_coding_region` | ☑ | ☑ | ☑ |
-| 66 | `is_wobble_pair` | ☑ | ☑ | ☑ |
-| 67 | `log2_transform` | ☑ | ☑ | ☑ |
-| 68 | `longest_orfs_per_frame` | ☑ | ☑ | ☑ |
-| 69 | `maxent_score` | ☑ | ☑ | ☑ |
-| 70 | `merge_overlapping_svs` | ☑ | ☑ | ☑ |
-| 71 | `methylation_from_bisulfite` | ☑ | ☑ | ☑ |
-| 72 | `methylation_profile` | ☑ | ☑ | ☑ |
-| 73 | `mirna_seed_sequence` | ☑ | ☑ | ☑ |
-| 74 | `normalize_variant` | ☑ | ☑ | ☑ |
-| 75 | `over_representation_analysis` | ☑ | ☑ | ☑ |
-| 76 | `parse_gff3` | ☑ | ☑ | ☑ |
-| 77 | `parse_vcf_variant` | ☑ | ☑ | ☑ |
-| 78 | `pearson_correlation` | ☑ | ☑ | ☑ |
-| 79 | `perform_pca` | ☑ | ☑ | ☑ |
-| 80 | `predict_chromatin_state` | ☑ | ☑ | ☑ |
-| 81 | `predict_gene_structure` | ☑ | ☑ | ☑ |
-| 82 | `predict_genes` | ☑ | ☑ | ☑ |
-| 83 | `predict_imprinted_genes` | ☑ | ☑ | ☑ |
-| 84 | `predict_introns` | ☑ | ☑ | ☑ |
-| 85 | `predict_pathogenicity` | ☑ | ☑ | ☑ |
-| 86 | `predict_tf_binding_change` | ☑ | ☑ | ☑ |
-| 87 | `predict_variant_effect` | ☑ | ☑ | ☑ |
-| 88 | `quantile_normalize` | ☑ | ☑ | ☑ |
-| 89 | `rna_reverse_complement` | ☑ | ☑ | ☑ |
-| 90 | `rnaseq_quality_metrics` | ☑ | ☑ | ☑ |
-| 91 | `segment_copy_number` | ☑ | ☑ | ☑ |
-| 92 | `simulate_bisulfite_conversion` | ☑ | ☑ | ☑ |
-| 93 | `site_accessibility` | ☑ | ☑ | ☑ |
-| 94 | `titv_ratio` | ☑ | ☑ | ☑ |
-| 95 | `to_gff3` | ☑ | ☑ | ☑ |
-| 96 | `variant_statistics` | ☑ | ☑ | ☑ |
-| 97 | `variants_to_vcf` | ☑ | ☑ | ☑ |
+| 23 | `cpat_coding_probability` | ☑ | ☑ | ☑ |
+| 24 | `cpg_observed_expected` | ☑ | ☑ | ☑ |
+| 25 | `create_mirna` | ☑ | ☑ | ☑ |
+| 26 | `detect_alternative_splicing` | ☑ | ☑ | ☑ |
+| 27 | `detect_differential_splicing` | ☑ | ☑ | ☑ |
+| 28 | `detect_isoform_switching` | ☑ | ☑ | ☑ |
+| 29 | `differential_expression` | ☑ | ☑ | ☑ |
+| 30 | `enrichment_score` | ☑ | ☑ | ☑ |
+| 31 | `epigenetic_age` | ☑ | ☑ | ☑ |
+| 32 | `fickett_scan` | ☑ | ☑ | ☑ |
+| 33 | `fickett_score` | ☑ | ☑ | ☑ |
+| 34 | `filter_svs` | ☑ | ☑ | ☑ |
+| 35 | `find_acceptor_sites` | ☑ | ☑ | ☑ |
+| 36 | `find_accessible_regions` | ☑ | ☑ | ☑ |
+| 37 | `find_branch_points` | ☑ | ☑ | ☑ |
+| 38 | `find_conserved_elements` | ☑ | ☑ | ☑ |
+| 39 | `find_cpg_islands` | ☑ | ☑ | ☑ |
+| 40 | `find_cpg_sites` | ☑ | ☑ | ☑ |
+| 41 | `find_deletions` | ☑ | ☑ | ☑ |
+| 42 | `find_discordant_pairs` | ☑ | ☑ | ☑ |
+| 43 | `find_dmrs` | ☑ | ☑ | ☑ |
+| 44 | `find_dominant_isoforms` | ☑ | ☑ | ☑ |
+| 45 | `find_donor_sites` | ☑ | ☑ | ☑ |
+| 46 | `find_indels` | ☑ | ☑ | ☑ |
+| 47 | `find_insertions` | ☑ | ☑ | ☑ |
+| 48 | `find_methylation_sites` | ☑ | ☑ | ☑ |
+| 49 | `find_microhomology` | ☑ | ☑ | ☑ |
+| 50 | `find_mirna_target_sites` | ☑ | ☑ | ☑ |
+| 51 | `find_orfs` | ☑ | ☑ | ☑ |
+| 52 | `find_pre_mirna_hairpins` | ☑ | ☑ | ☑ |
+| 53 | `find_promoter_motifs` | ☑ | ☑ | ☑ |
+| 54 | `find_repetitive_elements` | ☑ | ☑ | ☑ |
+| 55 | `find_retained_intron_candidates` | ☑ | ☑ | ☑ |
+| 56 | `find_ribosome_binding_sites` | ☑ | ☑ | ☑ |
+| 57 | `find_similar_mirnas` | ☑ | ☑ | ☑ |
+| 58 | `find_skipped_exon_events` | ☑ | ☑ | ☑ |
+| 59 | `find_snps` | ☑ | ☑ | ☑ |
+| 60 | `find_snps_direct` | ☑ | ☑ | ☑ |
+| 61 | `find_split_reads` | ☑ | ☑ | ☑ |
+| 62 | `format_vcf_info` | ☑ | ☑ | ☑ |
+| 63 | `generate_seed_variants` | ☑ | ☑ | ☑ |
+| 64 | `genotype_sv` | ☑ | ☑ | ☑ |
+| 65 | `group_by_seed_family` | ☑ | ☑ | ☑ |
+| 66 | `identify_cnvs` | ☑ | ☑ | ☑ |
+| 67 | `impact_level` | ☑ | ☑ | ☑ |
+| 68 | `is_within_coding_region` | ☑ | ☑ | ☑ |
+| 69 | `is_wobble_pair` | ☑ | ☑ | ☑ |
+| 70 | `log2_transform` | ☑ | ☑ | ☑ |
+| 71 | `longest_orfs_per_frame` | ☑ | ☑ | ☑ |
+| 72 | `maxent_score` | ☑ | ☑ | ☑ |
+| 73 | `merge_overlapping_svs` | ☑ | ☑ | ☑ |
+| 74 | `methylation_from_bisulfite` | ☑ | ☑ | ☑ |
+| 75 | `methylation_profile` | ☑ | ☑ | ☑ |
+| 76 | `mirna_seed_sequence` | ☑ | ☑ | ☑ |
+| 77 | `normalize_variant` | ☑ | ☑ | ☑ |
+| 78 | `over_representation_analysis` | ☑ | ☑ | ☑ |
+| 79 | `parse_gff3` | ☑ | ☑ | ☑ |
+| 80 | `parse_vcf_variant` | ☑ | ☑ | ☑ |
+| 81 | `pearson_correlation` | ☑ | ☑ | ☑ |
+| 82 | `perform_pca` | ☑ | ☑ | ☑ |
+| 83 | `pooled_rscu` | ☑ | ☑ | ☑ |
+| 84 | `predict_chromatin_state` | ☑ | ☑ | ☑ |
+| 85 | `predict_gene_structure` | ☑ | ☑ | ☑ |
+| 86 | `predict_genes` | ☑ | ☑ | ☑ |
+| 87 | `predict_imprinted_genes` | ☑ | ☑ | ☑ |
+| 88 | `predict_introns` | ☑ | ☑ | ☑ |
+| 89 | `predict_pathogenicity` | ☑ | ☑ | ☑ |
+| 90 | `predict_tf_binding_change` | ☑ | ☑ | ☑ |
+| 91 | `predict_variant_effect` | ☑ | ☑ | ☑ |
+| 92 | `quantile_normalize` | ☑ | ☑ | ☑ |
+| 93 | `rna_reverse_complement` | ☑ | ☑ | ☑ |
+| 94 | `rnaseq_quality_metrics` | ☑ | ☑ | ☑ |
+| 95 | `segment_copy_number` | ☑ | ☑ | ☑ |
+| 96 | `simulate_bisulfite_conversion` | ☑ | ☑ | ☑ |
+| 97 | `site_accessibility` | ☑ | ☑ | ☑ |
+| 98 | `titv_ratio` | ☑ | ☑ | ☑ |
+| 99 | `to_gff3` | ☑ | ☑ | ☑ |
+| 100 | `variant_statistics` | ☑ | ☑ | ☑ |
+| 101 | `variants_to_vcf` | ☑ | ☑ | ☑ |
 
 ### Chromosome (Seqeron.Mcp.Chromosome) — 32 tools
 

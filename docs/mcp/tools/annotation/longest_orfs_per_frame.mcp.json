@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.FindLongestOrfsPerFrame",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L236",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L173",
   "description": "Return the longest ORF in each of the (up to) six reading frames.",
   "inputSchema": {
     "type": "object",
