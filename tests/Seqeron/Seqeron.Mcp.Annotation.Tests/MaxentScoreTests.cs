@@ -43,6 +43,24 @@ public class MaxentScoreTests
     }
 
     [Test]
+    public void MaxentScore_Acceptor_IsMaxEntScanScore3()
+    {
+        // Acceptor = MaxEntScan score3 (Yeo & Burge 2004): maxentpy score3('ttccaaacgaacttttgtAGgga')
+        // = 2.8867730651152104 (score3.pl prints 2.89); delegates to SpliceSitePredictor.ScoreAcceptorMaxEnt.
+        var result = AnnotationTools.MaxentScore("TTCCAAACGAACTTTTGTAGGGA", "Acceptor");
+        Assert.That(result.Score, Is.EqualTo(2.8867730651152104));
+        Assert.That(AnnotationTools.MaxentScore("tgtctttttctgtgtggcAGtgg", "acceptor").Score,
+            Is.EqualTo(8.190965487162021));
+    }
+
+    [Test]
+    public void MaxentScore_AcceptorNot23NtOrInvalid_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => AnnotationTools.MaxentScore("UUUUUUUUUUUUUUUCAG", "Acceptor"));
+        Assert.Throws<ArgumentException>(() => AnnotationTools.MaxentScore("TTCCAAACGAACTTTTGTAGGGN", "Acceptor"));
+    }
+
+    [Test]
     public void MaxentScore_TypeIsCaseInsensitive()
     {
         Assert.That(AnnotationTools.MaxentScore("CAGGUAAGU", "donor").Score,

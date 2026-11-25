@@ -4,7 +4,7 @@
 **Area:** Splicing
 **Algorithm:** MaxEntScan score3ss (maximum-entropy 3' splice-acceptor model)
 **Status:** ☑ Validated — independent Stage A/B re-validation complete (2026-06-25)
-**Last Updated:** 2026-06-25
+**Last Updated:** 2026-11-25
 
 > Validated under the two-stage protocol. Stage A PASS, Stage B PASS, State CLEAN.
 > See `docs/Validation/reports/SPLICE-MAXENT3-001.md`.
@@ -20,10 +20,10 @@
 
 ## 2. Canonical Method(s)
 
-`ScoreAcceptorMaxEnt(string window)`
+`ScoreAcceptorMaxEnt(string window)`; `CalculateMaxEntScore(motif, SpliceSiteType.Acceptor)` (MCP `maxent_score`) delegates to it.
 
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs` (~1003–1227)
-- **Test fixture:** `tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs` (region ME1–ME10)
+- **Test fixture:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/SpliceSitePredictor_AcceptorSite_Tests.cs` (region ME1–ME10)
 
 ## 3. Contract / Invariants
 
@@ -36,7 +36,20 @@
 
 - **Reference:** MaxEntScan score3 (maxentpy port) — documented worked examples:
   `…tAGgga` = 2.8867730651152104 (→2.89); `…cAGtgg` = 8.190965 (→8.19); `…tAGcaa` = −0.080278 (→−0.08).
-- **Comparison:** exact score (C# reproduces all to <5e-7).
+- **Comparison:** exact score (C# reproduces all bit-for-bit; see B11 review below).
+
+### B11 review (2026-11-25)
+
+- **Oracle:** 200 025 windows (100 000 random + 100 000 AG 23-mers, 16 dinucleotides, examples, homopolymers):
+  C# bit-identical to maxentpy `score3` (after F22: log2 = ln/ln2; before, 62 349 differed by 1 ulp) and
+  identical at 2 dp to the score3.pl CPAN port (original me2x3acc1-9 tables = maxentpy table values).
+- `CalculateMaxEntScore(motif, Acceptor)` and MCP `maxent_score` (Acceptor) delegate to `ScoreAcceptorMaxEnt`
+  (F21; formerly a PWM log-weight sum, −26.81 for the 2.89 window): 23-nt A/C/G/T(/U) required, else
+  `ArgumentException`; empty → 0.
+- Tests: `ScoreAcceptorMaxEnt_ReferenceSweep_MatchesMaxEntScan` (ME10, 16 cases, exact double + 2 dp),
+  `CalculateMaxEntScore_AcceptorSite_ReturnsMaxEntScanScore3`, `_AcceptorWrongLengthOrAlphabet_Throws`,
+  mutation `_AcceptorBranch_IsMaxEntScanScore3`, MCP `MaxentScore_Acceptor_IsMaxEntScanScore3`,
+  `_AcceptorNot23NtOrInvalid_Throws`.
 
 ## 5. Validation Outcome
 

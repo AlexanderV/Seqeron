@@ -278,26 +278,13 @@ public class SpliceSitePredictorMutationTests
     }
 
     [Test]
-    public void CalculateMaxEntScore_AcceptorBranch_IsNonzeroAndTyped()
+    public void CalculateMaxEntScore_AcceptorBranch_IsMaxEntScanScore3()
     {
-        // Acceptor branch must run (kills the type-equality mutant that would return 0)
-        // and produce the documented log-odds sum over the 8 acceptor columns.
-        // 18-nt acceptor motif (offsets -15..0 over indices 0..17 hitting cols at 0,5,10..15).
-        const string motif = "UUUUUUUUUUCUUCAGG"; // len 17
-        string rna = Rna(motif);
-        double expected = 0;
-        for (int i = 0; i < rna.Length; i++)
-        {
-            int off = i - 15;
-            if (AcceptorPwm.TryGetValue(off, out var w))
-            {
-                int bi = BaseIdx(rna[i]);
-                if (bi >= 0) expected += Math.Log2(w[bi] + 0.01);
-            }
-        }
-        Assert.That(CalculateMaxEntScore(motif, SpliceSiteType.Acceptor),
-            Is.EqualTo(expected).Within(Tol));
-        Assert.That(expected, Is.Not.EqualTo(0.0)); // ensures the acceptor branch truly executed
+        // Acceptor branch must run (kills the type-equality mutant that would return 0) and return
+        // MaxEntScan score3: maxentpy score3('tgtctttttctgtgtggcAGtgg') = 8.190965487162021 (score3.pl 8.19);
+        // Math.Log2 instead of ln/ln2 gives 8.19096548716202 (1 ulp off), so exact equality also pins F22.
+        const string motif = "UGUCUUUUUCUGUGUGGCAGUGG";
+        Assert.That(CalculateMaxEntScore(motif, SpliceSiteType.Acceptor), Is.EqualTo(8.190965487162021));
     }
 
     [Test]

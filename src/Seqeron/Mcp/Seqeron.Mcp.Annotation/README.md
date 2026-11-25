@@ -90,7 +90,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `is_wobble_pair` | Test whether two bases form a G-U wobble pair. |
 | `log2_transform` | Apply log2(x + pseudocount) to each value (used to stabilize variance of count-like expression data). |
 | `longest_orfs_per_frame` | Return the longest ORF in each of the (up to) six reading frames. |
-| `maxent_score` | Compute a MaxEntScan-like log-likelihood score for a donor or acceptor motif. |
+| `maxent_score` | MaxEntScan (Yeo & Burge 2004) splice-site score in bits: Donor = score5 on the 9-nt window, Acceptor = score3 on the 23-nt window. |
 | `merge_overlapping_svs` | Merge structural variants of the same type whose reciprocal overlap fraction exceeds a threshold. |
 | `methylation_from_bisulfite` | Compute per-CpG methylation levels from bisulfite sequencing reads aligned to a reference. |
 | `methylation_profile` | Aggregate methylation sites into a global/CpG/CHG/CHH profile with per-position methylation. |

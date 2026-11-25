@@ -111,12 +111,26 @@ public class SpliceSitePredictorTests
     }
 
     [Test]
-    public void CalculateMaxEntScore_AcceptorSite_ReturnsScore()
+    public void CalculateMaxEntScore_AcceptorSite_ReturnsMaxEntScanScore3()
     {
-        string acceptorMotif = "UUUUUUUUUUUUUUUCAG";
+        // Acceptor branch = MaxEntScan score3 (Yeo & Burge 2004): maxentpy score3('ttccaaacgaacttttgtAGgga')
+        // = 2.8867730651152104, score3.pl prints 2.89. (The old PWM branch returned -26.81 for this window.)
+        string acceptorMotif = "UUCCAAACGAACUUUUGUAGGGA";
         double score = CalculateMaxEntScore(acceptorMotif, SpliceSiteType.Acceptor);
 
-        Assert.That(score, Is.Not.EqualTo(0).Or.EqualTo(0));
+        Assert.That(score, Is.EqualTo(2.8867730651152104));
+        Assert.That(score, Is.EqualTo(ScoreAcceptorMaxEnt(acceptorMotif)));
+    }
+
+    [Test]
+    public void CalculateMaxEntScore_AcceptorWrongLengthOrAlphabet_Throws()
+    {
+        // MaxEntScan score3 is defined only on the 23-nt window over A/C/G/T (maxentpy: "Wrong length of fa!";
+        // score3.pl port: invalid_length / invalid_alphabet).
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("UUUUUUUUUUUUUUUCAG", SpliceSiteType.Acceptor));
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("TTCCAAACGAACTTTTGTAGGGAA", SpliceSiteType.Acceptor));
+        Assert.Throws<ArgumentException>(() => CalculateMaxEntScore("TTCCAAACGAACTTTTGTAGGGN", SpliceSiteType.Acceptor));
+        Assert.That(CalculateMaxEntScore("", SpliceSiteType.Acceptor), Is.EqualTo(0));
     }
 
     [Test]

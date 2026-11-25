@@ -921,12 +921,17 @@ public static class SpliceSitePredictor
     /// MaxEntScan <c>score5.pl</c>).
     /// </para>
     /// <para>
-    /// <b>Acceptor:</b> sum of <c>log2(w + 0.01)</c> over the acceptor PWM columns (legacy heuristic).
+    /// <b>Acceptor:</b> the Yeo &amp; Burge (2004) MaxEntScan <c>score3ss</c> maximum-entropy score in bits,
+    /// computed by <see cref="ScoreAcceptorMaxEnt"/> (the motif must be the 23-nt window: 20 intronic +
+    /// 3 exonic nt, AG at 1-based positions 19-20; e.g. <c>TTCCAAACGAACTTTTGTAGGGA</c> → 2.89, as
+    /// printed by MaxEntScan <c>score3.pl</c>).
+    /// </para>
+    /// <para>
     /// Any other <paramref name="type"/> returns 0; an empty motif returns 0.
     /// </para>
     /// </remarks>
-    /// <exception cref="ArgumentException">Donor motif not exactly 9 nt, or containing a non-A/C/G/T(/U)
-    /// character (MaxEntScan cannot score it).</exception>
+    /// <exception cref="ArgumentException">Donor motif not exactly 9 nt, acceptor motif not exactly 23 nt,
+    /// or a motif containing a non-A/C/G/T(/U) character (MaxEntScan cannot score it).</exception>
     public static double CalculateMaxEntScore(string motif, SpliceSiteType type)
     {
         if (string.IsNullOrEmpty(motif))
@@ -936,19 +941,9 @@ public static class SpliceSitePredictor
         if (type == SpliceSiteType.Donor)
             return ScoreDonorMaxEnt(motif);
 
-        string upper = motif.ToUpperInvariant().Replace('T', 'U');
-
+        // Acceptor: the real MaxEntScan score3 model (Yeo & Burge 2004; score3.pl / me2x3acc1-9).
         if (type == SpliceSiteType.Acceptor)
-        {
-            double score = 0;
-            for (int i = 0; i < upper.Length; i++)
-            {
-                int offset = i - 15;
-                if (AcceptorPwm.TryGetValue(offset, out var weights) && weights.TryGetValue(upper[i], out double w))
-                    score += Math.Log2(w + 0.01);
-            }
-            return score;
-        }
+            return ScoreAcceptorMaxEnt(motif);
 
         return 0;
     }
@@ -1192,7 +1187,9 @@ public static class SpliceSitePredictor
             restScore /= tables[matrixIndex][hash];
         }
 
-        return Math.Log2(consScore * restScore);
+        // score3.pl / maxentpy compute log2 as ln(x)/ln(2); use the same expression so the
+        // result is the reference double (Math.Log2 differs by up to ~1e-14 on some inputs).
+        return Math.Log(consScore * restScore) / Math.Log(2.0);
     }
 
     private static char NormalizeNucleotide(char c, string model = "score3") => c switch

@@ -1486,11 +1486,11 @@ public class AnnotationTools
         return new FindRetainedIntronCandidatesResult(introns);
     }
 
-    /// <summary>Score a splice motif: Donor = MaxEntScan score5 (Yeo &amp; Burge 2004); Acceptor = PWM log-weight sum.</summary>
+    /// <summary>Score a splice motif: Donor = MaxEntScan score5, Acceptor = MaxEntScan score3 (Yeo &amp; Burge 2004).</summary>
     [McpServerTool(Name = "maxent_score", Title = "Splice — MaxEnt Score", ReadOnly = true)]
-    [Description("Score a splice motif. Donor: MaxEntScan score5 (Yeo & Burge 2004) in bits on the 9-nt window (3 exon + 6 intron nt, GT at positions 4-5), e.g. CAGGTAAGT = 10.86. Acceptor: sum of log2(PWM weight + 0.01).")]
+    [Description("Score a splice motif. Donor: MaxEntScan score5 (Yeo & Burge 2004) in bits on the 9-nt window (3 exon + 6 intron nt, GT at positions 4-5), e.g. CAGGTAAGT = 10.86. Acceptor: MaxEntScan score3 in bits on the 23-nt window (20 intron + 3 exon nt, AG at positions 19-20), e.g. TTCCAAACGAACTTTTGTAGGGA = 2.89.")]
     public static MaxEntScoreResult MaxentScore(
-        [Description("Splice-site motif sequence (RNA or DNA); for Donor exactly 9 nt of A/C/G/T(/U)")] string motif,
+        [Description("Splice-site motif sequence (RNA or DNA); Donor exactly 9 nt, Acceptor exactly 23 nt, of A/C/G/T(/U)")] string motif,
         [Description("Splice-site type: \"Donor\" or \"Acceptor\"")] string type)
     {
         if (string.IsNullOrEmpty(motif))

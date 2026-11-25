@@ -5,12 +5,12 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.CalculateMaxEntScore",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L930",
-  "description": "Score a splice motif. Donor: MaxEntScan score5 (Yeo & Burge 2004) in bits on the 9-nt window (3 exon + 6 intron nt, GT at positions 4-5), e.g. CAGGTAAGT = 10.86. Acceptor: sum of log2(PWM weight + 0.01).",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L935",
+  "description": "Score a splice motif. Donor: MaxEntScan score5 (Yeo & Burge 2004) in bits on the 9-nt window (3 exon + 6 intron nt, GT at positions 4-5), e.g. CAGGTAAGT = 10.86. Acceptor: MaxEntScan score3 in bits on the 23-nt window (20 intron + 3 exon nt, AG at positions 19-20), e.g. TTCCAAACGAACTTTTGTAGGGA = 2.89.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "motif": { "type": "string", "description": "Splice-site motif sequence (RNA or DNA); for Donor exactly 9 nt of A/C/G/T(/U)", "minLength": 1 },
+      "motif": { "type": "string", "description": "Splice-site motif sequence (RNA or DNA); Donor exactly 9 nt, Acceptor exactly 23 nt, of A/C/G/T(/U)", "minLength": 1 },
       "type": { "type": "string", "description": "Donor or Acceptor", "enum": ["Donor", "Acceptor"] }
     },
     "required": ["motif", "type"]
@@ -18,7 +18,7 @@
   "outputSchema": {
     "type": "object",
     "properties": {
-      "score": { "type": "number", "description": "Donor: MaxEntScan score5 (bits); Acceptor: sum of log2(PWM weight + 0.01)" }
+      "score": { "type": "number", "description": "Donor: MaxEntScan score5 (bits); Acceptor: MaxEntScan score3 (bits)" }
     },
     "required": ["score"]
   },
@@ -27,7 +27,9 @@
     { "code": 1001, "message": "Type cannot be null or empty" },
     { "code": 1002, "message": "Unknown splice-site type '<value>'. Expected 'Donor' or 'Acceptor'." },
     { "code": 1001, "message": "MaxEntScan score5 requires a window of exactly 9 nt; got <n>." },
-    { "code": 1001, "message": "MaxEntScan score5 requires an A/C/G/T(/U) sequence; found '<c>'." }
+    { "code": 1001, "message": "MaxEntScan score5 requires an A/C/G/T(/U) sequence; found '<c>'." },
+    { "code": 1001, "message": "MaxEntScan score3 requires a window of exactly 23 nt; got <n>." },
+    { "code": 1001, "message": "MaxEntScan score3 requires an A/C/G/T(/U) sequence; found '<c>'." }
   ],
   "examples": [
     {
@@ -39,6 +41,11 @@
       "name": "Non-GT (GC) donor scores lower",
       "input": { "motif": "CAGGCAAGU", "type": "Donor" },
       "output": { "score": 3.104161570996358 }
+    },
+    {
+      "name": "Canonical acceptor (MaxEntScan score3 example, 2.89)",
+      "input": { "motif": "TTCCAAACGAACTTTTGTAGGGA", "type": "Acceptor" },
+      "output": { "score": 2.8867730651152104 }
     }
   ]
 }

@@ -816,5 +816,39 @@ public class SpliceSitePredictor_AcceptorSite_Tests
         });
     }
 
+    // ME10 — reference sweep (SPLICE-MAXENT3-001, B11 F21/F22). Expected values are maxentpy score3
+    // (kepbod/maxentpy maxent.py + score3_matrix.txt) full-precision outputs (Python repr, so the C#
+    // literal is the same double); the CPAN port of score3.pl (Bio-RNA-SpliceSites-Scoring-MaxEntScan
+    // 0.05, original me2x3acc1-9 tables) prints the 2-decimal values. The C# score equals maxentpy
+    // bit-for-bit on 200,025 windows (100,000 random + 100,000 AG 23-mers + 16 dinucleotides + examples);
+    // with Math.Log2 instead of ln/ln2, 62,349 of them (incl. the 8.19 docstring example) were 1 ulp off.
+    // Includes non-AG dinucleotides (AC, GG, TA, ...), which MaxEntScan scores rather than rejects.
+    [TestCase("ttccaaacgaacttttgtAGgga", 2.8867730651152104, 2.89)]
+    [TestCase("tgtctttttctgtgtggcAGtgg", 8.190965487162021, 8.19)]
+    [TestCase("ttctctcttcagacttatAGcaa", -0.08027774948780869, -0.08)]
+    [TestCase("CTTTCCCGGTCTCCCCGCAGGGC", 13.974478220613745, 13.97)]
+    [TestCase("CCCCCCCCCCCCCCCCCCAGCCC", 10.350554250918666, 10.35)]
+    [TestCase("AGGCACGGTCCGTCCGGTAGCGC", 2.3223895715101035, 2.32)]
+    [TestCase("TCAATGATCTCCGGGTTAAGTTA", 2.2213509402965332, 2.22)]
+    [TestCase("TTATCCAACTTGCAAGCAAGGGC", -3.3326429559313904, -3.33)]
+    [TestCase("CGTATAGCCCTCGTGATGAGGAT", -6.014271156784488, -6.01)]
+    [TestCase("ttccaaacgaacttttgtACGGA", -5.177714829032689, -5.18)]
+    [TestCase("ttccaaacgaacttttgtGGGGA", -5.068088471471686, -5.07)]
+    [TestCase("GGGGAGTTTATCCTTCTACGTAA", -9.482356641325355, -9.48)]
+    [TestCase("TGCTTAAGGAGCTCACCTAAACC", -15.042687466794712, -15.04)]
+    [TestCase("TTTTTTTTTTTTTTTTTTTTTTT", -5.737465487038207, -5.74)]
+    [TestCase("AAAAAAAAAAAAAAAAAAAAAAA", -16.26511154573316, -16.27)]
+    [TestCase("TCAAGCAGAGGAGAAATGCTTGA", -61.106105250879395, -61.11)]
+    public void ScoreAcceptorMaxEnt_ReferenceSweep_MatchesMaxEntScan(string window, double maxentpy, double score3Pl)
+    {
+        double score = ScoreAcceptorMaxEnt(window);
+        Assert.Multiple(() =>
+        {
+            Assert.That(score, Is.EqualTo(maxentpy), "maxentpy score3 (bit-identical double)");
+            Assert.That(System.Math.Round(score, 2, System.MidpointRounding.AwayFromZero), Is.EqualTo(score3Pl),
+                "score3.pl prints %.2f");
+        });
+    }
+
     #endregion
 }
