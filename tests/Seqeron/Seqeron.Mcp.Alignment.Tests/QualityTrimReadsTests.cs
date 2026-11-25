@@ -69,4 +69,17 @@ public class QualityTrimReadsTests
                 new[] { new QualityReadInput("ACGT", "II\u001fI") }, 10, 1));
         });
     }
+
+    [Test]
+    public void QualityTrimReads_BwaMinLength_KeepsAtLeast35Bases()
+    {
+        // A8-2: 30 x Q40 + 20 x Q2 (50 bases), cutoff 20: cutadapt cuts to 30, BWA bwa_trim_read (BWA_MIN_RDLEN 35) to 35.
+        var read = new QualityReadInput(new string('A', 50), new string('I', 30) + new string('#', 20));
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlignmentTools.QualityTrimReads(new[] { read }, 20, 1).Trimmed.Single(), Has.Length.EqualTo(30));
+            Assert.That(AlignmentTools.QualityTrimReads(new[] { read }, 20, 1, bwaMinLength: 35).Trimmed.Single(), Has.Length.EqualTo(35));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.QualityTrimReads(new[] { read }, 20, 1, bwaMinLength: -1));
+        });
+    }
 }

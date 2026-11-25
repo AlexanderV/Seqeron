@@ -78,6 +78,15 @@ public class AssemblyDeBruijnFuzzTests
 
     #region Helpers
 
+    // These tests lock the single-strand textbook model (Rosalind BA3K/BA3M: contigs = maximal
+    // non-branching paths of the forward k-mer graph; their invariants and oracle values are for
+    // that graph). AssembleDeBruijn is double-stranded by default (Velvet, A2-4), so they pass
+    // includeReverseComplement: false explicitly; the double-stranded default is covered in
+    // SequenceAssembler_AssembleDeBruijn_Tests (#region Double-stranded default).
+    private static SequenceAssembler.AssemblyResult SingleStrand(
+        IReadOnlyList<string> reads, SequenceAssembler.AssemblyParameters? parameters)
+        => SequenceAssembler.AssembleDeBruijn(reads, parameters, includeReverseComplement: false);
+
     /// <summary>A fuzzed read of the given length over the DNA alphabet.</summary>
     private static string RandomRead(Random rng, int length)
     {
@@ -136,17 +145,18 @@ public class AssemblyDeBruijnFuzzTests
 
     #region Positive sanity — documented contig generation
 
-    // Documented worked example (§7.1): AAABBBA, k=3 → unitigs AAA, AABB, BBA, BBB.
+    // Documented worked example (§7.1), DNA form (Velvet maps every non-ACGT symbol to A, so the
+    // textbook letters A/B become A/C): AAACCCA, k=3 → unitigs AAA, AACC, CCA, CCC.
     [Test]
     public void AssembleDeBruijn_WorkedExample_ReconstructsGenome()
     {
-        var reads = new[] { "AAABBBA" };
+        var reads = new[] { "AAACCCA" };
 
-        var result = SequenceAssembler.AssembleDeBruijn(
+        var result = SingleStrand(
             reads, new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1));
 
         // AA and BB carry self-loops, so they are branch nodes (not 1-in-1-out): BA3M splits there.
-        result.Contigs.Should().Equal(new[] { "AAA", "AABB", "BBA", "BBB" },
+        result.Contigs.Should().Equal(new[] { "AAA", "AACC", "CCA", "CCC" },
             "contigs are the maximal non-branching paths (Compeau & Pevzner BA3M; §7.1)");
         AssertWellFormed(result, reads, 3);
     }
@@ -162,13 +172,13 @@ public class AssemblyDeBruijnFuzzTests
         const int k = 5;
         var reads = new[] { genome };
 
-        var result = SequenceAssembler.AssembleDeBruijn(
+        var result = SingleStrand(
             reads, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
 
         result.Contigs.Should().ContainSingle("a repeat-free genome is one non-branching path");
         result.Contigs[0].Should().Be(genome, "the single non-branching path spells the genome (INV-04)");
 
-        var tiled = SequenceAssembler.AssembleDeBruijn(
+        var tiled = SingleStrand(
             new[] { genome[..14], genome[8..22], genome[16..] },
             new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
         tiled.Contigs.Should().Equal(new[] { genome }, "overlapping reads share k-mers, which are counted once (Velvet)");
@@ -212,7 +222,7 @@ public class AssemblyDeBruijnFuzzTests
     {
         var reads = new[] { "ACGTA" };
 
-        var result = SequenceAssembler.AssembleDeBruijn(
+        var result = SingleStrand(
             reads, new SequenceAssembler.AssemblyParameters(KmerSize: 10, MinContigLength: 1));
 
         result.Contigs.Should().BeEmpty("no read reaches length k → no k-mers → no contigs (INV-03)");
@@ -247,7 +257,7 @@ public class AssemblyDeBruijnFuzzTests
             var graph = SequenceAssembler.BuildDeBruijnGraph(reads, k);
             graph.Should().BeEmpty("every read is shorter than k → no k-mers (INV-03)");
 
-            var result = SequenceAssembler.AssembleDeBruijn(
+            var result = SingleStrand(
                 reads, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
             result.Contigs.Should().BeEmpty("no k-mers → no contigs");
             AssertWellFormed(result, reads, k);
@@ -275,7 +285,7 @@ public class AssemblyDeBruijnFuzzTests
         const string read = "ACGTACTGACATG"; // distinct 3-mers ⇒ one non-branching path at k=4
         const int k = 4;
 
-        var result = SequenceAssembler.AssembleDeBruijn(
+        var result = SingleStrand(
             new[] { read }, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
 
         result.Contigs.Should().ContainSingle("a single read is one connected component → one contig");
@@ -290,7 +300,7 @@ public class AssemblyDeBruijnFuzzTests
         const string read = "ACGT";
         const int k = 4;
 
-        var result = SequenceAssembler.AssembleDeBruijn(
+        var result = SingleStrand(
             new[] { read }, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
 
         result.Contigs.Should().ContainSingle("one k-mer → one edge → one contig");
@@ -310,7 +320,7 @@ public class AssemblyDeBruijnFuzzTests
             int len = rng.Next(k, k + 20); // length ≥ k so at least one k-mer exists
             string read = RandomRead(rng, len);
 
-            var result = SequenceAssembler.AssembleDeBruijn(
+            var result = SingleStrand(
                 new[] { read }, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
 
             AssertWellFormed(result, new[] { read }, k);
@@ -361,13 +371,13 @@ public class AssemblyDeBruijnFuzzTests
             EdgeCount(graph).Should().Be(copies * (read.Length - k + 1),
                 "INV-02: identical reads add repeated (multi-)edges, edge count = copies × #k-mers");
 
-            var result = SequenceAssembler.AssembleDeBruijn(reads, prm);
+            var result = SingleStrand(reads, prm);
 
             result.Contigs.Should().Equal(new[] { read }, "coverage does not change the distinct k-mer set (INV-04)");
             AssertWellFormed(result, reads, k);
 
             // Determinism: re-running on the identical input is byte-identical.
-            SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs
+            SingleStrand(reads, prm).Contigs
                 .Should().Equal(result.Contigs, "a fixed input produces byte-identical contigs (§5.2)");
         }
     }
@@ -386,13 +396,13 @@ public class AssemblyDeBruijnFuzzTests
             int copies = rng.Next(2, 8);
             var reads = Enumerable.Repeat(read, copies).ToList();
 
-            var baseline = SequenceAssembler.AssembleDeBruijn(
+            var baseline = SingleStrand(
                 reads, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1)).Contigs;
 
             for (int shuffle = 0; shuffle < 3; shuffle++)
             {
                 var permuted = reads.OrderBy(_ => rng.Next()).ToList();
-                var contigs = SequenceAssembler.AssembleDeBruijn(
+                var contigs = SingleStrand(
                     permuted, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1)).Contigs;
 
                 contigs.Should().BeEquivalentTo(baseline,
@@ -413,12 +423,12 @@ public class AssemblyDeBruijnFuzzTests
         var reads = Enumerable.Repeat(read, 30).ToList();
 
         var prm = new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1);
-        var result = SequenceAssembler.AssembleDeBruijn(reads, prm);
+        var result = SingleStrand(reads, prm);
 
         AssertWellFormed(result, reads, k);
         result.Contigs.Should().Equal(new[] { "ACACA" }, "the isolated cycle ACA→CAC→ACA is spelled once from its smallest node (BA3M; Python oracle)");
         // The cyclic, multi-parallel-edge graph must not hang and must be deterministic for a fixed input.
-        SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs
+        SingleStrand(reads, prm).Contigs
             .Should().Equal(result.Contigs, "a fixed repeat-rich input is deterministic (§5.2), no hang on the cycle");
     }
 
@@ -429,7 +439,7 @@ public class AssemblyDeBruijnFuzzTests
     [Test]
     public void AssembleDeBruijn_EmptyReads_EmptyResult()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(
+        var result = SingleStrand(
             Array.Empty<string>(), new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1));
 
         result.Contigs.Should().BeEmpty("empty reads → empty assembly (§6.1)");
@@ -439,7 +449,7 @@ public class AssemblyDeBruijnFuzzTests
     [Test]
     public void AssembleDeBruijn_NullReads_EmptyResult()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(
+        var result = SingleStrand(
             null!, new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1));
 
         result.Contigs.Should().BeEmpty("null reads → empty assembly (§6.1, ASSUMPTION-2)");
@@ -458,7 +468,7 @@ public class AssemblyDeBruijnFuzzTests
     {
         var reads = new[] { "", "", "" };
 
-        var result = SequenceAssembler.AssembleDeBruijn(
+        var result = SingleStrand(
             reads, new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1));
 
         result.Contigs.Should().BeEmpty("zero-length reads are shorter than k → no k-mers (INV-03)");
@@ -487,7 +497,7 @@ public class AssemblyDeBruijnFuzzTests
             EdgeCount(graph).Should().Be(ExpectedEdgeCount(reads, k),
                 "INV-02: total edges = total k-mers chopped (reads < k contribute 0, INV-03)");
 
-            var result = SequenceAssembler.AssembleDeBruijn(
+            var result = SingleStrand(
                 reads, new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
 
             AssertWellFormed(result, reads, k);
@@ -511,10 +521,10 @@ public class AssemblyDeBruijnFuzzTests
                                   .ToList();
             var prm = new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1);
 
-            var a = SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs;
-            var b = SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs;
+            var a = SingleStrand(reads, prm).Contigs;
+            var b = SingleStrand(reads, prm).Contigs;
             a.Should().Equal(b, "the same input produces byte-identical contigs (deterministic, §5.2)");
-            var permuted = SequenceAssembler.AssembleDeBruijn(reads.OrderBy(_ => rng.Next()).ToList(), prm).Contigs;
+            var permuted = SingleStrand(reads.OrderBy(_ => rng.Next()).ToList(), prm).Contigs;
             permuted.Should().Equal(a, "read order cannot change the distinct k-mer set");
         }
     }
@@ -537,7 +547,7 @@ public class AssemblyDeBruijnFuzzTests
 
             var expected = reads.SelectMany(r => Enumerable.Range(0, Math.Max(0, r.Length - k + 1)).Select(i => r.Substring(i, k)))
                                 .Distinct().OrderBy(s => s, StringComparer.Ordinal).ToList();
-            var spelled = SequenceAssembler.AssembleDeBruijn(reads, prm).Contigs
+            var spelled = SingleStrand(reads, prm).Contigs
                 .SelectMany(c => Enumerable.Range(0, c.Length - k + 1).Select(i => c.Substring(i, k)))
                 .OrderBy(s => s, StringComparer.Ordinal).ToList();
 

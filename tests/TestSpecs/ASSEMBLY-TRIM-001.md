@@ -195,3 +195,7 @@ Total in-scope cases: 11. ✅ = 11.
 
 1. The prior implementation used a naive per-base hard cutoff (non-conforming to BWA/cutadapt). Decision: replaced with the running-sum algorithm; checklist behavioural intent ("quality trimming") is satisfied by the authoritative algorithm. No open correctness questions remain.
 2. (2026-11 review, resolved by round-1 audit A8-1) The 3-argument overload used to trim both ends with one cutoff; it is now 3'-only like cutadapt `-q C` / BWA `aln -q C`. Both ends: `cutoffFront: C, cutoffBack: C` (cutadapt `-q C,C`). New tests: `QualityTrimReads_SingleCutoff_TrimsThreePrimeEndOnly`, `QualityTrimReads_SingleCutoff_TrimsLowQualityThreePrimeTail`, `QualityTrimReads_SingleCutoffOverload_MatchesThreePrimeOnlyOracle` (fuzz), MCP `QualityTrimReads_CutadaptOptions_DelegateToCore` (default 3'-only); tests of 5'-end behaviour now pass both cutoffs explicitly.
+
+## R1-WP4 addendum (2026-11-25): BWA 35-base floor (A8-2)
+
+Opt-in `bwaMinLength` (`SequenceAssembler.BwaMinReadLength` = 35 = BWA `BWA_MIN_RDLEN`, `bwtaln.h`) on the five-argument `QualityTrimReads` and on `QualityTrimIndex`; default 0 = cutadapt. Oracle: verbatim `bwa_trim_read` (bwaseqio.c) in `wp4_oracle.py`, 1500 random reads x 7 seeds identical. Tests: `QualityTrimReads_BwaMinLength_KeepsAtLeast35Bases`, `QualityTrimReads_BwaMinLength_ReadOfAtMost35BasesIsLeftWhole`, `QualityTrimReads_BwaMinLength_MatchesBwaTrimReadOracle` (4 rows), `QualityTrimIndex_BwaMinLength_FloorsTheThreePrimeScanAndRejectsNegative`, MCP `QualityTrimReads_BwaMinLength_KeepsAtLeast35Bases`.

@@ -1,6 +1,6 @@
 # quality_trim_reads
 
-Trim low-quality read ends with the BWA/cutadapt running-sum algorithm (cutadapt quality_trim_index), with optional separate 5'/3' cutoffs and Phred+33/Phred+64 decoding, dropping reads shorter than minLength after trimming.
+Trim low-quality read ends with the BWA/cutadapt running-sum algorithm (cutadapt quality_trim_index), with optional separate 5'/3' cutoffs and Phred+33/Phred+64 decoding, dropping reads shorter than minLength after trimming. `bwaMinLength = 35` adds BWA's `BWA_MIN_RDLEN` floor (`bwa_trim_read` never examines the first 35 bases, so a read keeps at least min(35, length) bases at its 3' end).
 
 ## Overview
 
@@ -30,6 +30,7 @@ Trim low-quality read ends with the BWA/cutadapt running-sum algorithm (cutadapt
 | `cutoffFront` | integer | No | Optional 5' cutoff (cutadapt `-q 5',3'`); default 0 = 5' end untrimmed (< 1 leaves the 5' end untrimmed). Set `cutoffFront: minQuality` for `-q C,C`. |
 | `cutoffBack` | integer | No | Optional 3' cutoff overriding minQuality for the 3' end (< 1 leaves the 3' end untrimmed). Default = `minQuality`; with `cutoffFront` omitted this is cutadapt `-q 0,C` = single `-q C` / BWA `aln -q C` (3' only). |
 | `phredOffset` | integer | No | ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+) or 64 (Illumina 1.3-1.7), as cutadapt `--quality-base`. (default: 33) |
+| `bwaMinLength` | integer | No | BWA `BWA_MIN_RDLEN` floor of the 3' scan: 0 = none (cutadapt, default), 35 = BWA `bwa_trim_read` (never trims below min(35, length) bases). (default: 0) |
 
 ## Output Schema
 

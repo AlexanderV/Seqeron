@@ -46,4 +46,18 @@ public class FindGapsTests
         var result = ChromosomeTools.FindGaps(new List<NamedSequence> { new("s", "AAANNNNNGGG") }, 10);
         Assert.That(result.Items, Is.Empty);
     }
+
+    [Test]
+    public void FindGaps_NonAcgtAsGap_DefaultTrueFollowsQuastCorrectSeq()
+    {
+        // A3-2: IUPAC codes (and every other non-ACGT symbol) are N for QUAST; false keeps only N/n.
+        var seqs = new List<NamedSequence> { new("s", "ACRYNNKMN") };
+        var byDefault = ChromosomeTools.FindGaps(seqs);
+        var nOnly = ChromosomeTools.FindGaps(seqs, nonAcgtAsGap: false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(byDefault.Items.Select(g => (g.Start, g.End, g.Length)), Is.EqualTo(new[] { (2, 8, 7) }));
+            Assert.That(nOnly.Items.Select(g => (g.Start, g.End, g.Length)), Is.EqualTo(new[] { (4, 5, 2), (8, 8, 1) }));
+        });
+    }
 }

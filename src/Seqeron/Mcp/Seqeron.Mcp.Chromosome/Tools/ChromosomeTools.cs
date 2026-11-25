@@ -251,14 +251,15 @@ public class ChromosomeTools
     #region GenomeAssemblyAnalyzer tools
 
     [McpServerTool(Name = "assembly_statistics", Title = "Assembly — Statistics (N50, L50, GC, gaps)", ReadOnly = true)]
-    [Description("Compute comprehensive assembly statistics: total length, N50/L50/N90/L90 (QUAST N50.py), largest/smallest, mean and sample median length, GC fraction = (G+C)/(A+C+G+T) with N/IUPAC codes excluded (QUAST GC_content), and gap (N-run) metrics.")]
+    [Description("Compute comprehensive assembly statistics: total length, N50/L50/N90/L90 (QUAST N50.py), largest/smallest, mean and sample median length, GC fraction = (G+C)/(A+C+G+T) with N/IUPAC codes excluded (QUAST GC_content), and gap (N-run) metrics. nonAcgtAsGap (default true, QUAST correct_seq): every symbol other than A/C/G/T (IUPAC codes, U, ...) is an N, i.e. a gap symbol; false = only N/n is a gap.")]
     public static SourceGa.AssemblyStatistics AssemblyStatistics(
-        [Description("Assembled sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences)
+        [Description("Assembled sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
+        [Description("QUAST correct_seq: treat every non-ACGT symbol as N (gap). Default true; false = only N/n.")] bool nonAcgtAsGap = true)
     {
         if (sequences is null)
             throw new ArgumentException("Sequences cannot be null", nameof(sequences));
 
-        return SourceGa.CalculateStatistics(sequences.Select(s => (s.Id, s.Sequence)));
+        return SourceGa.CalculateStatistics(sequences.Select(s => (s.Id, s.Sequence)), nonAcgtAsGap);
     }
 
     [McpServerTool(Name = "nx_statistics", Title = "Assembly — Nx/Lx (single threshold)", ReadOnly = true)]
@@ -291,28 +292,32 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "au_n", Title = "Assembly — auN (area under Nx curve)", ReadOnly = true)]
-    [Description("Compute auN (area under Nx curve) — a length-weighted contiguity metric robust to outliers.")]
+    [Description("Compute auN (area under Nx curve) — a length-weighted contiguity metric robust to outliers: Σ L² / Σ L. With genomeSize it is auNG (Li 2020; QUAST au_metric with reference_length): Σ L² / genomeSize.")]
     public static AuNResult AuN(
-        [Description("Sequence lengths.")] IReadOnlyList<int> lengths)
+        [Description("Sequence lengths.")] IReadOnlyList<int> lengths,
+        [Description("Optional reference / estimated genome size (> 0) for auNG; omitted = auN (divide by the assembly length).")] long? genomeSize = null)
     {
         if (lengths is null)
             throw new ArgumentException("Lengths cannot be null", nameof(lengths));
+        if (genomeSize is <= 0)
+            throw new ArgumentException("Genome size must be positive", nameof(genomeSize));
 
-        return new(SourceGa.CalculateAuN(lengths));
+        return new(genomeSize is { } g ? SourceGa.CalculateAuN(lengths, g) : SourceGa.CalculateAuN(lengths));
     }
 
     [McpServerTool(Name = "find_gaps", Title = "Assembly — Find gaps (N runs)", ReadOnly = true)]
-    [Description("Find gaps (maximal N/n runs) in assembled sequences; returns 0-based start, inclusive end, length and a length class (Short <10, Medium <100, Long <1000, else Scaffold; not an AGP gap type). Default minGapLength 1 reports every N-run; 10 is the NCBI assembly-gap convention.")]
+    [Description("Find gaps (maximal N/n runs) in assembled sequences; returns 0-based start, inclusive end, length and a length class (Short <10, Medium <100, Long <1000, else Scaffold; not an AGP gap type). Default minGapLength 1 reports every gap run; 10 is the NCBI assembly-gap convention. nonAcgtAsGap (default true, QUAST correct_seq / seqtk gap): IUPAC codes and every other non-ACGT symbol are gap symbols like N; false = only N/n.")]
     public static GapsResult FindGaps(
         [Description("Assembled sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
-        [Description("Minimum gap length (default 1).")] int minGapLength = 1)
+        [Description("Minimum gap length (default 1).")] int minGapLength = 1,
+        [Description("QUAST correct_seq: treat every non-ACGT symbol as N (gap). Default true; false = only N/n.")] bool nonAcgtAsGap = true)
     {
         if (sequences is null)
             throw new ArgumentException("Sequences cannot be null", nameof(sequences));
         if (minGapLength <= 0)
             throw new ArgumentException("Minimum gap length must be positive", nameof(minGapLength));
 
-        return new(SourceGa.FindGaps(sequences.Select(s => (s.Id, s.Sequence)), minGapLength).ToList());
+        return new(SourceGa.FindGaps(sequences.Select(s => (s.Id, s.Sequence)), minGapLength, nonAcgtAsGap).ToList());
     }
 
     [McpServerTool(Name = "gap_distribution", Title = "Assembly — Gap distribution", ReadOnly = true)]
@@ -328,17 +333,18 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "analyze_scaffolds", Title = "Assembly — Scaffold structure", ReadOnly = true)]
-    [Description("Decompose scaffolds into contigs and gaps (QUAST split_by_ns): the scaffold is cut at N-runs of length >= minGapLength (default 10, NCBI/QUAST); shorter N-runs stay inside contigs, so contigLength + gapLength = totalLength. Returns per-scaffold contig list, gap list, and length totals.")]
+    [Description("Decompose scaffolds into contigs and gaps (QUAST split_by_ns): the scaffold is cut at N-runs of length >= minGapLength (default 10, NCBI/QUAST); shorter N-runs stay inside contigs, so contigLength + gapLength = totalLength. nonAcgtAsGap (default true, QUAST correct_seq): every non-ACGT symbol counts as N; false = N/n only. Returns per-scaffold contig list, gap list, and length totals.")]
     public static ScaffoldStructuresResult AnalyzeScaffolds(
         [Description("Scaffolds (id, sequence).")] IReadOnlyList<NamedSequence> scaffolds,
-        [Description("Minimum N-run length that splits contigs (default 10).")] int minGapLength = SourceGa.DefaultScaffoldGapMinLength)
+        [Description("Minimum N-run length that splits contigs (default 10).")] int minGapLength = SourceGa.DefaultScaffoldGapMinLength,
+        [Description("QUAST correct_seq: treat every non-ACGT symbol as N (gap). Default true; false = only N/n.")] bool nonAcgtAsGap = true)
     {
         if (scaffolds is null)
             throw new ArgumentException("Scaffolds cannot be null", nameof(scaffolds));
         if (minGapLength <= 0)
             throw new ArgumentException("Minimum gap length must be positive", nameof(minGapLength));
 
-        return new(SourceGa.AnalyzeScaffolds(scaffolds.Select(s => (s.Id, s.Sequence)), minGapLength)
+        return new(SourceGa.AnalyzeScaffolds(scaffolds.Select(s => (s.Id, s.Sequence)), minGapLength, nonAcgtAsGap)
             .Select(ss => new ScaffoldStructureItem(
                 ss.ScaffoldId,
                 ss.Contigs.Select(c => new ScaffoldContig(c.ContigId, c.Start, c.End)).ToList(),
@@ -350,11 +356,12 @@ public class ChromosomeTools
     }
 
     [McpServerTool(Name = "extract_contigs", Title = "Assembly — Extract contigs", ReadOnly = true)]
-    [Description("Extract contigs from scaffolds (QUAST broken scaffolds: split_by_ns + --min-contig): cut at N-runs of length >= minGapLength (default 10; 1 cuts at every N), shorter N-runs stay inside contigs; keep contigs of length >= minContigLength.")]
+    [Description("Extract contigs from scaffolds (QUAST broken scaffolds: split_by_ns + --min-contig): cut at N-runs of length >= minGapLength (default 10; 1 cuts at every N), shorter N-runs stay inside contigs; keep contigs of length >= minContigLength. nonAcgtAsGap (default true, QUAST correct_seq): every non-ACGT symbol counts as N; false = N/n only.")]
     public static NamedSequencesResult ExtractContigs(
         [Description("Scaffolds (id, sequence).")] IReadOnlyList<NamedSequence> scaffolds,
         [Description("Minimum contig length (default 200).")] int minContigLength = 200,
-        [Description("Minimum N-run length that splits contigs (default 10).")] int minGapLength = SourceGa.DefaultScaffoldGapMinLength)
+        [Description("Minimum N-run length that splits contigs (default 10).")] int minGapLength = SourceGa.DefaultScaffoldGapMinLength,
+        [Description("QUAST correct_seq: treat every non-ACGT symbol as N (gap). Default true; false = only N/n.")] bool nonAcgtAsGap = true)
     {
         if (scaffolds is null)
             throw new ArgumentException("Scaffolds cannot be null", nameof(scaffolds));
@@ -363,7 +370,7 @@ public class ChromosomeTools
         if (minGapLength <= 0)
             throw new ArgumentException("Minimum gap length must be positive", nameof(minGapLength));
 
-        return new(SourceGa.ExtractContigs(scaffolds.Select(s => (s.Id, s.Sequence)), minContigLength, minGapLength)
+        return new(SourceGa.ExtractContigs(scaffolds.Select(s => (s.Id, s.Sequence)), minContigLength, minGapLength, nonAcgtAsGap)
             .Select(c => new NamedSequence(c.Id, c.Sequence))
             .ToList());
     }

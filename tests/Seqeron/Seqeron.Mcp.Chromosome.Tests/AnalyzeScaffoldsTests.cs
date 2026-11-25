@@ -83,4 +83,18 @@ public class AnalyzeScaffoldsTests
             Assert.That(s.ContigLength, Is.EqualTo(15));
         });
     }
+
+    [Test]
+    public void AnalyzeScaffolds_NonAcgtAsGap_SplitsAtIupacRuns()
+    {
+        var scaffold = new List<NamedSequence> { new("sc", "ACGTAC" + "RYKMSWBDHV" + "GTACGT") };
+        var byDefault = ChromosomeTools.AnalyzeScaffolds(scaffold).Items.Single();
+        var nOnly = ChromosomeTools.AnalyzeScaffolds(scaffold, nonAcgtAsGap: false).Items.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(byDefault.Contigs, Has.Count.EqualTo(2));
+            Assert.That(byDefault.GapLength, Is.EqualTo(10));
+            Assert.That(nOnly.Contigs, Has.Count.EqualTo(1));
+        });
+    }
 }

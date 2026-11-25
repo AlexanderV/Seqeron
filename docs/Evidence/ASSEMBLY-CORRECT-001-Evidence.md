@@ -182,3 +182,13 @@ Hand cases (oracle and C#):
 
 - **2026-06-13**: Initial documentation.
 - **2026-11-25**: B10 review — Musket 1.1 source read in full; implementation replaced by a port of `ParaCorrect` (two-sided stage = leftmost/rightmost probe, one correction per iteration; opt-in canonical counting, aggressive and voting stages); transcription oracle 3000/3000.
+
+## R1-WP4 addendum (2026-11-25): non-ACGT rule (A2-5)
+
+Source re-opened (musket-1.1.tar.gz already in the scratchpad): `kmer.cpp` `Kmer::encode[128]` — entries for 'A'/'a' = 0, 'C'/'c' = 1, 'G'/'g' = 2, 'T'/'t' = 3, every other ASCII code = `NBASE` = 0 (A); `kseq.cpp` upper-cases the read (`toupper`). Musket therefore sees every non-ACGT symbol as A in counting and in every k-mer lookup (`selectAllMutations` enumerates the other three bases cyclically from the original code, here A), while the read string itself is only rewritten at corrected positions.
+
+Implemented: `FoldToAcgt` (shared with `AssembleDeBruijn`, Velvet read rule) before spectrum construction and correction; a base no stage assigns keeps its upper-cased input symbol (an assigned base keeps the assigned value even if it equals A — tracked per position as Musket writes the position). Previous behaviour (deviation (c) of the 2026-11 note) kept non-ACGT symbols as their own spelling and offered A as a candidate; that is replaced.
+
+Reference numbers: genome `ACGTTGCAAGCTTGACCGTAGGATC` x 6 plus one variant read, k = 7, cut-off 3, Musket options: `...GCNAGC...` (N at idx 7, genome base A) -> unchanged (N kept); N at idx 15 (genome C) -> `ACGTTGCAAGCTTGACCGTAGGATC`; `r` at idx 5 -> G, U at idx 12 -> T, lower-case prefix upper-cased, K at idx 7 (genome A) -> kept. Random differential vs the Musket stage 1-3 transcription (`musket_oracle.py`) with the A-encoding: 375 cases per seed, all identical (first run found the "assigned but equal to A" edge, now tracked per position).
+
+Harness: `tools/review/oracles/B10/wp4_oracle.py OUT.json 1500 SEED` writes cases with the expected values; a small console project (project references to Seqeron.Genomics.Alignment/Chromosome, scratch only) runs the C# side on the same JSON and `compare_wp4.py` compares. Seeds 20261125, 7, 8, 9, 10, 11, 12 (~7125 cases each: 1500 DBG, 375 CORRECT, 1500 STATS/GAPS, 1500 auN/auNG, 1500 BWA trim, 750 scaffold): all identical.

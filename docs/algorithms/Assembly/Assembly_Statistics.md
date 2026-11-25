@@ -55,7 +55,9 @@ Let the contig lengths be `L₁ ≥ L₂ ≥ … ≥ Lₙ` (sorted descending) a
 | lengths | `IEnumerable<int>` | required | Lengths in any order (sorted internally) | `CalculateNx(lengths,threshold)`, `CalculateN50`, `CalculateAuN` |
 | totalLength | `long` | required | Σ of lengths (assembly size) for Nx, or a genome size for NGx | core `CalculateNx`; ≥ 0 |
 | threshold | `int` | required | Percentage x ∈ [0,100] (50 for N50) | Nx/Lx; outside [0,100] → `ArgumentOutOfRangeException` (QUAST asserts the same) |
-| minGapLength | `int` | 1 | Minimum N-run length reported | `FindGaps` |
+| minGapLength | `int` | 1 | Minimum gap-run length reported | `FindGaps` |
+| nonAcgtAsGap | `bool` | true | QUAST `correct_seq`: every symbol outside A/C/G/T is an N (a gap symbol); false = only N/n | `CalculateStatistics`, `FindGaps`, `AnalyzeScaffolds`, `ExtractContigs` |
+| genomeSize | `long` | omitted | Reference / estimated genome size G (> 0) for auNG | `CalculateAuN(lengths, genomeSize)` |
 
 ### 3.2 Output / Return Value
 
@@ -65,12 +67,13 @@ Let the contig lengths be `L₁ ≥ L₂ ≥ … ≥ Lₙ` (sorted descending) a
 | `NxStatistics` | record struct | `Threshold, Nx, Lx, CumulativeLength` |
 | `CalculateN50` | `int` | N50 length |
 | `CalculateAuN` | `double` | auN = Σl²/Σl, accumulated exactly (128-bit Σl², 64-bit Σl; oracle QUAST `au_metric` incl. Σl² > 2^53), divided once |
+| `CalculateAuN(lengths, genomeSize)` | `double` | auNG = Σl²/G (Li 2020; QUAST `au_metric(numlist, reference_length)`), same exact arithmetic; G ≤ 0 → `ArgumentOutOfRangeException`; MCP `au_n` with `genomeSize` |
 | `CalculateNxCurve` | `IEnumerable<NxStatistics>` | Nx/Lx per threshold, ascending (default 10, 20, …, 90; duplicates kept); eager validation |
 | `GapInfo` | record struct | `SequenceId, Start, End, Length, GapType` (0-based inclusive) |
 
 ### 3.3 Preconditions and Validation
 
-Lengths/positions are 0-based; gap coordinates are inclusive `[Start, End]`. N-runs are matched case-insensitively (`N`/`n`). GC fraction = pooled (G+C)/(A+C+G+T) — QUAST `GC_content` (after `correct_seq` upper-cases and turns IUPAC codes into N); N, IUPAC codes and gap symbols are in neither count (canonical Core `CountGcAndValidNucleotides`). Empty input is handled without throwing: `CalculateStatistics` returns an all-zero record, `CalculateNx` returns `Nx=Lx=0`, `CalculateAuN` returns `0` (see §6.1). The core `CalculateNx` rejects a negative length or lengths that are not non-increasing (`ArgumentException`); `CalculateLengthDistribution` rejects bin bounds that are not strictly increasing. Null collections raise `ArgumentNullException` and null sequences / negative lengths `ArgumentException` at the call (`CalculateNxCurve` validates eagerly, it is not a lazy iterator).
+Lengths/positions are 0-based; gap coordinates are inclusive `[Start, End]`. Gap symbols are matched case-insensitively: with `nonAcgtAsGap` (default, A3-2) every symbol that is not A/C/G/T is an N, as in QUAST `qutils.correct_seq` (upper-cases, turns the IUPAC codes M K R Y W S V B H D into N, and rejects any other symbol outside A/C/G/T/N — Seqeron reads those, e.g. U, `-`, `*`, as N too, the lenient reading shared with `seqtk gap`); with `nonAcgtAsGap: false` only `N`/`n` is a gap. GC fraction = pooled (G+C)/(A+C+G+T) — QUAST `GC_content` (`len − count('N')` after `correct_seq`); gap symbols are in neither count (with `nonAcgtAsGap: false` the canonical Core `CountGcAndValidNucleotides` decides the denominator: IUPAC codes excluded, U counted). Empty input is handled without throwing: `CalculateStatistics` returns an all-zero record, `CalculateNx` returns `Nx=Lx=0`, `CalculateAuN` returns `0` (see §6.1). The core `CalculateNx` rejects a negative length or lengths that are not non-increasing (`ArgumentException`); `CalculateLengthDistribution` rejects bin bounds that are not strictly increasing. Null collections raise `ArgumentNullException` and null sequences / negative lengths `ArgumentException` at the call (`CalculateNxCurve` validates eagerly, it is not a lazy iterator).
 
 ## 4. Algorithm
 
@@ -124,15 +127,15 @@ N50/N90/L50/L90 in `CalculateStatistics` are produced by the same `CalculateNx` 
 - `MedianLength` = sample median (mean of the two central values for an even count) via `StatisticsHelper.Median` (numpy/R `median`).
 - GC% = QUAST `GC_content` [3]; gaps = maximal N runs (QUAST `qutils.split_by_ns`, threshold 1).
 
-**Not implemented:** auNG (QUAST `au_metric` with a reference length) has no dedicated entry point.
+**auNG (A3-1):** `CalculateAuN(lengths, genomeSize)` is QUAST `au_metric(numlist, reference_length)`; oracle: QUAST `N50.py` `au_metric` verbatim + exact `Fraction`, 1500 random cases x 7 seeds (G from 1 to 3·10⁹, lengths up to 2³¹) agree to 1e-9 relative with QUAST's float and exactly with the correctly rounded quotient.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Empty input returns zeros instead of `None` (QUAST) | Assumption | No valid N50 exists for an empty assembly; zeros avoid an exception | accepted | §6.1; non-correctness-affecting (ASSUMPTION 1) |
-| 2 | U counted as a valid base in GC (QUAST rejects non-ACGTN input) | Deviation | none for DNA assemblies | accepted | canonical Core GC counter |
-| 3 | IUPAC codes are bases, not gaps (QUAST turns them into N before `split_by_ns`) | Deviation | only for ambiguity codes inside N-runs | accepted | NCBI convention: gaps are runs of N |
+| 2 | U / other non-ACGTN symbols: QUAST skips the whole contig file; Seqeron reads them as N | Deviation (lenient) | none for DNA assemblies | accepted | resolved A3-2 (2026-11-25): `nonAcgtAsGap` default true, was "U counted as a valid base"; seqtk `gap` also treats them as gaps |
+| 3 | IUPAC codes are N (QUAST `correct_seq`) | Resolved (A3-2) | IUPAC codes inside N-runs now extend the gap | resolved | `nonAcgtAsGap: false` restores the NCBI/AGP reading (only N is a gap) |
 
 ## 6. Edge Cases and Limitations
 

@@ -330,3 +330,30 @@ since read redundancy is not genomic multiplicity.
 
 Sources opened: `docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md` (Biopython 1.85 `dumb_consensus`, EMBOSS `cons`/`merger`, ABySS `createConsensus` already cited), B01 F21 / B02 `Infrastructure/SequenceCase.ToUpperAscii` XML remarks (U+017F must stay invalid; EMBOSS pepstats skips it). Reference numbers: the expected values in `SequenceAssembler_AsciiFold_Tests` are hand-derived from those rules (quality 2/11 vs 3/11 for the merger case; 2/3 vs threshold 0.7 for the consensus case); the refactor itself was checked by a differential test (old vs new, 20,000 random alignments for `GenerateDumbConsensus`; bit-identical outputs).
 
+## R1-WP4 addendum (2026-11-25): double-strand default (A2-4) and non-ACGT rule (A2-5)
+
+Sources opened in this session (fetched from raw.githubusercontent.com with a neutral User-Agent):
+
+- Velvet (dzerbino/velvet, master = 1.2.10) `src/readSet.c` `velvetifySequence`: `A/a -> 'A'`, `C/c -> 'C'`, `G/g -> 'G'`, `T/t -> 'T'`, `default: str[i] = 'N'`; `reverseComplementSequence` comment: "As in velvetifySequence(), anything unusual ends up as 'A'".
+- Velvet `src/tightString.c` `writeNucleotide`: `case 'N': nucleotideNum = Adenine;` (and the `default:` branch is Adenine as well). So every non-ACGT symbol, either case, is stored as A and k-mers are taken on the stored 2-bit bases.
+- Zerbino & Birney 2008 (already cited above): "Each k-mer is recorded simultaneously to its reverse complement" — Velvet has no single-strand mode.
+
+Decisions: `AssembleDeBruijn(reads, parameters)` and the MCP `assemble_de_bruijn` default to `includeReverseComplement = true`; `false` stays reachable and is what the Rosalind BA3K/BA3M tests use. Reads are folded (upper-case, non-ACGT -> A) before k-mers are taken; `AssembledReads` is counted on the folded reads (Velvet `usedReads`, either strand when double-stranded). `BuildDeBruijnGraph` / `FindMaximalNonBranchingPaths` stay alphabet-agnostic (textbook primitives; the Langmead/Rosalind text examples are asserted through them).
+
+Reference numbers (`wp4_oracle.py`, Velvet-rule oracle = fold, distinct k-mers, closure under reverse complement, unitigs by BA3M and by Velvet's node-centric merge, pair reported once as the ordinally smaller string):
+
+| Reads | k | strand | Contigs |
+|---|---|---|---|
+| `GATTACAGGT, TAAGGACCTG` | 5 | both | `GATTACAGGTCCTTA` |
+| `ATGGCGTGCA` | 5 | both | `ATGGCGTGCACGCCAT` (palindromic TGCA joins the strand with its reverse complement; equals own revcomp) |
+| `ATGGCGT, GGCGTGCA` | 5 | both | `ATGGCGTGCACGCCAT` |
+| `ACGTACGTACGT, ACGTACGTTTTT` | 5 | both | `AAAAA, AAAACGT, ACGTACGT` |
+| `ACGTNGGTCA` | 4 | single | `ACGTAGGTCA` (N -> A) |
+| `ACGTRYGGTCAU` | 5 | single | `ACGTAAGGTCAA` |
+| `AAGCTTCCGANNGGATC` | 5 | single | `AAGCTTCCGAAAGGATC` |
+| `acgtnGGTCA, ACGTAGGTCA` | 5 | single | `ACGTAGGTCA` (2 reads assembled) |
+| `GATTACAGGTC, ATGGCGTGCAATC` | 5 | both | `ATGGCGTGCA, GACCTGTAATC, GATTGCA` (2 reads assembled) |
+
+Isolated cycles: BA3M spells a cycle from its smallest node while the reverse-complement cycle of a double-strand graph is spelled from another start, so cycles are compared as rotation classes of the word (and its reverse complement) in the harness (e.g. reads `TTCTTC`, k = 3: one cycle reported).
+
+Harness: `tools/review/oracles/B10/wp4_oracle.py OUT.json 1500 SEED` writes cases with the expected values; a small console project (project references to Seqeron.Genomics.Alignment/Chromosome, scratch only) runs the C# side on the same JSON and `compare_wp4.py` compares. Seeds 20261125, 7, 8, 9, 10, 11, 12 (~7125 cases each: 1500 DBG, 375 CORRECT, 1500 STATS/GAPS, 1500 auN/auNG, 1500 BWA trim, 750 scaffold): all identical.

@@ -353,12 +353,36 @@ public class AssemblyProperties
     // when no (k-1)-mer repeats (the graph is one simple path). Larger k makes (k-1)-mers more
     // specific, removing the repeat-induced branch nodes.
 
+    // The properties below are about the forward (single-strand textbook) graph; the default of AssembleDeBruijn
+    // is double-stranded (Velvet), so the single-strand model is selected explicitly.
     private static SequenceAssembler.AssemblyResult Dbg(string[] reads, int k) =>
         SequenceAssembler.AssembleDeBruijn(reads,
-            new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
+            new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1),
+            includeReverseComplement: false);
+
+    private static string ReverseComplementOf(string seq) =>
+        new string(seq.Reverse().Select(c => c switch { 'A' => 'T', 'C' => 'G', 'G' => 'C', 'T' => 'A', _ => c }).ToArray());
 
     private static int BranchNodeCount(string seq, int k) =>
         SequenceAssembler.BuildDeBruijnGraph(new[] { seq }, k).Values.Count(v => v.Distinct().Count() >= 2);
+
+    /// <summary>
+    /// INV-DS (M): the default, double-stranded graph (Velvet twin nodes) is strand symmetric — assembling the reverse
+    /// complements of the reads yields the same contigs (odd k: no k-mer is its own reverse complement).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dbg_DoubleStrandedDefault_IsStrandSymmetric()
+    {
+        return Prop.ForAll(DnaReadArbitrary(25), DnaReadArbitrary(25), (a, b) =>
+        {
+            var prm = new SequenceAssembler.AssemblyParameters(KmerSize: 7, MinContigLength: 1);
+            var forward = SequenceAssembler.AssembleDeBruijn(new[] { a, b }, prm).Contigs;
+            var reverse = SequenceAssembler.AssembleDeBruijn(new[] { ReverseComplementOf(a), ReverseComplementOf(b) }, prm).Contigs;
+
+            return forward.OrderBy(c => c, StringComparer.Ordinal).SequenceEqual(reverse.OrderBy(c => c, StringComparer.Ordinal))
+                .Label($"strand asymmetry: [{string.Join(",", forward)}] vs [{string.Join(",", reverse)}]");
+        });
+    }
 
     /// <summary>
     /// INV-1 (P): When a sequence has no repeated (k-1)-mer its de Bruijn graph is a simple path, so

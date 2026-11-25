@@ -50,4 +50,18 @@ public class ScaffoldContigsTests
                 new[] { "AA", "CC" }, new[] { new ContigLinkInput(0, 1, 1, Weight: 0) }));
         });
     }
+
+    [Test]
+    public void ScaffoldContigs_UnknownGapLength_SetsUnknownGapSize()
+    {
+        // A5-4a: zero estimate = gap of unknown size: default 100 N (AGP v2.1), 1 N for ABySS/SSPACE.
+        var contigs = new[] { "ACGTAC", "TTCGGA" };
+        var links = new[] { new ContigLinkInput(0, 1, 0) };
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlignmentTools.ScaffoldContigs(contigs, links, "N").Scaffolds[0], Is.EqualTo("ACGTAC" + new string('N', 100) + "TTCGGA"));
+            Assert.That(AlignmentTools.ScaffoldContigs(contigs, links, "N", 1).Scaffolds[0], Is.EqualTo("ACGTACNTTCGGA"));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.ScaffoldContigs(contigs, links, "N", 0));
+        });
+    }
 }

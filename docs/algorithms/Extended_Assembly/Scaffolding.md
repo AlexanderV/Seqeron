@@ -66,7 +66,7 @@ first" [4]. A selected path is a scaffold: an ordering *and orientation* of its 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | A `gapSize > 0` link emits a contiguous run of exactly `gapSize` gap characters between the two contigs | Run length = distance estimate [1] |
-| INV-02 | `gapSize = 0`, or `gapSize < 0` whose −gapSize overlap does not agree (or exceeds a contig / the bases since the last gap), emits exactly 100 gap characters; an agreeing overlap is collapsed | [2]; [1][6] |
+| INV-02 | `gapSize = 0`, or `gapSize < 0` whose −gapSize overlap does not agree (or exceeds a contig / the bases since the last gap), emits exactly `unknownGapLength` (default 100) gap characters; an agreeing overlap is collapsed | [2]; [1][6] |
 | INV-03 | Scaffold length over a path = Σ(contig lengths) + Σ(emitted gap lengths) − Σ(collapsed overlaps) | Concatenation + gap runs [1], overlap merge [6] |
 | INV-04 | Each contig appears in exactly one scaffold, in one orientation | Selected paths cover the nodes disjointly [5] |
 | INV-05 | Each contig (or its reverse complement, for `-`) is preserved verbatim, in path order | "sequences … are concatenated" [1] |
@@ -83,6 +83,7 @@ first" [4]. A selected path is a scaffold: an ordering *and orientation* of its 
 | `links` | `IReadOnlyList<(int contig1, int contig2, int gapSize)>` | required | Forward links (both `+`, weight 1) | non-null; each index in `[0, contigs.Count)` and `contig1 ≠ contig2` (else `ArgumentOutOfRangeException` / `ArgumentException`) |
 | `links` (overload) | `IReadOnlyList<ScaffoldLink>` | required | `ScaffoldLink(Contig1, Contig2, GapSize, Contig1Reversed=false, Contig2Reversed=false, Weight=1)` | non-null; `Weight ≥ 1` else `ArgumentOutOfRangeException` |
 | `gapCharacter` | `char` | `'N'` | Character used to fill gaps | any char |
+| `unknownGapLength` | `int` | 100 (`SequenceAssembler.DefaultUnknownGapLength`) | Gap characters emitted for a gap of unknown size (zero estimate, unresolved negative estimate); AGP v2.1 uses 100, ABySS/SSPACE a single `n` (= 1) | ≥ 1 else `ArgumentOutOfRangeException` (A5-4a) |
 
 ### 3.2 Output / Return Value
 
@@ -171,7 +172,7 @@ overlap collapse when the −d bases agree [1][6]; 100-character unknown gap oth
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Unresolved negative / zero estimate → 100 N | Spec choice | AGP v2.1 mandates 100 for negative/unknown gaps [2]; ABySS and SSPACE emit a single `n` | accepted | AGP is the submission format |
+| 1 | Unresolved negative / zero estimate → 100 N by default | Spec choice, now a parameter | AGP v2.1 mandates 100 for negative/unknown gaps [2]; ABySS and SSPACE emit a single `n` | resolved (A5-4a) | `unknownGapLength` (default 100; 1 = ABySS/SSPACE); oracle: scaffold_oracle.py with UNKNOWN = 1/7/100 (750 random cases x 7 seeds identical) |
 | 2 | Orientation of the reported strand (majority forward, tie lowest-index forward) | Convention | Either strand is the same scaffold | accepted | SSPACE reverses wholly-reversed scaffolds [7] |
 
 ## 6. Edge Cases and Limitations

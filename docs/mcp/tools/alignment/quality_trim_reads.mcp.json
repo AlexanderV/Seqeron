@@ -36,6 +36,12 @@
         "type": "integer",
         "description": "ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+) or 64 (Illumina 1.3-1.7), as cutadapt --quality-base.",
         "default": 33
+      },
+      "bwaMinLength": {
+        "type": "integer",
+        "description": "BWA BWA_MIN_RDLEN floor of the 3' scan: 0 (default) = none (cutadapt), 35 = BWA bwa_trim_read (never trims below min(35, length) bases).",
+        "default": 0,
+        "minimum": 0
       }
     },
     "required": [

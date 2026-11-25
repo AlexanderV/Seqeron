@@ -24,6 +24,12 @@
         "default": "N",
         "minLength": 1,
         "maxLength": 1
+      },
+      "unknownGapLength": {
+        "type": "integer",
+        "description": "Number of gap characters for a gap of unknown size (zero estimate, or a negative estimate whose overlap is not found); >= 1, default 100 (NCBI AGP v2.1); 1 = the single n of ABySS/SSPACE.",
+        "default": 100,
+        "minimum": 1
       }
     },
     "required": [

@@ -205,6 +205,43 @@ public class GenomeAssemblyAnalyzer_AssemblyStatistics_Tests
             "auN of Assembly A = (80^2+70^2+50^2+40^2+30^2+20^2)/290 = 16700/290 (Li 2020).");
     }
 
+    // A3-1 — auNG (Li 2020; QUAST au_metric(numlist, reference_length)): Σ l² / G with the genome size G instead of
+    // Σ l. Oracle: tools/review/oracles/B10/wp4_oracle.py (QUAST au_metric verbatim + exact Fraction), 7 seeds x 1500
+    // random cases (genome sizes 1 .. 3e9, lengths to 2^31) agree within 1e-9 relative with QUAST's float value
+    // and exactly with the correctly rounded quotient.
+    [TestCase(new[] { 100, 80, 60, 40, 20 }, 1000L, 22.0)]                       // 22000 / 1000
+    [TestCase(new[] { 80, 70, 50, 40, 30, 20 }, 300L, 55.666666666666664)]       // 16700 / 300 (Assembly A, G > assembly)
+    [TestCase(new[] { 5 }, 100L, 0.25)]
+    [TestCase(new[] { 2000000000, 1999999999, 1500000001, 3, 1 }, 3000000000L, 3416666666.3333335)]
+    [TestCase(new[] { 2000000000, 1999999999, 1500000001, 3, 1 }, 100L, 1.0249999999e+17)]     // Σl² > 2^63, exact
+    [TestCase(new[] { 94906267, 94906267, 1 }, 200000000L, 90071995.15875289)]
+    public void CalculateAuNG_GenomeSize_EqualsSumOfSquaresOverGenomeSize(int[] lengths, long genomeSize, double expected)
+    {
+        Assert.That(GenomeAssemblyAnalyzer.CalculateAuN(lengths, genomeSize), Is.EqualTo(expected).Within(1).Ulps);
+    }
+
+    // A3-1 — with G = Σ l the auNG is the auN (QUAST: the denominator is the assembly length when no reference is given).
+    [Test]
+    public void CalculateAuNG_GenomeSizeEqualToAssemblyLength_IsAuN()
+    {
+        var lengths = new[] { 100, 80, 60, 40, 20 };
+
+        Assert.That(GenomeAssemblyAnalyzer.CalculateAuN(lengths, 300), Is.EqualTo(GenomeAssemblyAnalyzer.CalculateAuN(lengths)));
+    }
+
+    [Test]
+    public void CalculateAuNG_EmptyLengths_ReturnsZero_AndInvalidInputsThrow()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(GenomeAssemblyAnalyzer.CalculateAuN(new List<int>(), 1000), Is.EqualTo(0.0));
+            Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateAuN(null!, 1000));
+            Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateAuN(new[] { 3, -1 }, 1000));
+            Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateAuN(new[] { 3 }, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateAuN(new[] { 3 }, -5));
+        });
+    }
+
     // C3 — Empty input returns 0 (documented edge).
     [Test]
     public void CalculateAuN_EmptyInput_ReturnsZero()
@@ -479,6 +516,33 @@ public class GenomeAssemblyAnalyzer_AssemblyStatistics_Tests
 
         Assert.That(stats.GcContent, Is.EqualTo(expected).Within(1e-12),
             "GC fraction = (G+C)/(A+C+G+T), IUPAC codes and N excluded (QUAST GC_content).");
+    }
+
+    // A3-2 — QUAST correct_seq reads every non-ACGT symbol as N: IUPAC codes (and, leniently, U, '-', ...) are gap
+    // symbols, not bases, in the gap fields and in the GC denominator (len - count('N')). nonAcgtAsGap = false keeps
+    // the previous reading (only N/n is a gap; U/IUPAC are bases of the length, outside the A/C/G/T denominator).
+    // Oracle (wp4_oracle.stats_expected, QUAST correct_seq + split_by_ns + GC_content formula):
+    // "ACGU" -> GC 2/3, gaps 1 of length 1; "ACRYGT" -> gaps 1 of length 2, total without gaps 4.
+    [Test]
+    public void CalculateStatistics_NonAcgtAsGap_FollowsQuastCorrectSeq()
+    {
+        var u = GenomeAssemblyAnalyzer.CalculateStatistics(new[] { ("a", "ACGU") });
+        var uBase = GenomeAssemblyAnalyzer.CalculateStatistics(new[] { ("a", "ACGU") }, nonAcgtAsGap: false);
+        var iupac = GenomeAssemblyAnalyzer.CalculateStatistics(new[] { ("a", "ACRYGT") });
+        var iupacBase = GenomeAssemblyAnalyzer.CalculateStatistics(new[] { ("a", "ACRYGT") }, nonAcgtAsGap: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(u.GcContent, Is.EqualTo(2.0 / 3.0).Within(1e-12), "U is an N in QUAST: 2 GC of 3 ACGT");
+            Assert.That((u.TotalGaps, u.TotalGapLength), Is.EqualTo((1, 1L)));
+            Assert.That(uBase.GcContent, Is.EqualTo(0.5).Within(1e-12), "previous reading: U counted as a valid base");
+            Assert.That(uBase.TotalGaps, Is.EqualTo(0));
+            Assert.That((iupac.TotalGaps, iupac.TotalGapLength, iupac.TotalLengthNoGaps), Is.EqualTo((1, 2L, 4L)));
+            Assert.That(iupac.GapPercentage, Is.EqualTo(100.0 * 2 / 6).Within(1e-12));
+            Assert.That((iupacBase.TotalGaps, iupacBase.TotalGapLength), Is.EqualTo((0, 0L)));
+            Assert.That(iupac.GcContent, Is.EqualTo(0.5).Within(1e-12), "(G + C) / (A + C + G + T) = 2 / 4 in both readings");
+            Assert.That(iupacBase.GcContent, Is.EqualTo(0.5).Within(1e-12));
+        });
     }
 
     // M20 — Median contig length is the sample median: {4,3,2,1} -> 2.5 (numpy/R median), odd {5,3,1} -> 3.

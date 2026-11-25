@@ -202,3 +202,7 @@
 
 1. Quake/Musket additionally trim or discard reads that cannot be corrected (Musket `-maxtrim`, default off) and Quake uses quality-weighted (q-mer) counting; not implemented (counts and lengths preserved). Recorded in algorithm doc §5.3.
 2. (2026-11-25, resolved by round-1 audit A9-1) The three-argument overload counts canonical k-mers as Musket; the forward-strand spectrum is the explicit opt-out `ErrorCorrectionOptions.TwoSidedForwardStrand` (test M9 shows its miscorrection). Test additions: `ErrorCorrectReads_MatchesMusketTranscriptionOracle` rows `Default` (canonical) and `Forward`; MCP `ErrorCorrectReads_MusketOptions_DelegateToCore` (default = canonical, `countReverseComplement: false` = forward-only).
+
+## R1-WP4 addendum (2026-11-25): non-ACGT rule (A2-5)
+
+Musket 2-bit encoding (`kmer.cpp` `Kmer::encode`): non-ACGT symbols are A in the spectrum and in every k-mer lookup; a base no correction assigns keeps its upper-cased input symbol. Oracle: `wp4_oracle.musket_fold_correct` (Musket stage 1-3 transcription + encoding) equals the C# output on 375 random cases x 7 seeds (N/IUPAC/U/lower case, k 5-9, cut-off 2-3, Musket options). Tests: `ErrorCorrectReads_NAtABaseThatIsA_IsSeenAsA_AndKeepsItsSymbol`, `ErrorCorrectReads_NAtABaseThatIsNotA_IsCorrectedToTheTrustedBase`, `ErrorCorrectReads_IupacCodeUracilAndLowerCase_AreFoldedUpperCasedAndCorrected`.

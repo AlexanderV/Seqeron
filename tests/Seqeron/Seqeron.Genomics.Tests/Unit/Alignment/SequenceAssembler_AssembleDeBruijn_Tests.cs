@@ -158,6 +158,27 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     private static SequenceAssembler.AssemblyParameters K(int k, int minContigLength = 1) =>
         new(KmerSize: k, MinContigLength: minContigLength);
 
+    // The oracle values of the BA3K/BA3M tests below are for the single-strand textbook graph; AssembleDeBruijn is
+    // double-stranded by default (Velvet, A2-4), so they select includeReverseComplement: false explicitly. The
+    // double-stranded default has its own region (Double-stranded default, Velvet read rule).
+    private static SequenceAssembler.AssemblyResult SingleStrand(
+        IReadOnlyList<string> reads, SequenceAssembler.AssemblyParameters parameters) =>
+        SequenceAssembler.AssembleDeBruijn(reads, parameters, includeReverseComplement: false);
+
+    // Contigs of an arbitrary-alphabet text (Langmead / Rosalind letters are not DNA, and AssembleDeBruijn reads every
+    // non-ACGT symbol as A, as Velvet does): the BA3K/BA3M construction over the distinct upper-cased k-mers.
+    private static List<string> TextUnitigs(string text, int k) => TextUnitigs(new[] { text }, k);
+
+    private static List<string> TextUnitigs(IEnumerable<string> texts, int k)
+    {
+        var kmers = texts.Select(t => t.ToUpperInvariant())
+            .SelectMany(upper => Enumerable.Range(0, upper.Length - k + 1).Select(i => upper.Substring(i, k)))
+            .Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var graph = SequenceAssembler.BuildDeBruijnGraph(kmers, k);
+        return SequenceAssembler.FindMaximalNonBranchingPaths(graph).Select(Spell)
+            .OrderBy(c => c, StringComparer.Ordinal).ToList();
+    }
+
     private static string Spell(IReadOnlyList<string> path) =>
         path[0] + string.Concat(path.Skip(1).Select(n => n[^1]));
 
@@ -166,10 +187,16 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_Aaabbba_EmitsMaximalNonBranchingPaths()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "AAABBBA" }, K(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(TextUnitigs("AAABBBA", 3), Is.EqualTo(new[] { "AAA", "AABB", "BBA", "BBB" }),
+                "Contigs are the spelled maximal non-branching paths of the textbook text graph (BA3K/BA3M).");
 
-        Assert.That(result.Contigs, Is.EqualTo(new[] { "AAA", "AABB", "BBA", "BBB" }),
-            "Contigs are the spelled maximal non-branching paths, starting nodes in ordinal order (BA3K/BA3M).");
+            // The same topology in DNA (B -> C): the assembler itself, single strand.
+            var result = SingleStrand(new[] { "AAACCCA" }, K(3));
+            Assert.That(result.Contigs, Is.EqualTo(new[] { "AAA", "AACC", "CCA", "CCC" }),
+                "Contigs are the spelled maximal non-branching paths, starting nodes in ordinal order (BA3K/BA3M).");
+        });
     }
 
     // M5 — a_long_long_long_time, k=5: the repeated 4-mer nodes "_lon"/"ong_" branch, so the
@@ -177,9 +204,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_ALongRepeat_SplitsAtRepeatBranches()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "a_long_long_long_time" }, K(5));
-
-        Assert.That(result.Contigs.OrderBy(c => c, StringComparer.Ordinal),
+        Assert.That(TextUnitigs("a_long_long_long_time", 5),
             Is.EqualTo(new[] { "A_LON", "ONG_LON", "ONG_TIME", "_LONG_" }),
             "A repeat longer than k-2 creates branch nodes; contigs stop there (BA3K: contigs must be present in any assembly).");
     }
@@ -188,9 +213,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_ToEveryK4_SplitsAtTurnRepeat()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { ToEvery }, K(4));
-
-        Assert.That(result.Contigs.OrderBy(c => c, StringComparer.Ordinal),
+        Assert.That(TextUnitigs(ToEvery, 4),
             Is.EqualTo(new[] { "N_TH", "N_TU", "TO_EVERY_TH", "_THERE_IS_A_SEASON", "_THING_TU", "_TURN_T" }));
     }
 
@@ -198,7 +221,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_DnaUniqueWalk_ReconstructsInput()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ATGGCGTGCA" }, K(4));
+        var result = SingleStrand(new[] { "ATGGCGTGCA" }, K(4));
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "ATGGCGTGCA" }));
     }
@@ -210,7 +233,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_OverlappingReads_AssembleIntoGenome()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ATGGCGT", "GGCGTGCA" }, K(4));
+        var result = SingleStrand(new[] { "ATGGCGT", "GGCGTGCA" }, K(4));
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "ATGGCGTGCA" }));
     }
@@ -220,7 +243,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_DuplicateReads_DoNotDoubleTheGenome()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ACGT", "ACGT" }, K(3));
+        var result = SingleStrand(new[] { "ACGT", "ACGT" }, K(3));
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "ACGT" }));
     }
@@ -230,9 +253,12 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_SharedKmersAcrossReads_CountedOnce()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "AAABBB", "AABBBC" }, K(3));
-
-        Assert.That(result.Contigs, Is.EqualTo(new[] { "AAA", "AABB", "BBB", "BBC" }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(TextUnitigs(new[] { "AAABBB", "AABBBC" }, 3), Is.EqualTo(new[] { "AAA", "AABB", "BBB", "BBC" }));
+            var result = SingleStrand(new[] { "AAACCC", "AACCCG" }, K(3));
+            Assert.That(result.Contigs, Is.EqualTo(new[] { "AAA", "AACC", "CCC", "CCG" }));
+        });
     }
 
     // Isolated cycle — every node is 1-in-1-out; BA3M emits the cycle (from its ordinally
@@ -240,7 +266,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_IsolatedCycle_IsEmitted()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTTACG" }, K(4));
+        var result = SingleStrand(new[] { "ACGTTACG" }, K(4));
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "ACGTTACG" }),
             "BA3M: 'MaximalNonBranchingPaths finds all isolated cycles in the graph'.");
@@ -251,7 +277,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_LoopThroughBranchNode_EmittedAsPath()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTACGTACGT", "ACGTACGTTTTT" }, K(5));
+        var result = SingleStrand(new[] { "ACGTACGTACGT", "ACGTACGTTTTT" }, K(5));
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "ACGTACGT", "ACGTTTT", "TTTTT" }));
     }
@@ -266,7 +292,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
         var input = Enumerable.Range(0, upper.Length - k + 1).Select(i => upper.Substring(i, k))
             .Distinct().OrderBy(s => s, StringComparer.Ordinal).ToList();
 
-        var contigs = SequenceAssembler.AssembleDeBruijn(new[] { ToEvery }, K(k)).Contigs;
+        var contigs = TextUnitigs(ToEvery, k);
         var emitted = contigs.SelectMany(c => Enumerable.Range(0, c.Length - k + 1).Select(i => c.Substring(i, k)))
             .OrderBy(s => s, StringComparer.Ordinal).ToList();
 
@@ -278,7 +304,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_MixedCaseReads_JoinCaseInsensitively()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "atggcGT", "GGCGTGCA" }, K(4));
+        var result = SingleStrand(new[] { "atggcGT", "GGCGTGCA" }, K(4));
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "ATGGCGTGCA" }));
     }
@@ -287,7 +313,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_ReadShorterThanK_IsSkipped()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "AC", "ATGGCGTGCA" }, K(4));
+        var result = SingleStrand(new[] { "AC", "ATGGCGTGCA" }, K(4));
 
         Assert.Multiple(() =>
         {
@@ -305,13 +331,15 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     {
         var reads = new[] { "GATTACAGGT", "TAAGGACCTG" };
 
-        var forward = SequenceAssembler.AssembleDeBruijn(reads, K(5));
+        var forward = SingleStrand(reads, K(5));
         var both = SequenceAssembler.AssembleDeBruijn(reads, K(5), includeReverseComplement: true);
+        var byDefault = SequenceAssembler.AssembleDeBruijn(reads, K(5));
 
         Assert.Multiple(() =>
         {
             Assert.That(forward.Contigs, Is.EqualTo(new[] { "GATTACAGGT", "TAAGGACCTG" }));
             Assert.That(both.Contigs, Is.EqualTo(new[] { "GATTACAGGTCCTTA" }));
+            Assert.That(byDefault.Contigs, Is.EqualTo(both.Contigs), "double-stranded is the default (Velvet)");
         });
     }
 
@@ -337,7 +365,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
         const int k = 4;
         var kmers = Enumerable.Range(0, genome.Length - k + 1).Select(i => genome.Substring(i, k)).ToList();
 
-        string contig = SequenceAssembler.AssembleDeBruijn(new[] { genome }, K(k)).Contigs.Single();
+        string contig = SingleStrand(new[] { genome }, K(k)).Contigs.Single();
 
         Assert.That(kmers.All(km => contig.Contains(km)), Is.True);
     }
@@ -346,13 +374,15 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_ALongRepeat_StatisticsAreConsistent()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "a_long_long_long_time" }, K(5));
+        // DNA repeat example (oracle: contigs ACGTACGT, ACGTTTT, TTTTT at k = 5; see the loop test above).
+        var result = SingleStrand(new[] { "ACGTACGTACGT", "ACGTACGTTTTT" }, K(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.TotalLength, Is.EqualTo(5 + 7 + 8 + 6), "A_LON + ONG_LON + ONG_TIME + _LONG_");
+            Assert.That(result.TotalLength, Is.EqualTo(8 + 7 + 5), "ACGTACGT + ACGTTTT + TTTTT");
             Assert.That(result.LongestContig, Is.EqualTo(8));
-            Assert.That(result.TotalReads, Is.EqualTo(1));
+            Assert.That(result.TotalReads, Is.EqualTo(2));
+            Assert.That(result.AssembledReads, Is.EqualTo(2));
         });
     }
 
@@ -360,7 +390,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_DisconnectedGraph_OneContigPerComponent()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ATGGCGTGCA", "GATTACAGGTC" }, K(4));
+        var result = SingleStrand(new[] { "ATGGCGTGCA", "GATTACAGGTC" }, K(4));
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "ATGGCGTGCA", "GATTACAGGTC" }));
     }
@@ -369,7 +399,7 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     [Test]
     public void AssembleDeBruijn_MinContigLength_FiltersShortContigs()
     {
-        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ATGGCGTGCA", "GATTACAGGTC" }, K(4, 11));
+        var result = SingleStrand(new[] { "ATGGCGTGCA", "GATTACAGGTC" }, K(4, 11));
 
         Assert.That(result.Contigs, Is.EqualTo(new[] { "GATTACAGGTC" }));
     }
@@ -402,9 +432,9 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(() => SequenceAssembler.AssembleDeBruijn(new[] { "ACGT" }, K(k)),
+            Assert.That(() => SingleStrand(new[] { "ACGT" }, K(k)),
                 NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
-            Assert.That(() => SequenceAssembler.AssembleDeBruijn(Array.Empty<string>(), K(k)),
+            Assert.That(() => SingleStrand(Array.Empty<string>(), K(k)),
                 NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
         });
     }
@@ -437,10 +467,124 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
     {
         var reads = new[] { "GATCGAAACCC", "AAACCCGATCC", "GATCCTTTAAA" };
 
-        var first = SequenceAssembler.AssembleDeBruijn(reads, K(4)).Contigs;
-        var reversed = SequenceAssembler.AssembleDeBruijn(reads.Reverse().ToList(), K(4)).Contigs;
+        var first = SingleStrand(reads, K(4)).Contigs;
+        var reversed = SingleStrand(reads.Reverse().ToList(), K(4)).Contigs;
 
         Assert.That(reversed, Is.EqualTo(first));
+    }
+
+    #endregion
+
+    #region Double-stranded default (Velvet) and the Velvet read rule (non-ACGT -> A)
+
+    // Expected values: tools/review/oracles/B10/wp4_oracle.py (dbg_expected): the folded distinct k-mer set closed
+    // under reverse complement, unitigs by two independent constructions (Rosalind BA3M pseudocode and Velvet's
+    // node-centric chain merge, identical on every case), each {U, revcomp(U)} pair reported once as the
+    // ordinally smaller string. 7 seeds x 1500 random cases (even/odd k, both strands, N/IUPAC/U/lower-case noise)
+    // matched the C# output exactly (Evidence R1-WP4).
+
+    // F-A2-4 — the default of both overloads is double-stranded: GATTACAGGT + the reverse complement of the
+    // genome's 3' half join without any option.
+    [Test]
+    public void AssembleDeBruijn_Default_IsDoubleStranded()
+    {
+        var reads = new[] { "GATTACAGGT", "TAAGGACCTG" };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.AssembleDeBruijn(reads, K(5)).Contigs, Is.EqualTo(new[] { "GATTACAGGTCCTTA" }));
+            Assert.That(SequenceAssembler.AssembleDeBruijn(reads, K(5), includeReverseComplement: false).Contigs,
+                Is.EqualTo(new[] { "GATTACAGGT", "TAAGGACCTG" }));
+        });
+    }
+
+    // Strand symmetry of the double-stranded graph (Velvet twin nodes): reverse-complementing every read cannot
+    // change the contig set. ATGGCGTGCA contains the palindromic 4-mer TGCA, so at k = 5 its strand continues
+    // into its reverse complement: the single contig ATGGCGTGCACGCCAT equals its own reverse complement.
+    [Test]
+    public void AssembleDeBruijn_Default_ReverseComplementedReadsGiveTheSameContigs()
+    {
+        var forward = SequenceAssembler.AssembleDeBruijn(new[] { "ATGGCGTGCA" }, K(5)).Contigs;
+        var reverse = SequenceAssembler.AssembleDeBruijn(new[] { "TGCACGCCAT" }, K(5)).Contigs;
+        var overlapping = SequenceAssembler.AssembleDeBruijn(new[] { "ATGGCGT", "GGCGTGCA" }, K(5)).Contigs;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward, Is.EqualTo(new[] { "ATGGCGTGCACGCCAT" }));
+            Assert.That(reverse, Is.EqualTo(forward));
+            Assert.That(overlapping, Is.EqualTo(forward));
+        });
+    }
+
+    // Palindrome-free double-stranded example with a repeat (oracle): the two loops of
+    // ACGTACGTACGT/ACGTACGTTTTT join with their reverse complements into AAAAA, AAAACGT, ACGTACGT.
+    [Test]
+    public void AssembleDeBruijn_Default_RepeatReadsJoinWithReverseComplementUnitigs()
+    {
+        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTACGTACGT", "ACGTACGTTTTT" }, K(5));
+
+        Assert.That(result.Contigs, Is.EqualTo(new[] { "AAAAA", "AAAACGT", "ACGTACGT" }));
+    }
+
+    // Velvet read loader: velvetifySequence maps every symbol other than A/C/G/T (either case) to N and
+    // writeNucleotide stores N as Adenine, so a k-mer with N, an IUPAC code or U is the k-mer with an A there.
+    [Test]
+    public void AssembleDeBruijn_NonAcgtSymbols_AreReadAsA()
+    {
+        var withN = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTNGGTCA" }, K(4), includeReverseComplement: false);
+        var withIupacAndU = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTRYGGTCAU" }, K(5), includeReverseComplement: false);
+        var withOtherSymbols = SequenceAssembler.AssembleDeBruijn(new[] { "AAGCTTCCGANNGGATC" }, K(5), includeReverseComplement: false);
+        var bothStrands = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTNGGTCA" }, K(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withN.Contigs, Is.EqualTo(new[] { "ACGTAGGTCA" }), "N -> A");
+            Assert.That(withIupacAndU.Contigs, Is.EqualTo(new[] { "ACGTAAGGTCAA" }), "R, Y and U -> A");
+            Assert.That(withOtherSymbols.Contigs, Is.EqualTo(new[] { "AAGCTTCCGAAAGGATC" }));
+            Assert.That(bothStrands.Contigs, Is.EqualTo(new[] { "TGACCTACGTAGGTCA" }),
+                "the folded read is ACGTAGGTCA; its reverse-complement k-mers join it into a 16-mer");
+        });
+    }
+
+    // A k-mer containing N counts as the k-mer with A, so reads that differ only by N/n/lower-case/IUPAC at the
+    // same position are the same read for the graph (read-order and case independent).
+    [Test]
+    public void AssembleDeBruijn_NonAcgtAndLowerCase_ShareKmersWithTheAFoldedRead()
+    {
+        var mixed = SequenceAssembler.AssembleDeBruijn(new[] { "acgtnGGTCA", "ACGTAGGTCA" }, K(5), includeReverseComplement: false);
+        var plain = SequenceAssembler.AssembleDeBruijn(new[] { "ACGTAGGTCA" }, K(5), includeReverseComplement: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mixed.Contigs, Is.EqualTo(new[] { "ACGTAGGTCA" }));
+            Assert.That(mixed.Contigs, Is.EqualTo(plain.Contigs));
+            Assert.That(mixed.AssembledReads, Is.EqualTo(2));
+        });
+    }
+
+    // The non-ACGT rule also applies to non-ASCII letters (U+017F is not an 'S' that folds: it is not A/C/G/T).
+    [Test]
+    public void AssembleDeBruijn_NonAsciiSymbol_IsReadAsA()
+    {
+        var result = SequenceAssembler.AssembleDeBruijn(new[] { "ACGT\u017fGGTCA" }, K(4), includeReverseComplement: false);
+
+        Assert.That(result.Contigs, Is.EqualTo(new[] { "ACGTAGGTCA" }));
+    }
+
+    // AssembledReads (Velvet usedReads): a read counts when one of its k-mers (folded; on either strand by
+    // default) lies in a reported contig. Oracle: GATTACAGGTC + ATGGCGTGCAATC at k = 5 -> contigs ATGGCGTGCA,
+    // GACCTGTAATC, GATTGCA (both strands); both reads used.
+    [Test]
+    public void AssembleDeBruijn_Default_AssembledReadsCountsEitherStrand()
+    {
+        var result = SequenceAssembler.AssembleDeBruijn(new[] { "GATTACAGGTC", "ATGGCGTGCAATC" }, K(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Contigs, Is.EqualTo(new[] { "ATGGCGTGCA", "GACCTGTAATC", "GATTGCA" }));
+            Assert.That(result.AssembledReads, Is.EqualTo(2));
+            Assert.That(result.TotalReads, Is.EqualTo(2));
+        });
     }
 
     #endregion

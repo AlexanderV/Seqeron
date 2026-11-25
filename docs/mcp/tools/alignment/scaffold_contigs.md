@@ -1,6 +1,6 @@
 # scaffold_contigs
 
-Order and orient contigs into scaffolds from paired-end links with the greedy path-merging rule (Huson, Reinert & Myers 2002): links in descending weight, a link used only if both contig ends it joins are free and it closes no cycle. Positive gapSize -> that many gapCharacter; negative gapSize -> the -gapSize overlap is collapsed when its bases agree (N matches anything), else (and for 0) the AGP unknown gap of 100.
+Order and orient contigs into scaffolds from paired-end links with the greedy path-merging rule (Huson, Reinert & Myers 2002): links in descending weight, a link used only if both contig ends it joins are free and it closes no cycle. Positive gapSize -> that many gapCharacter; negative gapSize -> the -gapSize overlap is collapsed when its bases agree (N matches anything), else (and for 0) a gap of unknown size: `unknownGapLength` gap characters (default 100 = AGP v2.1; 1 = the single `n` of ABySS/SSPACE).
 
 ## Overview
 
@@ -27,6 +27,7 @@ Order and orient contigs into scaffolds from paired-end links with the greedy pa
 | `contigs` | array<string> | Yes | Contig sequences. |
 | `links` | array<object> | Yes | Links `{contig1, contig2, gapSize, contig1Reversed?, contig2Reversed?, weight?}`: contig2 (reverse-complemented if contig2Reversed) follows contig1 (reverse-complemented if contig1Reversed) after gapSize characters (negative = overlap); weight = supporting mate pairs, >= 1 (default 1). |
 | `gapCharacter` | string | No | Single-character gap filler (e.g. "N"). (default: N) |
+| `unknownGapLength` | integer | No | Number of gap characters for a gap of unknown size (zero estimate, or a negative estimate whose overlap is not found); >= 1, default 100 (NCBI AGP v2.1); 1 = ABySS/SSPACE single n. (default: 100) |
 
 ## Output Schema
 

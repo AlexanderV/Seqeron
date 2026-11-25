@@ -14,12 +14,12 @@ Find gaps (N-runs) in assembled sequences.
 
 ## Description
 
-Scans each sequence for maximal runs of `N`/`n` (`seqtk gap`). A run of length ≥ `minGapLength` is
+Scans each sequence for maximal runs of gap symbols (`seqtk gap`; QUAST `correct_seq` + `split_by_ns`). A run of length ≥ `minGapLength` is
 reported as a gap with 0-based `start`, **inclusive** `end` (`length = end − start + 1`; AGP v2.1
 1-based = `[start+1, end+1]`, BED = `[start, end+1)`), its length, and a Seqeron length class
 (`< 10` Short, `< 100` Medium, `< 1000` Long, else Scaffold) — not an AGP column-7b gap type, which
-records linkage evidence a sequence does not carry. Only `N`/`n` is a gap symbol; IUPAC codes are
-bases. The default 1 reports every N-run (the gaps counted by `assembly_statistics`); NCBI counts
+records linkage evidence a sequence does not carry. By default (`nonAcgtAsGap = true`) every symbol that is not A/C/G/T — N, IUPAC ambiguity codes, U, `-`, ... — is a gap symbol, as
+in QUAST and seqtk; with `nonAcgtAsGap = false` only `N`/`n` is a gap and IUPAC codes are bases (AGP v2.1). The default 1 reports every N-run (the gaps counted by `assembly_statistics`); NCBI counts
 runs of ≥ 10 N as assembly gaps, so pass `minGapLength = 10` for that convention.
 
 ## Core Documentation Reference
@@ -31,7 +31,8 @@ runs of ≥ 10 N as assembly gaps, so pass `minGapLength = 10` for that conventi
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequences` | array | Yes | Assembled sequences `{ id, sequence }`. |
-| `minGapLength` | integer | No | Minimum N-run length to report (default 1, > 0). |
+| `minGapLength` | integer | No | Minimum gap-run length to report (default 1, > 0). |
+| `nonAcgtAsGap` | boolean | No | QUAST `correct_seq`: treat every non-ACGT symbol (IUPAC codes, U, ...) as N, i.e. a gap symbol (default true); false = only N/n. |
 
 ## Output Schema
 

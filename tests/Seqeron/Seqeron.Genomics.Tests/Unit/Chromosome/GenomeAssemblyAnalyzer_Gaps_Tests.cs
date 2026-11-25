@@ -17,13 +17,16 @@ public class GenomeAssemblyAnalyzer_Gaps_Tests
 
     #region FindGaps
 
-    // Expected = seqtk stk_gap transcription (gaps_oracle.py), End made inclusive.
+    // Expected = seqtk stk_gap transcription (gaps_oracle.py), End made inclusive. Default nonAcgtAsGap = true
+    // (QUAST correct_seq; seqtk gap: every non-ACGT symbol is a gap symbol), so R/Y/K/M join the N runs.
     [TestCase("NNAANNNN", 1, new[] { 0, 1, 2, 4, 7, 4 })]
     [TestCase("AAANNNNNGGG", 1, new[] { 3, 7, 5 })]
     [TestCase("AAANNNNNGGG", 10, new int[0])]
     [TestCase("nnACnNnGT", 1, new[] { 0, 1, 2, 4, 6, 3 })]
-    [TestCase("ACRYNNKMN", 1, new[] { 4, 5, 2, 8, 8, 1 })]
-    [TestCase("ACRYNNKMN", 2, new[] { 4, 5, 2 })]
+    [TestCase("ACRYNNKMN", 1, new[] { 2, 8, 7 })]
+    [TestCase("ACRYNNKMN", 8, new int[0])]
+    [TestCase("ACRYACKMN", 1, new[] { 2, 3, 2, 6, 8, 3 })]
+    [TestCase("ACGU-*T", 1, new[] { 3, 5, 3 })]
     [TestCase("NNNNNNNNNN", 1, new[] { 0, 9, 10 })]
     [TestCase("", 1, new int[0])]
     [TestCase("ACGT", 1, new int[0])]
@@ -36,12 +39,42 @@ public class GenomeAssemblyAnalyzer_Gaps_Tests
     }
 
     [Test]
-    public void FindGaps_IupacCodesAreBases_LowercaseNIsAGap()
+    public void FindGaps_NonAcgtAsGapFalse_IupacCodesAreBases_LowercaseNIsAGap()
     {
-        // AGP v2.1 / NCBI: a gap is a run of N; R/Y/K/M are ambiguous bases (QUAST/seqtk would call them N).
-        var gaps = FindGaps(new[] { ("s", "ARYnNKMA") }).ToList();
+        // AGP v2.1 / NCBI: a gap is a run of N; R/Y/K/M are ambiguous bases (QUAST/seqtk call them N: the default).
+        var gaps = FindGaps(new[] { ("s", "ARYnNKMA") }, nonAcgtAsGap: false).ToList();
         Assert.That(gaps, Has.Count.EqualTo(1));
         Assert.That((gaps[0].Start, gaps[0].End, gaps[0].Length), Is.EqualTo((3, 4, 2)));
+    }
+
+    [Test]
+    public void FindGaps_Default_IupacCodesAndOtherNonAcgtSymbolsAreGapSymbols()
+    {
+        // QUAST correct_seq: M K R Y W S V B H D -> N (upper-cased first); seqtk gap: every non-ACGT is a gap.
+        var gaps = FindGaps(new[] { ("s", "ARYnNKMA") }).ToList();
+        var iupacOnly = FindGaps(new[] { ("s", "AmkryWsvbhdT") }).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(gaps.Select(g => (g.Start, g.End, g.Length)), Is.EqualTo(new[] { (1, 6, 6) }));
+            Assert.That(iupacOnly.Select(g => (g.Start, g.End, g.Length)), Is.EqualTo(new[] { (1, 10, 10) }));
+        });
+    }
+
+    [Test]
+    public void ScaffoldAndContigApis_NonAcgtAsGap_AppliesConsistently()
+    {
+        // 6 contig bases, a 10-symbol IUPAC/U run, 6 contig bases (QUAST split_by_ns on the corrected sequence).
+        var scaffold = new[] { ("sc", "ACGTAC" + "RYKMSWBDHV" + "GTACGT") };
+        var asGap = AnalyzeScaffolds(scaffold).Single();
+        var asBase = AnalyzeScaffolds(scaffold, nonAcgtAsGap: false).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(asGap.Contigs.Select(c => (c.Start, c.End)), Is.EqualTo(new[] { (0, 5), (16, 21) }));
+            Assert.That(asGap.GapLength, Is.EqualTo(10));
+            Assert.That(ExtractContigs(scaffold, minContigLength: 1).Select(c => c.Sequence), Is.EqualTo(new[] { "ACGTAC", "GTACGT" }));
+            Assert.That(asBase.Contigs, Has.Count.EqualTo(1), "IUPAC codes are bases when nonAcgtAsGap is false");
+            Assert.That(ExtractContigs(scaffold, minContigLength: 1, nonAcgtAsGap: false).Single().Sequence, Is.EqualTo(scaffold[0].Item2));
+        });
     }
 
     [Test]

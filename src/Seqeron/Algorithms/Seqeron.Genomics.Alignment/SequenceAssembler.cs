@@ -113,18 +113,26 @@ public static class SequenceAssembler
     /// <summary>
     /// Assembles reads using the de Bruijn graph (DBG) paradigm and returns its contigs — the
     /// strings spelled by the <b>maximal non-branching paths</b> (unitigs) of the graph.
-    /// (1) The reads are decomposed into their <b>distinct</b> k-mers (case-insensitive,
-    /// upper-cased; reads shorter than k contribute none), so read redundancy (coverage) does not
-    /// add edges; (2) each distinct k-mer is a directed edge from its (k-1)-prefix to its
-    /// (k-1)-suffix node; (3) every maximal non-branching path — a path whose internal nodes are
-    /// 1-in-1-out and whose end nodes are not — and every isolated cycle is spelled out
-    /// (<c>path[0]</c> + last character of each subsequent node) as one contig
-    /// (<see cref="FindMaximalNonBranchingPaths"/>); (4) contigs shorter than
+    /// (1) The reads are decomposed into their <b>distinct</b> k-mers (reads shorter than k
+    /// contribute none), so read redundancy (coverage) does not add edges; (2) each distinct k-mer
+    /// is a directed edge from its (k-1)-prefix to its (k-1)-suffix node; (3) every maximal
+    /// non-branching path — a path whose internal nodes are 1-in-1-out and whose end nodes are not —
+    /// and every isolated cycle is spelled out (<c>path[0]</c> + last character of each subsequent
+    /// node) as one contig (<see cref="FindMaximalNonBranchingPaths"/>); (4) contigs shorter than
     /// <see cref="AssemblyParameters.MinContigLength"/> are discarded. Every distinct k-mer lies in
     /// exactly one contig; repeats longer than k-2 split the genome at the branch nodes, so a
     /// repeat-free genome is reconstructed as one contig while repeats yield several contigs, each
-    /// of which must occur in any genome with this k-mer set. Only the forward strand is used;
-    /// see the overload with <c>includeReverseComplement</c> for double-stranded reads.
+    /// of which must occur in any genome with this k-mer set.
+    /// <para><b>Double-stranded by default</b> (Velvet): every k-mer is entered together with its
+    /// reverse complement, so reads from either strand join into one contig and each
+    /// {unitig, reverse complement} pair is reported once, as the ordinally smaller string. Use the
+    /// overload with <c>includeReverseComplement: false</c> for the single-strand textbook model
+    /// (Rosalind BA3K/BA3M).</para>
+    /// <para><b>Non-ACGT symbols</b> follow Velvet's read loader (<c>velvetifySequence</c>: every symbol
+    /// other than A/C/G/T, either case, becomes <c>N</c>; <c>writeNucleotide</c>: <c>N</c> is stored as
+    /// Adenine): the read is upper-cased and each non-ACGT symbol (N, IUPAC codes, U, '-', any other
+    /// character) is replaced by <c>A</c> before the k-mers are taken, so a k-mer containing such a symbol
+    /// is the k-mer with an A at that position and contigs are over {A, C, G, T}.</para>
     /// </summary>
     /// <remarks>
     /// References: Compeau &amp; Pevzner, <i>Bioinformatics Algorithms</i> ch.3 (Rosalind BA3K
@@ -132,8 +140,10 @@ public static class SequenceAssembler
     /// graph"; BA3M MaximalNonBranchingPaths, incl. isolated cycles); Zerbino &amp; Birney (2008),
     /// Genome Res 18:821–829, DOI 10.1101/gr.074492.107 ("the fundamental data structure ... is
     /// based on k-mers, not reads, thus high redundancy is naturally handled by the graph without
-    /// affecting the number of nodes"; Simplification: a node with one outgoing arc to a node with
-    /// one ingoing arc is merged); Compeau, Pevzner &amp; Tesler (2011), Nat Biotechnol
+    /// affecting the number of nodes"; "each k-mer is recorded simultaneously to its reverse
+    /// complement"; Simplification: a node with one outgoing arc to a node with
+    /// one ingoing arc is merged); Velvet 1.2.10 <c>src/readSet.c</c> <c>velvetifySequence</c>,
+    /// <c>src/tightString.c</c> <c>writeNucleotide</c>; Compeau, Pevzner &amp; Tesler (2011), Nat Biotechnol
     /// 29:987–991, DOI 10.1038/nbt.2023; Langmead B., "De Bruijn Graph assembly" (JHU notes),
     /// p.5–9 (nodes/edges), p.18 (spelling), p.24–28 (gaps, coverage and errors make the graph
     /// non-Eulerian, so a single Eulerian walk is not a practical contig definition).
@@ -144,20 +154,22 @@ public static class SequenceAssembler
     public static AssemblyResult AssembleDeBruijn(
         IReadOnlyList<string> reads,
         AssemblyParameters? parameters = null)
-        => AssembleDeBruijn(reads, parameters, includeReverseComplement: false);
+        => AssembleDeBruijn(reads, parameters, includeReverseComplement: true);
 
     /// <summary>
     /// De Bruijn graph assembly as in <see cref="AssembleDeBruijn(IReadOnlyList{string}, AssemblyParameters?)"/>,
-    /// optionally treating the reads as double-stranded DNA. With
-    /// <paramref name="includeReverseComplement"/> = true every k-mer is entered together with its
+    /// with an explicit strand model. With <paramref name="includeReverseComplement"/> = true (the
+    /// default of the shorter overload) every k-mer is entered together with its
     /// reverse complement (Velvet: "each k-mer is recorded simultaneously to its reverse complement
     /// ... this ensures that overlaps between reads from opposite strands are taken into account"),
     /// so reads from either strand join into one contig. The resulting graph is
     /// reverse-complement symmetric — each unitig's reverse complement is also a unitig — so each
-    /// such pair is reported once, as the ordinally smaller of the two strings. Reverse
-    /// complements use the canonical IUPAC complement (<see cref="SequenceExtensions.TryGetReverseComplement"/>).
-    /// An odd k guarantees no k-mer is its own reverse complement (Velvet requires odd k);
-    /// an even k is accepted.
+    /// such pair is reported once, as the ordinally smaller of the two strings. With
+    /// <paramref name="includeReverseComplement"/> = false only the forward strand is used (the
+    /// single-strand textbook model, Rosalind BA3K/BA3M), and <see cref="AssemblyResult.AssembledReads"/>
+    /// counts reads by their forward k-mers. An odd k guarantees no k-mer is its own reverse complement
+    /// (Velvet requires odd k); an even k is accepted. Non-ACGT symbols are replaced by A (see the
+    /// shorter overload).
     /// </summary>
     /// <remarks>Reference: Zerbino &amp; Birney (2008), Genome Res 18:821, "Construction" and "Structure" (twin nodes).</remarks>
     /// <exception cref="ArgumentOutOfRangeException"><see cref="AssemblyParameters.KmerSize"/> &lt; 2.</exception>
@@ -175,9 +187,14 @@ public static class SequenceAssembler
         if (reads == null || reads.Count == 0)
             return new AssemblyResult(Array.Empty<string>(), 0, 0, 0, 0, 0);
 
-        // (1) Distinct k-mers through the canonical counter (case-insensitive, upper-case keys).
+        // Velvet read loader: upper-case, every non-ACGT symbol -> A (velvetifySequence + writeNucleotide).
+        var folded = new string?[reads.Count];
+        for (int i = 0; i < folded.Length; i++)
+            folded[i] = reads[i] == null ? null : FoldToAcgt(reads[i]);
+
+        // (1) Distinct k-mers through the canonical counter (upper-case keys).
         var kmers = new HashSet<string>(StringComparer.Ordinal);
-        foreach (string read in reads)
+        foreach (string? read in folded)
         {
             if (read == null || read.Length < k)
                 continue; // a read shorter than k contributes no k-mers (Langmead DBG p.16)
@@ -211,7 +228,7 @@ public static class SequenceAssembler
 
         // (5) A read is assembled when at least one of its k-mers (or, double-stranded, their
         // reverse complement) lies in a reported contig — Velvet usedReads (graphStats.c).
-        return CalculateStats(contigs, reads.Count, CountReadsInContigs(reads, contigs, k, includeReverseComplement));
+        return CalculateStats(contigs, reads.Count, CountReadsInContigs(folded, contigs, k, includeReverseComplement));
     }
 
     /// <summary>
@@ -762,7 +779,7 @@ public static class SequenceAssembler
     /// minimum contig length, the twin node included).
     /// </summary>
     private static int CountReadsInContigs(
-        IReadOnlyList<string> reads, IReadOnlyList<string> contigs, int k, bool bothStrands)
+        IReadOnlyList<string?> reads, IReadOnlyList<string> contigs, int k, bool bothStrands)
     {
         var contigKmers = new HashSet<string>(StringComparer.Ordinal);
         foreach (string contig in contigs)
@@ -776,7 +793,7 @@ public static class SequenceAssembler
         }
 
         int used = 0;
-        foreach (string read in reads)
+        foreach (string? read in reads)
         {
             if (read == null || read.Length < k)
                 continue;
@@ -786,6 +803,22 @@ public static class SequenceAssembler
 
         return used;
     }
+
+    /// <summary>
+    /// Velvet / Musket 2-bit read encoding: upper-case ASCII, and every symbol other than A/C/G/T becomes
+    /// <c>A</c> (Velvet <c>velvetifySequence</c> maps it to N and <c>writeNucleotide</c> stores N as Adenine;
+    /// Musket <c>kmer.cpp</c> encodes any non-ACGT as 0 = A).
+    /// </summary>
+    private static char FoldChar(char upper) => upper is 'A' or 'C' or 'G' or 'T' ? upper : 'A';
+
+    private static string FoldToAcgt(string read) =>
+        string.Create(read.Length, read, static (span, source) =>
+        {
+            for (int i = 0; i < span.Length; i++)
+            {
+                span[i] = FoldChar(SequenceCase.ToUpperAscii(source[i]));
+            }
+        });
 
     /// <summary>Reverse complement through the canonical Core helper.</summary>
     private static string ReverseComplement(string sequence)
@@ -1065,9 +1098,11 @@ public static class SequenceAssembler
     /// whose overlap is not found in the sequences. 100 is the GenBank/EMBL/DDBJ standard length
     /// for a gap of unknown size (NCBI AGP Specification v2.1, §"Gaps": "For negative gaps, or gaps
     /// of unknown size, use U as the component_type and 100 as the gap size"; "Negative gaps and
-    /// gap lines with zero length are not valid").
+    /// gap lines with zero length are not valid"). ABySS (<c>abyss-scaffold</c> output) and SSPACE instead
+    /// separate contigs of unknown distance by a single <c>n</c>/<c>N</c>; pass <c>unknownGapLength: 1</c>
+    /// to <c>Scaffold</c> for that convention.
     /// </summary>
-    private const int UnknownGapLength = 100;
+    public const int DefaultUnknownGapLength = 100;
 
     /// <summary>
     /// A scaffolding link (a mate-edge of the contig-mate-pair graph, Huson, Reinert &amp; Myers 2002):
@@ -1096,20 +1131,22 @@ public static class SequenceAssembler
     /// Joins contigs into scaffolds from forward-strand paired-end links
     /// <c>(contig1, contig2, gapSize)</c> = "contig2 follows contig1 after gapSize characters".
     /// Each tuple is a <see cref="ScaffoldLink"/> with both contigs forward and weight 1; see
-    /// <see cref="Scaffold(IReadOnlyList{string}, IReadOnlyList{ScaffoldLink}, char)"/> for the
+    /// <see cref="Scaffold(IReadOnlyList{string}, IReadOnlyList{ScaffoldLink}, char, int)"/> for the
     /// greedy rule, gap/overlap handling and output order.
     /// </summary>
     /// <param name="contigs">The contigs to scaffold, indexed by position; links reference these indices.</param>
     /// <param name="links">Links <c>(contig1, contig2, gapSize)</c>; each index must lie in [0, contigs.Count) and the two contigs must differ.</param>
     /// <param name="gapCharacter">The character used to fill gaps between contigs (default <c>'N'</c>).</param>
+    /// <param name="unknownGapLength">Number of gap characters emitted for a gap of unknown size (zero or negative estimate, or a negative estimate whose overlap is not found); default 100 (AGP v2.1), ≥ 1.</param>
     /// <returns>The scaffolds, one string per scaffold, ordered by their lowest contig index.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> or <paramref name="links"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A contig index is outside [0, contigs.Count).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A contig index is outside [0, contigs.Count), or <paramref name="unknownGapLength"/> &lt; 1.</exception>
     /// <exception cref="ArgumentException">A contig is null, or a link joins a contig to itself.</exception>
     public static IReadOnlyList<string> Scaffold(
         IReadOnlyList<string> contigs,
         IReadOnlyList<(int contig1, int contig2, int gapSize)> links,
-        char gapCharacter = 'N')
+        char gapCharacter = 'N',
+        int unknownGapLength = DefaultUnknownGapLength)
     {
         ArgumentNullException.ThrowIfNull(contigs);
         ArgumentNullException.ThrowIfNull(links);
@@ -1117,7 +1154,7 @@ public static class SequenceAssembler
         var oriented = new ScaffoldLink[links.Count];
         for (int i = 0; i < links.Count; i++)
             oriented[i] = new ScaffoldLink(links[i].contig1, links[i].contig2, links[i].gapSize);
-        return Scaffold(contigs, oriented, gapCharacter);
+        return Scaffold(contigs, oriented, gapCharacter, unknownGapLength);
     }
 
     /// <summary>
@@ -1150,8 +1187,9 @@ public static class SequenceAssembler
     /// ignoring case, or one of them <c>N</c> — the overlap is collapsed with
     /// <see cref="MergeContigs(string, string, int, bool)"/> (an <c>N</c> takes the other base).
     /// Otherwise (no such overlap, overlap longer than a contig, or a zero estimate) the gap is of
-    /// unknown size and <see cref="UnknownGapLength"/> (100) gap characters are emitted (NCBI AGP
-    /// v2.1). ABySS falls back to a gapped overlap alignment and IUPAC-subset consensus before
+    /// unknown size and <paramref name="unknownGapLength"/> gap characters are emitted (default
+    /// <see cref="DefaultUnknownGapLength"/> = 100, NCBI AGP v2.1; ABySS and SSPACE emit a single
+    /// <c>n</c>, i.e. <c>unknownGapLength: 1</c>). ABySS falls back to a gapped overlap alignment and IUPAC-subset consensus before
     /// giving up; those are not attempted here.</para>
     /// <para><b>Output.</b> Every contig is placed in exactly one scaffold; contigs without a selected
     /// link are singleton scaffolds. Scaffolds are listed by their lowest contig index.</para>
@@ -1159,17 +1197,20 @@ public static class SequenceAssembler
     /// <param name="contigs">The contigs to scaffold, indexed by position; links reference these indices.</param>
     /// <param name="links">Oriented, weighted links; each index must lie in [0, contigs.Count) and the two contigs must differ.</param>
     /// <param name="gapCharacter">The character used to fill gaps between contigs (default <c>'N'</c>).</param>
+    /// <param name="unknownGapLength">Number of gap characters emitted for a gap of unknown size (zero or negative estimate, or a negative estimate whose overlap is not found); default 100 (AGP v2.1), ≥ 1.</param>
     /// <returns>The scaffolds, one string per scaffold, ordered by their lowest contig index.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> or <paramref name="links"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A link has <see cref="ScaffoldLink.Weight"/> &lt; 1 or a contig index outside [0, contigs.Count).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A link has <see cref="ScaffoldLink.Weight"/> &lt; 1 or a contig index outside [0, contigs.Count), or <paramref name="unknownGapLength"/> &lt; 1.</exception>
     /// <exception cref="ArgumentException">A contig is null, or a link joins a contig to itself.</exception>
     public static IReadOnlyList<string> Scaffold(
         IReadOnlyList<string> contigs,
         IReadOnlyList<ScaffoldLink> links,
-        char gapCharacter = 'N')
+        char gapCharacter = 'N',
+        int unknownGapLength = DefaultUnknownGapLength)
     {
         ArgumentNullException.ThrowIfNull(contigs);
         ArgumentNullException.ThrowIfNull(links);
+        ArgumentOutOfRangeException.ThrowIfLessThan(unknownGapLength, 1);
         RequireNoNullReads(contigs, nameof(contigs));
         for (int i = 0; i < links.Count; i++)
         {
@@ -1236,7 +1277,7 @@ public static class SequenceAssembler
             if (flip) path = ReverseScaffoldPath(path);
 
             foreach (var p in path) placed[p.Contig] = true;
-            scaffolds.Add(SpellScaffold(path, contigs, joinGap, gapCharacter));
+            scaffolds.Add(SpellScaffold(path, contigs, joinGap, gapCharacter, unknownGapLength));
         }
 
         return scaffolds;
@@ -1288,10 +1329,10 @@ public static class SequenceAssembler
 
     /// <summary>
     /// Spells a path: positive gap → that many gap characters; negative gap with an agreeing overlap
-    /// → collapsed (ABySS MergeContigs); otherwise the AGP unknown-size gap of 100.
+    /// → collapsed (ABySS MergeContigs); otherwise the unknown-size gap (AGP: 100).
     /// </summary>
     private static string SpellScaffold(
-        List<PlacedContig> path, IReadOnlyList<string> contigs, int[] joinGap, char gapCharacter)
+        List<PlacedContig> path, IReadOnlyList<string> contigs, int[] joinGap, char gapCharacter, int unknownGapLength)
     {
         var sb = new StringBuilder();
         int sinceGap = 0;                              // bases placed after the last gap run
@@ -1325,7 +1366,7 @@ public static class SequenceAssembler
             }
             else
             {
-                sb.Append(gapCharacter, UnknownGapLength);
+                sb.Append(gapCharacter, unknownGapLength);
                 sb.Append(seq);
                 sinceGap = seq.Length;
             }
@@ -1642,6 +1683,14 @@ public static class SequenceAssembler
     private const int PhredAsciiOffset = 33;
 
     /// <summary>
+    /// BWA <c>BWA_MIN_RDLEN</c> (<c>bwtaln.h</c>: <c>#define BWA_MIN_RDLEN 35 // for read trimming</c>): the
+    /// scan of <c>bwa_trim_read</c> stops at this index, so BWA never trims a read below 35 bases. Pass it as
+    /// <c>bwaMinLength</c> of <see cref="QualityTrimReads(IReadOnlyList{ValueTuple{string, string}}, int, int, int, int, int)"/>
+    /// to reproduce <c>bwa aln -q</c>.
+    /// </summary>
+    public const int BwaMinReadLength = 35;
+
+    /// <summary>
     /// Quality-trims the 3' end of reads with the BWA / cutadapt running-sum algorithm (a single
     /// cutadapt <c>-q C</c> = <c>-q 0,C</c>; BWA <c>aln -q C</c>), then drops reads shorter than
     /// <paramref name="minLength"/>.
@@ -1655,6 +1704,8 @@ public static class SequenceAssembler
     /// to trim both ends.
     /// A cutoff &lt; 1 disables trimming (BWA <c>trim_qual &lt; 1</c> guard; in cutadapt's loop the
     /// first step already makes the sum negative, so nothing is cut).
+    /// <para>BWA's 35-base floor (<c>BWA_MIN_RDLEN</c>) is opt-in through the five-/six-argument overload
+    /// (<c>bwaMinLength: <see cref="BwaMinReadLength"/></c>).</para>
     /// </remarks>
     /// <param name="reads">Reads as (sequence, Phred+33 quality string) pairs; the two strings must be equal length per read.</param>
     /// <param name="minQuality">Quality cutoff subtracted from each Phred score at the 3' end. Values &lt; 1 disable trimming.</param>
@@ -1678,12 +1729,17 @@ public static class SequenceAssembler
     /// Qualities are decoded by the canonical Core FASTQ decoder (<see cref="QualitySequence"/>: Q = ord(c) − offset,
     /// length must match the sequence, characters in [offset, '~']). Each read is then cut with
     /// <see cref="QualityTrimIndex"/>; the returned substring keeps the input's letter case.
+    /// <para>With <paramref name="bwaMinLength"/> = <see cref="BwaMinReadLength"/> (35) the 3' scan is BWA's
+    /// <c>bwa_trim_read</c> exactly: <c>for (l = len − 1; l ≥ BWA_MIN_RDLEN; −−l)</c>, so the first 35 bases
+    /// are never examined and a read keeps at least min(35, length) bases (a read of at most 35 bases is
+    /// returned whole by the 3' pass). The default 0 is cutadapt's unrestricted scan.</para>
     /// </remarks>
     /// <param name="reads">Reads as (sequence, quality string) pairs of equal length.</param>
     /// <param name="cutoffFront">5' cutoff; values &lt; 1 leave the 5' end untrimmed (cutadapt default 0).</param>
     /// <param name="cutoffBack">3' cutoff; values &lt; 1 leave the 3' end untrimmed.</param>
     /// <param name="minLength">Reads whose trimmed length is below this are dropped (cutadapt <c>-m</c>: <c>len &lt; m</c>).</param>
     /// <param name="phredOffset">ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+) or 64 (Illumina 1.3–1.7); any value in [33, 126] is accepted as by cutadapt <c>--quality-base</c>.</param>
+    /// <param name="bwaMinLength">BWA <c>BWA_MIN_RDLEN</c> floor of the 3' scan (see <see cref="QualityTrimIndex"/>); 0 = none, 35 = BWA.</param>
     /// <returns>The surviving trimmed sequences, in input order.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="reads"/> or a read's sequence/quality is null.</exception>
     /// <exception cref="ArgumentException">Thrown on a sequence/quality length mismatch or a quality character outside [<paramref name="phredOffset"/>, '~'].</exception>
@@ -1693,9 +1749,11 @@ public static class SequenceAssembler
         int cutoffFront,
         int cutoffBack,
         int minLength,
-        int phredOffset = PhredAsciiOffset)
+        int phredOffset = PhredAsciiOffset,
+        int bwaMinLength = 0)
     {
         ArgumentNullException.ThrowIfNull(reads);
+        ArgumentOutOfRangeException.ThrowIfNegative(bwaMinLength);
 
         var trimmed = new List<string>(reads.Count);
 
@@ -1703,7 +1761,7 @@ public static class SequenceAssembler
         {
             // Canonical FASTQ decoding + validation (length match, characters in [offset, 126]).
             var decoded = new QualitySequence(sequence, quality, phredOffset);
-            var (start, stop) = QualityTrimIndex(decoded.Qualities, cutoffFront, cutoffBack);
+            var (start, stop) = QualityTrimIndex(decoded.Qualities, cutoffFront, cutoffBack, bwaMinLength);
 
             if (stop - start >= minLength)
             {
@@ -1725,17 +1783,22 @@ public static class SequenceAssembler
     /// segment is empty and <c>(0, 0)</c> is returned. Equivalent to cutting at the minimum of the partial sums of
     /// <c>(q − cutoff)</c>, up to the early break that lets good bases among bad ones survive.
     /// A cutoff &lt; 1 makes the first step negative (q ≥ 0), so that end is not trimmed.
-    /// Sources: cutadapt v5.2 <c>src/cutadapt/qualtrim.pyx</c>; BWA <c>bwaseqio.c</c> (without its 35-base floor).
+    /// <para>With <paramref name="bwaMinLength"/> = L &gt; 0 the 3' scan runs only over <c>i ≥ L</c> (BWA
+    /// <c>bwa_trim_read</c>: <c>for (l = len − 1; l ≥ BWA_MIN_RDLEN; −−l)</c>, <c>BWA_MIN_RDLEN</c> = 35), so
+    /// <c>stop ≥ min(L, n)</c> whenever the 5' end does not cut deeper.</para>
+    /// Sources: cutadapt v5.2 <c>src/cutadapt/qualtrim.pyx</c>; BWA <c>bwaseqio.c</c> / <c>bwtaln.h</c> (35-base floor, opt-in).
     /// </remarks>
     /// <param name="phredScores">Decoded Phred scores (e.g. <see cref="QualitySequence.Qualities"/>).</param>
     /// <param name="cutoffFront">5' cutoff.</param>
     /// <param name="cutoffBack">3' cutoff.</param>
+    /// <param name="bwaMinLength">Lowest 3'-scan index (BWA <c>BWA_MIN_RDLEN</c>); 0 = scan the whole read.</param>
     /// <returns>Half-open interval [Start, Stop) of the bases to keep; (0, 0) when nothing survives.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="phredScores"/> is null.</exception>
     public static (int Start, int Stop) QualityTrimIndex(
-        IReadOnlyList<byte> phredScores, int cutoffFront, int cutoffBack)
+        IReadOnlyList<byte> phredScores, int cutoffFront, int cutoffBack, int bwaMinLength = 0)
     {
         ArgumentNullException.ThrowIfNull(phredScores);
+        ArgumentOutOfRangeException.ThrowIfNegative(bwaMinLength);
 
         int n = phredScores.Count;
         int start = 0;
@@ -1759,7 +1822,7 @@ public static class SequenceAssembler
         // 3' end (same with cutoff_back, scanning from the end; stop = i at a new maximum).
         s = 0;
         max = 0;
-        for (int i = n - 1; i >= 0; i--)
+        for (int i = n - 1; i >= bwaMinLength; i--)
         {
             s += (long)cutoffBack - phredScores[i];
             if (s < 0)
@@ -1915,8 +1978,11 @@ public static class SequenceAssembler
     /// probes a different base); (b) the stage-2 left-extension look-ahead tests the k-mers that really
     /// precede the corrected k-mer (musket-1.1 calls <c>predecessor(seq, ipos - 1, ..)</c>, which skips
     /// base ipos − 1). Both follow the paper's description. (c) Musket 2-bit encodes any non-ACGT symbol
-    /// as A; here such symbols stay distinct (k-mers containing them are counted under their own
-    /// spelling) and every one of A, C, G, T is a candidate replacement. (d) Musket discards singleton
+    /// as A (<c>kmer.cpp</c> <c>Kmer::encode</c>, every entry but A/C/G/T and a/c/g/t is 0); the same rule is applied
+    /// here: the spectrum and every k-mer lookup see the read upper-cased with each non-ACGT symbol (N, IUPAC
+    /// code, U, any other character) replaced by A, so a k-mer containing N counts as the k-mer with an A in
+    /// that place, and a non-ACGT base that no correction replaces is returned as its upper-cased input
+    /// symbol. (d) Musket discards singleton
     /// k-mers, so its effective cut-off is ≥ 2; here a cut-off of 1 is honoured. (e) Uncorrected bases are
     /// upper-cased (Musket keeps their input case). Bases are compared case-insensitively (ASCII).</para>
     /// <para>Candidate order and the representative strand of a canonical k-mer follow Musket
@@ -1988,7 +2054,7 @@ public static class SequenceAssembler
         var forward = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (string read in reads)
         {
-            foreach (KeyValuePair<string, int> entry in read.AsSpan().CountKmersSpan(kmerSize))
+            foreach (KeyValuePair<string, int> entry in FoldToAcgt(read).AsSpan().CountKmersSpan(kmerSize))
             {
                 forward[entry.Key] = forward.GetValueOrDefault(entry.Key) + entry.Value;
             }
@@ -2042,8 +2108,28 @@ public static class SequenceAssembler
         /// <summary>Musket <c>ParaCorrect</c> on one read.</summary>
         public string Correct(string read)
         {
-            char[] seq = Infrastructure.SequenceCase.ToUpperAscii(read).ToCharArray();
+            // Musket sees every non-ACGT symbol as A (2-bit encoding); the read keeps its own symbol at every
+            // base no correction assigns (see ErrorCorrectReads, deviation (c)/(e)).
+            char[] seq = FoldToAcgt(read).ToCharArray();
+            _assigned = new bool[seq.Length];
+            string corrected = CorrectFolded(seq);
 
+            char[] result = corrected.ToCharArray();
+            for (int i = 0; i < result.Length; i++)
+            {
+                if (!_assigned[i])
+                    result[i] = Infrastructure.SequenceCase.ToUpperAscii(read[i]);
+            }
+
+            return new string(result);
+        }
+
+        // Indexes of the current read written by a correction stage (Musket writes the base even when the
+        // value equals the original code of a non-ACGT symbol, i.e. A).
+        private bool[] _assigned = Array.Empty<bool>();
+
+        private string CorrectFolded(char[] seq)
+        {
             // Stage 1: conservative two-sided correction, one substitution per iteration.
             for (int iteration = 0; iteration < _maxIterations; iteration++)
             {
@@ -2058,6 +2144,7 @@ public static class SequenceAssembler
                 }
 
                 seq[c.Index] = MusketBases[c.Base];
+                _assigned[c.Index] = true;
             }
 
             // Stages 2 and 3: aggressive one-sided correction for 1..maxerr errors per k-mer, then voting.
@@ -2081,6 +2168,7 @@ public static class SequenceAssembler
                     foreach ((int index, int b) in corrections)
                     {
                         seq[index] = MusketBases[b];
+                        _assigned[index] = true;
                     }
                 }
 
@@ -2566,6 +2654,7 @@ public static class SequenceAssembler
                 if (alternative >= 0)
                 {
                     seq[pos] = MusketBases[alternative];
+                    _assigned[pos] = true;
                 }
             }
 

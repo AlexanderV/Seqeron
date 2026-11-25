@@ -16,10 +16,17 @@
         "items": {
           "type": "object",
           "properties": {
-            "id": { "type": "string" },
-            "sequence": { "type": "string" }
+            "id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "string"
+            }
           },
-          "required": ["id", "sequence"]
+          "required": [
+            "id",
+            "sequence"
+          ]
         }
       },
       "minGapLength": {
@@ -27,9 +34,16 @@
         "description": "Minimum N-run length that is a gap and splits contigs.",
         "default": 10,
         "exclusiveMinimum": 0
+      },
+      "nonAcgtAsGap": {
+        "type": "boolean",
+        "description": "QUAST correct_seq: treat every non-ACGT symbol (IUPAC codes, U, ...) as N, i.e. a gap symbol. Default true; false = only N/n.",
+        "default": true
       }
     },
-    "required": ["scaffolds"]
+    "required": [
+      "scaffolds"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -39,47 +53,109 @@
         "items": {
           "type": "object",
           "properties": {
-            "scaffoldId": { "type": "string" },
+            "scaffoldId": {
+              "type": "string"
+            },
             "contigs": {
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
-                  "contigId": { "type": "string" },
-                  "start": { "type": "integer" },
-                  "end": { "type": "integer", "description": "Inclusive end index." }
+                  "contigId": {
+                    "type": "string"
+                  },
+                  "start": {
+                    "type": "integer"
+                  },
+                  "end": {
+                    "type": "integer",
+                    "description": "Inclusive end index."
+                  }
                 },
-                "required": ["contigId", "start", "end"]
+                "required": [
+                  "contigId",
+                  "start",
+                  "end"
+                ]
               }
             },
-            "gaps": { "type": "array", "items": { "type": "object" } },
-            "totalLength": { "type": "integer" },
-            "contigLength": { "type": "integer" },
-            "gapLength": { "type": "integer" }
+            "gaps": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "totalLength": {
+              "type": "integer"
+            },
+            "contigLength": {
+              "type": "integer"
+            },
+            "gapLength": {
+              "type": "integer"
+            }
           },
-          "required": ["scaffoldId", "contigs", "gaps", "totalLength", "contigLength", "gapLength"]
+          "required": [
+            "scaffoldId",
+            "contigs",
+            "gaps",
+            "totalLength",
+            "contigLength",
+            "gapLength"
+          ]
         }
       }
     },
-    "required": ["items"]
+    "required": [
+      "items"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Scaffolds cannot be null" },
-    { "code": 1002, "message": "Minimum gap length must be positive" }
+    {
+      "code": 1001,
+      "message": "Scaffolds cannot be null"
+    },
+    {
+      "code": 1002,
+      "message": "Minimum gap length must be positive"
+    }
   ],
   "examples": [
     {
       "name": "One scaffold split by a 10-bp gap",
-      "input": { "scaffolds": [ { "id": "scaf1", "sequence": "AAAAANNNNNNNNNNTTTTT" } ], "minGapLength": 10 },
+      "input": {
+        "scaffolds": [
+          {
+            "id": "scaf1",
+            "sequence": "AAAAANNNNNNNNNNTTTTT"
+          }
+        ],
+        "minGapLength": 10
+      },
       "output": {
         "items": [
           {
             "scaffoldId": "scaf1",
             "contigs": [
-              { "contigId": "scaf1_contig1", "start": 0, "end": 4 },
-              { "contigId": "scaf1_contig2", "start": 15, "end": 19 }
+              {
+                "contigId": "scaf1_contig1",
+                "start": 0,
+                "end": 4
+              },
+              {
+                "contigId": "scaf1_contig2",
+                "start": 15,
+                "end": 19
+              }
             ],
-            "gaps": [ { "start": 5, "end": 14, "length": 10, "gapType": "Medium" } ],
+            "gaps": [
+              {
+                "start": 5,
+                "end": 14,
+                "length": 10,
+                "gapType": "Medium"
+              }
+            ],
             "totalLength": 20,
             "contigLength": 10,
             "gapLength": 10
@@ -89,8 +165,33 @@
     },
     {
       "name": "Short N-run below threshold stays inside the contig",
-      "input": { "scaffolds": [ { "id": "s", "sequence": "AAAAANNNNNTTTTT" } ], "minGapLength": 10 },
-      "output": { "items": [ { "scaffoldId": "s", "contigs": [ { "contigId": "s_contig1", "start": 0, "end": 14 } ], "gaps": [], "totalLength": 15, "contigLength": 15, "gapLength": 0 } ] }
+      "input": {
+        "scaffolds": [
+          {
+            "id": "s",
+            "sequence": "AAAAANNNNNTTTTT"
+          }
+        ],
+        "minGapLength": 10
+      },
+      "output": {
+        "items": [
+          {
+            "scaffoldId": "s",
+            "contigs": [
+              {
+                "contigId": "s_contig1",
+                "start": 0,
+                "end": 14
+              }
+            ],
+            "gaps": [],
+            "totalLength": 15,
+            "contigLength": 15,
+            "gapLength": 0
+          }
+        ]
+      }
     }
   ]
 }

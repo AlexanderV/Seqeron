@@ -36,14 +36,17 @@ public class AssemblyGapsFuzzTests
             int minGap = new[] { 1, 2, 3, 5, 10, 11, 20 }[rng.Next(7)];
             int minContig = new[] { 0, 1, 2, 3, 5, 8, 20 }[rng.Next(7)];
             var input = new[] { ("s", seq) };
-            string ctx = $"seq={seq} minGap={minGap} minContig={minContig}";
+            // A3-2: QUAST correct_seq reads every non-ACGT symbol (R, Y here) as N; false = only N/n.
+            bool asGap = rng.Next(2) == 0;
+            string gapClass = asGap ? "[^ACGTacgt]" : "[Nn]";
+            string ctx = $"seq={seq} minGap={minGap} minContig={minContig} nonAcgtAsGap={asGap}";
 
-            var expectedGaps = Regex.Matches(seq, "[Nn]+").Where(m => m.Length >= minGap)
+            var expectedGaps = Regex.Matches(seq, gapClass + "+").Where(m => m.Length >= minGap)
                 .Select(m => (m.Index, m.Index + m.Length - 1, m.Length)).ToList();
-            var gaps = GenomeAssemblyAnalyzer.FindGaps(input, minGap).Select(g => (g.Start, g.End, g.Length)).ToList();
+            var gaps = GenomeAssemblyAnalyzer.FindGaps(input, minGap, asGap).Select(g => (g.Start, g.End, g.Length)).ToList();
             Assert.That(gaps, Is.EqualTo(expectedGaps), ctx);
 
-            var cuts = Regex.Matches(seq, $"[Nn]{{{minGap},}}").ToList();
+            var cuts = Regex.Matches(seq, $"{gapClass}{{{minGap},}}").ToList();
             var expectedContigs = new List<(int, int)>();
             int pos = 0;
             foreach (var m in cuts)
@@ -53,12 +56,12 @@ public class AssemblyGapsFuzzTests
             }
             if (seq.Length > pos) expectedContigs.Add((pos, seq.Length - 1));
 
-            var st = GenomeAssemblyAnalyzer.AnalyzeScaffolds(input, minGap).Single();
+            var st = GenomeAssemblyAnalyzer.AnalyzeScaffolds(input, minGap, asGap).Single();
             Assert.That(st.Contigs.Select(c => (c.Start, c.End)), Is.EqualTo(expectedContigs), ctx);
             Assert.That(st.Gaps.Select(g => (g.Start, g.End, g.Length)), Is.EqualTo(expectedGaps), ctx);
             Assert.That(st.ContigLength + st.GapLength, Is.EqualTo(seq.Length), ctx);
 
-            var extracted = GenomeAssemblyAnalyzer.ExtractContigs(input, minContig, minGap).Select(c => c.Sequence);
+            var extracted = GenomeAssemblyAnalyzer.ExtractContigs(input, minContig, minGap, asGap).Select(c => c.Sequence);
             Assert.That(extracted, Is.EqualTo(expectedContigs.Select(c => seq[c.Item1..(c.Item2 + 1)])
                 .Where(c => c.Length >= minContig)), ctx);
 

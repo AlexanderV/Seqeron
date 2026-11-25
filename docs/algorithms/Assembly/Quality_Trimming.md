@@ -87,7 +87,7 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 - Phred decoding offset = 33 by default (`PhredAsciiOffset`), configurable (`phredOffset`, cutadapt `--quality-base`) [3].
 - Min-length filter drops survivors below `minLength` (cutadapt `--minimum-length` semantics).
 - This implementation reproduces cutadapt's `quality_trim_index` exactly, including the `s < 0` early break (the accumulator stops once the high-quality suffix/prefix outweighs the low-quality run) and the `start >= stop ⇒ empty` rule [1][2]. The early break is essential: it is what "allows some good-quality bases among the bad ones" — a high-quality base near an end protects the bases on its interior side from being trimmed by that end's pass. A naive global-minimum scan *without* the break over-trims (it would cut at the deepest minimum anywhere in the read).
-- BWA additionally floors trimmed length at `BWA_MIN_RDLEN = 35` [2]; this implementation omits that fixed floor (the configurable `minLength` filter plays the corresponding role), so reads can be trimmed below 35 bases unless `minLength` forbids it.
+- BWA additionally floors the 3' scan at `BWA_MIN_RDLEN = 35` [2]; this is available as the opt-in `bwaMinLength` (default 0 = cutadapt).
 
 ### 4.3 Complexity
 
@@ -102,7 +102,7 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 **Implementation location:** [SequenceAssembler.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs)
 
 - `SequenceAssembler.QualityTrimReads(reads, minQuality, minLength)`: 3' end only with one cutoff (cutadapt `-q C`), Phred+33 (= `QualityTrimReads(reads, 0, minQuality, minLength)`).
-- `SequenceAssembler.QualityTrimReads(reads, cutoffFront, cutoffBack, minLength, phredOffset = 33)`: cutadapt `-q 5',3' --quality-base N -m minLength`.
+- `SequenceAssembler.QualityTrimReads(reads, cutoffFront, cutoffBack, minLength, phredOffset = 33, bwaMinLength = 0)`: cutadapt `-q 5',3' --quality-base N -m minLength`; `bwaMinLength: SequenceAssembler.BwaMinReadLength` = BWA `aln -q`.
 - `SequenceAssembler.QualityTrimIndex(phredScores, cutoffFront, cutoffBack)`: line-by-line port of cutadapt 5.2 `qualtrim.quality_trim_index`, returns `[start, stop)`.
 
 ### 5.2 Current Behavior
@@ -118,9 +118,15 @@ Trimming runs the 5' pass and the 3' pass independently over the full read (cuta
 - Phred+33 decoding (`ASCII − 33`) [2][3].
 - Cutoff `< 1` disables trimming [2].
 
-**Intentionally simplified:**
+**BWA 35-base floor (opt-in, A8-2).** BWA's `bwa_trim_read` scans `for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l)` with
+`#define BWA_MIN_RDLEN 35` (`bwtaln.h`) [2], so the first 35 bases are never examined and a read keeps at least
+min(35, length) bases. `QualityTrimReads(reads, cutoffFront, cutoffBack, minLength, phredOffset, bwaMinLength)` takes the
+floor as `bwaMinLength` (`SequenceAssembler.BwaMinReadLength` = 35; default 0 = cutadapt's unrestricted scan, which is why
+the default trims below 35 bases); `QualityTrimIndex(..., bwaMinLength)` applies it to the 3' scan (BWA has no 5' pass). The
+MCP tool `quality_trim_reads` exposes it as `bwaMinLength`. Oracle: a verbatim transcription of `bwa_trim_read`
+(`tools/review/oracles/B10/wp4_oracle.py`); 1500 random reads x 7 seeds (length 0..100, cutoff 0..30) give identical kept lengths.
 
-- BWA's fixed `BWA_MIN_RDLEN = 35` floor is omitted; the configurable `minLength` filter plays the corresponding role; **consequence:** trimmed boundaries match cutadapt exactly and reads can be trimmed below 35 bases unless `minLength` forbids it [1][2].
+**Intentionally simplified:** none for the trimming rule itself (cutadapt `quality_trim_index` and BWA `bwa_trim_read` are both reproduced).
 
 **Not implemented:**
 

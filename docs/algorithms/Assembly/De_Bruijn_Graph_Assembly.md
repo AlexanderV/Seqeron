@@ -6,7 +6,7 @@
 | Test Unit ID | ASSEMBLY-DBG-001 |
 | Related Projects | Seqeron.Genomics.Alignment |
 | Implementation Status | Reference |
-| Last Reviewed | 2026-11-25 |
+| Last Reviewed | 2026-11-25 (audit round 1, WP4: A2-4, A2-5) |
 
 ## 1. Overview
 
@@ -77,11 +77,21 @@ k-mers, not reads, thus high redundancy is naturally handled by the graph withou
 the number of nodes" (Velvet [5]); unitigs are defined over the k-mer set (BCALM 2 /
 Chikhi et al. 2016 [6]).
 
-**Strands.** Optionally each k-mer is entered with its reverse complement ("each k-mer is
+**Strands (default: both).** Each k-mer is entered with its reverse complement ("each k-mer is
 recorded simultaneously to its reverse complement ... this ensures that overlaps between
 reads from opposite strands are taken into account" [5]); the resulting graph is
 reverse-complement symmetric, so each unitig's reverse complement is also a unitig and each
-such pair is reported once.
+such pair is reported once, as the ordinally smaller of the two strings. Velvet always builds this
+double-strand graph, so `AssembleDeBruijn(reads, parameters)` does too; `includeReverseComplement: false`
+selects the single-strand textbook model (Rosalind BA3K/BA3M), which the oracle values of the BA3M tests use.
+
+**Non-ACGT symbols (Velvet read rule).** Velvet's read loader `velvetifySequence` (`src/readSet.c`) keeps
+A/C/G/T (either case) and turns every other symbol into `N`; `writeNucleotide` (`src/tightString.c`) stores `N`
+as Adenine. `AssembleDeBruijn` therefore upper-cases each read and replaces every symbol outside A/C/G/T —
+`N`, IUPAC codes, `U`, `-`, any non-ASCII character — by `A` before the k-mers are taken, so a k-mer that
+contains such a symbol is the k-mer with an A in that position, the contigs are over {A, C, G, T}, and
+`AssembledReads` is counted on the folded reads. The textbook primitives `BuildDeBruijnGraph` /
+`FindMaximalNonBranchingPaths` take arbitrary symbols verbatim (Langmead / Rosalind text examples).
 
 ### 2.4 Properties and Invariants
 
@@ -114,7 +124,7 @@ such pair is reported once.
 | `parameters` | `AssemblyParameters?` | `DefaultParameters` | null → k = 31, MinContigLength 100 | `new AssemblyParameters()` zero-initialises the struct — pass null or `DefaultParameters` |
 | `parameters.KmerSize` (k) | `int` | 31 | k-mer length | ≥ 2, else `ArgumentOutOfRangeException` (checked before the reads) |
 | `parameters.MinContigLength` | `int` | 100 | minimum emitted contig length | contigs shorter than this are discarded |
-| `includeReverseComplement` | `bool` | false (overload) | add the reverse complement of every k-mer | odd k recommended (no k-mer is its own reverse complement) |
+| `includeReverseComplement` | `bool` | **true** (both overloads of the 2-argument form; MCP default true) | add the reverse complement of every k-mer (Velvet); false = forward strand only (BA3M) | odd k recommended (no k-mer is its own reverse complement) |
 
 ### 3.2 Output / Return Value
 
@@ -122,6 +132,7 @@ such pair is reported once.
 |-------|------|-------------|
 | `Contigs` | `IReadOnlyList<string>` | upper-case spelled maximal non-branching paths and isolated cycles, after length filtering |
 | `TotalReads` | `int` | number of input reads |
+| `AssembledReads` | `int` | reads (folded) with at least one k-mer — on either strand when double-stranded — in a reported contig (Velvet `usedReads`) |
 | `N50` / `LongestContig` / `TotalLength` | numeric | `CalculateStats` over the emitted contigs (ASSEMBLY-STATS-001) |
 
 `BuildDeBruijnGraph(reads, k)` returns the out-adjacency multimap
@@ -133,21 +144,21 @@ such pair is reported once.
 
 Null or empty `reads` returns an empty `AssemblyResult`. k < 2 throws
 `ArgumentOutOfRangeException` in both `AssembleDeBruijn` and `BuildDeBruijnGraph`.
-`AssembleDeBruijn` counts k-mers case-insensitively through the canonical
+`AssembleDeBruijn` folds each read (upper-case, non-ACGT -> A, Velvet) and counts k-mers through the canonical
 `SequenceExtensions.CountKmersSpan` (upper-case keys); `BuildDeBruijnGraph` takes k-mers
-verbatim. `FindMaximalNonBranchingPaths(null)` throws `ArgumentNullException`.
+verbatim (any alphabet). `FindMaximalNonBranchingPaths(null)` throws `ArgumentNullException`.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. **Distinct k-mers:** for each read of length ≥ k, collect its k-mers
-   (`CountKmersSpan`, upper-cased); optionally add each k-mer's reverse complement.
+1. **Distinct k-mers:** fold each read (Velvet: upper-case, non-ACGT -> A); for each read of length ≥ k, collect its
+   k-mers (`CountKmersSpan`); by default add each k-mer's reverse complement.
 2. **Build graph:** one edge per distinct k-mer from its (k-1)-prefix to its (k-1)-suffix;
    k-mers are inserted in ordinal order.
 3. **Unitigs:** `FindMaximalNonBranchingPaths` (BA3M, above), including isolated cycles.
 4. **Spell:** first node, then the last character of each subsequent node.
-5. **Strand pairs (option only):** skip a path whose first k-mer is already covered by an
+5. **Strand pairs (double-stranded, the default):** skip a path whose first k-mer is already covered by an
    emitted path or its reverse complement; emit the ordinally smaller of the spelled path and
    its reverse complement.
 6. **Filter:** keep contigs of length ≥ `MinContigLength`; compute statistics.
@@ -190,8 +201,7 @@ self-loop (homopolymer / tandem repeat of period 1) makes its node branching.
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):** nodes = (k-1)-mers, edges = k-mers
-[1]; contigs = maximal non-branching paths incl. isolated cycles [4]; distinct k-mers and
-reverse-complement k-mers as in Velvet [5].
+[1]; contigs = maximal non-branching paths incl. isolated cycles [4]; distinct k-mers, reverse-complement k-mers (default) and the non-ACGT -> A read rule as in Velvet [5][7].
 
 **Not implemented:** read error correction (see `ErrorCorrectReads`, ASSEMBLY-CORRECT-001),
 tip / bubble removal (Velvet Tour Bus), coverage cut-offs, and repeat resolution with
@@ -204,7 +214,8 @@ for real sequencing data.
 |---|------|------|--------|--------|-------|
 | 1 | Empty/null reads → empty result | Assumption | no exception on empty input | accepted | ASSUMPTION-2 |
 | 2 | Case-insensitive k-mers, upper-case contigs | Convention | soft-masked bases join | accepted | canonical counter; Velvet stores 2-bit bases |
-| 3 | Strand handling opt-in | Option | default is single-stranded (textbook) | accepted | Velvet default is double-stranded |
+| 3 | Double-stranded by default (A2-4, 2026-11-25) | Default flip | reads of both strands join | resolved | Velvet always builds the double-strand graph [5]; `includeReverseComplement: false` is the BA3M single-strand model |
+| 4 | Non-ACGT symbol -> A (A2-5, 2026-11-25) | Sourced rule | k-mers with N/IUPAC/U are the A-substituted k-mer; contigs never contain N | resolved | Velvet `velvetifySequence` + `writeNucleotide` [7] (an N is not a break: Velvet reads it as A) |
 
 ## 6. Edge Cases and Limitations
 
@@ -230,15 +241,16 @@ heterozygosity fragment the assembly; no error-graph cleaning is done.
 
 ```csharp
 var result = SequenceAssembler.AssembleDeBruijn(
-    new[] { "AAABBBA" },
-    new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1));
-// result.Contigs == ["AAA", "AABB", "BBA", "BBB"]
+    new[] { "AAACCCA" },
+    new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1),
+    includeReverseComplement: false);          // single-strand textbook model (BA3M)
+// result.Contigs == ["AAA", "AACC", "CCA", "CCC"]
 ```
 
-`AAABBBA`, k = 3. Edges: `AA→AA, AA→AB, AB→BB, BB→BB, BB→BA`. AA (in 1, out 2) and BB
-(in 2, out 2) are not 1-in-1-out, AB is. Paths: `AA→AA` (AAA), `AA→AB→BB` (AABB),
-`BB→BA` (BBA), `BB→BB` (BBB). Overlapping reads `ATGGCGT`, `GGCGTGCA` (k = 4) give the single
-contig `ATGGCGTGCA`. Rosalind BA3K sample (k-mer multiset `ATG ATG TGT TGG CAT GGA GAT AGA`)
+`AAACCCA` (Langmead's text example `AAABBBA` with B -> C, because the assembler reads every non-ACGT symbol as A), k = 3. Edges: `AA→AA, AA→AC, AC→CC, CC→CC, CC→CA`. AA (in 2, out 2) and CC
+(in 2, out 2) are not 1-in-1-out, AC is. Paths: `AA→AA` (AAA), `AA→AC→CC` (AACC),
+`CC→CA` (CCA), `CC→CC` (CCC). Overlapping reads `ATGGCGT`, `GGCGTGCA` (k = 4, single strand) give the single
+contig `ATGGCGTGCA`; with the default double-stranded graph `GATTACAGGT` + `TAAGGACCTG` (k = 5) join into `GATTACAGGTCCTTA`, and a read with an `N` (`ACGTNGGTCA`, k = 4) is read as `ACGTAGGTCA`. Rosalind BA3K sample (k-mer multiset `ATG ATG TGT TGG CAT GGA GAT AGA`)
 through `FindMaximalNonBranchingPaths(BuildDeBruijnGraph(...))` gives
 `AGA ATG ATG CAT GAT TGGA TGT`.
 
@@ -256,3 +268,4 @@ through `FindMaximalNonBranchingPaths(BuildDeBruijnGraph(...))` gives
 4. Compeau P, Pevzner P. *Bioinformatics Algorithms: An Active Learning Approach*, ch.3; Rosalind BA3K (Generate Contigs from a Collection of Reads) https://rosalind.info/problems/ba3k/ and BA3M (Generate All Maximal Non-Branching Paths in a Graph) https://rosalind.info/problems/ba3m/
 5. Zerbino DR, Birney E. 2008. Velvet: algorithms for de novo short read assembly using de Bruijn graphs. *Genome Research* 18:821-829. https://doi.org/10.1101/gr.074492.107
 6. Chikhi R, Limasset A, Medvedev P. 2016. Compacting de Bruijn graphs from sequencing data quickly and in low memory. *Bioinformatics* 32(12):i201-i208 (unitigs = maximal non-branching paths).
+7. Velvet 1.2.10 source (dzerbino/velvet): `src/readSet.c` `velvetifySequence` (non-ACGT -> N), `src/tightString.c` `writeNucleotide` (N -> Adenine), `src/kmer.c`. https://github.com/dzerbino/velvet

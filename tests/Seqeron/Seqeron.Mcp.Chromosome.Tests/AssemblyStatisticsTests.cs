@@ -53,4 +53,16 @@ public class AssemblyStatisticsTests
             Assert.That(stats.MedianLength, Is.EqualTo(6.0));
         });
     }
+
+    [Test]
+    public void AssemblyStatistics_NonAcgtAsGap_DefaultTrue()
+    {
+        // A3-2: QUAST correct_seq: U is an N -> GC = 2/3 over ACGT; false = previous reading (U is a base, 2/4).
+        var seqs = new List<NamedSequence> { new("a", "ACGU") };
+        Assert.Multiple(() =>
+        {
+            Assert.That(ChromosomeTools.AssemblyStatistics(seqs).GcContent, Is.EqualTo(2.0 / 3.0).Within(1e-12));
+            Assert.That(ChromosomeTools.AssemblyStatistics(seqs, nonAcgtAsGap: false).GcContent, Is.EqualTo(0.5).Within(1e-12));
+        });
+    }
 }

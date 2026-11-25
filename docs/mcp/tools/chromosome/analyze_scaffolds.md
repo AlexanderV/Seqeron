@@ -14,7 +14,7 @@ Decompose scaffolds into contigs and gaps.
 
 ## Description
 
-Splits each scaffold at every maximal run of `N`/`n` of length ≥ `minGapLength` (QUAST
+Splits each scaffold at every maximal run of gap symbols (`N`/`n` and, by default (`nonAcgtAsGap = true`, QUAST `correct_seq`), every other non-ACGT symbol) of length ≥ `minGapLength` (QUAST
 `qutils.split_by_ns`; default 10 = QUAST `Ns_break_threshold` and the NCBI rule that every run of
 ≥ 10 N is an assembly gap). Shorter N-runs are ambiguous bases inside a contig (AGP v2.1), so
 `contigLength + gapLength = totalLength`. The pieces between gaps become contigs named
@@ -31,7 +31,8 @@ type). Reports per scaffold the total length, summed contig length, and summed g
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `scaffolds` | array | Yes | Scaffold sequences `{ id, sequence }`. Empty list → empty result. |
-| `minGapLength` | integer | No | Minimum N-run length that is a gap and splits contigs (default 10, must be > 0). |
+| `minGapLength` | integer | No | Minimum gap-run length that is a gap and splits contigs (default 10, must be > 0). |
+| `nonAcgtAsGap` | boolean | No | QUAST `correct_seq`: treat every non-ACGT symbol (IUPAC codes, U, ...) as N, i.e. a gap symbol (default true); false = only N/n. |
 
 ## Output Schema
 

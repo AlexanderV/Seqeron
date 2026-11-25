@@ -29,4 +29,18 @@ public class AuNTests
         // Empty -> 0.
         Assert.That(ChromosomeTools.AuN(new List<int>()).AuN, Is.EqualTo(0.0));
     }
+
+    [Test]
+    public void AuN_GenomeSize_ComputesAuNG()
+    {
+        // A3-1: auNG = sum(l^2) / G (QUAST au_metric with reference_length): 22000 / 1000 = 22.
+        var lengths = new List<int> { 100, 80, 60, 40, 20 };
+        Assert.Multiple(() =>
+        {
+            Assert.That(ChromosomeTools.AuN(lengths, 1000).AuN, Is.EqualTo(22.0).Within(1e-12));
+            Assert.That(ChromosomeTools.AuN(lengths, null).AuN, Is.EqualTo(22000.0 / 300.0).Within(1e-12), "omitted genomeSize = auN");
+            Assert.Throws<ArgumentException>(() => ChromosomeTools.AuN(lengths, 0));
+            Assert.Throws<ArgumentException>(() => ChromosomeTools.AuN(lengths, -5));
+        });
+    }
 }

@@ -12,34 +12,123 @@
     "properties": {
       "sequences": {
         "type": "array",
-        "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] }
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "sequence"
+          ]
+        }
+      },
+      "nonAcgtAsGap": {
+        "type": "boolean",
+        "description": "QUAST correct_seq: treat every non-ACGT symbol (IUPAC codes, U, ...) as N, i.e. a gap symbol. Default true; false = only N/n.",
+        "default": true
       }
     },
-    "required": ["sequences"]
+    "required": [
+      "sequences"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "totalSequences": { "type": "integer" },
-      "totalLength": { "type": "integer" },
-      "totalLengthNoGaps": { "type": "integer" },
-      "n50": { "type": "integer" }, "l50": { "type": "integer" },
-      "n90": { "type": "integer" }, "l90": { "type": "integer" },
-      "largestContig": { "type": "integer" }, "smallestContig": { "type": "integer" },
-      "meanLength": { "type": "number" }, "medianLength": { "type": "number" },
-      "gcContent": { "type": "number" },
-      "totalGaps": { "type": "integer" }, "totalGapLength": { "type": "integer" }, "gapPercentage": { "type": "number" }
+      "totalSequences": {
+        "type": "integer"
+      },
+      "totalLength": {
+        "type": "integer"
+      },
+      "totalLengthNoGaps": {
+        "type": "integer"
+      },
+      "n50": {
+        "type": "integer"
+      },
+      "l50": {
+        "type": "integer"
+      },
+      "n90": {
+        "type": "integer"
+      },
+      "l90": {
+        "type": "integer"
+      },
+      "largestContig": {
+        "type": "integer"
+      },
+      "smallestContig": {
+        "type": "integer"
+      },
+      "meanLength": {
+        "type": "number"
+      },
+      "medianLength": {
+        "type": "number"
+      },
+      "gcContent": {
+        "type": "number"
+      },
+      "totalGaps": {
+        "type": "integer"
+      },
+      "totalGapLength": {
+        "type": "integer"
+      },
+      "gapPercentage": {
+        "type": "number"
+      }
     },
-    "required": ["totalSequences", "totalLength", "n50", "l50", "largestContig", "smallestContig", "meanLength", "gcContent"]
+    "required": [
+      "totalSequences",
+      "totalLength",
+      "n50",
+      "l50",
+      "largestContig",
+      "smallestContig",
+      "meanLength",
+      "gcContent"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequences cannot be null" }
+    {
+      "code": 1001,
+      "message": "Sequences cannot be null"
+    }
   ],
   "examples": [
     {
       "name": "Two contigs",
-      "input": { "sequences": [ { "id": "s1", "sequence": "ACGTACGTGG" }, { "id": "s2", "sequence": "ACGTAC" } ] },
-      "output": { "totalSequences": 2, "totalLength": 16, "largestContig": 10, "smallestContig": 6, "meanLength": 8.0, "gcContent": 0.5625, "n50": 10, "l50": 1 }
+      "input": {
+        "sequences": [
+          {
+            "id": "s1",
+            "sequence": "ACGTACGTGG"
+          },
+          {
+            "id": "s2",
+            "sequence": "ACGTAC"
+          }
+        ]
+      },
+      "output": {
+        "totalSequences": 2,
+        "totalLength": 16,
+        "largestContig": 10,
+        "smallestContig": 6,
+        "meanLength": 8.0,
+        "gcContent": 0.5625,
+        "n50": 10,
+        "l50": 1
+      }
     }
   ]
 }

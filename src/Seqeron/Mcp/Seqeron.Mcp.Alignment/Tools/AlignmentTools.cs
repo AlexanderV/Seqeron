@@ -436,14 +436,14 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "assemble_de_bruijn", Title = "Assembly — de Bruijn Graph", ReadOnly = true)]
-    [Description("Assembles input reads using a de Bruijn graph: shreds reads into their distinct k-mers (case-insensitive; coverage adds no edges), builds the (k-1)-mer node graph, and outputs every maximal non-branching path (unitig) and isolated cycle as a contig (Compeau & Pevzner; Velvet), then reports assembly statistics. Optionally adds reverse-complement k-mers so reads from both strands join; each contig/reverse-complement pair is then reported once.")]
+    [Description("Assembles input reads using a de Bruijn graph: shreds reads into their distinct k-mers (case-insensitive; coverage adds no edges; Velvet read rule: every non-ACGT symbol is read as A), builds the (k-1)-mer node graph, and outputs every maximal non-branching path (unitig) and isolated cycle as a contig (Compeau & Pevzner; Velvet), then reports assembly statistics. Double-stranded by default (Velvet records each k-mer together with its reverse complement, so reads from both strands join; each contig/reverse-complement pair is reported once); set includeReverseComplement = false for the single-strand textbook model (Rosalind BA3K/BA3M).")]
     public static AssemblyResultDto AssembleDeBruijn(
         [Description("Input sequence reads.")] string[] reads,
         [Description("Minimum overlap length (shared parameter; not the operative knob here).")] int minOverlap = 20,
         [Description("Minimum identity (shared parameter).")] double minIdentity = 0.9,
         [Description("K-mer size used to build the de Bruijn graph (>= 2; odd recommended with includeReverseComplement).")] int kmerSize = 31,
         [Description("Minimum contig length to keep (bp).")] int minContigLength = 100,
-        [Description("Treat reads as double-stranded DNA: add each k-mer's reverse complement (Velvet).")] bool includeReverseComplement = false)
+        [Description("Treat reads as double-stranded DNA: add each k-mer's reverse complement (Velvet; default true). False = forward strand only (Rosalind BA3M single-strand model).")] bool includeReverseComplement = true)
     {
         var p = new global::Seqeron.Genomics.Alignment.SequenceAssembler.AssemblyParameters(
             minOverlap, minIdentity, kmerSize, minContigLength);
@@ -538,12 +538,15 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "scaffold_contigs", Title = "Assembly — Scaffold by Paired Links", ReadOnly = true)]
-    [Description("Orders and orients contigs into scaffolds from paired-end links with the greedy path-merging rule (Huson, Reinert & Myers 2002): links in descending weight; a link is used only if both contig ends it joins are still free and it does not close a cycle. Each link says contig2 follows contig1 (each optionally reverse-complemented) after gapSize characters: a positive gap emits that many gapCharacter; a negative gap collapses the overlap when the -gapSize bases agree (N matches anything), otherwise — and for a zero gap — the AGP unknown gap of 100 is emitted. Unlinked contigs are singleton scaffolds; scaffolds are listed by their lowest contig index.")]
+    [Description("Orders and orients contigs into scaffolds from paired-end links with the greedy path-merging rule (Huson, Reinert & Myers 2002): links in descending weight; a link is used only if both contig ends it joins are still free and it does not close a cycle. Each link says contig2 follows contig1 (each optionally reverse-complemented) after gapSize characters: a positive gap emits that many gapCharacter; a negative gap collapses the overlap when the -gapSize bases agree (N matches anything), otherwise — and for a zero gap — a gap of unknown size is emitted: unknownGapLength characters (default 100 = AGP v2.1; 1 = the single n of ABySS/SSPACE). Unlinked contigs are singleton scaffolds; scaffolds are listed by their lowest contig index.")]
     public static ScaffoldsResult ScaffoldContigs(
         [Description("Contig sequences.")] string[] contigs,
         [Description("Links {contig1, contig2, gapSize, contig1Reversed?, contig2Reversed?, weight?} (indices into contigs, each in [0, contigs.Length) and contig1 ≠ contig2; weight ≥ 1, default 1).")] ContigLinkInput[] links,
-        [Description("Single-character gap filler (e.g. \"N\").")] string gapCharacter = "N")
+        [Description("Single-character gap filler (e.g. \"N\").")] string gapCharacter = "N",
+        [Description("Number of gap characters for a gap of unknown size (zero estimate, or a negative estimate whose overlap is not found); >= 1, default 100 (NCBI AGP v2.1); 1 = ABySS/SSPACE single n.")] int unknownGapLength = 100)
     {
+        if (unknownGapLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(unknownGapLength), unknownGapLength, "unknownGapLength must be >= 1.");
         if (string.IsNullOrEmpty(gapCharacter) || gapCharacter.Length != 1)
             throw new ArgumentException("gapCharacter must be exactly one character.", nameof(gapCharacter));
 
@@ -558,7 +561,7 @@ public class AlignmentTools
         }
 
         var scaffolds = global::Seqeron.Genomics.Alignment.SequenceAssembler.Scaffold(
-            contigs, srcLinks, gapCharacter[0]);
+            contigs, srcLinks, gapCharacter[0], unknownGapLength);
 
         var arr = new string[scaffolds.Count];
         for (int i = 0; i < scaffolds.Count; i++)
@@ -610,14 +613,15 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "quality_trim_reads", Title = "Reads — Quality Trim (BWA/cutadapt running sum)", ReadOnly = true)]
-    [Description("Trims low-quality read ends with the BWA/cutadapt running-sum algorithm (cutadapt quality_trim_index): subtract the cutoff from each Phred score and cut each end at the minimum partial sum, so a few good bases among bad ones are tolerated. Default: only the 3' end is trimmed with minQuality (a single cutadapt -q C = -q 0,C; BWA aln -q C); the 5' end is trimmed only when cutoffFront is given (cutadapt -q 5',3'; pass cutoffFront = minQuality for -q C,C). Reads shorter than minLength after trimming are dropped (cutadapt -m).")]
+    [Description("Trims low-quality read ends with the BWA/cutadapt running-sum algorithm (cutadapt quality_trim_index): subtract the cutoff from each Phred score and cut each end at the minimum partial sum, so a few good bases among bad ones are tolerated. Default: only the 3' end is trimmed with minQuality (a single cutadapt -q C = -q 0,C; BWA aln -q C); the 5' end is trimmed only when cutoffFront is given (cutadapt -q 5',3'; pass cutoffFront = minQuality for -q C,C). Reads shorter than minLength after trimming are dropped (cutadapt -m). bwaMinLength = 35 reproduces BWA's BWA_MIN_RDLEN floor (the first 35 bases are never examined, so a read keeps at least min(35, length) bases at its 3' end); default 0 = cutadapt's unrestricted scan.")]
     public static TrimmedReadsResult QualityTrimReads(
         [Description("Reads, each with sequence and a quality string of the same length (Phred+phredOffset ASCII).")] QualityReadInput[] reads,
         [Description("Quality cutoff subtracted from each Phred score at the 3' end (values < 1 disable trimming); the 5' end uses cutoffFront.")] int minQuality = 20,
         [Description("Minimum length after trimming for a read to be kept.")] int minLength = 50,
         [Description("Optional 5' cutoff (cutadapt -q 5',3'); default 0 = 5' end untrimmed (< 1 leaves the 5' end untrimmed).")] int? cutoffFront = null,
         [Description("Optional 3' cutoff overriding minQuality for the 3' end (< 1 leaves the 3' end untrimmed).")] int? cutoffBack = null,
-        [Description("ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+, default) or 64 (Illumina 1.3-1.7), as cutadapt --quality-base.")] int phredOffset = 33)
+        [Description("ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+, default) or 64 (Illumina 1.3-1.7), as cutadapt --quality-base.")] int phredOffset = 33,
+        [Description("BWA BWA_MIN_RDLEN floor of the 3' scan: 0 (default) = none (cutadapt), 35 = BWA bwa_trim_read (never trims below min(35, length) bases).")] int bwaMinLength = 0)
     {
         var input = new List<(string sequence, string quality)>(reads?.Length ?? 0);
         if (reads != null)
@@ -638,7 +642,7 @@ public class AlignmentTools
 
         // Quality decoding/validation and trimming are the core's (Core QualitySequence + cutadapt port).
         var trimmed = global::Seqeron.Genomics.Alignment.SequenceAssembler.QualityTrimReads(
-            input, cutoffFront ?? 0, cutoffBack ?? minQuality, minLength, phredOffset);
+            input, cutoffFront ?? 0, cutoffBack ?? minQuality, minLength, phredOffset, bwaMinLength);
 
         var arr = new string[trimmed.Count];
         for (int i = 0; i < trimmed.Count; i++)
@@ -647,7 +651,7 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "error_correct_reads", Title = "Reads — k-mer Spectrum Error Correction (Musket)", ReadOnly = true)]
-    [Description("Corrects substitution errors with the Musket k-mer spectrum corrector (Liu et al. 2013). k-mers with multiplicity >= minKmerFrequency are trusted; bases covered by a trusted k-mer are never changed by the two-sided stage. Default: Musket stage 1 (two-sided conservative correction: one substitution per iteration at the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted; ambiguous positions unchanged), iterated to convergence over a canonical (both-strand) spectrum as Musket counts it; countReverseComplement=false restores the forward-strand-only spectrum. musket=true runs the full Musket 1.1 corrector (canonical both-strand k-mers, -maxiter 2, -maxerr 4: adds aggressive one-sided correction and voting); countReverseComplement / maxIterations / maxErrorsPerKmer override the chosen preset. Reads are upper-cased; count and lengths are preserved.")]
+    [Description("Corrects substitution errors with the Musket k-mer spectrum corrector (Liu et al. 2013). k-mers with multiplicity >= minKmerFrequency are trusted; bases covered by a trusted k-mer are never changed by the two-sided stage. Default: Musket stage 1 (two-sided conservative correction: one substitution per iteration at the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted; ambiguous positions unchanged), iterated to convergence over a canonical (both-strand) spectrum as Musket counts it; countReverseComplement=false restores the forward-strand-only spectrum. musket=true runs the full Musket 1.1 corrector (canonical both-strand k-mers, -maxiter 2, -maxerr 4: adds aggressive one-sided correction and voting); countReverseComplement / maxIterations / maxErrorsPerKmer override the chosen preset. Non-ACGT symbols (N, IUPAC codes, U) are read as A by the spectrum (Musket 2-bit encoding); a base no correction replaces keeps its upper-cased input symbol. Reads are upper-cased; count and lengths are preserved.")]
     public static CorrectedReadsResult ErrorCorrectReads(
         [Description("Input reads.")] string[] reads,
         [Description("K-mer size used to build the frequency table (>= 1). Default 21 (Musket -k default).")] int kmerSize = 21,

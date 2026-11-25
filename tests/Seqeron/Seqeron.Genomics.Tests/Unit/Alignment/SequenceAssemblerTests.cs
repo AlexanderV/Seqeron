@@ -226,7 +226,9 @@ public class SequenceAssemblerTests
         var reads = new List<string> { "ACGTTGCA", "CGTTG", "TTTTT", "AC" };
         var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 20, MinIdentity: 0.9, KmerSize: 4, MinContigLength: 5);
 
-        var result = SequenceAssembler.AssembleDeBruijn(reads, param);
+        // Forward strand (single-strand model); the double-stranded default folds ACGTTGCA and its reverse complement
+        // into one cycle (see the next test and the DBG unit tests).
+        var result = SequenceAssembler.AssembleDeBruijn(reads, param, includeReverseComplement: false);
 
         Assert.Multiple(() =>
         {

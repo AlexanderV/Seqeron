@@ -6,24 +6,76 @@
   "stability": "stable",
   "methodId": "GenomeAssemblyAnalyzer.CalculateAuN",
   "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L321",
-  "description": "Compute auN (area under the Nx curve) - a length-weighted contiguity metric robust to outliers.",
+  "description": "Compute auN (area under the Nx curve) - a length-weighted contiguity metric robust to outliers; with genomeSize the auNG (sum(l^2)/G).",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "lengths": { "type": "array", "items": { "type": "integer" }, "description": "Sequence lengths." }
+      "lengths": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "description": "Sequence lengths."
+      },
+      "genomeSize": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Optional reference / estimated genome size G (> 0): auNG = sum(l^2) / G (Li 2020; QUAST au_metric with reference_length). Omitted = auN."
+      }
     },
-    "required": ["lengths"]
+    "required": [
+      "lengths"
+    ]
   },
   "outputSchema": {
     "type": "object",
-    "properties": { "auN": { "type": "number", "description": "sum(l^2) / sum(l); 0 for empty input." } },
-    "required": ["auN"]
+    "properties": {
+      "auN": {
+        "type": "number",
+        "description": "sum(l^2) / sum(l); 0 for empty input."
+      }
+    },
+    "required": [
+      "auN"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Lengths cannot be null" }
+    {
+      "code": 1001,
+      "message": "Lengths cannot be null"
+    }
   ],
   "examples": [
-    { "name": "Ten contigs", "input": { "lengths": [100, 90, 80, 70, 60, 50, 40, 30, 20, 10] }, "output": { "auN": 70.0 } },
-    { "name": "Single contig", "input": { "lengths": [123] }, "output": { "auN": 123.0 } }
+    {
+      "name": "Ten contigs",
+      "input": {
+        "lengths": [
+          100,
+          90,
+          80,
+          70,
+          60,
+          50,
+          40,
+          30,
+          20,
+          10
+        ]
+      },
+      "output": {
+        "auN": 70.0
+      }
+    },
+    {
+      "name": "Single contig",
+      "input": {
+        "lengths": [
+          123
+        ]
+      },
+      "output": {
+        "auN": 123.0
+      }
+    }
   ]
 }

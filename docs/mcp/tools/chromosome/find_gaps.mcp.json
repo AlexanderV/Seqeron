@@ -10,27 +10,128 @@
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequences": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
-      "minGapLength": { "type": "integer", "default": 1, "exclusiveMinimum": 0, "description": "Minimum N-run length to report." }
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "sequence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "sequence"
+          ]
+        }
+      },
+      "minGapLength": {
+        "type": "integer",
+        "default": 1,
+        "exclusiveMinimum": 0,
+        "description": "Minimum N-run length to report."
+      },
+      "nonAcgtAsGap": {
+        "type": "boolean",
+        "description": "QUAST correct_seq: treat every non-ACGT symbol (IUPAC codes, U, ...) as N, i.e. a gap symbol. Default true; false = only N/n.",
+        "default": true
+      }
     },
-    "required": ["sequences"]
+    "required": [
+      "sequences"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
       "items": {
         "type": "array",
-        "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer", "description": "0-based." }, "end": { "type": "integer", "description": "0-based, inclusive." }, "length": { "type": "integer" }, "gapType": { "type": "string" } }, "required": ["sequenceId", "start", "end", "length", "gapType"] }
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequenceId": {
+              "type": "string"
+            },
+            "start": {
+              "type": "integer",
+              "description": "0-based."
+            },
+            "end": {
+              "type": "integer",
+              "description": "0-based, inclusive."
+            },
+            "length": {
+              "type": "integer"
+            },
+            "gapType": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "sequenceId",
+            "start",
+            "end",
+            "length",
+            "gapType"
+          ]
+        }
       }
     },
-    "required": ["items"]
+    "required": [
+      "items"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequences cannot be null" },
-    { "code": 1002, "message": "Minimum gap length must be positive" }
+    {
+      "code": 1001,
+      "message": "Sequences cannot be null"
+    },
+    {
+      "code": 1002,
+      "message": "Minimum gap length must be positive"
+    }
   ],
   "examples": [
-    { "name": "One short gap", "input": { "sequences": [ { "id": "s", "sequence": "AAANNNNNGGG" } ], "minGapLength": 1 }, "output": { "items": [ { "sequenceId": "s", "start": 3, "end": 7, "length": 5, "gapType": "Short" } ] } },
-    { "name": "Filtered out", "input": { "sequences": [ { "id": "s", "sequence": "AAANNNNNGGG" } ], "minGapLength": 10 }, "output": { "items": [] } }
+    {
+      "name": "One short gap",
+      "input": {
+        "sequences": [
+          {
+            "id": "s",
+            "sequence": "AAANNNNNGGG"
+          }
+        ],
+        "minGapLength": 1
+      },
+      "output": {
+        "items": [
+          {
+            "sequenceId": "s",
+            "start": 3,
+            "end": 7,
+            "length": 5,
+            "gapType": "Short"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Filtered out",
+      "input": {
+        "sequences": [
+          {
+            "id": "s",
+            "sequence": "AAANNNNNGGG"
+          }
+        ],
+        "minGapLength": 10
+      },
+      "output": {
+        "items": []
+      }
+    }
   ]
 }

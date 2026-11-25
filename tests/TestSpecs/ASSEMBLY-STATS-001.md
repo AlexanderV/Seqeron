@@ -250,3 +250,8 @@
 
 1. **Project placement:** `GenomeAssemblyAnalyzer` lives in `Seqeron.Genomics.Chromosome` (not `Seqeron.Genomics.Alignment` as the Area→Project table suggests). Per the prompt, code is placed in the same project/class the sibling Registry entry uses; `Seqeron.Genomics.Tests` already references the Chromosome project. Decision: keep it in Chromosome.
 2. **By-area `CalculateNx(contigs, threshold)` / `CalculateN50(contigs)` signatures:** the checklist names 1-argument-style entry points; these are added as overloads/delegates over the existing 3-arg core. No conflict with evidence.
+
+## R1-WP4 addendum (2026-11-25): `nonAcgtAsGap` (A3-2) and auNG (A3-1)
+
+- A3-2: `CalculateStatistics(sequences, nonAcgtAsGap = true)`: every non-ACGT symbol (IUPAC, U, ...) is an N for the gap fields and the GC denominator (`len - count('N')` after `correct_seq`); the ASSEMBLY-STATS-001 deviation "U counts as a valid base" is resolved. Test: `CalculateStatistics_NonAcgtAsGap_FollowsQuastCorrectSeq` (+ MCP `AssemblyStatistics_NonAcgtAsGap_DefaultTrue`).
+- A3-1: `CalculateAuN(lengths, genomeSize)` = QUAST `au_metric(numlist, reference_length)`, exact 128-bit arithmetic; G <= 0 throws. Tests: `CalculateAuNG_GenomeSize_EqualsSumOfSquaresOverGenomeSize` (6 oracle rows incl. sum of squares > 2^63), `CalculateAuNG_GenomeSizeEqualToAssemblyLength_IsAuN`, `CalculateAuNG_EmptyLengths_ReturnsZero_AndInvalidInputsThrow`, MCP `AuN_GenomeSize_ComputesAuNG`.

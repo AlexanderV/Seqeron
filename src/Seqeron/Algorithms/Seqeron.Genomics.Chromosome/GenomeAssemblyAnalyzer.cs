@@ -234,22 +234,29 @@ public static class GenomeAssemblyAnalyzer
     /// <see cref="CalculateNx(IReadOnlyList{int},long,int)"/> at x = 50 / 90 (QUAST <c>N50_and_L50</c>).</item>
     /// <item>GcContent = pooled (G + C) / (A + C + G + T) over all sequences as a fraction in [0, 1]
     /// (QUAST <c>GC_content</c>: <c>total_GC_amount / total_contig_length</c> with the ACGT length
-    /// <c>len − count('N')</c> after <c>correct_seq</c> upper-cases and turns IUPAC codes into N);
-    /// counted by the canonical <see cref="SequenceExtensions.CountGcAndValidNucleotides"/>, so
-    /// N, IUPAC ambiguity codes and gap symbols are excluded from both counts (U, which QUAST rejects,
-    /// counts as a valid base). 0 when there is no A/C/G/T.</item>
-    /// <item>Gaps = maximal runs of N/n (QUAST <c>split_by_ns</c> with the threshold 1); TotalGapLength
-    /// = number of N/n; TotalLengthNoGaps = TotalLength − TotalGapLength; GapPercentage = 100 ·
-    /// TotalGapLength / TotalLength. IUPAC ambiguity codes are bases, not gaps.</item>
+    /// <c>len − count('N')</c> after <c>correct_seq</c> upper-cases and turns IUPAC codes into N).
+    /// N, IUPAC ambiguity codes and every other non-ACGT symbol are excluded from both counts. 0 when there
+    /// is no A/C/G/T.</item>
+    /// <item>Gaps = maximal runs of gap symbols (QUAST <c>split_by_ns</c> with the threshold 1); TotalGapLength
+    /// = number of gap symbols; TotalLengthNoGaps = TotalLength − TotalGapLength; GapPercentage = 100 ·
+    /// TotalGapLength / TotalLength. A gap symbol is N/n and, with <paramref name="nonAcgtAsGap"/> (the
+    /// default, QUAST), every other symbol outside A/C/G/T (IUPAC ambiguity codes, U, '-', …); see
+    /// <see cref="IsGapSymbol"/>.</item>
     /// <item>MeanLength = TotalLength / count; MedianLength = sample median of the lengths (mean of the
     /// two central values for an even count, <see cref="StatisticsHelper.Median"/>).</item>
     /// </list>
     /// An empty input returns all zeros (QUAST reports these fields as undefined).
     /// </remarks>
+    /// <param name="sequences">Assembled sequences.</param>
+    /// <param name="nonAcgtAsGap">true (default, QUAST <c>correct_seq</c>): every symbol that is not A/C/G/T
+    /// (either case) is an N, i.e. counts as a gap and not as a base; false: only N/n is a gap and the
+    /// canonical counter's base set (IUPAC codes and U are bases for the length but outside the A/C/G/T
+    /// denominator) applies.</param>
     /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
     /// <exception cref="ArgumentException">A sequence is null.</exception>
     public static AssemblyStatistics CalculateStatistics(
-        IEnumerable<(string Id, string Sequence)> sequences)
+        IEnumerable<(string Id, string Sequence)> sequences,
+        bool nonAcgtAsGap = true)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         var seqList = sequences.Select(s => RequireSequence(s, nameof(sequences))).ToList();
@@ -275,14 +282,18 @@ public static class GenomeAssemblyAnalyzer
         {
             var (gc, valid) = sequence.AsSpan().CountGcAndValidNucleotides();
             gcCount += gc;
-            acgtCount += valid;
 
-            // Gap statistics: maximal N/n runs (QUAST split_by_ns, threshold 1).
-            foreach (var (_, runLength) in EnumerateNRuns(sequence))
+            // Gap statistics: maximal gap-symbol runs (QUAST split_by_ns, threshold 1).
+            long sequenceGapLength = 0;
+            foreach (var (_, runLength) in EnumerateGapRuns(sequence, nonAcgtAsGap))
             {
                 totalGaps++;
-                totalGapLength += runLength;
+                sequenceGapLength += runLength;
             }
+            totalGapLength += sequenceGapLength;
+
+            // QUAST GC_content denominator: len − count('N') after correct_seq (every non-ACGT is an N).
+            acgtCount += nonAcgtAsGap ? sequence.Length - sequenceGapLength : valid;
         }
         double gcContent = acgtCount > 0 ? gcCount / (double)acgtCount : 0;
         long totalNoGaps = totalLength - totalGapLength;
@@ -428,6 +439,30 @@ public static class GenomeAssemblyAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="lengths"/> is null.</exception>
     /// <exception cref="ArgumentException">A length is negative.</exception>
     public static double CalculateAuN(IEnumerable<int> lengths)
+        => CalculateAuNCore(lengths, genomeSize: null);
+
+    /// <summary>
+    /// Calculates auNG, the area under the NGx curve: auNG = Σ Lᵢ² / G, where G is the (estimated) genome
+    /// size instead of the assembly length (QUAST <c>au_metric(numlist, reference_length)</c>, which divides
+    /// by <c>reference_length</c> when it is given; Li 2020, "auN"/"auNG" in the blog post and the
+    /// <c>calN50</c> <c>-L</c> option). Σ Lᵢ² is accumulated exactly in 128-bit integers and divided once
+    /// by the integer <paramref name="genomeSize"/> (quotient + remainder), as <see cref="CalculateAuN(IEnumerable{int})"/>.
+    /// An empty list returns 0 (QUAST <c>None</c>). No clamp is applied when the assembly is longer than G, as in QUAST.
+    /// </summary>
+    /// <param name="lengths">Sequence lengths (non-negative).</param>
+    /// <param name="genomeSize">Reference / estimated genome size G in bases (&gt; 0).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> is null.</exception>
+    /// <exception cref="ArgumentException">A length is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genomeSize"/> ≤ 0.</exception>
+    public static double CalculateAuN(IEnumerable<int> lengths, long genomeSize)
+    {
+        if (genomeSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(genomeSize), genomeSize,
+                "The genome size must be positive.");
+        return CalculateAuNCore(lengths, genomeSize);
+    }
+
+    private static double CalculateAuNCore(IEnumerable<int> lengths, long? genomeSize)
     {
         ArgumentNullException.ThrowIfNull(lengths);
 
@@ -440,12 +475,16 @@ public static class GenomeAssemblyAnalyzer
             total += length;
             sumOfSquares += (UInt128)((ulong)length * (ulong)length);
         }
-        if (total == 0) return 0;
 
-        // Exact integer quotient + remainder, divided once: Σ L² / total = q + r / total.
-        UInt128 quotient = sumOfSquares / (ulong)total;
-        UInt128 remainder = sumOfSquares % (ulong)total;
-        return (double)quotient + (double)remainder / total;
+        // QUAST au_metric: empty list -> None; denominator = reference_length when given, else Σ L (all-zero -> None).
+        long denominator = genomeSize ?? total;
+        if (denominator == 0)
+            return 0;
+
+        // Exact integer quotient + remainder, divided once: Σ L² / denominator = q + r / denominator.
+        UInt128 quotient = sumOfSquares / (ulong)denominator;
+        UInt128 remainder = sumOfSquares % (ulong)denominator;
+        return (double)quotient + (double)remainder / denominator;
     }
 
     #endregion
@@ -463,20 +502,32 @@ public static class GenomeAssemblyAnalyzer
     public const int DefaultScaffoldGapMinLength = 10;
 
     /// <summary>
-    /// Enumerates the maximal runs of <c>N</c>/<c>n</c> in <paramref name="sequence"/> as
-    /// (0-based start, length). The single N-run scanner behind <see cref="FindGaps"/>,
-    /// <see cref="AnalyzeScaffolds"/>, <see cref="ExtractContigs"/> and the gap fields of
-    /// <see cref="CalculateStatistics"/>. Only N/n is a gap symbol; IUPAC ambiguity codes are bases.
+    /// True for a gap symbol: <c>N</c>/<c>n</c> and, when <paramref name="nonAcgtAsGap"/>, every other
+    /// symbol that is not A/C/G/T (either case). QUAST <c>qutils.correct_seq</c> upper-cases the sequence,
+    /// turns the IUPAC ambiguity codes M K R Y W S V B H D into N and rejects any other symbol outside
+    /// A/C/G/T/N (the contig file is skipped); seqtk <c>gap</c> treats every non-ACGT as a gap. Here a
+    /// symbol QUAST would reject (U, '-', '*', …) is also an N, the lenient reading shared with seqtk.
     /// </summary>
-    private static IEnumerable<(int Start, int Length)> EnumerateNRuns(string sequence)
+    private static bool IsGapSymbol(char c, bool nonAcgtAsGap)
+        => nonAcgtAsGap
+            ? SequenceCase.ToUpperAscii(c) is not ('A' or 'C' or 'G' or 'T')
+            : c is 'N' or 'n';
+
+    /// <summary>
+    /// Enumerates the maximal runs of gap symbols (<see cref="IsGapSymbol"/>) in
+    /// <paramref name="sequence"/> as (0-based start, length). The single gap-run scanner behind
+    /// <see cref="FindGaps"/>, <see cref="AnalyzeScaffolds"/>, <see cref="ExtractContigs"/> and the gap
+    /// fields of <see cref="CalculateStatistics"/>.
+    /// </summary>
+    private static IEnumerable<(int Start, int Length)> EnumerateGapRuns(string sequence, bool nonAcgtAsGap)
     {
         int i = 0;
         while (i < sequence.Length)
         {
-            if (sequence[i] is 'N' or 'n')
+            if (IsGapSymbol(sequence[i], nonAcgtAsGap))
             {
                 int start = i;
-                while (i < sequence.Length && sequence[i] is 'N' or 'n')
+                while (i < sequence.Length && IsGapSymbol(sequence[i], nonAcgtAsGap))
                     i++;
                 yield return (start, i - start);
             }
@@ -493,12 +544,12 @@ public static class GenomeAssemblyAnalyzer
     /// contig. Returns the non-empty contigs as half-open [Start, End) and the separating gaps.
     /// </summary>
     private static (List<(int Start, int End)> Contigs, List<(int Start, int Length)> Gaps)
-        SplitAtGaps(string sequence, int minGapLength)
+        SplitAtGaps(string sequence, int minGapLength, bool nonAcgtAsGap)
     {
         var contigs = new List<(int Start, int End)>();
         var gaps = new List<(int Start, int Length)>();
         int contigStart = 0;
-        foreach (var run in EnumerateNRuns(sequence))
+        foreach (var run in EnumerateGapRuns(sequence, nonAcgtAsGap))
         {
             if (run.Length < minGapLength)
                 continue;
@@ -524,41 +575,47 @@ public static class GenomeAssemblyAnalyzer
     }
 
     /// <summary>
-    /// Identifies all gaps (maximal runs of <c>N</c>/<c>n</c>) in assembly sequences.
+    /// Identifies all gaps (maximal runs of gap symbols: <c>N</c>/<c>n</c> and, by default, every other
+    /// non-ACGT symbol) in assembly sequences.
     /// </summary>
     /// <remarks>
     /// One <see cref="GapInfo"/> per maximal N-run of length ≥ <paramref name="minGapLength"/>, in
     /// sequence order. Coordinates are 0-based with an <b>inclusive</b> <c>End</c>
     /// (<c>Length = End − Start + 1</c>); the AGP v2.1 equivalent is <c>[Start + 1, End + 1]</c>
     /// (1-based inclusive) and the BED / <c>seqtk gap</c> equivalent is <c>[Start, End + 1)</c>.
-    /// Only <c>N</c>/<c>n</c> marks a gap: IUPAC ambiguity codes are bases (AGP v2.1, NCBI gapped
-    /// format; QUAST <c>correct_seq</c> and <c>seqtk gap</c> instead treat them as N — documented
-    /// deviation, consistent with <see cref="CalculateStatistics"/>). With the default 1 the gaps are
-    /// exactly those counted by <see cref="CalculateStatistics"/>; pass
+    /// With <paramref name="nonAcgtAsGap"/> (default, QUAST <c>qutils.correct_seq</c> + <c>split_by_ns</c>;
+    /// <c>seqtk gap</c> likewise treats every non-ACGT symbol as a gap) IUPAC ambiguity codes and any other
+    /// symbol outside A/C/G/T are gap symbols like N; with false only <c>N</c>/<c>n</c> is a gap and IUPAC
+    /// codes are bases (AGP v2.1, NCBI gapped format). With the default 1 the gaps are
+    /// exactly those counted by <see cref="CalculateStatistics"/> (same <paramref name="nonAcgtAsGap"/>); pass
     /// <see cref="DefaultScaffoldGapMinLength"/> (10) for the NCBI assembly-gap convention.
     /// <see cref="GapInfo.GapType"/> is a Seqeron length class (&lt; 10 "Short", &lt; 100 "Medium",
     /// &lt; 1000 "Long", else "Scaffold"); it is <b>not</b> the AGP column 7b gap type, which records
     /// linkage evidence that a sequence does not carry.
     /// </remarks>
+    /// <param name="sequences">Assembled sequences.</param>
+    /// <param name="minGapLength">Minimum gap length (≥ 1).</param>
+    /// <param name="nonAcgtAsGap">true (default): every non-ACGT symbol is a gap symbol (QUAST); false: N/n only.</param>
     /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minGapLength"/> &lt; 1.</exception>
     /// <exception cref="ArgumentException">A sequence is null (raised during enumeration).</exception>
     public static IEnumerable<GapInfo> FindGaps(
         IEnumerable<(string Id, string Sequence)> sequences,
-        int minGapLength = 1)
+        int minGapLength = 1,
+        bool nonAcgtAsGap = true)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         ValidateMinGapLength(minGapLength);
-        return FindGapsIterator(sequences, minGapLength);
+        return FindGapsIterator(sequences, minGapLength, nonAcgtAsGap);
     }
 
     private static IEnumerable<GapInfo> FindGapsIterator(
-        IEnumerable<(string Id, string Sequence)> sequences, int minGapLength)
+        IEnumerable<(string Id, string Sequence)> sequences, int minGapLength, bool nonAcgtAsGap)
     {
         foreach (var entry in sequences)
         {
             string sequence = RequireSequence(entry, nameof(sequences));
-            foreach (var (start, length) in EnumerateNRuns(sequence))
+            foreach (var (start, length) in EnumerateGapRuns(sequence, nonAcgtAsGap))
             {
                 if (length >= minGapLength)
                     yield return new GapInfo(entry.Id, start, start + length - 1, length, ClassifyGap(length));
@@ -624,28 +681,34 @@ public static class GenomeAssemblyAnalyzer
     /// assembly-gap convention). Shorter N-runs are ambiguous bases inside a contig (AGP v2.1), so
     /// <c>ContigLength + GapLength = TotalLength</c> always holds. Contigs are named
     /// <c>{id}_contig{n}</c> (n from 1) and, like the gaps, use 0-based inclusive <c>[Start, End]</c>
-    /// coordinates; a leading or trailing gap opens no empty contig.
+    /// coordinates; a leading or trailing gap opens no empty contig. A gap symbol is N/n and, with
+    /// <paramref name="nonAcgtAsGap"/> (default, QUAST <c>correct_seq</c>), every other non-ACGT symbol (see
+    /// <see cref="FindGaps"/>).
     /// </remarks>
+    /// <param name="scaffolds">Scaffolds.</param>
+    /// <param name="minGapLength">Minimum gap-run length that splits contigs (≥ 1).</param>
+    /// <param name="nonAcgtAsGap">true (default): every non-ACGT symbol is a gap symbol (QUAST); false: N/n only.</param>
     /// <exception cref="ArgumentNullException"><paramref name="scaffolds"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minGapLength"/> &lt; 1.</exception>
     /// <exception cref="ArgumentException">A sequence is null (raised during enumeration).</exception>
     public static IEnumerable<ScaffoldStructure> AnalyzeScaffolds(
         IEnumerable<(string Id, string Sequence)> scaffolds,
-        int minGapLength = DefaultScaffoldGapMinLength)
+        int minGapLength = DefaultScaffoldGapMinLength,
+        bool nonAcgtAsGap = true)
     {
         ArgumentNullException.ThrowIfNull(scaffolds);
         ValidateMinGapLength(minGapLength);
-        return AnalyzeScaffoldsIterator(scaffolds, minGapLength);
+        return AnalyzeScaffoldsIterator(scaffolds, minGapLength, nonAcgtAsGap);
     }
 
     private static IEnumerable<ScaffoldStructure> AnalyzeScaffoldsIterator(
-        IEnumerable<(string Id, string Sequence)> scaffolds, int minGapLength)
+        IEnumerable<(string Id, string Sequence)> scaffolds, int minGapLength, bool nonAcgtAsGap)
     {
         foreach (var entry in scaffolds)
         {
             string id = entry.Id;
             string sequence = RequireSequence(entry, nameof(scaffolds));
-            var (pieces, runs) = SplitAtGaps(sequence, minGapLength);
+            var (pieces, runs) = SplitAtGaps(sequence, minGapLength, nonAcgtAsGap);
 
             var contigs = new List<(string, int, int)>(pieces.Count);
             for (int c = 0; c < pieces.Count; c++)
@@ -676,8 +739,15 @@ public static class GenomeAssemblyAnalyzer
     /// position among <b>all</b> contigs of its scaffold, dropped short ones included (QUAST
     /// <c>split_by_ns</c> numbers every piece and <c>--min-contig</c> filters afterwards), so a
     /// name is the same as the one <see cref="AnalyzeScaffolds"/> gives that contig with the same
-    /// <paramref name="minGapLength"/>; gaps in the numbering mark dropped contigs. Case is preserved.
+    /// <paramref name="minGapLength"/>; gaps in the numbering mark dropped contigs. Gap symbols are N/n and,
+    /// with <paramref name="nonAcgtAsGap"/> (default, QUAST <c>correct_seq</c>), every other non-ACGT symbol
+    /// (see <see cref="FindGaps"/>); the returned pieces are slices of the input, so case and the original
+    /// symbols of short runs kept inside a contig are preserved (QUAST writes them upper-cased as N).
     /// </remarks>
+    /// <param name="scaffolds">Scaffolds.</param>
+    /// <param name="minContigLength">Minimum contig length (≥ 0).</param>
+    /// <param name="minGapLength">Minimum gap-run length that splits contigs (≥ 1).</param>
+    /// <param name="nonAcgtAsGap">true (default): every non-ACGT symbol is a gap symbol (QUAST); false: N/n only.</param>
     /// <exception cref="ArgumentNullException"><paramref name="scaffolds"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minContigLength"/> &lt; 0 or
     /// <paramref name="minGapLength"/> &lt; 1.</exception>
@@ -685,23 +755,24 @@ public static class GenomeAssemblyAnalyzer
     public static IEnumerable<(string Id, string Sequence)> ExtractContigs(
         IEnumerable<(string Id, string Sequence)> scaffolds,
         int minContigLength = 200,
-        int minGapLength = DefaultScaffoldGapMinLength)
+        int minGapLength = DefaultScaffoldGapMinLength,
+        bool nonAcgtAsGap = true)
     {
         ArgumentNullException.ThrowIfNull(scaffolds);
         if (minContigLength < 0)
             throw new ArgumentOutOfRangeException(nameof(minContigLength), minContigLength,
                 "The minimum contig length cannot be negative.");
         ValidateMinGapLength(minGapLength);
-        return ExtractContigsIterator(scaffolds, minContigLength, minGapLength);
+        return ExtractContigsIterator(scaffolds, minContigLength, minGapLength, nonAcgtAsGap);
     }
 
     private static IEnumerable<(string Id, string Sequence)> ExtractContigsIterator(
-        IEnumerable<(string Id, string Sequence)> scaffolds, int minContigLength, int minGapLength)
+        IEnumerable<(string Id, string Sequence)> scaffolds, int minContigLength, int minGapLength, bool nonAcgtAsGap)
     {
         foreach (var entry in scaffolds)
         {
             string sequence = RequireSequence(entry, nameof(scaffolds));
-            var pieces = SplitAtGaps(sequence, minGapLength).Contigs;
+            var pieces = SplitAtGaps(sequence, minGapLength, nonAcgtAsGap).Contigs;
             for (int c = 0; c < pieces.Count; c++)
             {
                 var (start, end) = pieces[c];

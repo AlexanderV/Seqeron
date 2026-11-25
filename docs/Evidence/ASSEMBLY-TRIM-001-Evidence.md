@@ -170,3 +170,13 @@ ASCII derivation (Phred+33): 42→`K`, 40→`I`, 26→`;`, 27→`<`, 8→`)`, 7�
 
 - **2026-06-13**: Initial documentation.
 - **2026-11-25**: B10 review — cutadapt 5.2 source/oracle added; separate 5'/3' cutoffs, Phred offset, canonical decoding/validation.
+
+## R1-WP4 addendum (2026-11-25): BWA `BWA_MIN_RDLEN` floor (A8-2)
+
+Sources re-opened: lh3/bwa `bwaseqio.c` `bwa_trim_read` (`for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) { s += trim_qual - (p->qual[l] - 33); if (s < 0) break; if (s > max) max = s, max_l = l; } p->clip_len = p->len = max_l;`, guard `trim_qual < 1 || p->qual == 0` returns 0) and `bwtaln.h` line 23 `#define BWA_MIN_RDLEN 35 // for read trimming` (0.7.5 and master). The scan never reaches indexes below 35, so BWA keeps at least min(35, len) bases and 5' bases are never trimmed.
+
+Implemented as the opt-in `bwaMinLength` of `QualityTrimIndex` (3' scan `i >= bwaMinLength`) and of the five-argument `QualityTrimReads`; `SequenceAssembler.BwaMinReadLength` = 35; default 0 = cutadapt (the A8-1 default unchanged). The three-argument overload deliberately has no such parameter (a fourth int would silently re-bind existing `(reads, cutoffFront, cutoffBack, minLength)` calls).
+
+Reference numbers (verbatim `bwa_trim_read`): 30 x Q40 + 20 x Q2, cutoff 20 -> BWA length 35 (cutadapt 30); 20 x Q2 -> 20 (BWA, loop empty) vs 0 (cutadapt); 40 x Q40 + 3 x Q2 + 2 x Q40 + 10 x Q2 -> 40; 35 x Q40 + 5 x Q2 -> 35.
+
+Harness: `tools/review/oracles/B10/wp4_oracle.py OUT.json 1500 SEED` writes cases with the expected values; a small console project (project references to Seqeron.Genomics.Alignment/Chromosome, scratch only) runs the C# side on the same JSON and `compare_wp4.py` compares. Seeds 20261125, 7, 8, 9, 10, 11, 12 (~7125 cases each: 1500 DBG, 375 CORRECT, 1500 STATS/GAPS, 1500 auN/auNG, 1500 BWA trim, 750 scaffold): all identical.

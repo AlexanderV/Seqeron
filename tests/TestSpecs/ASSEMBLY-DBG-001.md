@@ -261,5 +261,20 @@ MCP (`Seqeron.Mcp.Alignment.Tests/AssembleDeBruijnTests`): 4 tests incl. new
 | `MergeContigs_ResolveConflicts_LongSDiffersFromS_BestQualityDecides` | EMBOSS merger quality windows: "A\u017F"+"ST" -> "AST" |
 | `Scaffold_NegativeGap_LongSOverlapDisagrees_WritesUnknownGap` / `..._LowerCaseOverlapAgrees_Collapsed` | ABySS agreement ignoring ASCII case only; AGP unknown gap 100 |
 | `BuildDeBruijnGraph_NonAsciiLetter_KeptVerbatim_SharedPrefixNodeAccumulates` | node/edge multimap unchanged by the span path |
-| `AssembleDeBruijn_BothStrands_NonAsciiLetter_StrandPairEmittedOnce` | strand-pair emission unchanged |
+| `AssembleDeBruijn_BothStrands_NonAsciiLetter_IsReadAsA_StrandPairEmittedOnce` | strand-pair emission unchanged |
 
+## R1-WP4 addendum (2026-11-25): double-strand default (A2-4) and Velvet non-ACGT rule (A2-5)
+
+`AssembleDeBruijn` is double-stranded by default (Velvet) and reads every non-ACGT symbol as A (Velvet `velvetifySequence` + `writeNucleotide`). Oracle: `tools/review/oracles/B10/wp4_oracle.py` (two independent constructions, BA3M and Velvet node-centric; 7 seeds x 1500 random cases incl. even/odd k, both strand modes, N/IUPAC/U/lower-case noise, isolated cycles compared as rotation classes) equals the C# output.
+
+| Test | Locks |
+|------|-------|
+| `AssembleDeBruijn_Default_IsDoubleStranded` | default = `includeReverseComplement: true`; `false` stays reachable (BA3M single strand) |
+| `AssembleDeBruijn_Default_ReverseComplementedReadsGiveTheSameContigs` | strand symmetry; palindromic 4-mer TGCA joins the strand with its reverse complement (oracle `ATGGCGTGCACGCCAT`) |
+| `AssembleDeBruijn_Default_RepeatReadsJoinWithReverseComplementUnitigs` | oracle `AAAAA, AAAACGT, ACGTACGT` |
+| `AssembleDeBruijn_Default_AssembledReadsCountsEitherStrand` | `AssembledReads` on folded reads, either strand |
+| `AssembleDeBruijn_NonAcgtSymbols_AreReadAsA` / `..._NonAsciiSymbol_IsReadAsA` / `..._NonAcgtAndLowerCase_ShareKmersWithTheAFoldedRead` | N, R/Y/U, other symbols, lower case, U+017F -> A |
+| `Dbg_DoubleStrandedDefault_IsStrandSymmetric` (property) | contigs(reads) = contigs(reverse-complemented reads), odd k |
+| MCP `AssembleDeBruijn_DefaultIsDoubleStranded_AndFalseIsReachable`, `AssembleDeBruijn_NonAcgtSymbols_AreReadAsA` | wrapper default true; Velvet read rule |
+
+Tests that lock the single-strand BA3K/BA3M oracle values now pass `includeReverseComplement: false` explicitly (`SingleStrand` helper in `SequenceAssembler_AssembleDeBruijn_Tests`, `AssemblyDeBruijnFuzzTests`, `AssemblyProperties.Dbg`; `AssembleDeBruijn_AssembledReads_CountsReadsWithAKmerInAReportedContig`). The Langmead/Rosalind text examples (`AAABBBA`, `a_long_long_long_time`, `to_every...`, `AAABBB/AABBBC`) are not DNA, so they are asserted through `BuildDeBruijnGraph` + `FindMaximalNonBranchingPaths` (`TextUnitigs` helper, same oracle values) and DNA analogues (B -> C) through the assembler; MCP examples likewise (`AAACCC`, `AACCCG`).

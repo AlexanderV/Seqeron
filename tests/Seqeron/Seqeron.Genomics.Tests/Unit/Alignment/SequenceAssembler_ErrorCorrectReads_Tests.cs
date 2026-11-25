@@ -531,5 +531,64 @@ public class SequenceAssembler_ErrorCorrectReads_Tests
         });
     }
 
+    // A2-5 — Musket 2-bit encoding (kmer.cpp Kmer::encode: every symbol but A/C/G/T/a/c/g/t is 0 = A): the spectrum and
+    // every k-mer lookup see non-ACGT symbols (N, IUPAC codes, U, ...) as A, and a base no correction assigns keeps
+    // its (upper-cased) input symbol. Oracle: tools/review/oracles/B10/wp4_oracle.py musket_fold_correct (Musket
+    // stages 1-3 transcription + A-encoding); 375 random cases per seed x 7 seeds (N/IUPAC/U/lower-case noise,
+    // k 5..9, cut-off 2..3, Musket options) equal the C# output.
+    private const string NonAcgtGenome = "ACGTTGCAAGCTTGACCGTAGGATC"; // idx 7 = 'A', idx 15 = 'C'
+
+    private static string[] SixCopiesPlus(params string[] extra) =>
+        Enumerable.Repeat(NonAcgtGenome, 6).Concat(extra).ToArray();
+
+    [Test]
+    public void ErrorCorrectReads_NAtABaseThatIsA_IsSeenAsA_AndKeepsItsSymbol()
+    {
+        // N at index 7 where the genome has A: the folded read equals the genome, every k-mer is trusted, nothing is
+        // assigned, so the N survives (a bare "N is its own symbol" spectrum would find untrusted k-mers).
+        string withN = NonAcgtGenome[..7] + "N" + NonAcgtGenome[8..];
+
+        var corrected = SequenceAssembler.ErrorCorrectReads(SixCopiesPlus(withN), 7, 3,
+            SequenceAssembler.ErrorCorrectionOptions.Musket);
+
+        Assert.That(corrected[6], Is.EqualTo(withN));
+        Assert.That(corrected.Take(6), Is.All.EqualTo(NonAcgtGenome));
+    }
+
+    [Test]
+    public void ErrorCorrectReads_NAtABaseThatIsNotA_IsCorrectedToTheTrustedBase()
+    {
+        // N at index 15 where the genome has C: the folded read has A there (an ordinary substitution error) and the
+        // unique trusted alternative is C.
+        string withN = NonAcgtGenome[..15] + "N" + NonAcgtGenome[16..];
+
+        var corrected = SequenceAssembler.ErrorCorrectReads(SixCopiesPlus(withN), 7, 3,
+            SequenceAssembler.ErrorCorrectionOptions.Musket);
+
+        Assert.That(corrected[6], Is.EqualTo(NonAcgtGenome));
+    }
+
+    [Test]
+    public void ErrorCorrectReads_IupacCodeUracilAndLowerCase_AreFoldedUpperCasedAndCorrected()
+    {
+        // r at 5 (genome G -> corrected), lower-case prefix (upper-cased), U at 12 (genome T -> corrected), and an IUPAC K at 7
+        // (genome A = the folded base -> trusted, keeps its symbol K).
+        string iupac = NonAcgtGenome[..5] + "r" + NonAcgtGenome[6..];
+        string lower = NonAcgtGenome[..10].ToLowerInvariant() + NonAcgtGenome[10..];
+        string uracil = NonAcgtGenome[..12] + "U" + NonAcgtGenome[13..];
+        string keepK = NonAcgtGenome[..7] + "K" + NonAcgtGenome[8..];
+
+        var corrected = SequenceAssembler.ErrorCorrectReads(SixCopiesPlus(iupac, lower, uracil, keepK), 7, 3,
+            SequenceAssembler.ErrorCorrectionOptions.Musket);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(corrected[6], Is.EqualTo(NonAcgtGenome), "r (folded to A) is replaced by the trusted G");
+            Assert.That(corrected[7], Is.EqualTo(NonAcgtGenome), "lower case is upper-cased");
+            Assert.That(corrected[8], Is.EqualTo(NonAcgtGenome), "U (folded to A) is replaced by the trusted T");
+            Assert.That(corrected[9], Is.EqualTo(NonAcgtGenome[..7] + "K" + NonAcgtGenome[8..]), "K folds to the trusted A: untouched");
+        });
+    }
+
     #endregion
 }

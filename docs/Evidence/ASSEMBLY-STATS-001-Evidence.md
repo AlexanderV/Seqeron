@@ -200,3 +200,13 @@ x ∉ [0,100] and unsorted lengths silently; an unreached NG reference returned 
 - **2026-06-13**: Initial documentation (ASSEMBLY-STATS-001).
 - **2026-11-25 (R1-WP2)**: QUAST `quast_libs/N50.py` (`NG50_and_LG50`, `au_metric`) re-opened; oracle `tools/review/oracles/B10/stats_oracle.py`. `CalculateNxCurve` (Assembly B deciles `(10,80,1) (20,80,1) (30,70,2) (40,70,2) (50,50,3) (60,50,3) (70,40,4) (80,30,5) (90,20,6)`; {500..100} deciles) and `CalculateAuN` exactness (`{2000000000,1999999999,1500000001,3,1}` → 1863636362.0991735, Σl² = 10249999999000000012 > 2^63; `{94906267,94906267,1}` → 94906266.50000001, Σl² = 18014399031750579 > 2^53; 50×2147483647+1 → 2147483646.98) locked; null/invalid inputs throw eagerly; the unused `AssembledSequence`/`ParseSequence` (a second GC denominator nobody read) deleted.
 - **2026-11-25**: B10 review — QUAST `basic_stats.py`/`qutils.py`, Velvet `graphStats.c` opened; QUAST oracle table; single canonical Nx core; GC/median/AssembledReads fixes.
+
+## R1-WP4 addendum (2026-11-25): auNG (A3-1) and `nonAcgtAsGap` (A3-2)
+
+Source: quast_libs/N50.py `au_metric(numlist, reference_length=None)`: `if reference_length: denum = float(reference_length) else: denum = float(sum(numlist))`; `assert denum > 0.0`; result `float(sum([n ** 2 for n in numlist])) / denum`; an empty list returns `None`. Li H (2020) defines auN with the assembly length and NGx/auNG with the genome size. Implemented as `CalculateAuN(lengths, genomeSize)` with the existing exact 128-bit accumulation (one division of quotient + remainder); `genomeSize <= 0` throws (QUAST treats 0 as "absent"); MCP `au_n.genomeSize`.
+
+Reference numbers (exact `Fraction`, QUAST float agrees to 1e-9 relative): `{100,80,60,40,20}`, G = 1000 -> 22.0; `{80,70,50,40,30,20}`, G = 300 -> 55.666666666666664; `{5}`, G = 100 -> 0.25; `{2000000000, 1999999999, 1500000001, 3, 1}`, G = 3e9 -> 3416666666.3333335 and G = 100 -> 1.0249999999e17 (Σl² > 2^63); `{94906267, 94906267, 1}`, G = 2e8 -> 90071995.15875289.
+
+A3-2 numbers and sources are in ASSEMBLY-GAPS-001-Evidence (R1-WP4 addendum): QUAST `correct_seq` maps every IUPAC code to N and `GC_content` uses `len - count('N')`.
+
+Harness: `tools/review/oracles/B10/wp4_oracle.py OUT.json 1500 SEED` writes cases with the expected values; a small console project (project references to Seqeron.Genomics.Alignment/Chromosome, scratch only) runs the C# side on the same JSON and `compare_wp4.py` compares. Seeds 20261125, 7, 8, 9, 10, 11, 12 (~7125 cases each: 1500 DBG, 375 CORRECT, 1500 STATS/GAPS, 1500 auN/auNG, 1500 BWA trim, 750 scaffold): all identical.

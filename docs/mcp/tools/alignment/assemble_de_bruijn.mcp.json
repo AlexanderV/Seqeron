@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceAssembler.AssembleDeBruijn",
   "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L101",
-  "description": "Assemble reads using a de Bruijn graph: shred reads into their distinct k-mers (case-insensitive; coverage adds no edges), build the (k-1)-mer node graph, output every maximal non-branching path (unitig) and isolated cycle as a contig, then report N50 / longest / total length. Optionally add reverse-complement k-mers (double-stranded reads).",
+  "description": "Assemble reads using a de Bruijn graph: shred reads into their distinct k-mers (case-insensitive; coverage adds no edges; Velvet read rule: every non-ACGT symbol is read as A), build the (k-1)-mer node graph, output every maximal non-branching path (unitig) and isolated cycle as a contig, then report N50 / longest / total length. Double-stranded by default (Velvet: each k-mer is recorded with its reverse complement; each contig/reverse-complement pair is reported once); includeReverseComplement = false gives the single-strand textbook model.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -36,8 +36,8 @@
       },
       "includeReverseComplement": {
         "type": "boolean",
-        "description": "Treat reads as double-stranded DNA: add each k-mer's reverse complement (Velvet).",
-        "default": false
+        "description": "Treat reads as double-stranded DNA: add each k-mer's reverse complement (Velvet; default true). False = forward strand only (Rosalind BA3M single-strand model).",
+        "default": true
       }
     },
     "required": [
@@ -57,7 +57,7 @@
       },
       "assembledReads": {
         "type": "integer",
-        "description": "Reads with at least one k-mer (either strand with includeReverseComplement) in a reported contig (Velvet usedReads)."
+        "description": "Reads (non-ACGT read as A) with at least one k-mer (either strand with includeReverseComplement) in a reported contig (Velvet usedReads)."
       },
       "n50": {
         "type": "number",
@@ -89,14 +89,15 @@
   ],
   "examples": [
     {
-      "name": "Overlapping reads",
+      "name": "Overlapping reads (single strand)",
       "input": {
         "reads": [
           "ATGGCGT",
           "GGCGTGCA"
         ],
         "kmerSize": 4,
-        "minContigLength": 4
+        "minContigLength": 4,
+        "includeReverseComplement": false
       },
       "output": {
         "contigs": [
@@ -110,27 +111,70 @@
       }
     },
     {
-      "name": "Branching graph yields unitigs",
+      "name": "Branching graph yields unitigs (single strand)",
       "input": {
         "reads": [
-          "AAABBB",
-          "AABBBC"
+          "AAACCC",
+          "AACCCG"
         ],
         "kmerSize": 3,
-        "minContigLength": 3
+        "minContigLength": 3,
+        "includeReverseComplement": false
       },
       "output": {
         "contigs": [
           "AAA",
-          "AABB",
-          "BBB",
-          "BBC"
+          "AACC",
+          "CCC",
+          "CCG"
         ],
         "totalReads": 2,
         "assembledReads": 2,
         "n50": 3,
         "longestContig": 4,
         "totalLength": 13
+      }
+    },
+    {
+      "name": "Double-stranded default joins opposite-strand reads",
+      "input": {
+        "reads": [
+          "GATTACAGGT",
+          "TAAGGACCTG"
+        ],
+        "kmerSize": 5,
+        "minContigLength": 5
+      },
+      "output": {
+        "contigs": [
+          "GATTACAGGTCCTTA"
+        ],
+        "totalReads": 2,
+        "assembledReads": 2,
+        "n50": 15,
+        "longestContig": 15,
+        "totalLength": 15
+      }
+    },
+    {
+      "name": "Non-ACGT symbol is read as A",
+      "input": {
+        "reads": [
+          "ACGTNGGTCA"
+        ],
+        "kmerSize": 4,
+        "minContigLength": 4,
+        "includeReverseComplement": false
+      },
+      "output": {
+        "contigs": [
+          "ACGTAGGTCA"
+        ],
+        "totalReads": 1,
+        "assembledReads": 1,
+        "n50": 10,
+        "longestContig": 10,
+        "totalLength": 10
       }
     },
     {

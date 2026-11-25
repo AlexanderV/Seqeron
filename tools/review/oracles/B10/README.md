@@ -13,6 +13,7 @@ Run with `python3 -I <file>`.
 | `trim_cutadapt_oracle.py` | ASSEMBLY-TRIM-001 | cutadapt 5.2 `quality_trim_index`: 3'-only default (-q C = (0,C)) vs both ends, 20000 random reads vs the running-sum formulation |
 | `correct_default_oracle.py` | ASSEMBLY-CORRECT-001 | `musket_oracle.py` two-sided stage, canonical vs forward-only spectrum (default flip A9-1) |
 | `completeness_oracle.py` | ASSEMBLY-COMPLETE-001 | Merqury `kmerHistToPloidyDepth` (filt), `spectra-cn.sh` completeness, `qv.sh` QV; GenomeScope 1.0 `uniroot` error rate + `total_len`; BUSCO `hmmer.py` percentages/notation; compleasm v0.2.6 pass filter + `record_1st_gene_label`; Biopython 1.88 local alignment |
+| `wp4_oracle.py` (+ `compare_wp4.py`) | DBG, CORRECT, GAPS, STATS, TRIM, SCAFFOLD (audit round 1, WP4) | Velvet `velvetifySequence`/`writeNucleotide` (non-ACGT -> A) + double-strand graph (BA3M and node-centric constructions), Musket A-encoding, QUAST `correct_seq`/`split_by_ns`/`GC_content`/`au_metric(reference_length)`, BWA `bwa_trim_read` + `BWA_MIN_RDLEN`, scaffold unknown-gap length |
 
 The DBG (Rosalind BA3M) and consensus (Biopython 1.85 `dumb_consensus`) oracles are embedded in their Evidence files;
 the STATS oracle is QUAST `quast_libs/N50.py`, imported unchanged; the TRIM oracle is pip `cutadapt==5.2`

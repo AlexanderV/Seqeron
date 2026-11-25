@@ -213,5 +213,5 @@
 | `MergeContigs_ResolveConflicts_LongSDiffersFromS_BestQualityDecides` | EMBOSS merger quality windows: "A\u017F"+"ST" -> "AST" |
 | `Scaffold_NegativeGap_LongSOverlapDisagrees_WritesUnknownGap` / `..._LowerCaseOverlapAgrees_Collapsed` | ABySS agreement ignoring ASCII case only; AGP unknown gap 100 |
 | `BuildDeBruijnGraph_NonAsciiLetter_KeptVerbatim_SharedPrefixNodeAccumulates` | node/edge multimap unchanged by the span path |
-| `AssembleDeBruijn_BothStrands_NonAsciiLetter_StrandPairEmittedOnce` | strand-pair emission unchanged |
+| `AssembleDeBruijn_BothStrands_NonAsciiLetter_IsReadAsA_StrandPairEmittedOnce` | strand-pair emission unchanged |
 

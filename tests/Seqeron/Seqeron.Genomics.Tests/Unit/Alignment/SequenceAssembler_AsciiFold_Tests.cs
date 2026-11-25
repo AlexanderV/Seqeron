@@ -71,18 +71,19 @@ public class SequenceAssembler_AsciiFold_Tests
         });
     }
 
-    // Both-strand de Bruijn assembly (Velvet double-stranded): read ACİGT (k = 3): k-mers ACİ, CİG, İGT; the complement
-    // map leaves İ unchanged, so RC(ACİ) = İGT and RC(CİG) = CİG are already in the set. One path spells ACİGT, a
-    // palindromic contig (RC = ACİGT), emitted once; the single read has k-mers in it.
+    // Velvet read rule (velvetifySequence + writeNucleotide): a non-ACGT symbol, including the non-ASCII İ, is read as A before
+    // the k-mers (and their reverse complements) are taken. Read ACİGT (k = 3) is the read ACAGT: k-mers ACA, CAG, AGT, and
+    // their reverse complements TGT, CTG, ACT; the double-stranded graph has the single unitig ACAGT (its reverse complement
+    // ACTGT is the same pair, reported once as the ordinally smaller string); the read has k-mers in it.
     [Test]
-    public void AssembleDeBruijn_BothStrands_NonAsciiLetter_StrandPairEmittedOnce()
+    public void AssembleDeBruijn_BothStrands_NonAsciiLetter_IsReadAsA_StrandPairEmittedOnce()
     {
         var result = SequenceAssembler.AssembleDeBruijn(
             new[] { "ACİGT" }, new SequenceAssembler.AssemblyParameters(KmerSize: 3, MinContigLength: 1), includeReverseComplement: true);
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.Contigs, Is.EqualTo(new[] { "ACİGT" }));
+            Assert.That(result.Contigs, Is.EqualTo(new[] { "ACAGT" }));
             Assert.That(result.AssembledReads, Is.EqualTo(1));
         });
     }

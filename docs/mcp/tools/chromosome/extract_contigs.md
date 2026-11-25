@@ -15,7 +15,7 @@ Extract contigs (gap-free runs) from scaffolds.
 ## Description
 
 QUAST "broken scaffolds" (`qutils.split_by_ns` + the `--min-contig` filter): splits each scaffold at
-every maximal `N`/`n` run of length ≥ `minGapLength` (default 10 = QUAST `Ns_break_threshold` and the
+every maximal gap-symbol run (`N`/`n` and, by default (`nonAcgtAsGap = true`, QUAST `correct_seq`), every other non-ACGT symbol) of length ≥ `minGapLength` (default 10 = QUAST `Ns_break_threshold` and the
 NCBI assembly-gap rule; 1 cuts at every N). Shorter N-runs stay inside the contig (AGP v2.1). Every
 piece of length ≥ `minContigLength` is emitted, case preserved, as `{id}_contig{n}` where n is the
 contig's 1-based position among **all** contigs of its scaffold, dropped short ones included (QUAST
@@ -31,7 +31,8 @@ contig's 1-based position among **all** contigs of its scaffold, dropped short o
 |-----------|------|----------|-------------|
 | `scaffolds` | array | Yes | Scaffolds `{ id, sequence }`. |
 | `minContigLength` | integer | No | Minimum contig length (default 200, > 0). |
-| `minGapLength` | integer | No | Minimum N-run length that splits contigs (default 10, > 0). |
+| `minGapLength` | integer | No | Minimum gap-run length that splits contigs (default 10, > 0). |
+| `nonAcgtAsGap` | boolean | No | QUAST `correct_seq`: treat every non-ACGT symbol (IUPAC codes, U, ...) as N, i.e. a gap symbol (default true); false = only N/n. |
 
 ## Output Schema
 

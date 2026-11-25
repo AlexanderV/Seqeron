@@ -75,4 +75,17 @@ public class ExtractContigsTests
         Assert.That(extracted.Items.Select(i => i.Id), Is.EqualTo(new[] { "s_contig2" }));
         Assert.That(analyzed.Items[0].Contigs.Select(c => c.ContigId), Does.Contain("s_contig2"));
     }
+
+    [Test]
+    public void ExtractContigs_NonAcgtAsGap_CutsAtIupacRuns()
+    {
+        var scaffold = new List<NamedSequence> { new("sc", "ACGTAC" + "RYKMSWBDHV" + "GTACGT") };
+        var byDefault = ChromosomeTools.ExtractContigs(scaffold, minContigLength: 1);
+        var nOnly = ChromosomeTools.ExtractContigs(scaffold, minContigLength: 1, nonAcgtAsGap: false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(byDefault.Items.Select(c => c.Sequence), Is.EqualTo(new[] { "ACGTAC", "GTACGT" }));
+            Assert.That(nOnly.Items, Has.Count.EqualTo(1));
+        });
+    }
 }

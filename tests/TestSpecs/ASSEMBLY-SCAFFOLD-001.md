@@ -220,5 +220,8 @@
 | `MergeContigs_ResolveConflicts_LongSDiffersFromS_BestQualityDecides` | EMBOSS merger quality windows: "A\u017F"+"ST" -> "AST" |
 | `Scaffold_NegativeGap_LongSOverlapDisagrees_WritesUnknownGap` / `..._LowerCaseOverlapAgrees_Collapsed` | ABySS agreement ignoring ASCII case only; AGP unknown gap 100 |
 | `BuildDeBruijnGraph_NonAsciiLetter_KeptVerbatim_SharedPrefixNodeAccumulates` | node/edge multimap unchanged by the span path |
-| `AssembleDeBruijn_BothStrands_NonAsciiLetter_StrandPairEmittedOnce` | strand-pair emission unchanged |
+| `AssembleDeBruijn_BothStrands_NonAsciiLetter_IsReadAsA_StrandPairEmittedOnce` | strand-pair emission unchanged |
 
+## R1-WP4 addendum (2026-11-25): `unknownGapLength` (A5-4a)
+
+Both `Scaffold` overloads (and MCP `scaffold_contigs`) take `unknownGapLength` (default 100 = `SequenceAssembler.DefaultUnknownGapLength`, AGP v2.1; 1 = the single `n` of ABySS/SSPACE; < 1 throws). Oracle: `scaffold_oracle.py` with `UNKNOWN` = 1/7/100, 750 random cases x 7 seeds identical (`wp4_oracle.py`). Tests: `Scaffold_UnknownGapLength_SetsTheZeroAndUnresolvedNegativeGaps` (1, 7, 100), `Scaffold_UnknownGapLength_DoesNotChangePositiveOrCollapsedGaps`, `Scaffold_UnknownGapLengthBelowOne_Throws`, MCP `ScaffoldContigs_UnknownGapLength_SetsUnknownGapSize`.

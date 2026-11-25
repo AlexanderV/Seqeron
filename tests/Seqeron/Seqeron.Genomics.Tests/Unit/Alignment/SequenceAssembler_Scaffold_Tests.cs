@@ -396,4 +396,43 @@ public class SequenceAssembler_Scaffold_Tests
     }
 
     #endregion
+
+    // A5-4a — the length of the unknown-size gap is a parameter (default 100 = NCBI AGP v2.1; ABySS / SSPACE emit a
+    // single n). Oracle: tools/review/oracles/B10/wp4_oracle.py (scaffold_oracle.py with UNKNOWN = 1 / 7 / 100); 750
+    // random cases per seed x 7 seeds (zero and unresolved negative links, reversed contigs) equal the C# output.
+    [TestCase(1)]
+    [TestCase(7)]
+    [TestCase(100)]
+    public void Scaffold_UnknownGapLength_SetsTheZeroAndUnresolvedNegativeGaps(int unknownGapLength)
+    {
+        var contigs = new[] { "ACGTAC", "TTCGGA", "GGGCCC" };
+        var links = new[] { (0, 1, 0), (1, 2, -4) };                // zero gap; negative gap whose 4 bases do not agree
+
+        var scaffold = SequenceAssembler.Scaffold(contigs, links, 'N', unknownGapLength).Single();
+
+        Assert.That(scaffold, Is.EqualTo("ACGTAC" + new string('N', unknownGapLength) + "TTCGGA" + new string('N', unknownGapLength) + "GGGCCC"));
+    }
+
+    [Test]
+    public void Scaffold_UnknownGapLength_DoesNotChangePositiveOrCollapsedGaps()
+    {
+        var contigs = new[] { "ACGTAC", "TTCGGA", "CGGATT" };
+        var links = new[] { (0, 1, 3), (1, 2, -4) };                // 3 N; CGGA overlap collapses
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.Scaffold(contigs, links, 'N', 1).Single(), Is.EqualTo("ACGTAC" + "NNN" + "TTCGGATT"));
+            Assert.That(SequenceAssembler.Scaffold(contigs, links).Single(), Is.EqualTo(SequenceAssembler.Scaffold(contigs, links, 'N', 100).Single()),
+                "default unknownGapLength is 100");
+            Assert.That(SequenceAssembler.DefaultUnknownGapLength, Is.EqualTo(100));
+        });
+    }
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void Scaffold_UnknownGapLengthBelowOne_Throws(int unknownGapLength)
+    {
+        Assert.That(() => SequenceAssembler.Scaffold(new[] { "ACGT" }, Array.Empty<(int, int, int)>(), 'N', unknownGapLength),
+            NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+    }
 }

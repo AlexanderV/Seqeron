@@ -399,5 +399,79 @@ public class SequenceAssembler_QualityTrimReads_Tests
             "null reads collection is rejected");
     }
 
+    // A8-2 — BWA bwa_trim_read (bwaseqio.c) scans `for (l = len - 1; l >= BWA_MIN_RDLEN; --l)` with
+    // BWA_MIN_RDLEN = 35 (bwtaln.h), so it never trims below min(35, length) bases. Opt-in through bwaMinLength;
+    // default 0 is cutadapt's unrestricted scan. Oracle: tools/review/oracles/B10/wp4_oracle.py bwa_trim_read
+    // (verbatim transcription); 1500 random reads x 7 seeds (lengths 0..100, cutoffs 0..30) equal the C# kept
+    // lengths.
+    [Test]
+    public void QualityTrimReads_BwaMinLength_KeepsAtLeast35Bases()
+    {
+        string quality = new string('I', 30) + new string('#', 20);          // Q40 x 30, Q2 x 20 (50 bases)
+        var reads = new List<(string, string)> { (new string('A', 50), quality) };
+
+        var cutadapt = SequenceAssembler.QualityTrimReads(reads, 0, 20, 0, 33);
+        var bwa = SequenceAssembler.QualityTrimReads(reads, 0, 20, 0, 33, SequenceAssembler.BwaMinReadLength);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.BwaMinReadLength, Is.EqualTo(35));
+            Assert.That(cutadapt.Single(), Has.Length.EqualTo(30), "cutadapt quality_trim_index: unrestricted 3' scan");
+            Assert.That(bwa.Single(), Has.Length.EqualTo(35), "bwa_trim_read: scan stops at index 35, so 35 bases remain");
+        });
+    }
+
+    [Test]
+    public void QualityTrimReads_BwaMinLength_ReadOfAtMost35BasesIsLeftWhole()
+    {
+        var reads = new List<(string, string)>
+        {
+            (new string('A', 20), new string('#', 20)),                      // all bad, 20 bases: BWA never scans
+            (new string('C', 35), new string('#', 35)),                      // exactly 35
+            (new string('G', 36), new string('#', 36)),                      // 36: only index 35 is scanned -> 35 kept
+        };
+
+        var bwa = SequenceAssembler.QualityTrimReads(reads, 0, 20, 0, 33, 35);
+        var cutadapt = SequenceAssembler.QualityTrimReads(reads, 0, 20, 0, 33);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bwa.Select(r => r.Length), Is.EqualTo(new[] { 20, 35, 35 }));
+            Assert.That(cutadapt.Select(r => r.Length), Is.EqualTo(new[] { 0, 0, 0 }), "(0, 0): nothing survives");
+        });
+    }
+
+    // Oracle (bwa_trim_read): 40 x Q40, 3 x Q2, 2 x Q40, 10 x Q2 (55 bases), cutoff 20 -> length 40 (the two good bases
+    // among bad ones do not pay for the 3 bad ones before them); a read of 35 good + 5 bad bases -> 35; trim_qual 0 -> whole.
+    [TestCase(40, 3, 2, 10, 20, 40)]
+    [TestCase(35, 5, 0, 0, 20, 35)]
+    [TestCase(40, 0, 0, 0, 20, 40)]
+    [TestCase(30, 20, 0, 0, 0, 50)]
+    public void QualityTrimReads_BwaMinLength_MatchesBwaTrimReadOracle(int good1, int bad1, int good2, int bad2, int cutoff, int expectedLength)
+    {
+        string quality = new string('I', good1) + new string('#', bad1) + new string('I', good2) + new string('#', bad2);
+        var reads = new List<(string, string)> { (new string('T', quality.Length), quality) };
+
+        var bwa = SequenceAssembler.QualityTrimReads(reads, 0, cutoff, 0, 33, SequenceAssembler.BwaMinReadLength);
+
+        Assert.That(bwa.Single(), Has.Length.EqualTo(expectedLength));
+    }
+
+    [Test]
+    public void QualityTrimIndex_BwaMinLength_FloorsTheThreePrimeScanAndRejectsNegative()
+    {
+        var q = Enumerable.Repeat((byte)40, 30).Concat(Enumerable.Repeat((byte)2, 20)).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.QualityTrimIndex(q, 0, 20), Is.EqualTo((0, 30)));
+            Assert.That(SequenceAssembler.QualityTrimIndex(q, 0, 20, 35), Is.EqualTo((0, 35)));
+            Assert.That(() => SequenceAssembler.QualityTrimIndex(q, 0, 20, -1),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceAssembler.QualityTrimReads(new List<(string, string)>(), 0, 20, 0, 33, -1),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+        });
+    }
+
     #endregion
 }
