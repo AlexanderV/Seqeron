@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAssembler.ErrorCorrectReads",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L1104",
-  "description": "Correct single-base substitution errors using the k-mer spectrum (Musket/Quake two-sided): k-mers with multiplicity below minKmerFrequency are untrusted; a position is corrected only when a unique alternative base makes its covering k-mers trusted.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs",
+  "description": "Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schmidt & Maskell 2013). k-mers with multiplicity >= minKmerFrequency are trusted. Default: Musket stage 1 (two-sided conservative correction: per iteration, the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted is substituted; ambiguous positions unchanged), iterated to convergence over a forward-strand spectrum. musket=true runs the full Musket 1.1 corrector (canonical both-strand k-mers, -maxiter 2, -maxerr 4: adds the aggressive one-sided stage and the voting stage); countReverseComplement / maxIterations / maxErrorsPerKmer override the chosen preset.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -21,8 +21,25 @@
       },
       "minKmerFrequency": {
         "type": "integer",
-        "description": "Minimum k-mer frequency considered trusted.",
+        "description": "Trusted cut-off (>= 1): k-mers with multiplicity >= this value are trusted (Musket -minmulti).",
         "default": 3
+      },
+      "musket": {
+        "type": "boolean",
+        "description": "Run the full Musket 1.1 corrector (both strands, -maxiter 2, -maxerr 4) instead of the two-sided stage only.",
+        "default": false
+      },
+      "countReverseComplement": {
+        "type": "boolean",
+        "description": "Optional: count each k-mer together with its reverse complement (canonical k-mers, as Musket); overrides the preset."
+      },
+      "maxIterations": {
+        "type": "integer",
+        "description": "Optional: Musket -maxiter, correcting iterations per stage (>= 1); overrides the preset."
+      },
+      "maxErrorsPerKmer": {
+        "type": "integer",
+        "description": "Optional: Musket -maxerr, maximum corrections per k-mer window in the aggressive stage (0 = two-sided stage only); overrides the preset."
       }
     },
     "required": [
@@ -45,6 +62,14 @@
     {
       "code": 1004,
       "message": "k-mer size must be at least 1"
+    },
+    {
+      "code": 1014,
+      "message": "minKmerFrequency must be at least 1, maxIterations at least 1, maxErrorsPerKmer not negative"
+    },
+    {
+      "code": 1012,
+      "message": "read is null"
     }
   ],
   "examples": [
@@ -78,6 +103,28 @@
       },
       "output": {
         "corrected": []
+      }
+    },
+    {
+      "name": "Reverse-strand reads need canonical k-mers (Musket)",
+      "input": {
+        "reads": [
+          "GAAGCCTGTAATC",
+          "GAAGCCTGTAATC",
+          "GAAGCCTGTAATC",
+          "GATTACGGGCTTC"
+        ],
+        "kmerSize": 3,
+        "minKmerFrequency": 2,
+        "musket": true
+      },
+      "output": {
+        "corrected": [
+          "GAAGCCTGTAATC",
+          "GAAGCCTGTAATC",
+          "GAAGCCTGTAATC",
+          "GATTACAGGCTTC"
+        ]
       }
     }
   ]

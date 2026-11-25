@@ -136,8 +136,8 @@ public class AssemblyProperties
 
     // ErrorCorrectReads is Musket/Quake two-sided k-mer-spectrum correction (Liu et al. 2013; Kelley
     // et al. 2010): a k-mer is trusted when its multiplicity ≥ cut-off; an untrusted position is
-    // changed to the unique base that makes all covering k-mers trusted. Corrections are single-base
-    // substitutions, so length and read count are preserved.
+    // changed to the unique base that makes its leftmost and rightmost covering k-mers trusted (Musket
+    // stage 1). Corrections are single-base substitutions, so length and read count are preserved.
 
     private static int Hamming(string a, string b)
     {

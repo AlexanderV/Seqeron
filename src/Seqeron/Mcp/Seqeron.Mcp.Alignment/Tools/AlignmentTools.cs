@@ -629,15 +629,29 @@ public class AlignmentTools
         return new TrimmedReadsResult(arr);
     }
 
-    [McpServerTool(Name = "error_correct_reads", Title = "Reads — k-mer Frequency Error Correction", ReadOnly = true)]
-    [Description("Corrects single-base errors in reads using k-mer frequency: any k-mer occurring fewer than minKmerFrequency times is corrected by substituting its middle base if a higher-frequency k-mer can be obtained.")]
+    [McpServerTool(Name = "error_correct_reads", Title = "Reads — k-mer Spectrum Error Correction (Musket)", ReadOnly = true)]
+    [Description("Corrects substitution errors with the Musket k-mer spectrum corrector (Liu et al. 2013). k-mers with multiplicity >= minKmerFrequency are trusted; bases covered by a trusted k-mer are never changed by the two-sided stage. Default: Musket stage 1 (two-sided conservative correction: one substitution per iteration at the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted; ambiguous positions unchanged), iterated to convergence over a forward-strand spectrum. musket=true runs the full Musket 1.1 corrector (canonical both-strand k-mers, -maxiter 2, -maxerr 4: adds aggressive one-sided correction and voting); countReverseComplement / maxIterations / maxErrorsPerKmer override the chosen preset. Reads are upper-cased; count and lengths are preserved.")]
     public static CorrectedReadsResult ErrorCorrectReads(
         [Description("Input reads.")] string[] reads,
-        [Description("K-mer size used to build the frequency table.")] int kmerSize = 21,
-        [Description("Minimum k-mer frequency considered \"trusted\".")] int minKmerFrequency = 3)
+        [Description("K-mer size used to build the frequency table (>= 1).")] int kmerSize = 21,
+        [Description("Trusted cut-off (>= 1): k-mers with multiplicity >= this value are trusted (Musket -minmulti).")] int minKmerFrequency = 3,
+        [Description("Run the full Musket 1.1 corrector (both strands, -maxiter 2, -maxerr 4) instead of the two-sided stage only.")] bool musket = false,
+        [Description("Optional: count each k-mer together with its reverse complement (canonical k-mers, as Musket).")] bool? countReverseComplement = null,
+        [Description("Optional: Musket -maxiter, correcting iterations per stage (>= 1).")] int? maxIterations = null,
+        [Description("Optional: Musket -maxerr, maximum corrections per k-mer window in the aggressive stage (0 = two-sided stage only).")] int? maxErrorsPerKmer = null)
     {
+        var preset = musket
+            ? global::Seqeron.Genomics.Alignment.SequenceAssembler.ErrorCorrectionOptions.Musket
+            : global::Seqeron.Genomics.Alignment.SequenceAssembler.ErrorCorrectionOptions.TwoSidedForwardStrand;
+        var options = preset with
+        {
+            CountReverseComplement = countReverseComplement ?? preset.CountReverseComplement,
+            MaxIterations = maxIterations ?? preset.MaxIterations,
+            MaxErrorsPerKmer = maxErrorsPerKmer ?? preset.MaxErrorsPerKmer,
+        };
+
         var corrected = global::Seqeron.Genomics.Alignment.SequenceAssembler.ErrorCorrectReads(
-            reads ?? Array.Empty<string>(), kmerSize, minKmerFrequency);
+            reads ?? Array.Empty<string>(), kmerSize, minKmerFrequency, options);
 
         var arr = new string[corrected.Count];
         for (int i = 0; i < corrected.Count; i++)

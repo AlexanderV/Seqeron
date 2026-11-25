@@ -12,8 +12,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// Fuzzing feeds degenerate, boundary and out-of-domain inputs to a unit and
 /// asserts the code NEVER fails in an undisciplined way: no hang or infinite loop
-/// (the single left-to-right correction pass over a fixed spectrum must always
-/// terminate), no state corruption, no nonsense output (a corrected read whose
+/// (the Musket iterations over a fixed spectrum — each two-sided correction makes
+/// one more base trusted, so at most L iterations — must always terminate), no state corruption, no nonsense output (a corrected read whose
 /// length ≠ its input length, a residue invented outside A,C,G,T, a "correction"
 /// of a position already covered by a trusted k-mer, or a non-deterministic
 /// result), and no *unhandled* runtime exception — in particular NO DivideByZero
@@ -43,7 +43,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///          – ALL-ERROR READS: a read set so noisy that every k-mer is a unique
 ///            singleton (the error mode with no genomic mode) → spectrum has no
 ///            solid k-mer → DOCUMENTED no-op, no crash, NO infinite correction loop
-///            (single fixed-spectrum pass; INV-03/INV-04).
+///            (fixed spectrum, bounded iterations; INV-03/INV-04).
 ///          – EMPTY: no reads → documented empty result (no columns to correct);
 ///            an empty / shorter-than-k read → returned unchanged (uppercased),
 ///            with NO DivideByZero / NullReference (§3.3, §6.1, INV-01/INV-02).
@@ -58,10 +58,11 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// UNTRUSTED otherwise (§2.2). For each read position i:
 ///   • if any k-mer covering i is trusted, the base is LEFT UNCHANGED (trusted-base
 ///     rule, INV-03);
-///   • else test the alternative DNA bases {A,C,G,T} in fixed order: substitute and
-///     check whether EVERY k-mer covering i becomes trusted; apply the substitution
-///     ONLY when exactly ONE alternative qualifies, else restore the original base
-///     (two-sided unique-alternative rule; ambiguity ⇒ unchanged, INV-04).
+///   • else (Musket two-sided rule) collect the alternatives that make the LEFTMOST
+///     and the RIGHTMOST k-mer covering i trusted; substitute ONLY when exactly ONE
+///     alternative is common to both, one correction per iteration, iterating until
+///     none is left (ambiguity ⇒ unchanged, INV-04). The four-argument overload adds
+///     Musket's canonical counting, aggressive one-sided stage and voting stage.
 /// Output: corrected reads, UPPER-CASED, in input order; read COUNT preserved
 /// (INV-01) and per-read LENGTH preserved — substitutions only, no indels (INV-02);
 /// output is deterministic (INV-05); only A,C,G,T are ever produced as replacements
@@ -408,6 +409,44 @@ public class AssemblyErrorCorrectionFuzzTests
 
             var first = SequenceAssembler.ErrorCorrectReads(reads, k, cutoff);
             var second = SequenceAssembler.ErrorCorrectReads(reads, k, cutoff);
+
+            AssertWellFormed(first, reads);
+            first.Should().Equal(second, "INV-05: error correction is deterministic");
+        }
+    }
+
+    // Same sweep through the full Musket corrector (canonical k-mers, stages 2-3) with random
+    // -maxiter/-maxerr and a sprinkling of N/IUPAC/lower-case symbols: never throws, well-formed,
+    // deterministic.
+    [Test]
+    [CancelAfter(60_000)]
+    public void ErrorCorrectReads_MusketOptions_RandomInputs_NeverThrows_WellFormed_Deterministic()
+    {
+        var rng = new Random(141_004);
+        const string noise = "NRYacgtn";
+        for (int trial = 0; trial < 1200; trial++)
+        {
+            int depth = rng.Next(0, 10);
+            var reads = Enumerable.Range(0, depth)
+                                  .Select(_ =>
+                                  {
+                                      var chars = RandomDna(rng, rng.Next(0, 35)).ToCharArray();
+                                      if (chars.Length > 0 && rng.Next(4) == 0)
+                                          chars[rng.Next(chars.Length)] = noise[rng.Next(noise.Length)];
+                                      return new string(chars);
+                                  })
+                                  .ToArray();
+            int k = rng.Next(1, 18);
+            int cutoff = rng.Next(1, 6);
+            var options = new SequenceAssembler.ErrorCorrectionOptions
+            {
+                CountReverseComplement = rng.Next(2) == 0,
+                MaxIterations = rng.Next(1, 5),
+                MaxErrorsPerKmer = rng.Next(0, 5),
+            };
+
+            var first = SequenceAssembler.ErrorCorrectReads(reads, k, cutoff, options);
+            var second = SequenceAssembler.ErrorCorrectReads(reads, k, cutoff, options);
 
             AssertWellFormed(first, reads);
             first.Should().Equal(second, "INV-05: error correction is deterministic");

@@ -1717,219 +1717,847 @@ public static class SequenceAssembler
         return start >= stop ? (0, 0) : (start, stop);
     }
 
-    // Canonical DNA alphabet over which substitution candidates are enumerated, in fixed
-    // A,C,G,T order so the correction is deterministic. Quake/Musket correct only the four
-    // standard nucleotides. Source: Kelley et al. (2010) Genome Biol 11:R116 (nucleotide edits);
-    // Liu et al. (2013) Musket, Bioinformatics 29(3):308-315 (substitution model).
-    private static readonly char[] DnaBases = { 'A', 'C', 'G', 'T' };
 
-    // Default k-mer length. Quake/Musket leave k user-selectable; the de Bruijn default in this
-    // class is 31, but error correction uses smaller k so that error k-mers stay rare and solid
-    // k-mers are well sampled at typical read depth. We follow Quake's recommended order of
-    // magnitude (k chosen so the genome is well covered); k is exposed as a parameter so callers
-    // set it from their data. Source: Kelley et al. (2010) Genome Biol 11:R116 (k selection).
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // ASSEMBLY-CORRECT-001 — k-mer spectrum read error correction (Musket 1.1).
+    // Port of musket-1.1/paracorrect.cpp (ParaCorrect, paraCorrectCoreTwoSides, paraCorrectCore,
+    // selectAllMutations, successor, predecessor) and voting.cpp (voteErroneousRead,
+    // fixErroneousBase); source: Liu, Schmidt & Maskell (2013) Bioinformatics 29(3):308-315,
+    // musket.sourceforge.net (musket-1.1.tar.gz, read in full).
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    // Musket 2-bit code order (kmer.cpp encode/decodeToUpper): A=0, C=1, G=2, T=3; complement = code ^ 3.
+    private const string MusketBases = "ACGT";
+
+    // Default k-mer length (kept for backward compatibility; Musket's own default is 21 and it is
+    // data-dependent in practice). Callers should choose k from their genome size and coverage.
     private const int DefaultErrorCorrectKmerSize = 15;
 
-    // Default solidity (trusted) coverage cut-off: a k-mer is "trusted/solid" when its
-    // multiplicity is at least this value, "untrusted/weak" otherwise. Quake and Musket choose
-    // this cut-off automatically from the coverage histogram valley; we expose it as a parameter
-    // (callers pass the data-driven cut-off) and default to 2 so a k-mer must be seen more than
-    // once to be trusted. Source: Liu et al. (2013) Musket (multiplicity > cut-off => trusted);
-    // Kelley et al. (2010) Quake (high-coverage k-mers trusted, low-coverage untrusted).
+    // Default trusted cut-off (Musket -minmulti; Musket itself estimates it from the valley of the
+    // k-mer histogram and discards singleton k-mers, so its effective cut-off is >= 2).
     private const int DefaultMinKmerFrequency = 2;
 
+    // Musket fixErroneousBase is called with minVote = 3 (paracorrect.cpp, ParaCorrect stage 3).
+    private const int MusketMinimumVote = 3;
+
     /// <summary>
-    /// Corrects substitution errors in reads using the k-mer spectrum (two-sided) method of
-    /// Musket / Quake. A k-mer is <em>trusted</em> (solid) when its multiplicity across all reads
-    /// is at least <paramref name="minKmerFrequency"/> and <em>untrusted</em> (weak) otherwise.
-    /// For every read position covered only by untrusted k-mers, the method looks for a single
-    /// alternative base that makes <em>every</em> k-mer covering that position trusted; the base is
-    /// changed only when that alternative is <em>unique</em> — if zero or more than one alternative
-    /// works, the base is left unchanged (ambiguity is not resolved). The k-mer frequency table is
-    /// computed once from the original reads and is not updated during correction.
+    /// Options of the Musket k-mer spectrum corrector (<see cref="ErrorCorrectReads(IReadOnlyList{string}, int, int, ErrorCorrectionOptions)"/>).
+    /// A default-constructed instance (<see cref="Musket"/>) reproduces the Musket 1.1 command-line
+    /// defaults: canonical (both-strand) k-mer counting, <c>-maxiter 2</c>, <c>-maxerr 4</c>.
+    /// </summary>
+    public sealed record ErrorCorrectionOptions
+    {
+        /// <summary>
+        /// Count each k-mer together with its reverse complement (canonical k-mers), as Musket
+        /// (main.cpp: <c>rep = min(km, km.twin())</c>), Quake, BFC and Lighter do for double-stranded
+        /// sequencing data. <c>false</c> counts the forward strand only.
+        /// </summary>
+        public bool CountReverseComplement { get; init; } = true;
+
+        /// <summary>
+        /// Musket <c>-maxiter</c>: maximum correcting iterations of each stage (stage 1 applies at most
+        /// one correction per iteration). Must be ≥ 1.
+        /// </summary>
+        public int MaxIterations { get; init; } = 2;
+
+        /// <summary>
+        /// Musket <c>-maxerr</c>: maximum number of corrections in any window of length k in the
+        /// aggressive one-sided stage (stage 2, run for 1..MaxErrorsPerKmer, each followed by the voting
+        /// stage 3). 0 disables stages 2 and 3 (two-sided conservative correction only). Must be ≥ 0.
+        /// </summary>
+        public int MaxErrorsPerKmer { get; init; } = 4;
+
+        /// <summary>Musket 1.1 defaults (both strands, <c>-maxiter 2</c>, <c>-maxerr 4</c>).</summary>
+        public static ErrorCorrectionOptions Musket { get; } = new();
+
+        /// <summary>
+        /// The behaviour of the three-argument <see cref="ErrorCorrectReads(IReadOnlyList{string}, int, int)"/>:
+        /// Musket stage 1 (two-sided conservative correction) only, iterated until no further unique
+        /// correction exists, over a forward-strand spectrum.
+        /// </summary>
+        public static ErrorCorrectionOptions TwoSidedForwardStrand { get; } = new()
+        {
+            CountReverseComplement = false,
+            MaxIterations = int.MaxValue,
+            MaxErrorsPerKmer = 0,
+        };
+    }
+
+    /// <summary>
+    /// Corrects substitution errors in reads with the conservative two-sided k-mer spectrum rule of
+    /// Musket (stage 1), over a forward-strand spectrum, iterating until no further unique correction
+    /// exists. Equivalent to
+    /// <see cref="ErrorCorrectReads(IReadOnlyList{string}, int, int, ErrorCorrectionOptions)"/> with
+    /// <see cref="ErrorCorrectionOptions.TwoSidedForwardStrand"/>.
     /// </summary>
     /// <remarks>
-    /// Algorithm: Liu, Schmidt &amp; Maskell (2013), "Musket: a multistage k-mer spectrum-based
-    /// error corrector for Illumina sequence data", Bioinformatics 29(3):308-315,
-    /// DOI 10.1093/bioinformatics/bts690 — two-sided correction: "a base covered by any trusted
-    /// k-mer is trusted"; find a unique alternative base making the k-mers covering position i
-    /// trusted; "if more than one alternative is found ... the base will keep unchanged as a
-    /// result of ambiguity". Kelley, Schatz &amp; Salzberg (2010), "Quake", Genome Biol 11:R116,
-    /// DOI 10.1186/gb-2010-11-11-r116 — trusted = high-coverage k-mers, untrusted = low-coverage;
-    /// corrections are single-nucleotide edits over a region of untrusted k-mers.
-    /// Corrections are restricted to single-base substitutions (no insertions/deletions), matching
-    /// the substitution model of both tools.
+    /// A k-mer is trusted (solid) when its multiplicity is ≥ <paramref name="minKmerFrequency"/>; a base
+    /// covered by any trusted k-mer is trusted and never modified. Each iteration scans the read left to
+    /// right and, at the first untrusted position i for which exactly one alternative base makes both
+    /// the leftmost and the rightmost k-mer covering i trusted, applies that single substitution; a
+    /// position with zero or several such bases is left unchanged ("ambiguity"). Liu, Schmidt &amp;
+    /// Maskell (2013), Musket, Bioinformatics 29(3):308-315, "two-sided correction"; code:
+    /// musket-1.1/paracorrect.cpp <c>paraCorrectCoreTwoSides</c>. Use the four-argument overload with
+    /// <see cref="ErrorCorrectionOptions.Musket"/> for the complete Musket corrector (canonical k-mers,
+    /// aggressive one-sided stage, voting stage).
     /// </remarks>
-    /// <param name="reads">Reads to correct. Compared case-insensitively (upper-cased internally).</param>
-    /// <param name="kmerSize">k-mer length k (k ≥ 1). Reads shorter than k contribute no k-mers and are returned unchanged.</param>
-    /// <param name="minKmerFrequency">Trusted cut-off: k-mers with multiplicity ≥ this value are trusted.</param>
-    /// <returns>The corrected reads, upper-cased, in input order; length and count are preserved.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="reads"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="kmerSize"/> &lt; 1.</exception>
+    /// <param name="reads">Reads to correct (case-insensitive, ASCII upper-cased).</param>
+    /// <param name="kmerSize">k-mer length k (≥ 1). Reads shorter than k are returned upper-cased, unchanged.</param>
+    /// <param name="minKmerFrequency">Trusted cut-off (≥ 1): k-mers with multiplicity ≥ this value are trusted.</param>
+    /// <returns>The corrected reads, upper-cased, in input order; count and lengths are preserved.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="reads"/> is null.</exception>
+    /// <exception cref="ArgumentException">A read is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="kmerSize"/> &lt; 1 or <paramref name="minKmerFrequency"/> &lt; 1.</exception>
     public static IReadOnlyList<string> ErrorCorrectReads(
         IReadOnlyList<string> reads,
         int kmerSize = DefaultErrorCorrectKmerSize,
-        int minKmerFrequency = DefaultMinKmerFrequency)
+        int minKmerFrequency = DefaultMinKmerFrequency) =>
+        ErrorCorrectReads(reads, kmerSize, minKmerFrequency, ErrorCorrectionOptions.TwoSidedForwardStrand);
+
+    /// <summary>
+    /// Corrects substitution errors in reads with the Musket multistage k-mer spectrum corrector
+    /// (Liu, Schmidt &amp; Maskell 2013, Bioinformatics 29(3):308-315; port of musket-1.1
+    /// <c>ParaCorrect</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>The spectrum counts every overlapping k-mer occurrence of every read (Core
+    /// <see cref="SequenceExtensions.CountKmersSpan"/>), merged with its reverse complement when
+    /// <see cref="ErrorCorrectionOptions.CountReverseComplement"/> is set. A k-mer is trusted when its
+    /// multiplicity is ≥ <paramref name="minKmerFrequency"/> (Musket <c>getKmerMulti(..) &gt;= watershed</c>);
+    /// a base covered by a trusted k-mer is trusted. Per read:</para>
+    /// <list type="number">
+    /// <item>Stage 1, two-sided conservative correction (≤ MaxIterations iterations): stop when every base
+    /// is trusted; otherwise apply the first untrusted position, left to right, that has exactly one
+    /// alternative base making both its leftmost and its rightmost covering k-mer trusted.</item>
+    /// <item>Stage 2, aggressive one-sided correction, for e = 1..MaxErrorsPerKmer (≤ MaxIterations
+    /// iterations each, regions alternately longest- and shortest-first): every maximal run of trusted
+    /// k-mers is extended to the right and to the left; an untrusted k-mer is fixed at its new end base
+    /// by the unique trusted alternative, or else by the alternative of highest multiplicity whose next
+    /// (MaxErrorsPerKmer − e + 1) k-mers on that side are trusted; extension stops at the first
+    /// unfixable k-mer, and a run of more than e corrections within k bases is discarded.</item>
+    /// <item>Stage 3, voting (after each e): every untrusted k-mer votes for each single substitution that
+    /// makes it trusted; a base whose maximum vote (≥ 3) is reached by exactly one alternative is replaced.</item>
+    /// </list>
+    /// <para>Documented deviations from the musket-1.1 code: (a) for reads shorter than 2k − 1 stage 1
+    /// uses the true leftmost covering k-mer (musket-1.1 advances its left k-mer from position 0 and
+    /// probes a different base); (b) the stage-2 left-extension look-ahead tests the k-mers that really
+    /// precede the corrected k-mer (musket-1.1 calls <c>predecessor(seq, ipos - 1, ..)</c>, which skips
+    /// base ipos − 1). Both follow the paper's description. (c) Musket 2-bit encodes any non-ACGT symbol
+    /// as A; here such symbols stay distinct (k-mers containing them are counted under their own
+    /// spelling) and every one of A, C, G, T is a candidate replacement. (d) Musket discards singleton
+    /// k-mers, so its effective cut-off is ≥ 2; here a cut-off of 1 is honoured. (e) Uncorrected bases are
+    /// upper-cased (Musket keeps their input case). Bases are compared case-insensitively (ASCII).</para>
+    /// <para>Candidate order and the representative strand of a canonical k-mer follow Musket
+    /// (<c>rep = km &lt; twin ? km : twin</c> under Musket's packed 2-bit memcmp order, alternatives
+    /// enumerated cyclically from the original base on that strand); this order decides ties of equal
+    /// multiplicity in stage 2.</para>
+    /// <para>Musket's multiple-k mode, automatic cut-off estimation and optional trimming (<c>-maxtrim</c>,
+    /// default 0) are not implemented; reads are never trimmed, so count and lengths are preserved.</para>
+    /// </remarks>
+    /// <param name="reads">Reads to correct (case-insensitive, ASCII upper-cased).</param>
+    /// <param name="kmerSize">k-mer length k (≥ 1). Reads shorter than k are returned upper-cased, unchanged.</param>
+    /// <param name="minKmerFrequency">Trusted cut-off (≥ 1), Musket <c>-minmulti</c>.</param>
+    /// <param name="options">Corrector options; <see cref="ErrorCorrectionOptions.Musket"/> = Musket 1.1 defaults.</param>
+    /// <returns>The corrected reads, upper-cased, in input order; count and lengths are preserved.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="reads"/> or <paramref name="options"/> is null.</exception>
+    /// <exception cref="ArgumentException">A read is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="kmerSize"/> &lt; 1, <paramref name="minKmerFrequency"/> &lt; 1,
+    /// <see cref="ErrorCorrectionOptions.MaxIterations"/> &lt; 1 or <see cref="ErrorCorrectionOptions.MaxErrorsPerKmer"/> &lt; 0.</exception>
+    public static IReadOnlyList<string> ErrorCorrectReads(
+        IReadOnlyList<string> reads,
+        int kmerSize,
+        int minKmerFrequency,
+        ErrorCorrectionOptions options)
     {
         ArgumentNullException.ThrowIfNull(reads);
-        if (kmerSize < 1)
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentOutOfRangeException.ThrowIfLessThan(kmerSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minKmerFrequency, 1);
+        if (options.MaxIterations < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(kmerSize), kmerSize, "k-mer size must be at least 1.");
+            throw new ArgumentOutOfRangeException(nameof(options), options.MaxIterations, "MaxIterations must be at least 1.");
         }
 
-        // Stage 1: build the k-mer spectrum (multiplicity table) from the original reads once.
-        var kmerCounts = BuildKmerSpectrum(reads, kmerSize);
-
-        var corrected = new List<string>(reads.Count);
-
-        foreach (string read in reads)
+        if (options.MaxErrorsPerKmer < 0)
         {
-            corrected.Add(CorrectRead(read, kmerSize, minKmerFrequency, kmerCounts));
+            throw new ArgumentOutOfRangeException(nameof(options), options.MaxErrorsPerKmer, "MaxErrorsPerKmer must not be negative.");
+        }
+        for (int i = 0; i < reads.Count; i++)
+        {
+            if (reads[i] is null)
+            {
+                throw new ArgumentException($"Read at index {i} is null.", nameof(reads));
+            }
+        }
+
+        var corrector = new MusketCorrector(
+            BuildKmerSpectrum(reads, kmerSize, options.CountReverseComplement),
+            kmerSize,
+            minKmerFrequency,
+            options);
+
+        var corrected = new string[reads.Count];
+        for (int i = 0; i < reads.Count; i++)
+        {
+            corrected[i] = corrector.Correct(reads[i]);
         }
 
         return corrected;
     }
 
     /// <summary>
-    /// Builds the k-mer multiplicity table (k-mer spectrum) over all reads, counting overlapping
-    /// k-mers case-insensitively. Reads shorter than k contribute nothing.
+    /// k-mer multiplicity table: one count per overlapping occurrence (Core
+    /// <see cref="SequenceExtensions.CountKmersSpan"/>, ASCII case-insensitive). With
+    /// <paramref name="bothStrands"/> each k-mer and its reverse complement share the summed count
+    /// (Musket counts the canonical representative; a palindromic k-mer is counted once per occurrence).
     /// </summary>
-    private static Dictionary<string, int> BuildKmerSpectrum(IReadOnlyList<string> reads, int kmerSize)
+    private static Dictionary<string, int> BuildKmerSpectrum(IReadOnlyList<string> reads, int kmerSize, bool bothStrands)
     {
-        var kmerCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var forward = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (string read in reads)
         {
-            if (read is null)
+            foreach (KeyValuePair<string, int> entry in read.AsSpan().CountKmersSpan(kmerSize))
             {
-                continue;
-            }
-
-            for (int i = 0; i + kmerSize <= read.Length; i++)
-            {
-                string kmer = read.Substring(i, kmerSize).ToUpperInvariant();
-                kmerCounts[kmer] = kmerCounts.GetValueOrDefault(kmer, 0) + 1;
+                forward[entry.Key] = forward.GetValueOrDefault(entry.Key) + entry.Value;
             }
         }
 
-        return kmerCounts;
+        if (!bothStrands)
+        {
+            return forward;
+        }
+
+        var canonical = new Dictionary<string, int>(forward.Count * 2, StringComparer.Ordinal);
+        foreach (KeyValuePair<string, int> entry in forward)
+        {
+            string twin = ReverseComplement(entry.Key);
+            int total = twin == entry.Key ? entry.Value : entry.Value + forward.GetValueOrDefault(twin);
+            canonical[entry.Key] = total;
+            canonical[twin] = total;
+        }
+
+        return canonical;
     }
 
-    /// <summary>
-    /// Applies the Musket two-sided substitution rule to one read against the global k-mer
-    /// spectrum: for each position covered only by untrusted k-mers, substitute the unique base
-    /// (if any) that makes every k-mer covering that position trusted.
-    /// </summary>
-    private static string CorrectRead(
-        string read,
-        int kmerSize,
-        int minKmerFrequency,
-        Dictionary<string, int> kmerCounts)
+    /// <summary>Per-call state of the Musket corrector (spectrum, parameters, scratch buffers).</summary>
+    private sealed class MusketCorrector
     {
-        // Reads with no k-mers (shorter than k) cannot be evaluated; return upper-cased copy.
-        if (read.Length < kmerSize)
+        private readonly Dictionary<string, int>.AlternateLookup<ReadOnlySpan<char>> _spectrum;
+        private readonly int _k;
+        private readonly int _watershed;
+        private readonly bool _bothStrands;
+        private readonly int _maxIterations;
+        private readonly int _maxErrorsPerKmer;
+        private readonly char[] _twin;
+        private readonly char[] _alternative;
+        private readonly char[] _lookAhead;
+        private readonly (int Base, int Multiplicity)[] _bases = new (int, int)[4];
+        private readonly (int Base, int Multiplicity)[] _leftBases = new (int, int)[4];
+
+        public MusketCorrector(Dictionary<string, int> spectrum, int k, int watershed, ErrorCorrectionOptions options)
         {
-            return read.ToUpperInvariant();
+            _spectrum = spectrum.GetAlternateLookup<ReadOnlySpan<char>>();
+            _k = k;
+            _watershed = watershed;
+            _bothStrands = options.CountReverseComplement;
+            _maxIterations = options.MaxIterations;
+            _maxErrorsPerKmer = options.MaxErrorsPerKmer;
+            _twin = new char[k];
+            _alternative = new char[k];
+            _lookAhead = new char[k];
         }
 
-        var sb = new StringBuilder(read.ToUpperInvariant());
-
-        for (int pos = 0; pos < sb.Length; pos++)
+        /// <summary>Musket <c>ParaCorrect</c> on one read.</summary>
+        public string Correct(string read)
         {
-            if (IsPositionTrusted(sb, pos, kmerSize, minKmerFrequency, kmerCounts))
+            char[] seq = Infrastructure.SequenceCase.ToUpperAscii(read).ToCharArray();
+
+            // Stage 1: conservative two-sided correction, one substitution per iteration.
+            for (int iteration = 0; iteration < _maxIterations; iteration++)
             {
-                continue; // Base is covered by a trusted k-mer -> leave it unchanged.
+                if (TwoSided(seq, out (int Index, int Base)? correction))
+                {
+                    return new string(seq);
+                }
+
+                if (correction is not { } c)
+                {
+                    break;
+                }
+
+                seq[c.Index] = MusketBases[c.Base];
             }
 
-            char original = sb[pos];
-            char unique = '\0';
-            int candidateCount = 0;
-
-            foreach (char candidate in DnaBases)
+            // Stages 2 and 3: aggressive one-sided correction for 1..maxerr errors per k-mer, then voting.
+            var corrections = new List<(int Index, int Base)>();
+            for (int maxErrors = 1; maxErrors <= _maxErrorsPerKmer; maxErrors++)
             {
-                if (candidate == original)
+                int pingPong = 1;
+                for (int iteration = 0; iteration < _maxIterations; iteration++)
+                {
+                    bool longestFirst = (pingPong++ & 1) == 1;
+                    if (OneSided(seq, maxErrors, _maxErrorsPerKmer - maxErrors + 1, longestFirst, corrections))
+                    {
+                        return new string(seq);
+                    }
+
+                    if (corrections.Count == 0)
+                    {
+                        break;
+                    }
+
+                    foreach ((int index, int b) in corrections)
+                    {
+                        seq[index] = MusketBases[b];
+                    }
+                }
+
+                if (!VoteAndFix(seq))
+                {
+                    return new string(seq);
+                }
+            }
+
+            return new string(seq);
+        }
+
+        private int Multiplicity(ReadOnlySpan<char> kmer) =>
+            _spectrum.TryGetValue(kmer, out int count) ? count : 0;
+
+        private bool IsTrusted(ReadOnlySpan<char> kmer) => Multiplicity(kmer) >= _watershed;
+
+        private static int Code(char c) => c switch { 'A' => 0, 'C' => 1, 'G' => 2, 'T' => 3, _ => -1 };
+
+        /// <summary>
+        /// Musket <c>Kmer::operator&lt;</c>: memcmp over the packed 2-bit bytes (base i in bits 2(i mod 4)
+        /// of byte i/4; non-ACGT encoded as A).
+        /// </summary>
+        private static bool MusketPrecedes(ReadOnlySpan<char> a, ReadOnlySpan<char> b)
+        {
+            for (int group = 0; group < a.Length; group += 4)
+            {
+                int byteA = 0, byteB = 0;
+                for (int j = 0; j < 4 && group + j < a.Length; j++)
+                {
+                    byteA |= Math.Max(0, Code(a[group + j])) << (2 * j);
+                    byteB |= Math.Max(0, Code(b[group + j])) << (2 * j);
+                }
+
+                if (byteA != byteB)
+                {
+                    return byteA < byteB;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Musket <c>selectAllMutations</c>: the alternatives (read-strand code, multiplicity) at
+        /// <paramref name="index"/> of <paramref name="kmer"/> that make it trusted, enumerated on the
+        /// representative strand cyclically after the original base.
+        /// </summary>
+        private int SelectAllMutations(ReadOnlySpan<char> kmer, int index, (int Base, int Multiplicity)[] result)
+        {
+            bool revcomp = false;
+            ReadOnlySpan<char> rep = kmer;
+            if (_bothStrands)
+            {
+                kmer.TryGetReverseComplement(_twin);
+                if (!MusketPrecedes(kmer, _twin))
+                {
+                    rep = _twin;
+                    revcomp = true;
+                }
+            }
+
+            rep.CopyTo(_alternative);
+            int baseIndex = revcomp ? _k - 1 - index : index;
+            int original = Code(rep[baseIndex]);
+            int count = 0;
+            for (int step = original < 0 ? 0 : 1; step < 4; step++)
+            {
+                int candidate = original < 0 ? step : (original + step) & 3;
+                _alternative[baseIndex] = MusketBases[candidate];
+                int multiplicity = Multiplicity(_alternative);
+                if (multiplicity >= _watershed)
+                {
+                    result[count++] = (revcomp ? candidate ^ 3 : candidate, multiplicity);
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>Bases covered by at least one trusted k-mer (Musket <c>solids</c>).</summary>
+        private bool[] Solids(char[] seq)
+        {
+            var solids = new bool[seq.Length];
+            for (int start = 0; start + _k <= seq.Length; start++)
+            {
+                if (IsTrusted(seq.AsSpan(start, _k)))
+                {
+                    Array.Fill(solids, true, start, _k);
+                }
+            }
+
+            return solids;
+        }
+
+        /// <summary>
+        /// Musket <c>paraCorrectCoreTwoSides</c>: true when the read is error-free (or shorter than k);
+        /// otherwise the first unique two-sided correction, if any.
+        /// </summary>
+        private bool TwoSided(char[] seq, out (int Index, int Base)? correction)
+        {
+            correction = null;
+            int length = seq.Length;
+            if (length < _k)
+            {
+                return true;
+            }
+
+            bool[] solids = Solids(seq);
+            if (Array.TrueForAll(solids, s => s))
+            {
+                return true;
+            }
+
+            for (int pos = 0; pos < length; pos++)
+            {
+                if (solids[pos])
                 {
                     continue;
                 }
 
-                sb[pos] = candidate;
-                if (AllCoveringKmersTrusted(sb, pos, kmerSize, minKmerFrequency, kmerCounts))
+                int rightStart = Math.Min(pos, length - _k);
+                int rightCount = SelectAllMutations(seq.AsSpan(rightStart, _k), pos - rightStart, _bases);
+                int leftStart = Math.Max(0, pos - _k + 1);
+                int leftCount = SelectAllMutations(seq.AsSpan(leftStart, _k), pos - leftStart, _leftBases);
+
+                int matches = 0, unique = -1;
+                for (int i = 0; i < rightCount; i++)
                 {
-                    candidateCount++;
-                    unique = candidate;
+                    for (int j = 0; j < leftCount; j++)
+                    {
+                        if (_bases[i].Base == _leftBases[j].Base)
+                        {
+                            matches++;
+                            unique = _bases[i].Base;
+                        }
+                    }
+                }
+
+                if (matches == 1)
+                {
+                    correction = (pos, unique);
+                    return false;
                 }
             }
 
-            // Apply only an unambiguous correction; otherwise restore the original base.
-            sb[pos] = candidateCount == 1 ? unique : original;
+            return false;
         }
 
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// True when position <paramref name="pos"/> is covered by at least one trusted k-mer
-    /// (multiplicity ≥ <paramref name="minKmerFrequency"/>) — the Musket "trusted base" rule.
-    /// </summary>
-    private static bool IsPositionTrusted(
-        StringBuilder sb,
-        int pos,
-        int kmerSize,
-        int minKmerFrequency,
-        Dictionary<string, int> kmerCounts)
-    {
-        foreach (int start in CoveringKmerStarts(sb.Length, pos, kmerSize))
+        /// <summary>
+        /// Musket <c>paraCorrectCore</c> (aggressive one-sided correction). Returns true when the read has
+        /// no trusted k-mer at all (Musket then stops correcting the read); otherwise fills
+        /// <paramref name="output"/> with the corrections in Musket's region order.
+        /// </summary>
+        private bool OneSided(char[] seq, int maxErrors, int stride, bool longestFirst, List<(int Index, int Base)> output)
         {
-            if (kmerCounts.GetValueOrDefault(KmerAt(sb, start, kmerSize), 0) >= minKmerFrequency)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// True when EVERY k-mer covering position <paramref name="pos"/> is trusted. Used to test a
-    /// candidate substitution: a correction is valid only if it makes all covering k-mers solid.
-    /// </summary>
-    private static bool AllCoveringKmersTrusted(
-        StringBuilder sb,
-        int pos,
-        int kmerSize,
-        int minKmerFrequency,
-        Dictionary<string, int> kmerCounts)
-    {
-        foreach (int start in CoveringKmerStarts(sb.Length, pos, kmerSize))
-        {
-            if (kmerCounts.GetValueOrDefault(KmerAt(sb, start, kmerSize), 0) < minKmerFrequency)
+            output.Clear();
+            int length = seq.Length;
+            if (length < _k)
             {
                 return false;
             }
+
+            Func<(int Left, int Right), (int Left, int Right), bool> comparer = longestFirst
+                ? static (a, b) => a.Right - a.Left < b.Right - b.Left
+                : static (a, b) => a.Right - a.Left > b.Right - b.Left;
+
+            var solids = new bool[length];
+            var regions = new List<(int Left, int Right)>();
+            int leftKmer = -1, rightKmer = -1;
+            bool solidRegion = false;
+            for (int start = 0; start + _k <= length; start++)
+            {
+                if (IsTrusted(seq.AsSpan(start, _k)))
+                {
+                    if (!solidRegion)
+                    {
+                        solidRegion = true;
+                        leftKmer = rightKmer = start;
+                    }
+                    else
+                    {
+                        rightKmer++;
+                    }
+
+                    Array.Fill(solids, true, start, _k);
+                }
+                else
+                {
+                    if (leftKmer >= 0)
+                    {
+                        regions.Add((leftKmer, rightKmer));
+                        StlHeap.Push(regions, comparer);
+                        leftKmer = rightKmer = -1;
+                    }
+
+                    solidRegion = false;
+                }
+            }
+
+            if (solidRegion && leftKmer >= 0)
+            {
+                regions.Add((leftKmer, rightKmer));
+                StlHeap.Push(regions, comparer);
+            }
+
+            if (regions.Count == 0)
+            {
+                return true;
+            }
+
+            var corrections = new List<(int Index, int Base)>();
+            var kmer = new char[_k];
+            while (regions.Count > 0)
+            {
+                (int left, int right) = regions[0];
+                StlHeap.Pop(regions, comparer);
+                regions.RemoveAt(regions.Count - 1);
+
+                // Extend to the right of the trusted run.
+                seq.AsSpan(right, _k).CopyTo(kmer);
+                int lastPosition = -1, correctionsInWindow = 0;
+                corrections.Clear();
+                for (int start = right + 1; start + _k <= length; start++)
+                {
+                    int target = start + _k - 1;
+                    if (solids[target])
+                    {
+                        break;
+                    }
+
+                    Array.Copy(kmer, 1, kmer, 0, _k - 1);
+                    kmer[_k - 1] = seq[target];
+                    if (IsTrusted(kmer))
+                    {
+                        continue;
+                    }
+
+                    int restStart = start + 1;
+                    int chosen = ChooseOneSided(kmer, _k - 1, b => Successor(seq, kmer, restStart, b, stride));
+                    if (chosen < 0)
+                    {
+                        break;
+                    }
+
+                    corrections.Add((target, chosen));
+                    kmer[_k - 1] = MusketBases[chosen];
+                    if (lastPosition < 0)
+                    {
+                        lastPosition = target;
+                    }
+
+                    if (!CountCorrection(corrections, target - lastPosition, ref lastPosition, target,
+                            ref correctionsInWindow, maxErrors))
+                    {
+                        break;
+                    }
+                }
+
+                output.AddRange(corrections);
+
+                // Extend to the left of the trusted run.
+                lastPosition = corrections.Count > 0 ? corrections[0].Index : -1;
+                correctionsInWindow = 0;
+                corrections.Clear();
+                if (left > 0)
+                {
+                    seq.AsSpan(left, _k).CopyTo(kmer);
+                    for (int pos = left - 1; pos >= 0; pos--)
+                    {
+                        if (solids[pos])
+                        {
+                            break;
+                        }
+
+                        Array.Copy(kmer, 0, kmer, 1, _k - 1);
+                        kmer[0] = seq[pos];
+                        if (IsTrusted(kmer))
+                        {
+                            continue;
+                        }
+
+                        int at = pos;
+                        int chosen = ChooseOneSided(kmer, 0, b => Predecessor(seq, kmer, at, b, stride));
+                        if (chosen < 0)
+                        {
+                            break;
+                        }
+
+                        corrections.Add((pos, chosen));
+                        kmer[0] = MusketBases[chosen];
+                        if (lastPosition < 0)
+                        {
+                            lastPosition = pos;
+                        }
+
+                        if (!CountCorrection(corrections, lastPosition - pos, ref lastPosition, pos,
+                                ref correctionsInWindow, maxErrors))
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                output.AddRange(corrections);
+            }
+
+            return false;
         }
 
-        return true;
+        /// <summary>
+        /// Musket's per-window error budget: a correction within k bases of the window start increments the
+        /// count and, past <paramref name="maxErrors"/>, removes the window's corrections and stops the
+        /// extension (returns false); a farther correction opens a new window.
+        /// </summary>
+        private bool CountCorrection(List<(int Index, int Base)> corrections, int distance,
+            ref int lastPosition, int position, ref int correctionsInWindow, int maxErrors)
+        {
+            if (distance < _k)
+            {
+                correctionsInWindow++;
+                if (correctionsInWindow > maxErrors)
+                {
+                    corrections.RemoveRange(corrections.Count - correctionsInWindow, correctionsInWindow);
+                    return false;
+                }
+            }
+            else
+            {
+                lastPosition = position;
+                correctionsInWindow = 0;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Stage-2 base choice at <paramref name="index"/> of an untrusted k-mer: the unique trusted
+        /// alternative, else the first alternative of strictly highest multiplicity that passes
+        /// <paramref name="lookAheadTrusted"/>; −1 when none qualifies.
+        /// </summary>
+        private int ChooseOneSided(char[] kmer, int index, Func<int, bool> lookAheadTrusted)
+        {
+            int count = SelectAllMutations(kmer, index, _bases);
+            if (count == 1)
+            {
+                return _bases[0].Base;
+            }
+
+            // Copy: the look-ahead reuses the scratch buffers of SelectAllMutations.
+            Span<(int Base, int Multiplicity)> candidates = stackalloc (int, int)[4];
+            _bases.AsSpan(0, count).CopyTo(candidates);
+            (int Base, int Multiplicity) best = (0, 0);
+            for (int i = 0; i < count; i++)
+            {
+                if (lookAheadTrusted(candidates[i].Base) && best.Multiplicity < candidates[i].Multiplicity)
+                {
+                    best = candidates[i];
+                }
+            }
+
+            return best.Multiplicity > 0 ? best.Base : -1;
+        }
+
+        /// <summary>
+        /// Musket <c>successor</c>: <paramref name="kmer"/> (ending at <paramref name="start"/> − 1) with its
+        /// last base set to <paramref name="lastBase"/> is followed by up to <paramref name="distance"/>
+        /// trusted k-mers spelled with the (not yet corrected) bases of the read from <paramref name="start"/>.
+        /// </summary>
+        private bool Successor(char[] seq, char[] kmer, int start, int lastBase, int distance)
+        {
+            int remaining = seq.Length - start;
+            if (remaining < _k || distance <= 0)
+            {
+                return true;
+            }
+
+            kmer.CopyTo(_lookAhead, 0);
+            _lookAhead[_k - 1] = MusketBases[lastBase];
+            int end = Math.Min(remaining - _k, distance - 1);
+            for (int i = 0; i <= end; i++)
+            {
+                Array.Copy(_lookAhead, 1, _lookAhead, 0, _k - 1);
+                _lookAhead[_k - 1] = seq[start + i + _k - 1];
+                if (!IsTrusted(_lookAhead))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Musket <c>predecessor</c> (deviation (b)): <paramref name="kmer"/> (starting at
+        /// <paramref name="position"/>) with its first base set to <paramref name="firstBase"/> is preceded
+        /// by up to <paramref name="distance"/> trusted k-mers of the read.
+        /// </summary>
+        private bool Predecessor(char[] seq, char[] kmer, int position, int firstBase, int distance)
+        {
+            if (position <= 0 || distance <= 0)
+            {
+                return true;
+            }
+
+            kmer.CopyTo(_lookAhead, 0);
+            _lookAhead[0] = MusketBases[firstBase];
+            int stop = Math.Max(0, position - distance);
+            for (int i = position - 1; i >= stop; i--)
+            {
+                Array.Copy(_lookAhead, 0, _lookAhead, 1, _k - 1);
+                _lookAhead[0] = seq[i];
+                if (!IsTrusted(_lookAhead))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Musket <c>voteErroneousRead</c> + <c>fixErroneousBase(minVote = 3)</c>. Returns false when the
+        /// read is error-free (Musket stops correcting it).
+        /// </summary>
+        private bool VoteAndFix(char[] seq)
+        {
+            int length = seq.Length;
+            if (length < _k)
+            {
+                return false;
+            }
+
+            var votes = new int[length, 4];
+            bool errorFree = true;
+            var kmer = new char[_k];
+            for (int start = 0; start + _k <= length; start++)
+            {
+                if (IsTrusted(seq.AsSpan(start, _k)))
+                {
+                    continue;
+                }
+
+                errorFree = false;
+                seq.AsSpan(start, _k).CopyTo(kmer);
+                for (int offset = 0; offset < _k; offset++)
+                {
+                    int count = SelectAllMutations(kmer, offset, _bases);
+                    for (int i = 0; i < count; i++)
+                    {
+                        votes[start + offset, _bases[i].Base]++;
+                    }
+                }
+            }
+
+            if (errorFree)
+            {
+                return false;
+            }
+
+            int maxVote = 0;
+            foreach (int vote in votes)
+            {
+                maxVote = Math.Max(maxVote, vote);
+            }
+
+            if (maxVote < MusketMinimumVote)
+            {
+                return true;
+            }
+
+            for (int pos = 0; pos < length; pos++)
+            {
+                int alternative = -1;
+                for (int b = 0; b < 4; b++)
+                {
+                    if (votes[pos, b] == maxVote)
+                    {
+                        alternative = alternative == -1 ? b : -2;
+                    }
+                }
+
+                if (alternative >= 0)
+                {
+                    seq[pos] = MusketBases[alternative];
+                }
+            }
+
+            return true;
+        }
     }
 
     /// <summary>
-    /// Enumerates the start indices of all length-k windows that cover read position
-    /// <paramref name="pos"/> within a read of length <paramref name="length"/>.
+    /// libstdc++ <c>std::push_heap</c>/<c>std::pop_heap</c> (bits/stl_heap.h), reproduced so the order in
+    /// which Musket pops trusted regions of equal length is preserved.
     /// </summary>
-    private static IEnumerable<int> CoveringKmerStarts(int length, int pos, int kmerSize)
+    private static class StlHeap
     {
-        int first = Math.Max(0, pos - kmerSize + 1);
-        int last = Math.Min(pos, length - kmerSize);
-        for (int start = first; start <= last; start++)
+        public static void Push<T>(List<T> heap, Func<T, T, bool> less) =>
+            PushHole(heap, heap.Count - 1, 0, heap[^1], less);
+
+        public static void Pop<T>(List<T> heap, Func<T, T, bool> less)
         {
-            yield return start;
+            int count = heap.Count;
+            if (count > 1)
+            {
+                T value = heap[count - 1];
+                heap[count - 1] = heap[0];
+                AdjustHeap(heap, 0, count - 1, value, less);
+            }
+        }
+
+        private static void PushHole<T>(List<T> heap, int hole, int top, T value, Func<T, T, bool> less)
+        {
+            int parent = (hole - 1) / 2;
+            while (hole > top && less(heap[parent], value))
+            {
+                heap[hole] = heap[parent];
+                hole = parent;
+                parent = (hole - 1) / 2;
+            }
+
+            heap[hole] = value;
+        }
+
+        private static void AdjustHeap<T>(List<T> heap, int hole, int length, T value, Func<T, T, bool> less)
+        {
+            int top = hole;
+            int second = hole;
+            while (second < (length - 1) / 2)
+            {
+                second = 2 * (second + 1);
+                if (less(heap[second], heap[second - 1]))
+                {
+                    second--;
+                }
+
+                heap[hole] = heap[second];
+                hole = second;
+            }
+
+            if ((length & 1) == 0 && second == (length - 2) / 2)
+            {
+                second = 2 * (second + 1);
+                heap[hole] = heap[second - 1];
+                hole = second - 1;
+            }
+
+            PushHole(heap, hole, top, value, less);
         }
     }
-
-    /// <summary>Reads the length-k window starting at <paramref name="start"/> from the buffer.</summary>
-    private static string KmerAt(StringBuilder sb, int start, int kmerSize)
-    {
-        char[] buffer = new char[kmerSize];
-        sb.CopyTo(start, buffer, 0, kmerSize);
-        return new string(buffer);
-    }
 }
-
