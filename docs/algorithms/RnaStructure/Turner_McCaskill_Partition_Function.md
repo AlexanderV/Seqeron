@@ -83,7 +83,7 @@ returns the same engine's `Z`, `P(i,j)`, `p_unpaired`, `ΔG_ens`. The MFE folder
 | `rnaSequence` | `string` | required | RNA (or DNA; T→U) sequence | case-insensitive; null/empty allowed |
 | `minLoopSize` | `int` | 3 | minimum hairpin loop | clamped to ≥3 (NNDB) |
 | `temperature` | `double` | 310.15 | absolute temperature (K) | positive, finite |
-| `windowEnd` / `windowLength` | `int` | — | accessibility window (0-based inclusive end, length) | window must fit in the sequence; length > 0 |
+| `windowEnd` / `windowLength` | `int` | — | accessibility window (0-based inclusive end, length u) | window must fit in the sequence; length > 0 (signature `CalculateRegionUnpairedProbability(seq, windowEnd, windowLength, minLoopSize, temperature)`) |
 
 ### 3.2 Output / Return Value
 
@@ -96,14 +96,14 @@ returns the same engine's `Z`, `P(i,j)`, `p_unpaired`, `ΔG_ens`. The MFE folder
 | `UnpairedProbabilities` | `IReadOnlyList<double>` | `p_unpaired(i)`, one per position |
 | `EnsembleFreeEnergy` | `double` | `−RT·ln Z` (kcal/mol) |
 
-`CalculateRegionUnpairedProbability` returns `double` — `P(window unpaired) ∈ [0,1]`.
+`CalculateRegionUnpairedProbability` returns `double` — `P(window unpaired) ∈ [0,1]`; `CalculateRegionOpeningEnergy` returns the opening energy `−RT·ln P` (kcal/mol; 0 when `P = 1`, `+∞` when `P` underflows to 0; Kertesz et al. 2007). MCP: `rna_region_accessibility`.
 
 ### 3.3 Preconditions and Validation
 
 0-based inclusive coordinates. DNA accepted (T read as U); upper-cased internally. Null/empty →
 `Z = 1`, no pairs, `ΔG = 0`. Sequence too short to pair → `Z = 1`, all bases unpaired. A
 non-positive temperature throws `ArgumentOutOfRangeException`. An accessibility window that does
-not fit throws `ArgumentOutOfRangeException`; a window in a too-short sequence returns 1.0.
+not fit throws `ArgumentOutOfRangeException` (this includes a null/empty sequence, a negative or ≥ n `windowEnd`, a window longer than the sequence and `windowLength ≤ 0`; unlike the per-base method, the region method has no "unit partition" result for an empty sequence); a window in a sequence too short to pair returns 1.0. `N`/IUPAC bases never pair, so a region of such bases has probability exactly 1. A `minLoopSize` > 3 removes the short hairpins from both `Z` and `Z_open`.
 
 ## 4. Algorithm
 
@@ -160,12 +160,15 @@ in `OmittedFeatures` (matching the perl's missing-`_lunp` → 0).
 - `Z = Σ exp(−E/RT)` on the Turner-2004 model; `P(i,j)`, `p_unpaired(i) = 1 − Σ_j P(i,j)`, `ΔG_ensemble = −RT·ln Z`. [1][2]
 - Region accessibility `Z_open/Z` and the TargetScan SA window (row `utrStart+7`, `L=14`, `log10`, min-max scaled by the SA row). [3][4]
 
+**Scope of the accessibility value (not a simplification of the unit):** `CalculateRegionUnpairedProbability` is the WHOLE-sequence ensemble quantity `Z_open/Z`, i.e. what RNAplfold `-u` reports for window `W ≥ n` and span `L ≥ n`. Verified against ViennaRNA 2.7.2: exact hard-constraint ratio `exp(−(G_constrained − G_ens)/RT)` (1440 random regions u = 1…n, 8–200 nt, 20/37/60 °C: max |Δ| 0.0056, mean 2e-5; the maximum is ViennaRNA's `SMOOTH()` end-dangle quirk) and `RNA.pfl_fold_up(seq, u, n, n)` (600 random queries: max |Δ| 1.0e-3; identical to the constraint ratio to 2e-6 on the locked cases). The joint probability is **not** the product of per-base `p_unpaired` (e.g. `GGGGAAAACCCCUUUUGGGG`, 5′ arm: joint > 1.2 × product).
+
 **Intentionally simplified:**
 
 - Local SA fold uses a single `W=80` context window rather than RNAplfold's full sliding-window average over all `W`-windows; **consequence:** the accessibility of the 14-nt site is captured (bases pair only within ±`L=40`), but values can differ slightly from a full RNAplfold run near long-range context.
 
 **Not implemented:**
 
+- RNAplfold's sliding-window local accessibility (`W < n`, maximum pair span `L < n`, Bernhart et al. 2006; ViennaRNA `pf_window.c`, `compute_pU`). It is not the arithmetic mean of independent per-window ensembles: the mean of `Z_open/Z` over the windows `[a, a+W−1]` that contain the region, each folded with `md.max_bp_span = L`, differs from `RNA.pfl_fold_up(seq, u, W, L)` by up to 0.07 (60 nt, W = 30, L = 15), so it needs the exterior-context bookkeeping of `pf_window.c` (≈ 1500 lines) to be ported. Registered as a separate work item; until then the exact RNAplfold value can be supplied to `ScoreTargetSiteContextPlusPlus` (`PlfoldUnpairedProbability`).
 - Pseudoknotted contributions to `Z` / accessibility; **users should rely on:** no nearest-neighbour ensemble model includes them (energy-model floor).
 
 ### 5.4 Deviations and Assumptions

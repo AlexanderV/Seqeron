@@ -3,8 +3,8 @@
 **Test Unit ID:** RNA-ACCESS-001
 **Area:** RnaStructure
 **Algorithm:** McCaskill Unpaired (Accessibility) Probabilities
-**Status:** ☑ Validated — Stage A PASS / Stage B PASS / CLEAN (2026-06-25)
-**Last Updated:** 2026-06-25
+**Status:** ☑ Validated — Stage A PASS / Stage B PASS (re-reviewed against ViennaRNA 2.7.2, 2026-11-25; local RNAplfold W/L not implemented)
+**Last Updated:** 2026-11-25
 
 > Independently re-validated under the two-stage protocol. See
 > `docs/Validation/reports/RNA-ACCESS-001.md` for the full Stage A/B report, the analytic
@@ -24,8 +24,12 @@
 
 `CalculateUnpairedProbabilities`, `CalculateRegionUnpairedProbability`
 
-- **Source file:** `RnaSecondaryStructure.cs` (L2556, L2672; inside DP `FillPartitionDp` L2733)
-- **Test fixture:** `tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_UnpairedProbabilities_Tests.cs`
+Also `CalculateRegionOpeningEnergy` (−RT ln P) and MCP `rna_region_accessibility`.
+
+- **Source file:** `RnaSecondaryStructure.PartitionFunction.cs` (inside/outside engine `FillPartitionInside`, shared with RNA-PARTITION-001)
+- **Evidence:** `docs/Evidence/RNA-ACCESS-001-Evidence.md`
+- **Test fixtures:** `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_UnpairedProbabilities_Tests.cs`, `…/RnaSecondaryStructure_RegionAccessibility_Tests.cs`, `…/Fuzzing/RnaAccessibilityFuzzTests.cs`; MCP `tests/Seqeron/Seqeron.Mcp.Analysis.Tests/RnaRegionAccessibilityTests.cs`
+- **Scope:** whole-sequence ensemble `Z_open/Z` (= RNAplfold `-u` with W, L ≥ n); sliding-window local averaging (W, L < n) is not implemented (Evidence §5).
 
 ## 3. Contract / Invariants
 
@@ -60,5 +64,11 @@
 | MCC-009 | region monotone in length | non-increasing over L=1..14 |
 | MCC-010 | region(L=1) = per-base pu | cross-method consistency |
 | region OOB / len 0 | edge | throws |
+| RA-VIENNA (22 cases) | u = 1…14 at 20/37/60 °C vs ViennaRNA constrained ensemble (= `pfl_fold_up(W = L = n)`) | within max(0.0015, 2 %) |
+| RA-ENUM (4 × ~17 cases) | u = 1…6 vs exhaustive enumeration, 20/37/70 °C, minLoop 3 and 5 | 1e-9 |
+| RA-JOINT | joint ≠ product of per-base; min / Bonferroni bounds | holds |
+| RA-EDGE | u = n = 1/Z; ends; invalid windows (null/empty, neg., > n, len ≤ 0, T ≤ 0); DNA/lower case; N; minLoop clamp / monotone | as specified |
+| RA-OPEN | opening energy = −RT ln P; 0 when no pair possible | 1e-12 |
+| MCP | `rna_region_accessibility` schema, Vienna values, delegation | — |
 
 Full unfiltered `dotnet test Seqeron.sln` — Failed: 0.

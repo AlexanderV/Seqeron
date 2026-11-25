@@ -3297,6 +3297,25 @@ public class AnalysisTools
             r.Temperature);
     }
 
+    [McpServerTool(Name = "rna_region_accessibility", Title = "RNA — Region Accessibility (Unpaired Probability)", ReadOnly = true)]
+    [Description("Probability that a contiguous region of RNA is entirely unpaired in the equilibrium ensemble (McCaskill partition function on the Turner 2004 model): Z_open / Z, where Z_open sums the structures in which no base of the region pairs. Equals ViennaRNA RNAplfold -u for window and span >= sequence length (whole-sequence ensemble), not the sliding-window local average. Also returns the opening energy -RT ln P (kcal/mol, Kertesz 2007). The joint probability is not the product of per-base unpaired probabilities. windowEnd is the 0-based inclusive last position, windowLength the number of nucleotides (the region [windowEnd-windowLength+1, windowEnd] must lie in the sequence). T read as U, case-insensitive; N/IUPAC never pair.")]
+    public static RnaRegionAccessibilityResult RnaRegionAccessibility(
+        [Description("RNA sequence (T read as U, case-insensitive; other characters never pair).")] string rnaSequence,
+        [Description("0-based inclusive index of the last nucleotide of the region.")] int windowEnd,
+        [Description("Region length in nucleotides (>= 1; TargetScan uses 14).")] int windowLength,
+        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3,
+        [Description("Absolute temperature in Kelvin (default 310.15 = 37 °C).")] double temperature = 310.15)
+    {
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+
+        double p = RnaSecondaryStructure.CalculateRegionUnpairedProbability(rnaSequence, windowEnd, windowLength, minLoopSize, temperature);
+        double g = RnaSecondaryStructure.CalculateRegionOpeningEnergy(rnaSequence, windowEnd, windowLength, minLoopSize, temperature);
+        return new RnaRegionAccessibilityResult(
+            windowEnd - windowLength + 1, windowEnd, windowLength, p,
+            double.IsFinite(g) ? g : null, temperature);
+    }
+
     [McpServerTool(Name = "predict_rna_structure", Title = "RNA — Predict Secondary Structure", ReadOnly = true)]
     [Description("Stem-loop assembly: the lowest-free-energy set of non-overlapping hairpin stem-loops (perfect stems ≥ minStemLength, loops minLoopSize..maxLoopSize) — dot-bracket, base pairs, stem-loops and the structure's free energy (kcal/mol). No multiloops or interior loops: for the true MFE fold use rna_mfe_structure.")]
     public static PredictRnaStructureResult PredictRnaStructure(

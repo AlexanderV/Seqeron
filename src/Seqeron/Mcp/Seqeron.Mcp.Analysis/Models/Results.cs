@@ -1080,6 +1080,18 @@ public record RnaPartitionFunctionResult(
     string CentroidStructure,
     double Temperature);
 
+/// <summary>
+/// Result of <c>rna_region_accessibility</c>: <c>UnpairedProbability</c> = Z_open/Z, <c>OpeningEnergy</c> = −RT ln P (kcal/mol;
+/// null when P is 0).
+/// </summary>
+public record RnaRegionAccessibilityResult(
+    int WindowStart,
+    int WindowEnd,
+    int WindowLength,
+    double UnpairedProbability,
+    double? OpeningEnergy,
+    double Temperature);
+
 /// <summary>Result of <c>predict_rna_structure</c>.</summary>
 public record PredictRnaStructureResult(
     string Sequence,

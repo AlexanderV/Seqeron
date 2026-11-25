@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   RnaSecondaryStructure.CalculateRegionUnpairedProbability(
 ///       string rnaSequence, int windowEnd, int windowLength,
 ///       int minLoopSize = 3, double temperature = 310.15)  →  double  P(window entirely unpaired)
-/// in src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs (L2672–2719). It is
+/// in src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.PartitionFunction.cs. It is
 /// the RNAplfold-style accessibility — the exact McCaskill ensemble quantity Z_open(window)/Z, where
 /// Z_open is the Turner-2004 partition function over structures in which EVERY base of the window
 /// [windowEnd−windowLength+1 .. windowEnd] is unpaired (no pair incident to any window position).

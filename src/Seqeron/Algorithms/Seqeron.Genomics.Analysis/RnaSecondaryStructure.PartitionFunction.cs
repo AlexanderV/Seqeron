@@ -280,6 +280,14 @@ public static partial class RnaSecondaryStructure
     /// 4:e05005, Fig 4A: "the log10 value of the unpaired probability for a 14-nt region centered
     /// on the match to miRNA nucleotides 7 and 8"). The joint region-unpaired probability is the
     /// exact McCaskill ensemble quantity Z_open/Z.
+    /// <para>
+    /// Scope: the ensemble is the WHOLE sequence — the value ViennaRNA's <c>RNAplfold -u</c> reports for window
+    /// W ≥ n and maximum pair span L ≥ n (verified against <c>RNA.pfl_fold_up(seq, u, n, n)</c> and against the exact
+    /// hard-constraint ratio exp(−(G_constrained − G_ensemble)/RT), 600 random queries, |Δ| ≤ 1e-3). It is NOT RNAplfold's
+    /// local average over sliding windows (W &lt; n, L &lt; n, Bernhart et al. 2006), which depends on the window
+    /// and span limits and is not implemented here; the joint probability is also NOT the product of the per-base
+    /// unpaired probabilities of <see cref="CalculateUnpairedProbabilities"/>.
+    /// </para>
     /// </remarks>
     /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
     /// <param name="windowEnd">0-based inclusive index of the last nucleotide of the unpaired window.</param>
@@ -328,6 +336,28 @@ public static partial class RnaSecondaryStructure
         if (pu < 0) pu = 0;
         if (pu > 1) pu = 1; // round-off guard; Z_open ≤ Z by construction.
         return pu;
+    }
+
+    /// <summary>
+    /// Opening energy ΔG_open = −RT·ln P(region unpaired) (kcal/mol): the free-energy cost of making the region
+    /// single-stranded in the equilibrium ensemble (Kertesz et al. 2007, Nat Genet 39:1278, "ΔΔG_open" of the target
+    /// site; RT = 1.98717e-3·T kcal/mol, ViennaRNA GASCONST). 0 when the region is always unpaired,
+    /// +∞ when P underflows to 0 (the region is paired in every representable structure).
+    /// </summary>
+    /// <remarks>
+    /// Kertesz's ΔΔG_open is ΔG_open(site) minus the same quantity when the site is unconstrained; here it is the
+    /// ensemble term only (ΔG_constrained − ΔG_ensemble = −RT·ln(Z_open/Z)), identical to ViennaRNA
+    /// <c>G_constrained − G_ensemble</c> with the region hard-constrained unpaired.
+    /// </remarks>
+    /// <inheritdoc cref="CalculateRegionUnpairedProbability"/>
+    public static double CalculateRegionOpeningEnergy(
+        string rnaSequence, int windowEnd, int windowLength,
+        int minLoopSize = 3, double temperature = DefaultTemperatureKelvin)
+    {
+        double p = CalculateRegionUnpairedProbability(rnaSequence, windowEnd, windowLength, minLoopSize, temperature);
+        if (p <= 0) return double.PositiveInfinity;
+        double rt = TurnerModel.GasConstantCalPerMolK * temperature / 1000.0;
+        return -rt * Math.Log(p);
     }
 
     /// <summary>
