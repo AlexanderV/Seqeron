@@ -1583,32 +1583,60 @@ public static class SequenceAssembler
         return sb.ToString();
     }
 
-    // Sanger/Phred+33 ASCII offset: quality char Q decodes to Phred value (Q - 33).
-    // Cock et al. (2010) NAR 38(6):1767–1771; BWA bwa_trim_read decodes as (qual - 33).
+    // Sanger/Phred+33 ASCII offset (Cock et al. 2010, NAR 38(6):1767–1771); BWA bwa_trim_read
+    // decodes as (qual - 33) and cutadapt's --quality-base defaults to 33.
     private const int PhredAsciiOffset = 33;
 
     /// <summary>
-    /// Quality-trims reads using the BWA / cutadapt running-sum algorithm, then drops
-    /// reads shorter than <paramref name="minLength"/>.
+    /// Quality-trims reads using the BWA / cutadapt running-sum algorithm on both ends with the
+    /// same cutoff (cutadapt <c>-q C,C</c>), then drops reads shorter than <paramref name="minLength"/>.
     /// </summary>
     /// <remarks>
-    /// For each read the running-sum method is applied to the 3' end and then the 5' end:
-    /// subtract the quality cutoff from every Phred score, compute the partial sum from
-    /// each index to that end, and cut at the index where the partial sum is minimal.
-    /// This is the algorithm used by BWA (<c>bwa_trim_read</c>) and cutadapt; it removes
-    /// low-quality bases from the ends while allowing some high-quality bases among the
-    /// bad ones. Qualities are decoded as Phred+33 (Sanger encoding).
-    /// A cutoff &lt; 1 disables trimming (BWA <c>trim_qual &lt; 1</c> guard).
+    /// Equivalent to <see cref="QualityTrimReads(IReadOnlyList{ValueTuple{string, string}}, int, int, int, int)"/>
+    /// with <c>cutoffFront = cutoffBack = minQuality</c> and Phred+33 qualities. Note that a single
+    /// cutadapt <c>-q C</c> (and BWA <c>aln -q C</c>) trims the 3' end only; use the five-argument
+    /// overload with <c>cutoffFront: 0</c> for that behaviour.
+    /// A cutoff &lt; 1 disables trimming (BWA <c>trim_qual &lt; 1</c> guard; in cutadapt's loop the
+    /// first step already makes the sum negative, so nothing is cut).
     /// </remarks>
     /// <param name="reads">Reads as (sequence, Phred+33 quality string) pairs; the two strings must be equal length per read.</param>
-    /// <param name="minQuality">Quality cutoff subtracted from each Phred score. Values &lt; 1 disable trimming.</param>
-    /// <param name="minLength">Reads whose trimmed length is below this are dropped.</param>
+    /// <param name="minQuality">Quality cutoff subtracted from each Phred score at both ends. Values &lt; 1 disable trimming.</param>
+    /// <param name="minLength">Reads whose trimmed length is below this are dropped (cutadapt <c>-m</c>).</param>
     /// <returns>The surviving trimmed sequences, in input order.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="reads"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="reads"/> or a read's sequence/quality is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when a quality string's length differs from its sequence, or a quality
+    /// character is outside the Phred+33 range ['!', '~'].</exception>
     public static IReadOnlyList<string> QualityTrimReads(
         IReadOnlyList<(string sequence, string quality)> reads,
         int minQuality = 20,
         int minLength = 50)
+        => QualityTrimReads(reads, minQuality, minQuality, minLength, PhredAsciiOffset);
+
+    /// <summary>
+    /// Quality-trims reads with cutadapt's <c>quality_trim_index</c> (the BWA <c>bwa_trim_read</c>
+    /// running sum) using separate 5' and 3' cutoffs and a configurable Phred ASCII offset
+    /// (cutadapt <c>-q CUTOFF_FRONT,CUTOFF_BACK --quality-base N -m minLength</c>).
+    /// </summary>
+    /// <remarks>
+    /// Qualities are decoded by the canonical Core FASTQ decoder (<see cref="QualitySequence"/>: Q = ord(c) − offset,
+    /// length must match the sequence, characters in [offset, '~']). Each read is then cut with
+    /// <see cref="QualityTrimIndex"/>; the returned substring keeps the input's letter case.
+    /// </remarks>
+    /// <param name="reads">Reads as (sequence, quality string) pairs of equal length.</param>
+    /// <param name="cutoffFront">5' cutoff; values &lt; 1 leave the 5' end untrimmed (cutadapt default 0).</param>
+    /// <param name="cutoffBack">3' cutoff; values &lt; 1 leave the 3' end untrimmed.</param>
+    /// <param name="minLength">Reads whose trimmed length is below this are dropped (cutadapt <c>-m</c>: <c>len &lt; m</c>).</param>
+    /// <param name="phredOffset">ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+) or 64 (Illumina 1.3–1.7); any value in [33, 126] is accepted as by cutadapt <c>--quality-base</c>.</param>
+    /// <returns>The surviving trimmed sequences, in input order.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="reads"/> or a read's sequence/quality is null.</exception>
+    /// <exception cref="ArgumentException">Thrown on a sequence/quality length mismatch or a quality character outside [<paramref name="phredOffset"/>, '~'].</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="phredOffset"/> is outside [33, 126].</exception>
+    public static IReadOnlyList<string> QualityTrimReads(
+        IReadOnlyList<(string sequence, string quality)> reads,
+        int cutoffFront,
+        int cutoffBack,
+        int minLength,
+        int phredOffset = PhredAsciiOffset)
     {
         ArgumentNullException.ThrowIfNull(reads);
 
@@ -1616,33 +1644,13 @@ public static class SequenceAssembler
 
         foreach (var (sequence, quality) in reads)
         {
-            int n = sequence.Length;
-            int start = 0;
-            int end = n;
+            // Canonical FASTQ decoding + validation (length match, characters in [offset, 126]).
+            var decoded = new QualitySequence(sequence, quality, phredOffset);
+            var (start, stop) = QualityTrimIndex(decoded.Qualities, cutoffFront, cutoffBack);
 
-            // BWA: a cutoff below 1 disables trimming (bwa_trim_read returns 0).
-            if (minQuality >= 1)
+            if (stop - start >= minLength)
             {
-                // cutadapt quality_trim_index: the 3' and 5' passes are run independently
-                // over the FULL read (not on each other's surviving window), then the read
-                // is dropped entirely if the two windows cross (start >= stop).
-                // 3' end: cut at the index minimizing the partial sum of (q - cutoff) from
-                // that index to the 3' end — keep [start, end).
-                end = TrimEnd(quality, n, minQuality);
-                // 5' end: mirror the procedure from the 5' end over the full read.
-                start = TrimStart(quality, n, minQuality);
-
-                // cutadapt: if start >= stop the good-quality segment is empty.
-                if (start >= end)
-                {
-                    start = 0;
-                    end = 0;
-                }
-            }
-
-            if (end - start >= minLength)
-            {
-                trimmed.Add(sequence.Substring(start, end - start));
+                trimmed.Add(sequence.Substring(start, stop - start));
             }
         }
 
@@ -1650,64 +1658,63 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Running-sum 3'-end cut over <c>quality[0..length)</c>: returns the new exclusive upper
-    /// bound (the index of the minimal partial sum of (Phred − cutoff) accumulated from the 3'
-    /// end). Scanning stops once the partial sum becomes positive — the cutadapt/BWA
-    /// <c>s &lt; 0</c> early break (sign-flipped here), which is what lets a few good-quality
-    /// bases survive inside a low-quality tail.
+    /// Finds the good-quality segment of a read: a port of cutadapt <c>qualtrim.quality_trim_index</c>
+    /// (the BWA <c>bwa_trim_read</c> running sum, applied to each end).
     /// </summary>
-    private static int TrimEnd(string quality, int length, int cutoff)
+    /// <remarks>
+    /// 5' end: accumulate <c>s += cutoffFront − q[i]</c> from the start, stop as soon as <c>s &lt; 0</c>, and set
+    /// <c>start = i + 1</c> at each new strict maximum of <c>s</c>. 3' end: the same from the end with
+    /// <c>cutoffBack</c>, setting <c>stop = i</c>. Both passes run over the full read; if <c>start ≥ stop</c> the
+    /// segment is empty and <c>(0, 0)</c> is returned. Equivalent to cutting at the minimum of the partial sums of
+    /// <c>(q − cutoff)</c>, up to the early break that lets good bases among bad ones survive.
+    /// A cutoff &lt; 1 makes the first step negative (q ≥ 0), so that end is not trimmed.
+    /// Sources: cutadapt v5.2 <c>src/cutadapt/qualtrim.pyx</c>; BWA <c>bwaseqio.c</c> (without its 35-base floor).
+    /// </remarks>
+    /// <param name="phredScores">Decoded Phred scores (e.g. <see cref="QualitySequence.Qualities"/>).</param>
+    /// <param name="cutoffFront">5' cutoff.</param>
+    /// <param name="cutoffBack">3' cutoff.</param>
+    /// <returns>Half-open interval [Start, Stop) of the bases to keep; (0, 0) when nothing survives.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="phredScores"/> is null.</exception>
+    public static (int Start, int Stop) QualityTrimIndex(
+        IReadOnlyList<byte> phredScores, int cutoffFront, int cutoffBack)
     {
-        int sum = 0;
-        int min = 0;
-        int cut = length; // default: keep everything (minimum at the end position)
+        ArgumentNullException.ThrowIfNull(phredScores);
 
-        for (int i = length - 1; i >= 0; i--)
+        int n = phredScores.Count;
+        int start = 0;
+        int stop = n;
+
+        // 5' end (cutadapt: s += cutoff_front - q; break if s < 0; start = i + 1 at a new maximum).
+        long s = 0;
+        long max = 0;
+        for (int i = 0; i < n; i++)
         {
-            sum += (quality[i] - PhredAsciiOffset) - cutoff;
-            if (sum > 0)
+            s += (long)cutoffFront - phredScores[i];
+            if (s < 0)
+                break;
+            if (s > max)
             {
-                break; // cutadapt bwa_trim_read: stop when the accumulated (cutoff - q) < 0.
-            }
-
-            if (sum < min)
-            {
-                min = sum;
-                cut = i;
+                max = s;
+                start = i + 1;
             }
         }
 
-        return cut;
-    }
-
-    /// <summary>
-    /// Running-sum 5'-end cut over <c>quality[0..length)</c>: returns the new inclusive lower
-    /// bound (one past the index of the minimal partial sum of (Phred − cutoff) accumulated from
-    /// the 5' end). Scanning stops once the partial sum becomes positive — the cutadapt/BWA
-    /// <c>s &lt; 0</c> early break (sign-flipped here).
-    /// </summary>
-    private static int TrimStart(string quality, int length, int cutoff)
-    {
-        int sum = 0;
-        int min = 0;
-        int cut = 0; // default: keep everything (minimum at the start position)
-
-        for (int i = 0; i < length; i++)
+        // 3' end (same with cutoff_back, scanning from the end; stop = i at a new maximum).
+        s = 0;
+        max = 0;
+        for (int i = n - 1; i >= 0; i--)
         {
-            sum += (quality[i] - PhredAsciiOffset) - cutoff;
-            if (sum > 0)
+            s += (long)cutoffBack - phredScores[i];
+            if (s < 0)
+                break;
+            if (s > max)
             {
-                break; // cutadapt bwa_trim_read: stop when the accumulated (cutoff - q) < 0.
-            }
-
-            if (sum < min)
-            {
-                min = sum;
-                cut = i + 1;
+                max = s;
+                stop = i;
             }
         }
 
-        return cut;
+        return start >= stop ? (0, 0) : (start, stop);
     }
 
     // Canonical DNA alphabet over which substitution candidates are enumerated, in fixed

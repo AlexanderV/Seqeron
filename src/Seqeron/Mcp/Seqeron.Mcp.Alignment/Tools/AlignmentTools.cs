@@ -592,12 +592,15 @@ public class AlignmentTools
         return new ConsensusResult(s);
     }
 
-    [McpServerTool(Name = "quality_trim_reads", Title = "Reads — Quality Trim (Phred+33)", ReadOnly = true)]
-    [Description("Trims Phred+33 quality-encoded reads from both ends, dropping bases whose decoded quality is below minQuality. Reads shorter than minLength after trimming are filtered out.")]
+    [McpServerTool(Name = "quality_trim_reads", Title = "Reads — Quality Trim (BWA/cutadapt running sum)", ReadOnly = true)]
+    [Description("Trims low-quality read ends with the BWA/cutadapt running-sum algorithm (cutadapt quality_trim_index): subtract the cutoff from each Phred score and cut each end at the minimum partial sum, so a few good bases among bad ones are tolerated. Both ends use minQuality unless cutoffFront/cutoffBack are given (cutadapt -q 5',3'; a single cutadapt -q C is 3'-only = cutoffFront 0). Reads shorter than minLength after trimming are dropped (cutadapt -m).")]
     public static TrimmedReadsResult QualityTrimReads(
-        [Description("Reads, each with sequence and matching Phred+33 quality string.")] QualityReadInput[] reads,
-        [Description("Minimum acceptable quality score (Phred).")] int minQuality = 20,
-        [Description("Minimum length after trimming for a read to be kept.")] int minLength = 50)
+        [Description("Reads, each with sequence and a quality string of the same length (Phred+phredOffset ASCII).")] QualityReadInput[] reads,
+        [Description("Quality cutoff subtracted from each Phred score at both ends (values < 1 disable trimming).")] int minQuality = 20,
+        [Description("Minimum length after trimming for a read to be kept.")] int minLength = 50,
+        [Description("Optional 5' cutoff overriding minQuality for the 5' end (< 1 leaves the 5' end untrimmed).")] int? cutoffFront = null,
+        [Description("Optional 3' cutoff overriding minQuality for the 3' end (< 1 leaves the 3' end untrimmed).")] int? cutoffBack = null,
+        [Description("ASCII offset of the quality encoding: 33 (Sanger/Illumina 1.8+, default) or 64 (Illumina 1.3-1.7), as cutadapt --quality-base.")] int phredOffset = 33)
     {
         var input = new List<(string sequence, string quality)>(reads?.Length ?? 0);
         if (reads != null)
@@ -616,8 +619,9 @@ public class AlignmentTools
             }
         }
 
+        // Quality decoding/validation and trimming are the core's (Core QualitySequence + cutadapt port).
         var trimmed = global::Seqeron.Genomics.Alignment.SequenceAssembler.QualityTrimReads(
-            input, minQuality, minLength);
+            input, cutoffFront ?? minQuality, cutoffBack ?? minQuality, minLength, phredOffset);
 
         var arr = new string[trimmed.Count];
         for (int i = 0; i < trimmed.Count; i++)

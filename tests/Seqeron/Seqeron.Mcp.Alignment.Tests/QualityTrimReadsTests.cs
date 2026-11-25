@@ -34,4 +34,29 @@ public class QualityTrimReadsTests
             new[] { new QualityReadInput("ACGTACGTAC", "!!!!!!!!!!") }, 20, 5);
         Assert.That(dropped.Trimmed, Is.Empty);
     }
+    // cutadapt 5.2 quality_trim_index on the cutadapt worked example (Phred 42,40,26,27,8,7,11,4,2,3):
+    // Phred+33 "KI;<)(,%#$" -> (0,4); the same qualities in Phred+64 "jhZ[GFJCAB" -> (0,4);
+    // reversed "$#%,()<;IK" with cutoffs (10,0) -> (6,10), with 3'-only (0,10) -> (0,10).
+    [Test]
+    public void QualityTrimReads_CutadaptOptions_DelegateToCore()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AlignmentTools.QualityTrimReads(
+                new[] { new QualityReadInput("ACGTACGTAC", "KI;<)(,%#$") }, 10, 1).Trimmed,
+                Is.EqualTo(new[] { "ACGT" }));
+            Assert.That(AlignmentTools.QualityTrimReads(
+                new[] { new QualityReadInput("ACGTACGTAC", "jhZ[GFJCAB") }, 10, 1, phredOffset: 64).Trimmed,
+                Is.EqualTo(new[] { "ACGT" }));
+            Assert.That(AlignmentTools.QualityTrimReads(
+                new[] { new QualityReadInput("ACGTACGTAC", "$#%,()<;IK") }, 10, 1, cutoffBack: 0).Trimmed,
+                Is.EqualTo(new[] { "GTAC" }));
+            Assert.That(AlignmentTools.QualityTrimReads(
+                new[] { new QualityReadInput("ACGTACGTAC", "$#%,()<;IK") }, 10, 1, cutoffFront: 0).Trimmed,
+                Is.EqualTo(new[] { "ACGTACGTAC" }));
+            // A character outside the Phred+33 range is malformed FASTQ.
+            Assert.Throws<ArgumentException>(() => AlignmentTools.QualityTrimReads(
+                new[] { new QualityReadInput("ACGT", "II\u001fI") }, 10, 1));
+        });
+    }
 }

@@ -232,6 +232,108 @@ public class SequenceAssembler_QualityTrimReads_Tests
             "start >= stop after both passes -> empty good-quality segment -> read dropped");
     }
 
+    // F-TRIM-1 — Quality decoding goes through the canonical Core FASTQ decoder (QualitySequence,
+    //      Cock et al. 2010 / Biopython QualityIO): a quality string whose length differs from the
+    //      sequence, or a character outside ['!', '~'], is malformed FASTQ. Previously a short quality
+    //      string threw IndexOutOfRangeException and a long one was silently ignored; '\u001f' decoded to
+    //      Phred -2. cutadapt/dnaio reject the length mismatch ("lengths differ").
+    [TestCase("ACGT", "II")]
+    [TestCase("ACGT", "IIIIII")]
+    [TestCase("ACGT", "II\u001fI")]
+    [TestCase("ACGT", "II\u007fI")]
+    public void QualityTrimReads_MalformedQuality_ThrowsArgumentException(string sequence, string quality)
+    {
+        var reads = new List<(string, string)> { (sequence, quality) };
+
+        Assert.That(() => SequenceAssembler.QualityTrimReads(reads, minQuality: 10, minLength: 1),
+            NUnit.Framework.Throws.InstanceOf<ArgumentException>());
+    }
+
+    // F-TRIM-1 — a null sequence or quality inside the batch is rejected (was NullReferenceException).
+    [Test]
+    public void QualityTrimReads_NullSequenceOrQuality_ThrowsArgumentNullException()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => SequenceAssembler.QualityTrimReads(
+                    new List<(string, string)> { (null!, "II") }, 10, 1),
+                NUnit.Framework.Throws.InstanceOf<ArgumentNullException>());
+            Assert.That(() => SequenceAssembler.QualityTrimReads(
+                    new List<(string, string)> { ("AC", null!) }, 10, 1),
+                NUnit.Framework.Throws.InstanceOf<ArgumentNullException>());
+        });
+    }
+
+    // F-TRIM-2 / F-TRIM-3 — cutadapt quality_trim_index(qualities, cutoff_front, cutoff_back, base)
+    //      (cutadapt 5.2, src/cutadapt/qualtrim.pyx), values produced by the installed cutadapt 5.2:
+    //      separate 5'/3' cutoffs (`-q 5',3'`; a single `-q C` = (0, C), 3' only, as BWA) and
+    //      Phred+64 (`--quality-base 64`). "jhZ[GFJCAB" is the cutadapt worked example in Phred+64.
+    [TestCase("KI;<)(,%#$", 10, 10, 33, 0, 4)]
+    [TestCase("KI;<)(,%#$", 0, 10, 33, 0, 4)]
+    [TestCase("$#%,()<;IK", 10, 0, 33, 6, 10)]
+    [TestCase("$#%,()<;IK", 0, 10, 33, 0, 10)]
+    [TestCase("##I##", 10, 10, 33, 2, 3)]
+    [TestCase("##I##", 0, 10, 33, 0, 3)]
+    [TestCase("##I##", 10, 0, 33, 2, 5)]
+    [TestCase("5!)I", 10, 10, 33, 0, 4)]
+    [TestCase("5&&", 20, 20, 33, 0, 0)]
+    [TestCase("jhZ[GFJCAB", 10, 10, 64, 0, 4)]
+    [TestCase("jhZ[GFJCAB", 10, 0, 64, 0, 10)]
+    [TestCase("", 10, 10, 33, 0, 0)]
+    public void QualityTrimIndex_MatchesCutadaptQualityTrimIndex(
+        string quality, int cutoffFront, int cutoffBack, int phredOffset, int expectedStart, int expectedStop)
+    {
+        var sequence = new string('A', quality.Length);
+        var decoded = new QualitySequence(sequence, quality, phredOffset);
+
+        var (start, stop) = SequenceAssembler.QualityTrimIndex(decoded.Qualities, cutoffFront, cutoffBack);
+        IReadOnlyList<string> reads = SequenceAssembler.QualityTrimReads(
+            new List<(string, string)> { (sequence, quality) }, cutoffFront, cutoffBack, minLength: 0, phredOffset);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((start, stop), Is.EqualTo((expectedStart, expectedStop)), "cutadapt quality_trim_index");
+            Assert.That(reads, Has.Count.EqualTo(1));
+            Assert.That(reads[0], Has.Length.EqualTo(expectedStop - expectedStart));
+        });
+    }
+
+    // F-TRIM-2 — the single-cutoff overload equals cutoffFront = cutoffBack (cutadapt `-q C,C`),
+    //      and the five-argument overload with cutoffFront 0 is the cutadapt/BWA default 3'-only trim.
+    [Test]
+    public void QualityTrimReads_SeparateCutoffs_ThreePrimeOnlyKeepsLowQualityPrefix()
+    {
+        var reads = new List<(string, string)> { ("ACGTACGTAC", "$#%,()<;IK") };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.QualityTrimReads(reads, 10, 1),
+                Is.EqualTo(SequenceAssembler.QualityTrimReads(reads, 10, 10, 1)));
+            Assert.That(SequenceAssembler.QualityTrimReads(reads, cutoffFront: 0, cutoffBack: 10, minLength: 1),
+                Is.EqualTo(new[] { "ACGTACGTAC" }), "3'-only (cutadapt -q 10): the low-quality 5' run is kept");
+        });
+    }
+
+    // F-TRIM-3 — Phred+64: the cutadapt example "jhZ[GFJCAB" decodes to 42,40,26,27,8,7,11,4,2,3
+    //      and trims to the first four bases, case of the input sequence preserved; under the default
+    //      Phred+33 the same string decodes to 73..33 (all >= 10) and nothing is trimmed.
+    [Test]
+    public void QualityTrimReads_Phred64_DecodesWithOffset64()
+    {
+        var reads = new List<(string, string)> { ("acgtACGTac", "jhZ[GFJCAB") };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.QualityTrimReads(reads, 10, 10, 1, phredOffset: 64),
+                Is.EqualTo(new[] { "acgt" }));
+            Assert.That(SequenceAssembler.QualityTrimReads(reads, 10, 1),
+                Is.EqualTo(new[] { "acgtACGTac" }));
+            Assert.That(() => SequenceAssembler.QualityTrimReads(
+                    new List<(string, string)> { ("ACGT", "5555") }, 10, 10, 1, phredOffset: 64),
+                NUnit.Framework.Throws.InstanceOf<ArgumentException>(), "'5' (ASCII 53) is below the Phred+64 range");
+        });
+    }
+
     // C1 — Empty reads list -> empty result.
     [Test]
     public void QualityTrimReads_EmptyList_ReturnsEmpty()

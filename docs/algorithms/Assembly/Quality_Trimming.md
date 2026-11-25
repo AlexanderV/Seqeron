@@ -6,7 +6,7 @@
 | Test Unit ID | ASSEMBLY-TRIM-001 |
 | Related Projects | Seqeron.Genomics.Alignment |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-11-25 |
 
 ## 1. Overview
 
@@ -40,7 +40,7 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 | INV-02 | Trimmed length ≤ original length | Trimming only removes bases [1][2] |
 | INV-03 | Cutoff < 1 ⇒ read is not trimmed (only the min-length filter may drop it) | BWA `trim_qual < 1` guard [2] |
 | INV-04 | Every output read has length ≥ minLength | Post-trim min-length filter (§4.2) |
-| INV-05 | Quality decoded as Phred = ASCII − 33 | Sanger encoding [3]; BWA `qual - 33` [2] |
+| INV-05 | Quality decoded as Phred = ASCII − offset (33 default, 64 opt-in), malformed qualities rejected | Sanger encoding [3]; BWA `qual - 33` [2]; cutadapt `--quality-base` [1] |
 
 ### 2.5 Comparison with Related Methods
 
@@ -56,9 +56,11 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `reads` | `IReadOnlyList<(string sequence, string quality)>` | required | Reads with Phred+33 quality strings | non-null; `quality.Length == sequence.Length` per read |
-| `minQuality` | `int` | 20 | Quality cutoff `C` subtracted from each Phred score | `< 1` disables trimming [2] |
-| `minLength` | `int` | 50 | Reads shorter than this after trimming are dropped | ≥ 0 |
+| `reads` | `IReadOnlyList<(string sequence, string quality)>` | required | Reads with Phred+offset quality strings | non-null; `quality.Length == sequence.Length`; characters in [offset, `~`] |
+| `minQuality` | `int` | 20 | Quality cutoff `C` for both ends (3-argument overload; cutadapt `-q C,C`) | `< 1` disables trimming [2] |
+| `cutoffFront` / `cutoffBack` | `int` | — | Separate 5'/3' cutoffs (5-argument overload; cutadapt `-q 5',3'`) | `< 1` leaves that end untrimmed |
+| `minLength` | `int` | 50 | Reads shorter than this after trimming are dropped (cutadapt `-m`) | any |
+| `phredOffset` | `int` | 33 | Quality ASCII offset (cutadapt `--quality-base`): 33 Sanger, 64 Illumina 1.3–1.7 | [33, 126] |
 
 ### 3.2 Output / Return Value
 
@@ -68,13 +70,13 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 
 ### 3.3 Preconditions and Validation
 
-`reads` must be non-null (`ArgumentNullException` otherwise). Quality is decoded as Phred = `ASCII − 33` (0-based indexing). Each read's quality string is assumed equal in length to its sequence. Trimming is applied to the 3' end then the 5' end of the surviving window. A read whose trimmed length is `< minLength` (including fully removed reads, length 0) is excluded from the output.
+`reads`, and each read's sequence and quality, must be non-null (`ArgumentNullException`). Qualities are decoded by the canonical Core FASTQ decoder `QualitySequence(sequence, quality, phredOffset)` (Phred = `ASCII − offset`): a length mismatch or a character outside [offset, `~`] throws `ArgumentException` (Cock et al. 2010; Biopython `QualityIO`); before 2026-11 a short quality string threw `IndexOutOfRangeException`, a long one was silently ignored and characters below `!` decoded to negative Phred. The 5' and 3' passes run independently over the full read. A read whose trimmed length is `< minLength` (including fully removed reads, length 0) is excluded from the output.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. If `minQuality < 1`, skip trimming for the read (keep full sequence) [2].
+1. Decode the qualities with `QualitySequence` (validation above). A cutoff `< 1` needs no special case: the first step of that end's scan is already negative, so the end is not trimmed (cutadapt loop; BWA's explicit `trim_qual < 1` guard) [1][2].
 2. 3' end: over the full read `quality[0..n)`, scan from the end accumulating `(Phred − cutoff)`; stop as soon as the running sum becomes positive (the cutadapt/BWA `s < 0` early break, sign-flipped); set `end` to the index of the minimal partial sum reached before the break [1][2].
 3. 5' end: independently over the full read `quality[0..n)`, scan from the start accumulating `(Phred − cutoff)` with the same early break; set `start` to one past the index of the minimal partial sum [1][2].
 4. If `start ≥ end`, the good-quality segment is empty (cutadapt `start >= stop ⇒ (0,0)`): drop the read.
@@ -82,7 +84,7 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-- Phred decoding offset = 33 (named constant `PhredAsciiOffset`) [3].
+- Phred decoding offset = 33 by default (`PhredAsciiOffset`), configurable (`phredOffset`, cutadapt `--quality-base`) [3].
 - Min-length filter drops survivors below `minLength` (cutadapt `--minimum-length` semantics).
 - This implementation reproduces cutadapt's `quality_trim_index` exactly, including the `s < 0` early break (the accumulator stops once the high-quality suffix/prefix outweighs the low-quality run) and the `start >= stop ⇒ empty` rule [1][2]. The early break is essential: it is what "allows some good-quality bases among the bad ones" — a high-quality base near an end protects the bases on its interior side from being trimmed by that end's pass. A naive global-minimum scan *without* the break over-trims (it would cut at the deepest minimum anywhere in the read).
 - BWA additionally floors trimmed length at `BWA_MIN_RDLEN = 35` [2]; this implementation omits that fixed floor (the configurable `minLength` filter plays the corresponding role), so reads can be trimmed below 35 bases unless `minLength` forbids it.
@@ -99,12 +101,13 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 
 **Implementation location:** [SequenceAssembler.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs)
 
-- `SequenceAssembler.QualityTrimReads(reads, minQuality, minLength)`: public running-sum trimmer with min-length filter.
-- `SequenceAssembler.TrimEnd / TrimStart` (private): single-end running-sum cut helpers.
+- `SequenceAssembler.QualityTrimReads(reads, minQuality, minLength)`: both ends with one cutoff, Phred+33 (delegates to the overload below).
+- `SequenceAssembler.QualityTrimReads(reads, cutoffFront, cutoffBack, minLength, phredOffset = 33)`: cutadapt `-q 5',3' --quality-base N -m minLength`.
+- `SequenceAssembler.QualityTrimIndex(phredScores, cutoffFront, cutoffBack)`: line-by-line port of cutadapt 5.2 `qualtrim.quality_trim_index`, returns `[start, stop)`.
 
 ### 5.2 Current Behavior
 
-Trimming runs the 3' pass and the 5' pass independently over the full read (cutadapt `quality_trim_index`), each with the `s < 0` early break; if the resulting windows cross (`start >= stop`) the read is dropped. A cutoff `< 1` returns the read unchanged. Reads with length `< minLength` after trimming (or `0`) are omitted. This is a single short scan per read, not a substring-search problem, so the repository suffix tree is not applicable.
+Trimming runs the 5' pass and the 3' pass independently over the full read (cutadapt `quality_trim_index`), each with the `s < 0` early break; if the resulting windows cross (`start >= stop`) the read is dropped. A cutoff `< 1` leaves that end unchanged. Cross-checked against the installed cutadapt 5.2 on 5000 random reads (seed 2026; Phred+33/+64, cutoffs −3..45 per end, minLength 0..10): 5000/5000 identical. Reads with length `< minLength` after trimming (or `0`) are omitted. This is a single short scan per read, not a substring-search problem, so the repository suffix tree is not applicable.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -119,9 +122,11 @@ Trimming runs the 3' pass and the 5' pass independently over the full read (cuta
 
 - BWA's fixed `BWA_MIN_RDLEN = 35` floor is omitted; the configurable `minLength` filter plays the corresponding role; **consequence:** trimmed boundaries match cutadapt exactly and reads can be trimmed below 35 bases unless `minLength` forbids it [1][2].
 
+- The 3-argument overload trims **both** ends with one cutoff (cutadapt `-q C,C`), whereas a single cutadapt `-q C` and BWA `aln -q C` trim the 3' end only; kept for backward compatibility, the 3'-only behaviour is `QualityTrimReads(reads, 0, C, minLength)`.
+
 **Not implemented:**
 
-- Phred+64 (legacy Illumina) decoding; **users should rely on:** Phred+33 (Sanger) input, the current standard [3].
+- cutadapt `--nextseq-trim` (two-colour G handling) and `--poly-a`; other trimming models (Trimmomatic SLIDINGWINDOW / LEADING / TRAILING) live in `QualityScoreAnalyzer` (IO).
 
 ### 5.4 Deviations and Assumptions
 
@@ -142,10 +147,11 @@ Trimming runs the 3' pass and the 5' pass independently over the full read (cuta
 | Trimmed length < minLength | read dropped | min-length filter (INV-04) |
 | Empty `reads` | empty result | nothing to process |
 | `reads` null | `ArgumentNullException` | input validation |
+| quality length ≠ sequence length, or character outside [offset, `~`] | `ArgumentException` | malformed FASTQ (Cock et al. 2010) via `QualitySequence` |
 
 ### 6.2 Limitations
 
-Assumes Phred+33 (Sanger) encoding; legacy Phred+64 input would be mis-decoded. Assumes quality string length equals sequence length per read. Does not perform adapter removal or per-window (sliding-window) trimming.
+The encoding is not auto-detected: Phred+64 input must be passed with `phredOffset: 64` (as cutadapt `--quality-base 64`). Does not perform adapter removal or per-window (sliding-window) trimming.
 
 ## 7. Examples and Related Material
 
@@ -170,6 +176,6 @@ Qualities `42,40,26,27,8,7,11,4,2,3`, cutoff 10. After subtraction: `32,30,16,17
 
 ## 8. References
 
-1. Cutadapt project. 2024. Algorithm details — Cutadapt documentation (quality trimming). https://cutadapt.readthedocs.io/en/stable/algorithms.html
+1. Cutadapt project. 2024. Source `src/cutadapt/qualtrim.pyx` v5.2 (https://raw.githubusercontent.com/marcelm/cutadapt/v5.2/src/cutadapt/qualtrim.pyx) and `cli.py` `parse_cutoffs` (single value → (0, C)).  Algorithm details — Cutadapt documentation (quality trimming). https://cutadapt.readthedocs.io/en/stable/algorithms.html
 2. Li, H. BWA source: `bwa_trim_read` (bwaseqio.c) and `BWA_MIN_RDLEN` (bwtaln.h). https://github.com/lh3/bwa/blob/master/bwaseqio.c , https://github.com/lh3/bwa/blob/master/bwtaln.h
 3. Cock, P.J.A., Fields, C.J., Goto, N., Heuer, M.L., Rice, P.M. 2010. The Sanger FASTQ file format for sequences with quality scores, and the Solexa/Illumina FASTQ variants. Nucleic Acids Research 38(6):1767–1771. https://doi.org/10.1093/nar/gkp1137
