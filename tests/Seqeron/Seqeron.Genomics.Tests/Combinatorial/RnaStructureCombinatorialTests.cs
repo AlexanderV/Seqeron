@@ -594,114 +594,56 @@ public class RnaStructureCombinatorialTests
     // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 154.
     // Spec: tests/TestSpecs/RNA-PARTITION-001.md (canonical CalculatePartitionFunction /
     //       CalculateStructureProbability). ADVANCED §10.
-    // Dimensions: seqLen(3) × temperature(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    // Dimensions: sequence(4) × temperature(3). Grid 4×3 = 12 (full, exhaustive ⊇ pairwise).
     //
-    // Model (McCaskill 1990; Will, MIT 18.417): Z = Σ_S exp(−E(S)/RT) over all pseudoknot-free
-    // structures via the inside recursion Q/Qᵇ, with base-pair probabilities P[i,j] = Qᵇ·O/Z from
-    // the outside recursion. This implementation uses the simplified fixed-per-pair model
-    // (each pair contributes E_bp), so:
-    //   • At E_bp = 0 every Boltzmann weight is exp(0)=1 ⇒ Z is exactly the COUNT of admissible
-    //     structures — a pure combinatorial integer that is TEMPERATURE-INVARIANT (the count does
-    //     not depend on RT). Known counts (spec M3/M4/M5): GAAAAC→2, GGGGCCCC→16, GGGAAACCC→20.
-    //   • At E_bp < 0 (favourable pairing) the per-pair weight exp(−E_bp/RT) > 1 grows as T falls,
-    //     so Z becomes temperature-DEPENDENT and Z(E_bp<0) ≥ Z(E_bp=0).
+    // Model (McCaskill 1990; ViennaRNA 2.7.2 pf): Z = Σ_S exp(−E(S)/RT) over all pseudoknot-free
+    // structures on the Turner 2004 model (Turner parameters rescaled with their enthalpies to the
+    // given temperature), with base-pair probabilities from the inside/outside recursion.
     //
-    // The combinatorial point: across length and temperature, Z ≥ 1 (INV-1) and every P[i,j] ∈ [0,1]
-    // (INV-2) with per-position pairing mass ≤ 1 (M6d); the E_bp=0 count is invariant to the
-    // temperature axis while the favourable-energy Z moves with it — a documented asymmetry the grid
-    // verifies cell-by-cell.
+    // The combinatorial point: across sequence and temperature the ensemble invariants hold in every
+    // cell — Z ≥ 1 (the open chain, INV-1), G = −RT·ln Z ≤ MFE, every P[i,j] ∈ [0,1] (INV-2),
+    // P_unpaired[i] + Σ_j P[i,j] = 1 per position (M6d), P(MFE structure) ∈ (0,1] — and the same
+    // sequence at two temperatures is NOT the same ensemble (G and MFE move with T).
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// <summary>Maximum total pairing probability over all pairs incident to any single position.</summary>
-    private static double MaxPerPositionPairingMass(RnaSecondaryStructure.PartitionFunctionResult pf, int n)
-    {
-        var mass = new double[n];
-        foreach (var ((i, j), p) in pf.BasePairProbabilities)
-        {
-            mass[i] += p;
-            mass[j] += p;
-        }
-        return mass.Length == 0 ? 0 : mass.Max();
-    }
-
     [Test, Combinatorial]
-    public void RnaPartition_EnsembleInvariants_AcrossLengthAndTemperature(
-        [Values("GAAAAC", "GGGGCCCC", "GGGAAACCC")] string seq,
+    public void RnaPartition_EnsembleInvariants_AcrossSequenceAndTemperature(
+        [Values("GAAAAC", "GGGGCCCC", "GGGAAACCC", "GGGCGAAAGCCCAAGGGCGAAAGCCC")] string seq,
         [Values(283.15, 310.15, 337.15)] double temperatureK)
     {
-        // Favourable-energy ensemble at this temperature.
-        var pf = RnaSecondaryStructure.CalculatePartitionFunction(seq, basePairEnergy: -1.0, temperature: temperatureK);
+        var pf = RnaSecondaryStructure.CalculatePartitionFunction(seq, temperature: temperatureK);
+        int n = seq.Length;
 
         pf.PartitionFunction.Should().BeGreaterThanOrEqualTo(1.0, "the empty structure always contributes weight 1 (INV-1)");
-        pf.BasePairProbabilities.Values.Should().OnlyContain(p => p >= -1e-12 && p <= 1.0 + 1e-9,
-            "every base-pair probability is in [0,1] (INV-2)");
-        MaxPerPositionPairingMass(pf, seq.Length).Should().BeLessThanOrEqualTo(1.0 + 1e-9,
-            "a position pairs with total probability ≤ 1 (McCaskill ensemble property, M6d)");
+        pf.BasePairProbabilities.Values.Should().OnlyContain(p => p > 0 && p <= 1.0 + 1e-9,
+            "every base-pair probability is in (0,1] (INV-2)");
+        pf.EnsembleFreeEnergy.Should().BeLessThanOrEqualTo(pf.MfeFreeEnergy + 1e-9, "the ensemble free energy is a lower bound of the MFE");
+        pf.MfeProbability.Should().BeInRange(0.0, 1.0);
 
-        // E_bp = 0 ⇒ Z is the integer structure count, INDEPENDENT of temperature.
-        var pf0Here = RnaSecondaryStructure.CalculatePartitionFunction(seq, basePairEnergy: 0.0, temperature: temperatureK);
-        var pf0Ref = RnaSecondaryStructure.CalculatePartitionFunction(seq, basePairEnergy: 0.0, temperature: 310.15);
-        pf0Here.PartitionFunction.Should().BeApproximately(pf0Ref.PartitionFunction, 1e-9,
-            "the E_bp=0 structure count does not depend on temperature");
-        pf0Here.PartitionFunction.Should().BeApproximately(Math.Round(pf0Here.PartitionFunction), 1e-9,
-            "at E_bp=0 every weight is 1, so Z is an integer count of structures");
-
-        // Favourable pairing only adds weight: Z(E_bp=−1) ≥ Z(E_bp=0) at the same temperature.
-        pf.PartitionFunction.Should().BeGreaterThanOrEqualTo(pf0Here.PartitionFunction - 1e-9,
-            "negative per-pair energy raises every paired structure's weight");
+        var paired = new double[n];
+        foreach (var ((i, j), p) in pf.BasePairProbabilities) { paired[i] += p; paired[j] += p; }
+        for (int i = 0; i < n; i++)
+            (paired[i] + pf.UnpairedProbabilities[i]).Should().BeApproximately(1.0, 1e-9,
+                "P(unpaired) + Σ P(pairs) = 1 at every position (M6d)");
     }
 
-    /// <summary>
-    /// Ground-truth anchor — at E_bp=0 the partition function reduces to the exact COUNT of
-    /// pseudoknot-free structures, derivable by enumeration (tests/TestSpecs/RNA-PARTITION-001.md
-    /// M3/M4/M5). This is the non-circular backbone the grid's invariants rest on.
-    /// </summary>
+    /// <summary>The ensemble depends on temperature through every Turner parameter, not only RT.</summary>
     [Test]
-    public void RnaPartition_StructureCounts_AtZeroEnergy()
+    public void RnaPartition_TemperatureMovesEnsembleAndMfe()
     {
-        RnaSecondaryStructure.CalculatePartitionFunction("GAAAAC", 0.0).PartitionFunction
-            .Should().BeApproximately(2.0, 1e-9, "empty + the single (0,5) pair");
-        RnaSecondaryStructure.CalculatePartitionFunction("GGGGCCCC", 0.0).PartitionFunction
-            .Should().BeApproximately(16.0, 1e-9, "16 pseudoknot-free structures (spec M3)");
-        RnaSecondaryStructure.CalculatePartitionFunction("GGGAAACCC", 0.0).PartitionFunction
-            .Should().BeApproximately(20.0, 1e-9, "20 pseudoknot-free structures (spec M4)");
-
-        // M5: the lone pair of GAAAAC is present in exactly half the ensemble.
-        var pf = RnaSecondaryStructure.CalculatePartitionFunction("GAAAAC", 0.0);
-        pf.BasePairProbabilities[(0, 5)].Should().BeApproximately(0.5, 1e-9, "P[0,5] = 1/Z = 1/2");
-    }
-
-    /// <summary>
-    /// Interaction witnesses — the two axes act on different parts of the model: temperature moves
-    /// the favourable-energy Z (colder ⇒ stronger pairing weight ⇒ larger Z) but leaves the E_bp=0
-    /// count untouched; and Z increases monotonically as E_bp decreases (INV-4).
-    /// </summary>
-    [Test]
-    public void RnaPartition_TemperatureAndEnergy_MoveZIndependently()
-    {
-        const string seq = "GGGAAACCC";
-
-        // Temperature axis active under favourable energy: colder ⇒ larger Z.
-        double zCold = RnaSecondaryStructure.CalculatePartitionFunction(seq, -1.0, 283.15).PartitionFunction;
-        double zWarm = RnaSecondaryStructure.CalculatePartitionFunction(seq, -1.0, 337.15).PartitionFunction;
-        zCold.Should().BeGreaterThan(zWarm, "a lower RT amplifies favourable per-pair weights");
-
-        // …but the E_bp=0 count is temperature-inert.
-        double count283 = RnaSecondaryStructure.CalculatePartitionFunction(seq, 0.0, 283.15).PartitionFunction;
-        double count337 = RnaSecondaryStructure.CalculatePartitionFunction(seq, 0.0, 337.15).PartitionFunction;
-        count283.Should().Be(count337, "the structure count does not depend on temperature");
-
-        // Energy axis (INV-4): Z strictly increases as E_bp decreases.
-        double z0 = RnaSecondaryStructure.CalculatePartitionFunction(seq, 0.0).PartitionFunction;
-        double z1 = RnaSecondaryStructure.CalculatePartitionFunction(seq, -1.0).PartitionFunction;
-        double z2 = RnaSecondaryStructure.CalculatePartitionFunction(seq, -2.0).PartitionFunction;
-        z2.Should().BeGreaterThan(z1);
-        z1.Should().BeGreaterThan(z0);
+        const string seq = "GGGCGAAAGCCCAAGGGCGAAAGCCC";
+        var cold = RnaSecondaryStructure.CalculatePartitionFunction(seq, temperature: 283.15);
+        var warm = RnaSecondaryStructure.CalculatePartitionFunction(seq, temperature: 337.15);
+        cold.EnsembleFreeEnergy.Should().BeLessThan(warm.EnsembleFreeEnergy, "a stable hairpin ensemble is more stable when cold");
+        cold.MfeFreeEnergy.Should().BeLessThan(warm.MfeFreeEnergy);
+        RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq, temperature: 283.15).Should().Be(cold.MfeFreeEnergy,
+            "the scalar MFE and the PF's MFE use the same temperature-rescaled parameters");
     }
 
     /// <summary>
     /// Boltzmann structure-probability identities (tests/TestSpecs/RNA-PARTITION-001.md M8/M9):
-    /// p = exp(−βΔE) with β = 1/RT — equal energies give 1, a 1 kcal/mol gap gives exp(−1/RT).
+    /// p = exp(−βΔE) with β = 1/RT, RT = 1.98717e-3·310.15 (ViennaRNA GASCONST) — equal energies give 1, a
+    /// 1 kcal/mol gap gives exp(−1/RT).
     /// </summary>
     [Test]
     public void RnaPartition_BoltzmannProbabilityIdentities()
@@ -709,7 +651,7 @@ public class RnaStructureCombinatorialTests
         RnaSecondaryStructure.CalculateStructureProbability(-5.0, -5.0)
             .Should().BeApproximately(1.0, 1e-12, "a structure equal to its ensemble has probability 1");
 
-        double rt = 1.987 * 310.15 / 1000.0;
+        double rt = 1.98717 * 310.15 / 1000.0;
         RnaSecondaryStructure.CalculateStructureProbability(-5.0, -6.0)
             .Should().BeApproximately(Math.Exp(-1.0 / rt), 1e-9, "p = exp(−ΔE/RT) for a 1 kcal/mol gap");
     }

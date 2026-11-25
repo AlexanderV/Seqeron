@@ -131,6 +131,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "reversal_distance",
         "rna_complement_base",
         "rna_mfe_structure",
+        "rna_partition_function",
         "rna_structure_energy",
         "scan_with_alphabet_pwm",
         "scan_with_pwm",

@@ -10,22 +10,69 @@
   "inputSchema": {
     "type": "object",
     "properties": {
-      "rnaSequence": { "type": "string", "description": "RNA sequence (T read as U, case-insensitive)", "minLength": 1 },
-      "dotBracket": { "type": "string", "description": "Structure of the same length using only '(', ')' and '.'" }
+      "rnaSequence": {
+        "type": "string",
+        "description": "RNA sequence (T read as U, case-insensitive)",
+        "minLength": 1
+      },
+      "dotBracket": {
+        "type": "string",
+        "description": "Structure of the same length using only '(', ')' and '.'"
+      },
+      "temperature": {
+        "type": "number",
+        "description": "Absolute temperature in Kelvin (default 310.15 = 37 °C); every Turner 2004 parameter is rescaled with its enthalpy, dG(T) = dH - (dH - dG37)*T/310.15 (ViennaRNA md.temperature)",
+        "default": 310.15,
+        "exclusiveMinimum": 0
+      }
     },
-    "required": ["rnaSequence", "dotBracket"]
+    "required": [
+      "rnaSequence",
+      "dotBracket"
+    ]
   },
   "outputSchema": {
     "type": "object",
-    "properties": { "energy": { "type": "number", "description": "kcal/mol" } },
-    "required": ["energy"]
+    "properties": {
+      "energy": {
+        "type": "number",
+        "description": "kcal/mol"
+      }
+    },
+    "required": [
+      "energy"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1002, "message": "Invalid structure (characters, balance, length or non-canonical pair)" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Invalid structure (characters, balance, length or non-canonical pair)"
+    }
   ],
   "examples": [
-    { "name": "Hairpin", "input": { "rnaSequence": "GGGAAACCC", "dotBracket": "(((...)))" }, "output": { "energy": -1.12 } },
-    { "name": "Three-way multiloop", "input": { "rnaSequence": "GAGGGAAAACCCAGGGAAAACCCAC", "dotBracket": "(.(((....))).(((....))).)" }, "output": { "energy": -1.54 } }
+    {
+      "name": "Hairpin",
+      "input": {
+        "rnaSequence": "GGGAAACCC",
+        "dotBracket": "(((...)))"
+      },
+      "output": {
+        "energy": -1.12
+      }
+    },
+    {
+      "name": "Three-way multiloop",
+      "input": {
+        "rnaSequence": "GAGGGAAAACCCAGGGAAAACCCAC",
+        "dotBracket": "(.(((....))).(((....))).)"
+      },
+      "output": {
+        "energy": -1.54
+      }
+    }
   ]
 }

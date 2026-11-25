@@ -34,6 +34,7 @@ multiloops, bulges and interior loops.
 |-----------|------|----------|-------------|
 | `rnaSequence` | string | Yes | RNA sequence; T read as U, case-insensitive; other characters (N, IUPAC, gaps) never pair |
 | `minLoopSize` | integer | No | Minimum hairpin loop size (default 3; values < 3 behave as 3, as ViennaRNA `md.min_loop_size`) |
+| `temperature` | number | No | Absolute temperature in Kelvin (default 310.15 = 37 °C); every Turner 2004 parameter is rescaled with its enthalpy, dG(T) = dH - (dH - dG37)*T/310.15 (ViennaRNA md.temperature); must be positive |
 
 ## Output Schema
 

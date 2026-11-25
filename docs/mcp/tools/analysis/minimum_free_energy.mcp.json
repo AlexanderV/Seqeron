@@ -10,31 +10,63 @@
   "inputSchema": {
     "type": "object",
     "properties": {
-      "rnaSequence": { "type": "string", "description": "RNA sequence", "minLength": 1 },
-      "minLoopSize": { "type": "integer", "description": "Minimum hairpin loop size (default 3; values <3 are clamped)", "default": 3 }
+      "rnaSequence": {
+        "type": "string",
+        "description": "RNA sequence",
+        "minLength": 1
+      },
+      "minLoopSize": {
+        "type": "integer",
+        "description": "Minimum hairpin loop size (default 3; values <3 are clamped)",
+        "default": 3
+      },
+      "temperature": {
+        "type": "number",
+        "description": "Absolute temperature in Kelvin (default 310.15 = 37 °C); every Turner 2004 parameter is rescaled with its enthalpy, dG(T) = dH - (dH - dG37)*T/310.15 (ViennaRNA md.temperature)",
+        "default": 310.15,
+        "exclusiveMinimum": 0
+      }
     },
-    "required": ["rnaSequence"]
+    "required": [
+      "rnaSequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "mfe": { "type": "number", "description": "Minimum free energy in kcal/mol" }
+      "mfe": {
+        "type": "number",
+        "description": "Minimum free energy in kcal/mol"
+      }
     },
-    "required": ["mfe"]
+    "required": [
+      "mfe"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    }
   ],
   "examples": [
     {
       "name": "Simple GC hairpin",
-      "input": { "rnaSequence": "GGGAAACCC" },
-      "output": { "mfe": -1.12 }
+      "input": {
+        "rnaSequence": "GGGAAACCC"
+      },
+      "output": {
+        "mfe": -1.12
+      }
     },
     {
       "name": "No structure (poly-A)",
-      "input": { "rnaSequence": "AAAAAAAA" },
-      "output": { "mfe": 0.0 }
+      "input": {
+        "rnaSequence": "AAAAAAAA"
+      },
+      "output": {
+        "mfe": 0.0
+      }
     }
   ]
 }

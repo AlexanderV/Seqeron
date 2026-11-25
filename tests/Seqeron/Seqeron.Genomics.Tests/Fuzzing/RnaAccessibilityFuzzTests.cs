@@ -53,7 +53,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     the time), yet still ≥ 0.
 ///   • a longer queried window is never MORE accessible than a shorter one ending at the same
 ///     position (Bernhart 2006: forbidding more positions can only shrink Z_open) — monotonicity.
-///   • analytic two-state pin GAAAC: the whole 5-nt window @end=4 = 1/Z = 0.9998435192135765
+///   • analytic two-state pin GAAAC: the whole 5-nt window @end=4 = 1/Z = 0.9998434018877025
 ///     (Z = 1 + exp(−5.4/RT), the single G·C hairpin over loop "AAA"; RNA-ACCESS-001.md Stage-A).
 ///
 /// Hang-safety (§4.3): CalculateRegionUnpairedProbability is O(n³) (two DP fills). Fuzz lengths are
@@ -340,14 +340,14 @@ public class RnaAccessibilityFuzzTests
     /// THEORY — analytic two-state pin (independent oracle, RNA-ACCESS-001.md Stage-A). "GAAAC" has
     /// exactly two structures: the open chain (w=1) and the single G(0)·C(4) hairpin over loop "AAA"
     /// (ΔG = hairpin-initiation(3) = 5.4). So Z = 1 + exp(−5.4/RT) and the whole 5-nt window @end=4
-    /// has accessibility = Z_open/Z = 1/Z = 0.9998435192135765 (Z_open forbids all bases ⇒ only the
+    /// has accessibility = Z_open/Z = 1/Z = 0.9998434018877025 (Z_open forbids all bases ⇒ only the
     /// open chain survives). This is a hand-derived value, NOT a code echo.
     /// </summary>
     [Test]
     public void AnalyticPin_GAAAC_WholeWindowAccessibility()
     {
         double a = RnaSecondaryStructure.CalculateRegionUnpairedProbability("GAAAC", windowEnd: 4, windowLength: 5);
-        a.Should().BeApproximately(0.9998435192135765, 1e-12,
+        a.Should().BeApproximately(0.9998434018877025, 1e-12,
             "GAAAC whole-window accessibility = 1/Z = 1/(1+exp(−5.4/RT)) (analytic two-state oracle)");
         AssertWellFormedAccessibility(a, "GAAAC analytic pin");
     }

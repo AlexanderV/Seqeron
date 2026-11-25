@@ -32,6 +32,7 @@ the MFE structure equals the MFE.
 |-----------|------|----------|-------------|
 | `rnaSequence` | string | Yes | RNA sequence (T read as U, case-insensitive) |
 | `dotBracket` | string | Yes | Structure of the same length using only `(`, `)` and `.` |
+| `temperature` | number | No | Absolute temperature in Kelvin (default 310.15 = 37 °C); every Turner 2004 parameter is rescaled with its enthalpy, dG(T) = dH - (dH - dG37)*T/310.15 (ViennaRNA md.temperature); must be positive |
 
 ## Output Schema
 

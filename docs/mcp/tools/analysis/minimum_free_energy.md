@@ -29,6 +29,7 @@ in kcal/mol; a sequence that cannot form any structure returns 0. Loops shorter 
 |-----------|------|----------|-------------|
 | `rnaSequence` | string | Yes | RNA sequence (min length 1) |
 | `minLoopSize` | integer | No | Minimum hairpin loop size (default 3; values < 3 clamped) |
+| `temperature` | number | No | Absolute temperature in Kelvin (default 310.15 = 37 °C); every Turner 2004 parameter is rescaled with its enthalpy, dG(T) = dH - (dH - dG37)*T/310.15 (ViennaRNA md.temperature); must be positive |
 
 ## Output Schema
 

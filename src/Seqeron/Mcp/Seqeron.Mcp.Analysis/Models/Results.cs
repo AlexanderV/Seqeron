@@ -1060,6 +1060,26 @@ public record RnaMfeStructureResult(
     BasePairItem[] BasePairs,
     double MinimumFreeEnergy);
 
+/// <summary>One base-pair probability of <c>rna_partition_function</c> (0-based positions, Position1 &lt; Position2).</summary>
+public record PairProbabilityItem(int Position1, int Position2, double Probability);
+
+/// <summary>
+/// Result of <c>rna_partition_function</c>. <c>PartitionFunction</c> is null when Z exceeds the double range (use
+/// <c>LogPartitionFunction</c>, always finite).
+/// </summary>
+public record RnaPartitionFunctionResult(
+    double? PartitionFunction,
+    double LogPartitionFunction,
+    double EnsembleFreeEnergy,
+    PairProbabilityItem[] BasePairProbabilities,
+    double[] UnpairedProbabilities,
+    string MfeStructure,
+    double MfeFreeEnergy,
+    double MfeProbability,
+    double EnsembleDiversity,
+    string CentroidStructure,
+    double Temperature);
+
 /// <summary>Result of <c>predict_rna_structure</c>.</summary>
 public record PredictRnaStructureResult(
     string Sequence,

@@ -89,73 +89,115 @@
 
 ---
 
-## Test Datasets
+## Re-validation 2026-11-25 (B12, Stage A + Stage B)
 
-### Dataset: Hand-derived combinatorial partition functions (E_bp = 0 ⇒ pairWeight = 1)
+### 8. Stage A verdict: PASS-WITH-NOTES; Stage B verdict: FAIL (fixed)
 
-When `E_bp = 0`, `exp(−β·0) = 1`, so `Z` counts the number of admissible (pseudoknot-free, min-loop = 3) secondary structures. These Z values are derived **two independent ways, both independent of the library code**: (a) a standalone re-implementation of the published `Q`/`Q^b` recurrence, and (b) an exhaustive brute-force enumeration of all non-crossing, base-disjoint subsets of admissible pairs. Both methods agree on every value below.
+**Stage A.** McCaskill (1990), the MIT slides and the ViennaRNA reference are consistent with the recursions. The Freiburg tool is a *teaching*
+model (fixed energy per pair) and cannot be the authority for a library function that is compared with ViennaRNA; the evidence points above that
+call the fixed-`E_bp` model "documented ASSUMPTION" (old §Assumptions 1, Test Datasets "E_bp = 0 ⇒ Z counts structures") are superseded below.
+The k constant "≈ 1.987e-3" of the pf_fold page is rounded; the implementation constant is ViennaRNA's `GASCONST` 1.98717 (`params/constants.h`).
 
-**Source:** McCaskill `Q`/`Q^b` recurrence (MIT 18.417 slides), min hairpin loop m = 3, Watson-Crick + GU pairing (Freiburg model); structure-counting via exhaustive non-crossing-subset enumeration.
+**Stage B findings** (reference: ViennaRNA 2.7.2 Python `RNA`, `md.dangles = 2`; NNDB-precision parameter file = `RNA.params_save()` with the NNDB stacks,
+TerminalAU 0.45 and the 27 NNDB-vs-default table differences, RNA-STRUCT-001 Evidence §12.2):
 
-| Sequence | E_bp | minloop m | Z (= #structures) |
-|----------|------|-----------|-------------------|
-| `AAAA` | 0 | 3 | 1 (no canonical pair exists) |
-| `GC` | 0 | 3 | 1 (the only pair (0,1) has j−i=1 ≤ 3 → forbidden) |
-| `GGGGCCCC` | 0 | 3 | 16 |
-| `GGGAAACCC` | 0 | 3 | 20 |
+| ID | Defect | Repro before → after (oracle) | Source |
+|----|--------|-------------------------------|--------|
+| F-PF1 | `CalculatePartitionFunction` summed a **fixed energy per base pair** (`basePairEnergy`, default −1) instead of the Turner 2004 loop model; Z, `P(i,j)` and `G` were not the ensemble of the MFE model. | `GGGAAAACCC`: Z 407.70, G −3.704 → Z 32.77, G **−2.1535** (`fc.pf()` −2.1529); MFE structure/energy not reported → `(((....)))` −2.02, P(MFE) 0.805. | ViennaRNA `pf()`; McCaskill 1990 (energy of a structure is the sum of loop energies) |
+| F-PF2 | Temperature only changed RT in the fixed-energy model; no Turner parameter was rescaled and the MFE functions had no `temperature` at all. | `GGGGAAAACCCC` MFE at 20 °C: −5.28 (T-independent) → **−7.22** (ViennaRNA −7.20); at 60 °C: −5.28 → **−2.66** (Vienna −2.64); differences = ViennaRNA's int truncation of rescaled terms. | ViennaRNA `params/params.c` `RESCALE_dG`, `default.c` `*_dH`, `intl*dH.h` |
+| F-PF3 | No numerical scaling: `Z` is `+∞` and the probability map empty from n ≈ 760 (`Z ≈ 10^(0.40·n)` at `E_bp = −1`); for the Turner model (`ln Z ≈ 0.53 n`) an unscaled recursion would overflow from n ≈ 1300. | n = 1000 random (pre-fix build, measured): Z = ∞, 0 probabilities → ln Z = 535.2, G = −329.9, 186 612 probabilities. | ViennaRNA `pf_scale` (`params.c`: `exp(−sfact·MFE/(RT·n))`) |
+| F-PF4 | Base-pair probabilities with the Turner model (`CalculateUnpairedProbabilities`, F7) used one constrained re-fold per pair: O(n⁵). | Release, random GC 0.5: n = 50 2.1 s, n = 100 24.7 s, n = 150 **186 s** → n = 150 0.3 s, n = 1000 6.5 s. | McCaskill outside recursion |
+| F-PF5 | `CalculateStructureProbability` formed `exp(−E/RT)/exp(−G/RT)` → ∞/∞ = **NaN** for \|G\| ≳ 440 kcal/mol. | `(−2000, −2000.5)`: NaN → 0.4442 (= exp(−0.5/RT)). | ViennaRNA `pr_structure`: `exp((dG − e)/kT)` |
+| F-PF6 | Result lacked ensemble free energy, unpaired probabilities, MFE structure and probability, ensemble diversity, centroid. | added (`PartitionFunctionResult`). | ViennaRNA `pf/bpp/mfe/pr_structure/mean_bp_distance/centroid` |
+| F-PF7 | Gas constant 1.987 (rounded) vs ViennaRNA 1.98717 (relative 8.6e-5 in RT): the 0.0028 kcal/mol residual recorded in B12 F7. The NNDB loop extrapolations keep their published 1.75·1.987·T/1000 prefactor. | mean \|ΔG\| vs `fc.pf()` over 320 sequences 0.0004; the remaining max 0.0165 is Vienna's `SMOOTH()` quirk (§9). | `params/constants.h` |
 
-Brute-force confirmation of `GGGGCCCC` and `GGGAAACCC`: enumerate every subset of admissible G-C pairs that is pairwise non-crossing and base-disjoint (the empty structure counts as 1). Both the recurrence and the exhaustive enumerator yield 16 and 20 respectively.
+No MCP wrapper existed for the partition function; `rna_partition_function` was added (additive) and `temperature` was added to `minimum_free_energy`,
+`rna_mfe_structure`, `rna_structure_energy` (docs `docs/mcp/tools/analysis/`).
 
-### Dataset: Exact base-pair probabilities (E_bp = 0 ⇒ P = #structures-containing-pair / Z)
+### 9. Oracle cross-check (ViennaRNA 2.7.2, d2)
 
-**Source:** exhaustive non-crossing-subset enumeration (independent of library code), cross-checked against the McCaskill outside recursion. These values include **nestable** pairs (a pair that can be enclosed by another pair), for which the external decomposition alone is wrong.
+Script `pfcmp3.py` (scratchpad): random ACGU sequences of length 10–150, our `CalculatePartitionFunction` vs `fc.pf()` / `fc.bpp()` / `fc.mfe()` /
+`fc.pr_structure(our MFE structure)` / `fc.mean_bp_distance()` / `fc.centroid()`; `params_load(file)` followed by an explicit `md` passed to `fold_compound` (the
+`params_load` gotcha).
 
-`GGGGCCCC` (Z = 16): P(0,4)=1/16, P(0,5)=1/16, P(0,6)=2/16, P(0,7)=4/16, **P(1,5)=3/16**, P(1,6)=2/16, P(1,7)=2/16, **P(2,6)=3/16**, P(2,7)=1/16, P(3,7)=1/16.
+| Set | N | max / mean \|ΔG_ens\| | max / mean \|ΔP_unpaired\| | max \|ΔP(i,j)\| | \|ΔMFE\| | MFE structure equal | centroid equal |
+|-----|---|------|------|------|------|------|------|
+| NNDB file, 37 °C, no repeated neighbours | 300 | 0.0165 / 0.0004 | 0.0065 / 0.0002 | 0.0067 | 0 | 298 / 300 | 300 / 300 |
+| NNDB file, 37 °C, with repeated neighbours (NNDB-only terms Vienna lacks: special GU closure, all-C, bulge degeneracy / special C) | 320 | 3.04 / 0.30 | — | — | 2.2 / 0.19 | 268 / 320 | 182 / 320 |
+| default Vienna file, 37 °C, no repeated neighbours | 320 | 0.54 / 0.107 | 0.15 / 0.035 | 0.15 | 0.58 / 0.12 | 279 / 320 | 242 / 320 |
+| NNDB file, 5 / 20 / 55 / 80 / 90 °C | 100 each | 0.0068 / 0.0075 / 0.0058 / 0.0081 / 0.0040 | 0.0057 / 0.0029 / 0.0023 / 0.0045 / 0.0035 | 0.0057 / 0.0027 / 0.0023 / 0.0040 / 0.0029 | 0.25 / 0.15 / 0.23 / 0.17 / 0.13 (max; mean 0.03–0.10) | | |
+| NNDB file, 15 / 45 / 70 °C | 150 each | 0.0051 / 0.0080 / 0.0015 | 0.0021 / 0.0049 / 0.0013 | 0.0021 / 0.0048 / 0.0014 | | | |
 
-`GGGAAACCC` (Z = 20): P(0,6)=1/20, P(0,7)=3/20, P(0,8)=6/20, **P(1,6)=3/20**, **P(1,7)=4/20**, **P(1,8)=3/20**, **P(2,6)=6/20**, **P(2,7)=3/20**, P(2,8)=1/20.
+The default-file residual is parameter rounding (ViennaRNA rounds the NNDB stacks to 0.1 kcal/mol, 26 interior mismatches and one hairpin mismatch differ from NNDB,
+TerminalAU 0.50 vs 0.45); the repeated-neighbour residual are NNDB terms with sourced values that ViennaRNA does not implement (RNA-STRUCT-001 Evidence §12).
+**Exactness** is established independently of ViennaRNA by exhaustive enumeration (28 sequences ≤ 25 nt × 3 temperatures, every structure scored by
+`CalculateFreeEnergy`): Z, G, MFE and all `P(i,j)` agree to 1e-9 (unit test `CalculatePartitionFunction_EqualsExhaustiveEnumeration`).
 
-(Bold = nestable pairs whose external-only probability is strictly smaller than the truth; e.g. external P(2,6)=1/20=0.05 vs true 6/20=0.30.)
+**Residual of ViennaRNA's `pf()` vs its own `eval_structure`.** Single-structure partition functions (hard constraints) differ from `eval_structure` by
+−0.017 kcal/mol for exterior stems with a dangle at the sequence end whose dangle energy is 0 (`GGAAAAC` pair (1,6) with a 5' G/U: pf 4.4830, eval 4.5000): `pf` weights dangles with
+`SMOOTH()` (`params/params.c`: "dangling ends should never be destabilizing … specific heat needs smooth function"). The exact Boltzmann sum over `eval_structure` energies — what McCaskill's Z
+is — is implemented; the ≤ 0.017 difference is the largest `ΔG_ens` in the table above.
 
-### Dataset: Exact weighted base-pair probabilities (E_bp = −1)
+**Probability normalisation (item 3).** 40 random sequences 10–120 nt: every row of the base-pair-probability matrix sums to ≤ 1 (1 + 2e-16), `P(unpaired) + Σ P(pairs) = 1` to 1e-9,
+`P(MFE structure) = exp((G − E_mfe)/RT)` to 1e-12 and equals `fc.pr_structure(mfe_struct)` within 2.7 % (max, mean 0.06 %; the Vienna value uses its own `eval`
+energy and `SMOOTH`ed Z).
 
-**Source:** Boltzmann-weighted exhaustive enumeration (weight = w^{#pairs}, w = exp(1/RT), RT = 0.61626805), independent of library code; matches the outside recursion to machine precision.
+### 9.1 Temperature (item 1)
 
-`GGGGCCCC` (Z = 180.018344830…): P(0,4)=0.02814492, P(0,6)=0.17074408, P(0,7)=0.45594238, P(1,5)=0.31334323, P(1,6)=0.17074408, P(1,7)=0.17074408, P(2,6)=0.31334323.
+`ΔG(T) = ΔH − (ΔH − ΔG₃₇)·T/310.15` for every tabulated parameter with the ViennaRNA 2.7.2 Turner 2004 enthalpies (generated into
+`Turner2004EnthalpyTables.cs` from `default.c`, `intl11dH.h`, `intl21dH.h`, `intl22dH.h`); `lxc`-extrapolations scaled by T; hairpin first-mismatch with its
+terminal-AU enthalpy folded as ViennaRNA does (`mismatchH` includes the AU penalty); dangles / exterior / multiloop terminal mismatches clamped ≤ 0
+(`params.c`). Loop-level check (single hairpins 3–40 nt × 6 closing pairs, 19 bulge/interior sizes × 36 pair combinations, exterior stems with all
+neighbours) against single-structure ViennaRNA partition functions at 20 and 90 °C: hairpins 0.0000 (> 30 nt: 0.0015 = NNDB 1.75RT extrapolation vs
+ViennaRNA's 30-nt anchor), interior loops 0.0000, bulges/GU-closure: only the NNDB-only terms.
+Before the dangle/mismatch clamp and the hairpin-AU enthalpy fix the 100-sequence ensemble error at 20 °C was 0.46 (max, mean 0.15) and at 90 °C 0.11 (mean 0.044); after: ≤ 0.0081 at every temperature 5–90 °C (table above).
+**Kept at 37 °C (no enthalpy source):** the NNDB-only terms special G·U closure (−2.2), all-C hairpin penalties (+1.5 / 0.3·n + 1.6), special-C bulge (−0.9) and the GGUC/CUGG three-stack (−4.12) have no ΔH in ViennaRNA 2.7.2 (which omits them) nor in the opened NNDB hairpin / bulge / GU pages (ΔG°37 only); the n = 1 bulge degeneracy −RT·ln(states) follows RT(T).
 
-### Invariant: per-base pairing probability ≤ 1
+ViennaRNA's `fc.mfe()` at T ≠ 37 °C uses **int-truncated** rescaled parameters (`params.c` `(int)` assignment) — |ΔMFE| mean 0.05–0.09 (max 0.26) vs our unrounded MFE;
+its `pf()` does not (`pf_smooth`), which our `G` matches.
 
-For any position p, `Σ_{(i,j): i=p or j=p} P(i,j) ≤ 1` (a base pairs with at most one partner). Verified over 300 random sequences (lengths 0–12, E_bp ∈ {0, −1, −2, 0.5}): max single-base sum 0.983, and max |brute-force − outside-recursion| = 3.3e-16.
+### 9.2 Speed and stability (item 2), Release, one thread
 
-### Dataset: Boltzmann structure probability (closed form)
+| n | time (MFE + inside + outside) | ln Z | Z | pairs listed | min P(unpaired) |
+|---|------|------|---|------|------|
+| 150 | 0.2 s | 84.4 | 4.3e36 | 4 330 | 0.0011 |
+| 200 | 0.23 s | 108.5 | 1.4e47 | 7 452 | 0.0018 |
+| 500 | 1.3 s | 296.3 | 4.6e128 | 48 001 | 0.0001 |
+| 1000 | 6.5 s | 535.2 | 2.8e232 | 186 612 | 0.0001 |
+| 2000 | 52 s | 1030.7 | +∞ (beyond e^709; ln Z finite) | 732 580 | 0.0001 |
 
-**Source:** McCaskill 1990 `Pr[P|S] = Z⁻¹ exp(−βE(P))`; ViennaRNA `p = exp(−βE)/Z`.
+ViennaRNA 2.7.2 `mfe()+pf()+bpp()` (C, one thread, other random sequences): n = 500 0.9 s, 1000 4.6 s, 2000 29.3 s. No overflow, NaN or negative probability for any n;
+Σ_pairs P + Σ P_unpaired = n to 1e-9 (n = 500 unit test, n = 1000 / 2000 heavy-tier tests). Memory: nine n×n double matrices during the outside pass (≈ 290 MB at n = 2000).
 
-| Quantity | Value |
-|----------|-------|
-| R | 1.987 cal/(mol·K) |
-| T | 310.15 K |
-| RT | 1.987 × 310.15 / 1000 = 0.61626805 kcal/mol |
-| If E_struct = E_ensemble | p = 1 (structure is the whole ensemble) |
-| E_struct = −5, E_ensemble = −6 kcal/mol | p = exp((6−5)/RT)... = exp(−( −5 − (−6))/RT) = exp(−1/0.61626805) = 0.196817... |
+### 9.3 Parameter file notes
 
----
+NNDB values are used where ViennaRNA's default file departs from NNDB (RNA-STRUCT-001 Evidence §12.3): the default-file ensemble free energy therefore differs by ≈ 0.1 kcal/mol (mean).
 
-## Assumptions
+### 9.4 Locked ViennaRNA values (NNDB-precision file)
 
-1. **ASSUMPTION: Simplified per-pair energy model.** The repository computes `Z` with a fixed per-base-pair energy `E_bp` (Freiburg teaching model) rather than the full Turner 2004 nearest-neighbour loop energies used by ViennaRNA/McCaskill's original tRNA examples. This is a documented simplification of the *energy model only*: the partition-function recurrence (`Q`, `Q^b`, `Z = Q₁ₙ`), the base-pair-probability formula, and all structural invariants (Z ≥ 1, probabilities in [0,1], normalisation, symmetry, monotonicity in E_bp) are fully conformant with McCaskill 1990 and are what the tests verify. Exact Turner-parameter ensemble energies are out of scope and would require porting the full Turner loop model into the partition recurrence.
+| Sequence | T (°C) | MFE structure | MFE | G (pf) | P(MFE) | ⟨d⟩ |
+|----------|--------|---------------|-----|--------|--------|-----|
+| GGGAAAACCC | 37 | `(((....)))` | −2.02 | −2.1529 | 0.8060 | 1.3195 |
+| GGGCGAAAGCCC | 37 | `(((....)))`-type hairpin | −6.64 | −6.6562 | 0.9740 | 0.0520 |
+| GGGGAAAACCCC | 37 | `((((....))))` | −5.28 | −5.3941 | 0.8310 | 1.7016 |
+| GCGGAAACGCCGAAAGGCGC | 37 | `.......((((....))))` | −6.84 | −6.8736 | 0.9470 | 0.1876 |
+| 27-nt interior/bulge stem | 37 | `((((((((((((...))))))))))))` | −23.57 | −23.5964 | 0.9580 | 0.0842 |
+| 40-nt three-hairpin multiloop | 37 | `((((....((((..((((....))))..))))....))))` | −25.02 | −25.0805 | 0.9065 | 2.1116 |
+| 76-nt random (no repeated neighbours) | 37 | multi-domain | −21.71 | −23.1022 | 0.1045 | 21.488 |
+| 30-nt AU-rich | 37 | `((((((((.(((....))).))))))))..` | −3.95 | −4.2444 | 0.6203 | 3.1347 |
+| further rows at 20 and 60 °C | | | | | | see the unit test table |
 
----
+### 10. Sources opened (2026-11-25)
 
-## Recommendations for Test Coverage
+ViennaRNA 2.7.2 sdist (`pip download viennarna==2.7.2 --no-binary :all:`): `src/ViennaRNA/params/params.c` (`RESCALE_dG`, `RESCALE_BF`, `SMOOTH`, dangle / mismatch clamps,
+`pf_scale`: lines 25–90, 400–420, 560–600, 740–830), `params/default.c` (all `*_dH`), `params/intl11dH.h`, `intl21dH.h`, `intl22dH.h`, `params/constants.h` (`GASCONST 1.98717`),
+`probabilities/probs_structures.c` (`pr_structure`, `mean_bp_distance`), `structures/centroid.c`, `model.c` (`sfact 1.07`).
 
-1. **MUST Test:** `Z = 1` for a sequence with no admissible pair (e.g. `AAAA`, `GC`). — Evidence: `Q_ij = 1` base case (MIT slides).
-2. **MUST Test:** `Z` equals the structure count for `E_bp = 0` on small sequences (`GGGGCCCC` → 16, `GGGAAACCC` → 20). — Evidence: combinatorial reduction of the McCaskill recurrence, confirmed by exhaustive enumeration.
-3. **MUST Test:** every base-pair probability is in [0,1]; probabilities are symmetric `P[i,j] = P[j,i]` (only one orientation stored). — Evidence: `Pr[(i,j)|S]` is a probability (McCaskill 1990).
-4. **MUST Test:** `Z ≥ 1` always (the empty structure always contributes weight 1). — Evidence: `Q_ij = 1` base case.
-5. **MUST Test:** Boltzmann probability `CalculateStructureProbability` returns 1 when structure energy equals ensemble energy, and `exp(−ΔE/RT)` for a known ΔE. — Evidence: McCaskill 1990 / ViennaRNA `p = exp(−βE)/Z`.
-6. **SHOULD Test:** lowering `E_bp` (more favourable pairing) strictly increases `Z` (monotonicity). — Rationale: `Z` is a sum of increasing exponential weights.
-7. **SHOULD Test (property-based):** for randomly generated sequences, `Z ≥ 1` and all base-pair probabilities lie in [0,1]. — Rationale: invariants must hold for the whole input domain (O(n³) algorithm property test).
-8. **COULD Test:** `GenerateRandomRna` is deterministic given a seeded `Random`; output length and alphabet are correct. — Rationale: reproducibility convention.
+### 11. Generators (scratchpad, not in the repository)
+
+`gen_enthalpy.py` — parses `PUBLIC int name[..] = {..};` arrays (INF = 10⁷, comments stripped) of `default.c` / `intl*dH.h` and emits `Turner2004EnthalpyTables.cs`
+(Vienna layout, `int` spans, special tri/tetra/hexaloop strings with ΔH and ΔG₃₇); `mkpar.py` (NNDB-precision parameter file); `pfcmp3.py` (cross-check above);
+`brute2.py` / `loops.py` / `ends.py` / `evcmp2.py` (single-structure and single-loop ViennaRNA partition functions via hard constraints `hc_add_from_db(db.replace('.', 'x'), CONSTRAINT_DB_DEFAULT | CONSTRAINT_DB_ENFORCE_BP)`).
 
 ---
 
@@ -166,6 +208,8 @@ For any position p, `Σ_{(i,j): i=p or j=p} P(i,j) ≤ 1` (a base pairs with at 
 3. Freiburg RNA Tools. McCaskill teaching tool. https://rna.informatik.uni-freiburg.de/Teaching/index.jsp?toolName=McCaskill
 4. ViennaRNA Package. Partition Function and Equilibrium Properties (pf_fold reference). https://www.tbi.univie.ac.at/RNA/ViennaRNA/refman/pf_fold.html
 5. Nussinov, R., & Jacobson, A. B. (1980). Fast algorithm for predicting the secondary structure of single-stranded RNA. *PNAS* 77(11):6309-6313. https://doi.org/10.1073/pnas.77.11.6309 (minimum-loop and nesting conventions)
+6. Mathews, D. H., Disney, M. D., Childs, J. L., Schroeder, S. J., Zuker, M., Turner, D. H. (2004). Incorporating chemical modification constraints into a dynamic programming algorithm for prediction of RNA secondary structure. *PNAS* 101:7287-7292 (Turner 2004); NNDB https://rna.urmc.rochester.edu/NNDB/turner04/
+7. ViennaRNA 2.7.2 source distribution (PyPI `viennarna-2.7.2.tar.gz`): `src/ViennaRNA/params/params.c`, `default.c`, `intl11dH.h`, `intl21dH.h`, `intl22dH.h`, `constants.h`, `probabilities/probs_structures.c`, `structures/centroid.c`; Lorenz R et al. (2011) *Algorithms Mol Biol* 6:26.
 
 ---
 
@@ -173,3 +217,4 @@ For any position p, `Σ_{(i,j): i=p or j=p} P(i,j) ≤ 1` (a base pairs with at 
 
 - **2026-06-14**: Initial documentation (RNA-PARTITION-001).
 - **2026-06-16**: Validation session. Corrected the base-pair-probability evidence: the prior claim that the external decomposition suffices in the flat model is FALSE for nestable pairs; documented the McCaskill outside recursion `P[i,j] = Q^b·O/Z`, added exact probability datasets (E_bp=0 and −1) for all pairs incl. nested ones, and the per-base ≤1 invariant. Implementation was fixed to use the outside recursion (validation report RNA-PARTITION-001).
+- **2026-11-25**: B12 re-validation (Stage A PASS-WITH-NOTES, Stage B FAIL → fixed). The fixed-energy-per-pair model was replaced by the Turner 2004 McCaskill partition function (inside + outside recursion, `pf_scale`, ViennaRNA enthalpy-based temperature rescaling), the result type extended (ensemble free energy, unpaired probabilities, MFE structure / probability, diversity, centroid), `CalculateStructureProbability` evaluated in the exponent, GASCONST 1.98717; §8–§11 added, old fixed-model datasets and assumptions superseded.

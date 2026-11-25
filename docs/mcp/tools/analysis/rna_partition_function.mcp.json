@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rna_partition_function",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculatePartitionFunction",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.PartitionFunction.cs",
+  "description": "McCaskill partition function on the Turner 2004 model (ViennaRNA RNAfold -p counterpart): Z, ensemble free energy, base-pair and unpaired probabilities, MFE structure probability, ensemble diversity, centroid.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rnaSequence": {
+        "type": "string",
+        "description": "RNA sequence (T read as U, case-insensitive; N/IUPAC never pair)",
+        "minLength": 1
+      },
+      "minLoopSize": {
+        "type": "integer",
+        "description": "Minimum hairpin loop size (default 3; values <3 are clamped)",
+        "default": 3
+      },
+      "temperature": {
+        "type": "number",
+        "description": "Absolute temperature in Kelvin (default 310.15); Turner parameters rescaled with their enthalpies",
+        "default": 310.15,
+        "exclusiveMinimum": 0
+      },
+      "minProbability": {
+        "type": "number",
+        "description": "List only base pairs with probability >= this value",
+        "default": 0.001,
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "required": [
+      "rnaSequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "partitionFunction": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Z (null beyond the double range)"
+      },
+      "logPartitionFunction": {
+        "type": "number"
+      },
+      "ensembleFreeEnergy": {
+        "type": "number",
+        "description": "kcal/mol"
+      },
+      "basePairProbabilities": {
+        "type": "array"
+      },
+      "unpairedProbabilities": {
+        "type": "array"
+      },
+      "mfeStructure": {
+        "type": "string"
+      },
+      "mfeFreeEnergy": {
+        "type": "number"
+      },
+      "mfeProbability": {
+        "type": "number"
+      },
+      "ensembleDiversity": {
+        "type": "number"
+      },
+      "centroidStructure": {
+        "type": "string"
+      },
+      "temperature": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "logPartitionFunction",
+      "ensembleFreeEnergy",
+      "basePairProbabilities",
+      "unpairedProbabilities",
+      "mfeStructure",
+      "mfeFreeEnergy",
+      "mfeProbability",
+      "ensembleDiversity",
+      "centroidStructure",
+      "temperature"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "temperature must be positive and finite; minProbability in [0,1]"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Hairpin",
+      "input": {
+        "rnaSequence": "GGGAAAACCC"
+      },
+      "output": {
+        "mfeStructure": "(((....)))",
+        "mfeFreeEnergy": -2.02,
+        "ensembleFreeEnergy": -2.1535,
+        "mfeProbability": 0.805
+      }
+    }
+  ]
+}

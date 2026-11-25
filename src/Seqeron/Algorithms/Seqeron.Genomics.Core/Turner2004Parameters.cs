@@ -105,6 +105,93 @@ namespace Seqeron.Genomics.Core
             { "UUAG", -0.7 }, { "UUCG", -0.6 }, { "UUGG", -0.7 }, { "UUUG", -0.5 },
         }.ToFrozenDictionary();
 
+        /// <summary>NNDB special hairpin loops (tri/tetra/hexaloops): TOTAL loop free energy at 37 °C (kcal/mol) keyed closing5' + loop + closing3'; replaces initiation + mismatch (NNDB hairpin-special-parameters).</summary>
+        public static readonly IReadOnlyDictionary<string, double> SpecialHairpinLoops = new Dictionary<string, double>
+        {
+            // Triloops (closing + 3nt loop + closing = 5-mer key)
+            { "CAACG", 6.8 },
+            { "GUUAC", 6.9 },
+            // Tetraloops (closing + 4nt loop + closing = 6-mer key)
+            { "CCUCGG", 2.5 },
+            { "CUCCGG", 2.7 },
+            { "CUACGG", 2.8 },
+            { "CUGCGG", 2.8 },
+            { "CCAAGG", 3.3 },
+            { "CCCAGG", 3.4 },
+            { "CCGAGG", 3.5 },
+            { "CUUAGG", 3.5 },
+            { "CCGCGG", 3.6 },
+            { "CUAAGG", 3.6 },
+            { "CCUAGG", 3.7 },
+            { "CCACGG", 3.7 },
+            { "CUCAGG", 3.7 },
+            { "CUUCGG", 3.7 },
+            { "CUUUGG", 3.7 },
+            { "CAACGG", 5.5 },
+            // Hexaloops (closing + 6nt loop + closing = 8-mer key)
+            { "ACAGUGUU", 1.8 },
+            { "ACAGUACU", 2.8 },
+            { "ACAGUGCU", 2.9 },
+            { "ACAGUGAU", 3.6 },
+        }.ToFrozenDictionary();
+
+        /// <summary>Internal-loop initiation (kcal/mol, 37 °C), n = 4..30 unpaired nucleotides (NNDB turner_2004_internal_loop_dg.txt, = ViennaRNA 2.7.2 internal_loop37).</summary>
+        public static readonly IReadOnlyDictionary<int, double> InternalLoopInitiation = new Dictionary<int, double>
+        {
+            {  4, 1.1 }, {  5, 2.0 }, {  6, 2.0 }, {  7, 2.1 }, {  8, 2.3 },
+            {  9, 2.4 }, { 10, 2.5 }, { 11, 2.6 }, { 12, 2.7 }, { 13, 2.8 },
+            { 14, 2.9 }, { 15, 2.9 }, { 16, 3.0 }, { 17, 3.1 }, { 18, 3.1 },
+            { 19, 3.2 }, { 20, 3.3 }, { 21, 3.3 }, { 22, 3.4 }, { 23, 3.4 },
+            { 24, 3.5 }, { 25, 3.5 }, { 26, 3.5 }, { 27, 3.6 }, { 28, 3.6 },
+            { 29, 3.7 }, { 30, 3.7 }
+        }.ToFrozenDictionary();
+
+        /// <summary>Bulge-loop initiation (kcal/mol, 37 °C), n = 1..30 (NNDB turner_2004 loop.txt BULGE column).</summary>
+        public static readonly IReadOnlyDictionary<int, double> BulgeLoopInitiation = new Dictionary<int, double>
+        {
+            {  1, 3.8 }, {  2, 2.8 }, {  3, 3.2 }, {  4, 3.6 }, {  5, 4.0 },
+            {  6, 4.4 }, {  7, 4.6 }, {  8, 4.7 }, {  9, 4.8 }, { 10, 4.9 },
+            { 11, 5.0 }, { 12, 5.1 }, { 13, 5.2 }, { 14, 5.3 }, { 15, 5.4 },
+            { 16, 5.4 }, { 17, 5.5 }, { 18, 5.5 }, { 19, 5.6 }, { 20, 5.7 },
+            { 21, 5.7 }, { 22, 5.8 }, { 23, 5.8 }, { 24, 5.8 }, { 25, 5.9 },
+            { 26, 5.9 }, { 27, 6.0 }, { 28, 6.0 }, { 29, 6.0 }, { 30, 6.1 }
+        }.ToFrozenDictionary();
+
+        /// <summary>3' dangling-end energies (kcal/mol, 37 °C), key closing5' + dangling base + closing3' (the dangling base 3' of closing5'); NNDB rna_2004_dangling_ends = ViennaRNA 2.7.2 dangle3_37.</summary>
+        public static readonly IReadOnlyDictionary<string, double> DanglingEnd3Energies = new Dictionary<string, double>
+        {
+            // Closing A-U
+            { "AAU", -0.8 }, { "ACU", -0.5 }, { "AGU", -0.8 }, { "AUU", -0.6 },
+            // Closing C-G
+            { "CAG", -1.7 }, { "CCG", -0.8 }, { "CGG", -1.7 }, { "CUG", -1.2 },
+            // Closing G-C
+            { "GAC", -1.1 }, { "GCC", -0.4 }, { "GGC", -1.3 }, { "GUC", -0.6 },
+            // Closing G-U
+            { "GAU", -0.8 }, { "GCU", -0.5 }, { "GGU", -0.8 }, { "GUU", -0.6 },
+            // Closing U-A
+            { "UAA", -0.7 }, { "UCA", -0.1 }, { "UGA", -0.7 }, { "UUA", -0.1 },
+            // Closing U-G
+            { "UAG", -0.7 }, { "UCG", -0.1 }, { "UGG", -0.7 }, { "UUG", -0.1 },
+        }.ToFrozenDictionary();
+
+        /// <summary>5' dangling-end energies (kcal/mol, 37 °C), key closing5' + dangling base + closing3' (the dangling base 5' of closing3'); NNDB rna_2004_dangling_ends = ViennaRNA 2.7.2 dangle5_37.</summary>
+        public static readonly IReadOnlyDictionary<string, double> DanglingEnd5Energies = new Dictionary<string, double>
+        {
+            // Closing A-U
+            { "AAU", -0.3 }, { "ACU", -0.1 }, { "AGU", -0.2 }, { "AUU", -0.2 },
+            // Closing C-G
+            { "CAG", -0.2 }, { "CCG", -0.3 }, { "CGG",  0.0 }, { "CUG",  0.0 },
+            // Closing G-C
+            { "GAC", -0.5 }, { "GCC", -0.3 }, { "GGC", -0.2 }, { "GUC", -0.1 },
+            // Closing G-U
+            { "GAU", -0.3 }, { "GCU", -0.1 }, { "GGU", -0.2 }, { "GUU", -0.2 },
+            // Closing U-A
+            { "UAA", -0.3 }, { "UCA", -0.3 }, { "UGA", -0.4 }, { "UUA", -0.2 },
+            // Closing U-G
+            { "UAG", -0.3 }, { "UCG", -0.3 }, { "UGG", -0.4 }, { "UUG", -0.2 },
+        }.ToFrozenDictionary();
+
+
         /// <summary>
         /// Terminal AU/GU penalty (kcal/mol at 37°C), applied at each end of a helix that
         /// terminates with an AU/UA or GU/UG base pair.
