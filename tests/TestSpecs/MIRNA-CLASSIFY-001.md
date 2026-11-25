@@ -26,6 +26,8 @@
 
 `ClassifyPreMiRnaTripletSvm` (published Triplet-SVM, Xue et al. 2005, authors' libsvm model; `MiRnaAnalyzer.TripletSvm.cs`, model data `MiRnaAnalyzer.TripletSvmModel.cs`)
 
+`ClassifyPreMiRnaMiPred` (published MiPred, Jiang et al. 2007, NAR 35:W339, authors' 1000-tree randomForest model; `MiRnaAnalyzer.MiPred.cs`, model data `MiRnaAnalyzer.MiPredModel.cs`; opt-in, additive)
+
 - **Source file:** `MiRnaAnalyzer.cs`
 - **Test fixture:** `tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs`
 
@@ -63,6 +65,27 @@ R: probability ∈ [0,1]; D: deterministic; threshold split positive/negative
 | TS6 | hand-computed triplet coding of `GGGGAAAACCCC`/`((((....))))` | definition in `3_step_triplet_coding_for_queries.pl` |
 
 Not committed: 300 random ViennaRNA 2.8 folds × min arm 22/12/6 (981 coded candidates) compared with the Perl scripts + libsvm: 0 differences (decision values < 1e-6, spans, sequences, structures, labels).
+
+## 4c. WP-R2-1 — published classifier (MiPred, 2026-11-25)
+
+Tests: `MiRnaAnalyzer_MiPred_Tests.cs` (data: `MiPredReferenceData.cs`, `MiPredOracleData.cs`).
+
+| ID | Test | Oracle |
+|----|------|--------|
+| MP1/MP1b | hand-computed 32 triplet frequencies (`GAUCC`/`((.((`: V2, V11, V29 = 0.2); closing-bracket triplets not counted; DNA = RNA | `microRNAcheck_parallel.pl` counting loop (k = 1..n-2, divisor = LENGTH) |
+| MP2 | 32 frequencies of 12 sequences (5 precursors, 4 shuffles, 3 pri-miRNAs) = integer counts / length | independent Python port of the Perl, ViennaRNA 2.8 structures |
+| MP3/MP3b | pre-judgement (MFE <= -15, >= 18 pairs, no multiloop, 51..137 nt, second-hairpin regex) on 12 structures + every boundary | Perl port; package regex |
+| MP4 | forest votes on the 10 Python-derived 34-vectors (exact) | independent numpy traversal of the forest arrays parsed from `model.RData` |
+| MP5 | 60 stored training rows of `model.RData`: votes (exact), in-sample class | numpy traversal; stored labels |
+| MP6/MP6b | bundled forest: ntree 1000, 56,324 nodes (28,662 terminal), every tree a consistent full binary tree (9..103 nodes); corrupt tables rejected | parse of `model.RData` (ndbigtree, nrnodes 103) |
+| MP7 | 60-tree forest trained locally with R `randomForest`, exported with `getTree`, 560 rows (300 fresh, 100 training, 160 built from split points of the forest, 131 of which land exactly on a split point of a tree path; 4 exact 30:30 ties): votes = `predict(type = "vote", norm.votes = FALSE)`; `<=` rule exercised | R 4.x randomForest 4.7-1.1 |
+| MP8 | end-to-end (canonical fold, 999 seeded shuffles): 5 miRBase precursors hairpin-like, p <= 0.01, voted real (781/823/836/802/784 of 1000; Python 780/823/836/801/784) | Python port + numpy shuffles + ViennaRNA |
+| MP9 | 2 shuffled let-7a-1 hairpins (s7, s9; s3 excluded: canonical engine scores a 1-nt bulge 1.26 kcal/mol below ViennaRNA) passing the pre-judgement: voted pseudo; p-value agrees with the numpy randfold-shuffle p within 4 sigma | Python port |
+| MP10/MP11 | pri-miRNAs: hsa-mir-21 (multiloop), hsa-let-7a-1 (140 nt) not hairpin-like -> not classified; hsa-mir-155 (125 nt) passes and votes real | package pre-judgement |
+| MP12-MP14 | determinism / default seed / clean-up (`tr`) / argument contract | package semantics |
+| MP15 | other classifiers unchanged | existing values |
+
+Differences from the package (documented, not simplifications): MFE/structure from the canonical Turner-2004 engine (package: RNAfold 1.x); shuffles with `DinucleotideShuffle` (package: randfold's triplet-swap shuffle with Perl `rand`), so the p-value feature is statistical (fixed default seed 1); model licence not stated (numeric parameters only) — owner decision.
 
 ## 5. Validation Checklist (to restore ☑)
 
