@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceAssembler.MergeContigs",
-  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L629",
-  "description": "Concatenate two contigs, collapsing the specified suffix(contig1)/prefix(contig2) overlap of overlapLength bases. A non-positive or too-large overlap falls back to plain concatenation.",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L950",
+  "description": "Merge two contigs over a known suffix(contig1)/prefix(contig2) overlap: contig1 + contig2 without its first overlapLength bases (overlapLength 0 = concatenation; must be in [0, shorter contig length], else an error). By default contig1's bases are kept in the overlap; resolveOverlapConflicts = true resolves overlap mismatches/Ns with the EMBOSS merger rule (N yields to the other base, otherwise the base from the contig with the higher local base-quality window wins; ties keep contig1).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -20,7 +20,12 @@
       },
       "overlapLength": {
         "type": "integer",
-        "description": "Length of the overlap to collapse."
+        "description": "Length of the suffix/prefix overlap to collapse, in [0, min(|contig1|, |contig2|)]."
+      },
+      "resolveOverlapConflicts": {
+        "type": "boolean",
+        "description": "Resolve mismatches / N in the overlap by the EMBOSS merger rule instead of keeping contig1's bases.",
+        "default": false
       }
     },
     "required": [
@@ -41,7 +46,12 @@
       "merged"
     ]
   },
-  "errors": [],
+  "errors": [
+    {
+      "code": 4001,
+      "message": "overlapLength is negative or exceeds the shorter contig"
+    }
+  ],
   "examples": [
     {
       "name": "Collapse 5-bp overlap",
@@ -63,6 +73,18 @@
       },
       "output": {
         "merged": "AAAGGG"
+      }
+    },
+    {
+      "name": "Overlap mismatch resolved by EMBOSS merger rule",
+      "input": {
+        "contig1": "AAAACCCCGGGG",
+        "contig2": "CCCCGTGGTTTT",
+        "overlapLength": 8,
+        "resolveOverlapConflicts": true
+      },
+      "output": {
+        "merged": "AAAACCCCGTGGTTTT"
       }
     }
   ]

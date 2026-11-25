@@ -32,10 +32,11 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// Fuzz strategy exercised for THIS unit:
 ///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
 ///          checklist row (graничні значення: 0, -1, MaxInt, empty):
-///          – NO OVERLAP: <c>overlapLength = 0</c> (and negative / out-of-range) →
-///            the two contigs are NOT joined at a phantom overlap; they are simply
-///            CONCATENATED <c>c1 + c2</c>, no false join below the threshold, no
-///            crash (INV-02, INV-03, §6.1).
+///          – NO OVERLAP: <c>overlapLength = 0</c> → the two contigs are NOT joined
+///            at a phantom overlap; they are simply CONCATENATED <c>c1 + c2</c>
+///            (INV-02). A negative or out-of-range length (incl. int.MinValue /
+///            int.MaxValue) is rejected with ArgumentOutOfRangeException, never an
+///            IndexOutOfRange crash or a silent join (INV-03, F-MERGE-1).
 ///          – FULL CONTAINMENT: one contig is wholly a prefix of the other; at the
 ///            boundary overlap <c>l = min(|c1|,|c2|) = |contig2|</c> the contained
 ///            contig is ABSORBED — <c>c2[l..]</c> is empty so the result is exactly
@@ -53,9 +54,9 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// An overlap is a length-<c>l</c> suffix of <c>c1</c> that equals a length-<c>l</c>
 /// prefix of <c>c2</c>; merging keeps one copy:
 ///   merge(c1, c2, l) = c1 + c2[l..],  |result| = |c1| + |c2| − l   (INV-01)
-/// A valid overlap is bounded: <c>0 &lt; l ≤ min(|c1|,|c2|)</c>. Otherwise (l = 0,
-/// l &lt; 0, or l &gt; min(|c1|,|c2|)) the result is plain concatenation c1 + c2
-/// (INV-02, INV-03). The result ALWAYS starts with <c>c1</c> verbatim and ends with
+/// A valid overlap length is bounded: <c>0 ≤ l ≤ min(|c1|,|c2|)</c>; l = 0 is plain
+/// concatenation c1 + c2 (INV-02); l &lt; 0 or l &gt; min(|c1|,|c2|) throws
+/// ArgumentOutOfRangeException (INV-03). The result ALWAYS starts with <c>c1</c> verbatim and ends with
 /// the non-overlapped tail <c>c2[l..]</c> (INV-04); the merge deletes nothing from
 /// <c>c1</c> and nothing from <c>c2[l..]</c>. The method is case-sensitive and
 /// alphabet-agnostic. Null <c>c1</c>/<c>c2</c> → ArgumentNullException (§3.3, §6.1).
@@ -66,7 +67,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 [Category("Fuzzing")]
 public class AssemblyMergeFuzzTests
 {
-    // Documented no-overlap sentinel (Contig_Merging.md §5.2; SequenceAssembler NoOverlap = 0).
+    // Documented no-overlap length (Contig_Merging.md INV-02: l = 0 is plain concatenation).
     private const int NoOverlap = 0;
 
     #region Helpers
@@ -86,15 +87,15 @@ public class AssemblyMergeFuzzTests
 
     /// <summary>
     /// Independent oracle implementing the documented merge rule verbatim
-    /// (Contig_Merging.md §4.1): a valid overlap <c>0 &lt; l ≤ min(|c1|,|c2|)</c>
-    /// collapses to <c>c1 + c2[l..]</c>; any other <c>l</c> concatenates <c>c1 + c2</c>.
+    /// (Contig_Merging.md §4.1): a valid overlap <c>0 ≤ l ≤ min(|c1|,|c2|)</c>
+    /// collapses to <c>c1 + c2[l..]</c>; any other <c>l</c> is rejected (null).
     /// Used to cross-check the unit under test on fuzzed inputs without re-using its
     /// implementation.
     /// </summary>
-    private static string Oracle(string c1, string c2, int l)
+    private static string? Oracle(string c1, string c2, int l)
     {
-        if (l <= NoOverlap || l > Math.Min(c1.Length, c2.Length))
-            return c1 + c2;
+        if (l < NoOverlap || l > Math.Min(c1.Length, c2.Length))
+            return null;
         return string.Concat(c1, c2.AsSpan(l));
     }
 
@@ -192,32 +193,27 @@ public class AssemblyMergeFuzzTests
         AssertWellFormed(merged, "ACGT", "TGCA", NoOverlap);
     }
 
-    // overlapLength = -1 (and other negatives) → concatenation, NOT a Substring crash (§6.1, BE: -1).
+    // overlapLength = -1 (and other negatives) → ArgumentOutOfRangeException, NOT a Substring crash
+    // (§6.1, BE: -1; F-MERGE-1).
     [Test]
-    public void MergeContigs_NegativeOverlap_ConcatenatesNoCrash()
+    public void MergeContigs_NegativeOverlap_ThrowsArgumentOutOfRange()
     {
         foreach (int l in new[] { -1, -7, int.MinValue })
         {
             Action act = () => SequenceAssembler.MergeContigs("ACGT", "TGCA", l);
-            act.Should().NotThrow("a negative overlap is not valid → concatenate, no crash (INV-03)");
-
-            SequenceAssembler.MergeContigs("ACGT", "TGCA", l)
-                .Should().Be("ACGTTGCA", "non-positive overlap ⇒ plain concatenation (INV-03)");
+            act.Should().Throw<ArgumentOutOfRangeException>("a negative overlap length is not an overlap (INV-03)");
         }
     }
 
-    // overlapLength > min(|c1|,|c2|), incl. int.MaxValue → concatenation, NO IndexOutOfRange in the
-    // Substring join (§6.1, BE: MaxInt; the overlap is bounded by the shorter contig).
+    // overlapLength > min(|c1|,|c2|), incl. int.MaxValue → ArgumentOutOfRangeException, NO
+    // IndexOutOfRange in the join (§6.1, BE: MaxInt; the overlap is bounded by the shorter contig).
     [Test]
-    public void MergeContigs_OverlapExceedsShorterContig_ConcatenatesNoIndexOutOfRange()
+    public void MergeContigs_OverlapExceedsShorterContig_ThrowsArgumentOutOfRange()
     {
-        foreach (int l in new[] { 5, 100, int.MaxValue })
+        foreach (int l in new[] { 3, 5, 100, int.MaxValue })
         {
             Action act = () => SequenceAssembler.MergeContigs("ACGT", "TG", l);
-            act.Should().NotThrow("overlap > min(|c1|,|c2|) ⇒ concatenate, no Substring overflow (INV-03)");
-
-            SequenceAssembler.MergeContigs("ACGT", "TG", l)
-                .Should().Be("ACGTTG", "out-of-range overlap ⇒ plain concatenation (INV-03)");
+            act.Should().Throw<ArgumentOutOfRangeException>("overlap > min(|c1|,|c2|) is not an overlap (INV-03)");
         }
     }
 
@@ -280,9 +276,9 @@ public class AssemblyMergeFuzzTests
         SequenceAssembler.MergeContigs("", "", NoOverlap)
             .Should().BeEmpty("two empty contigs ⇒ empty result");
 
-        // An empty contig has min length 0, so any positive overlap is out-of-range ⇒ concatenate.
-        SequenceAssembler.MergeContigs("", "ACGT", 3)
-            .Should().Be("ACGT", "overlap > min(0,4)=0 ⇒ concatenate (INV-03)");
+        // An empty contig has min length 0, so any positive overlap is out of range ⇒ rejected.
+        ((Action)(() => SequenceAssembler.MergeContigs("", "ACGT", 3)))
+            .Should().Throw<ArgumentOutOfRangeException>("overlap > min(0,4)=0 (INV-03)");
     }
 
     // Fuzz: a contig fully contained as the prefix of a longer one, merged at l = |contained|,
@@ -379,11 +375,11 @@ public class AssemblyMergeFuzzTests
     }
 
     // Broad fuzz: random contigs × random overlap (incl. negative, 0, in-range, far out-of-range,
-    // int.MaxValue) NEVER throw an undocumented exception and ALWAYS match the documented rule
-    // and the well-formedness invariants.
+    // int.MaxValue) NEVER throw an undocumented exception: in-range lengths match the documented
+    // rule and the well-formedness invariants, out-of-range ones throw ArgumentOutOfRangeException.
     [Test]
     [CancelAfter(30_000)]
-    public void MergeContigs_RandomContigsAndOverlap_NeverThrows_MatchesOracle()
+    public void MergeContigs_RandomContigsAndOverlap_MatchesOracleOrRejects()
     {
         var rng = new Random(144_004);
         for (int trial = 0; trial < 5000; trial++)
@@ -402,9 +398,17 @@ public class AssemblyMergeFuzzTests
                 _ => rng.Next(int.MinValue, int.MaxValue),   // anything
             };
 
+            string? expected = Oracle(c1, c2, l);
+            if (expected is null)
+            {
+                ((Action)(() => SequenceAssembler.MergeContigs(c1, c2, l)))
+                    .Should().Throw<ArgumentOutOfRangeException>("out-of-range overlap length (INV-03)");
+                continue;
+            }
+
             string merged = SequenceAssembler.MergeContigs(c1, c2, l);
 
-            merged.Should().Be(Oracle(c1, c2, l),
+            merged.Should().Be(expected,
                 "the unit matches the documented merge rule under fuzzed contigs/overlap");
             AssertWellFormed(merged, c1, c2, l);
         }

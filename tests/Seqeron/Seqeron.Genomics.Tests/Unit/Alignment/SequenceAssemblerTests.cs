@@ -103,10 +103,10 @@ public class SequenceAssemblerTests
     }
 
     [Test]
-    public void MergeContigs_OverlapTooLarge_Concatenates()
+    public void MergeContigs_OverlapTooLarge_Throws()
     {
-        string merged = SequenceAssembler.MergeContigs("AAA", "TTT", 10);
-        Assert.That(merged, Is.EqualTo("AAATTT"));
+        Assert.That(() => SequenceAssembler.MergeContigs("AAA", "TTT", 10),
+            NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     #endregion

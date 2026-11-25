@@ -97,27 +97,88 @@ public class SequenceAssembler_MergeContigs_Tests
         });
     }
 
-    // S1 — An overlap larger than the shorter contig is not a valid suffix/prefix overlap, so the
-    // contigs are concatenated. Source: overlap bounded by min(|x|,|y|) (Langmead SCS).
-    [Test]
-    public void MergeContigs_OverlapExceedsMinLength_ConcatenatesContigs()
+    // S1 — An overlap larger than the shorter contig is not a suffix/prefix overlap (bounded by
+    // min(|x|,|y|), Langmead SCS). Rejected (F-MERGE-1): the old silent concatenation had no source and
+    // Langmead's y[olen:] would instead drop all of y ("AC" + "GTAA"[5:] = "AC").
+    [TestCase("AC", "GTAA", 3)]
+    [TestCase("ACGT", "ACG", 4)]
+    public void MergeContigs_OverlapExceedsMinLength_Throws(string c1, string c2, int overlap)
     {
-        // min(|"AC"|, |"GTAA"|) = 2; overlap 3 > 2 is invalid.
-        string merged = SequenceAssembler.MergeContigs("AC", "GTAA", 3);
-
-        Assert.That(merged, Is.EqualTo("ACGTAA"),
-            "Overlap 3 exceeds min length 2, so it is not a valid overlap -> concatenation ACGTAA (INV-03).");
+        Assert.That(() => SequenceAssembler.MergeContigs(c1, c2, overlap),
+            NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(() => SequenceAssembler.MergeContigs(c1, c2, overlap, resolveOverlapConflicts: true),
+            NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
-    // S2 — A negative overlap is non-positive, i.e. no overlap, so the contigs are concatenated.
-    // Source: overlap length 0 = concatenation; non-positive is likewise no overlap (Langmead SCS).
+    // S2 — A negative overlap length is not an overlap (F-MERGE-1). Python y[-2:] would keep the last
+    // two characters ("BAA" + "AB" = "BAAAB"), the old code concatenated; neither is defined.
     [Test]
-    public void MergeContigs_NegativeOverlap_ConcatenatesContigs()
+    public void MergeContigs_NegativeOverlap_Throws()
     {
-        string merged = SequenceAssembler.MergeContigs("BAA", "AAB", -2);
+        Assert.That(() => SequenceAssembler.MergeContigs("BAA", "AAB", -2),
+            NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
 
-        Assert.That(merged, Is.EqualTo("BAAAAB"),
-            "Negative overlap is not a valid overlap, so BAA and AAB are concatenated (INV-03).");
+    // Boundary: overlap equal to both lengths (identical contigs) collapses to one copy.
+    [Test]
+    public void MergeContigs_OverlapEqualsBothLengths_ReturnsSingleCopy()
+    {
+        Assert.That(SequenceAssembler.MergeContigs("ACGT", "ACGT", 4), Is.EqualTo("ACGT"));
+    }
+
+    // Default mode is Langmead's sup += y[olen:]: the overlap length is trusted and contig1's bases are
+    // kept even where contig2 disagrees.
+    [Test]
+    public void MergeContigs_DefaultMode_MismatchedOverlapKeepsContig1Bases()
+    {
+        Assert.That(SequenceAssembler.MergeContigs("AAAACCCCGGGG", "CCCCGTGGTTTT", 8),
+            Is.EqualTo("AAAACCCCGGGGTTTT"));
+    }
+
+    // Opt-in EMBOSS merger conflict rule. Expected values from a line-by-line Python port of
+    // emboss/merger.c (merger_Merge / merger_bestquality / merger_quality) on the ungapped overlap
+    // (see docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md, "EMBOSS merger oracle").
+    [TestCase("AAAACCCCGGGG", "CCCCGTGGTTTT", 8, "AAAACCCCGTGGTTTT",
+        TestName = "MergeContigs_Resolve_W5_Contig2Wins_ContigEndLosesQuality")]   // w5: 14/11 vs 18/11
+    [TestCase("ACGTACGTACGT", "ACGAACGTACGTTT", 8, "ACGTACGTACGTACGTTT",
+        TestName = "MergeContigs_Resolve_W5_Contig1Wins")]                         // w5: 18/11 vs 16/11
+    [TestCase("AGTACAC", "ACGCGG", 4, "AGTACACGG",
+        TestName = "MergeContigs_Resolve_W5Tie_W10Contig1Wins")]
+    [TestCase("CTTTCA", "TTTTCAA", 6, "TTTTCAA",
+        TestName = "MergeContigs_Resolve_W5Tie_W10Contig2Wins")]
+    [TestCase("CGGCTAGCAA", "GGGCTAGCAAG", 10, "GGGCTAGCAAG",
+        TestName = "MergeContigs_Resolve_W5W10Tie_W20Contig2Wins")]
+    [TestCase("GGGGGATAGCC", "GGGGATAGCG", 10, "GGGGGATAGCC",
+        TestName = "MergeContigs_Resolve_W5W10Tie_W20Contig1Wins")]
+    [TestCase("AGTATT", "TTTTGA", 4, "AGTATTGA",
+        TestName = "MergeContigs_Resolve_FullTie_KeepsContig1")]
+    [TestCase("ACGTACGTACGTNNAC", "ACGTTTTTTTTT", 4, "ACGTACGTACGTACGTTTTTTTTT",
+        TestName = "MergeContigs_Resolve_NInContig1_TakesContig2Base")]
+    [TestCase("ACGTANGTAC", "ANGTACCCGG", 6, "ACGTANGTACCCGG",
+        TestName = "MergeContigs_Resolve_NInBoth_StaysN")]
+    [TestCase("ACGTACGG", "ACNGTT", 4, "ACGTACGGTT",
+        TestName = "MergeContigs_Resolve_NInContig2_TakesContig1Base")]
+    [TestCase("BAA", "AAB", 2, "BAAB",
+        TestName = "MergeContigs_Resolve_ExactOverlap_EqualsTextbookCollapse")]
+    public void MergeContigs_ResolveOverlapConflicts_MatchesEmbossMerger(
+        string c1, string c2, int overlap, string expected)
+    {
+        string merged = SequenceAssembler.MergeContigs(c1, c2, overlap, resolveOverlapConflicts: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Is.EqualTo(expected));
+            Assert.That(merged.Length, Is.EqualTo(c1.Length + c2.Length - overlap));
+        });
+    }
+
+    // Case-insensitive column comparison (EMBOSS lower-cases both inputs): bases differing only in case
+    // agree, so no conflict is resolved and contig1's characters are kept.
+    [Test]
+    public void MergeContigs_ResolveOverlapConflicts_CaseOnlyDifference_IsNotAConflict()
+    {
+        Assert.That(SequenceAssembler.MergeContigs("acgtAC", "GTAcgt", 4, resolveOverlapConflicts: true),
+            Is.EqualTo("acgtACgt"));
     }
 
     // S3 — Null contig1 must throw, matching sibling input-validation conventions.

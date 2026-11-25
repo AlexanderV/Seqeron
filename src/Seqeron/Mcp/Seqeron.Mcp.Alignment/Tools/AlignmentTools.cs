@@ -511,14 +511,15 @@ public class AlignmentTools
     }
 
     [McpServerTool(Name = "merge_contigs", Title = "Assembly — Merge Contigs by Overlap", ReadOnly = true)]
-    [Description("Concatenates two contigs, collapsing the specified suffix/prefix overlap of overlapLength bases. Invalid overlapLength falls back to plain concatenation.")]
+    [Description("Merges two contigs over a known suffix/prefix overlap: contig1 + contig2 without its first overlapLength bases (overlapLength 0 = concatenation; must be in [0, shorter contig length]). By default contig1's bases are kept in the overlap; resolveOverlapConflicts = true resolves overlap mismatches/Ns with the EMBOSS merger rule (N yields to the other base, else the base from the locally higher-quality contig).")]
     public static MergedContigResult MergeContigs(
         [Description("First contig (suffix donor).")] string contig1,
         [Description("Second contig (prefix donor).")] string contig2,
-        [Description("Length of overlap to collapse.")] int overlapLength)
+        [Description("Length of the suffix/prefix overlap to collapse, in [0, min(|contig1|, |contig2|)].")] int overlapLength,
+        [Description("Resolve mismatches / N in the overlap by the EMBOSS merger rule instead of keeping contig1's bases (default false).")] bool resolveOverlapConflicts = false)
     {
         var s = global::Seqeron.Genomics.Alignment.SequenceAssembler.MergeContigs(
-            contig1 ?? string.Empty, contig2 ?? string.Empty, overlapLength);
+            contig1 ?? string.Empty, contig2 ?? string.Empty, overlapLength, resolveOverlapConflicts);
         return new MergedContigResult(s);
     }
 

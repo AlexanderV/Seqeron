@@ -897,38 +897,125 @@ public static class SequenceAssembler
     /// Merges two contigs whose suffix/prefix overlap length is already known, collapsing the
     /// shared region so it appears once: the merged superstring is
     /// <paramref name="contig1"/> followed by <paramref name="contig2"/> with its length-<c>l</c>
-    /// prefix removed (<c>l = overlapLength</c>). For a valid overlap the result length is
-    /// <c>|contig1| + |contig2| − overlapLength</c>.
+    /// prefix removed (<c>l = overlapLength</c>), i.e. Langmead's <c>sup += y[olen:]</c>.
+    /// The result length is <c>|contig1| + |contig2| − overlapLength</c>.
     /// </summary>
     /// <remarks>
     /// An overlap is a length-<c>l</c> suffix of <paramref name="contig1"/> that matches a
     /// length-<c>l</c> prefix of <paramref name="contig2"/>; merging keeps a single copy of that
     /// region (Langmead, "Assembly &amp; shortest common superstring", JHU notes — overlap
     /// definition and the greedy merge trace, e.g. <c>BAA</c> + <c>AAB</c> at overlap 2 → <c>BAAB</c>).
-    /// A non-positive overlap, or one larger than the shorter contig, is not a usable suffix/prefix
-    /// overlap, so the contigs are simply concatenated (Langmead: "without requirement of 'shortest',
-    /// it's easy: just concatenate them"; a valid overlap is bounded by <c>min(|x|,|y|)</c>).
-    /// The supplied <paramref name="overlapLength"/> is trusted; computing/verifying it is the
-    /// responsibility of <see cref="FindOverlap"/> / <c>FindAllOverlaps</c>.
+    /// <c>overlapLength = 0</c> is plain concatenation ("just concatenate them"). A valid overlap is
+    /// bounded by <c>min(|x|,|y|)</c>, so a negative or larger length is rejected.
+    /// The supplied <paramref name="overlapLength"/> is trusted, not re-verified (computing it is
+    /// the job of <see cref="FindOverlap"/> / <c>FindAllOverlaps</c>); in the overlap the bases of
+    /// <paramref name="contig1"/> are kept. To resolve mismatches/<c>N</c>s in a non-exact
+    /// overlap use <see cref="MergeContigs(string, string, int, bool)"/>.
     /// </remarks>
     /// <param name="contig1">The left contig; its suffix overlaps the prefix of <paramref name="contig2"/>.</param>
     /// <param name="contig2">The right contig; its length-<paramref name="overlapLength"/> prefix is the shared region.</param>
-    /// <param name="overlapLength">Length of the suffix(contig1)/prefix(contig2) overlap to collapse.</param>
+    /// <param name="overlapLength">Length of the suffix(contig1)/prefix(contig2) overlap to collapse, in [0, min(|contig1|, |contig2|)].</param>
     /// <returns>The merged superstring.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="contig1"/> or <paramref name="contig2"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="overlapLength"/> is negative or exceeds the shorter contig.</exception>
     public static string MergeContigs(string contig1, string contig2, int overlapLength)
+        => MergeContigs(contig1, contig2, overlapLength, resolveOverlapConflicts: false);
+
+    /// <summary>
+    /// Merges two contigs over a known ungapped suffix/prefix overlap, optionally resolving
+    /// disagreements inside the overlap with the conflict rule of EMBOSS <c>merger</c>
+    /// (emboss/merger.c, <c>merger_Merge</c>/<c>merger_bestquality</c>/<c>merger_quality</c>).
+    /// </summary>
+    /// <remarks>
+    /// With <paramref name="resolveOverlapConflicts"/> = <c>false</c> this is the textbook collapse
+    /// <c>contig1 + contig2[overlapLength..]</c> (contig1's bases kept in the overlap). With
+    /// <c>true</c>, each overlap column (case-insensitive) is resolved as EMBOSS <c>merger</c> does
+    /// on an alignment column: agreeing bases are kept; an <c>N</c> in contig1 takes contig2's base,
+    /// an <c>N</c> in contig2 takes contig1's base; otherwise the base of the contig with the higher
+    /// local "quality" wins — quality = points/(2w+1) over a window of w positions forward
+    /// (including the column) and w−1 backward in the whole contig, with ACGTU = 2 points,
+    /// the IUPAC ambiguity codes MRWSYKVHDB = 1, anything else (N, off-end) = 0; windows
+    /// w = 5, then 10, then 20 break ties, and a remaining tie keeps contig1. This favours the
+    /// interior of a read over its end, where sequencing errors accumulate. Outside the overlap the
+    /// two layouts coincide. The overlap is taken as given (ungapped); EMBOSS first finds it with
+    /// a global alignment, which here is <see cref="FindOverlap"/>'s job.
+    /// </remarks>
+    /// <param name="contig1">The left contig; its suffix overlaps the prefix of <paramref name="contig2"/>.</param>
+    /// <param name="contig2">The right contig; its length-<paramref name="overlapLength"/> prefix is the shared region.</param>
+    /// <param name="overlapLength">Overlap length, in [0, min(|contig1|, |contig2|)].</param>
+    /// <param name="resolveOverlapConflicts">Resolve overlap mismatches / <c>N</c>s by the EMBOSS <c>merger</c> rule.</param>
+    /// <returns>The merged sequence, of length <c>|contig1| + |contig2| − overlapLength</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="contig1"/> or <paramref name="contig2"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="overlapLength"/> is negative or exceeds the shorter contig.</exception>
+    public static string MergeContigs(string contig1, string contig2, int overlapLength, bool resolveOverlapConflicts)
     {
         ArgumentNullException.ThrowIfNull(contig1);
         ArgumentNullException.ThrowIfNull(contig2);
 
-        // Overlap length 0 means "no overlap → concatenate" and a valid overlap cannot exceed the
-        // shorter contig (it is both a suffix of contig1 and a prefix of contig2): Langmead SCS notes.
-        const int NoOverlap = 0;
-        if (overlapLength <= NoOverlap || overlapLength > Math.Min(contig1.Length, contig2.Length))
-            return contig1 + contig2;
+        // A length-l overlap is both a suffix of contig1 and a prefix of contig2 (Langmead SCS notes),
+        // so 0 ≤ l ≤ min(|contig1|, |contig2|); 0 = concatenation.
+        int maxOverlap = Math.Min(contig1.Length, contig2.Length);
+        if (overlapLength < 0 || overlapLength > maxOverlap)
+            throw new ArgumentOutOfRangeException(nameof(overlapLength), overlapLength,
+                $"Overlap length must be in [0, {maxOverlap}] (the shorter contig's length).");
 
-        return string.Concat(contig1, contig2.AsSpan(overlapLength));
+        if (!resolveOverlapConflicts)
+            return string.Concat(contig1, contig2.AsSpan(overlapLength));
+
+        int start1 = contig1.Length - overlapLength;
+        var merged = new StringBuilder(contig1.Length + contig2.Length - overlapLength);
+        merged.Append(contig1, 0, start1);
+        for (int i = 0; i < overlapLength; i++)
+        {
+            char p = contig1[start1 + i];
+            char q = contig2[i];
+            if (char.ToUpperInvariant(p) == 'N') merged.Append(q);
+            else if (char.ToUpperInvariant(q) == 'N') merged.Append(p);
+            else if (char.ToUpperInvariant(p) != char.ToUpperInvariant(q))
+                merged.Append(MergerFirstHasBestQuality(contig1, contig2, start1 + i, i) ? p : q);
+            else merged.Append(p);
+        }
+
+        merged.Append(contig2, overlapLength, contig2.Length - overlapLength);
+        return merged.ToString();
     }
+
+    /// <summary>EMBOSS merger_bestquality: windows 5, 10, 20; ties keep the first sequence.</summary>
+    private static bool MergerFirstHasBestQuality(string a, string b, int apos, int bpos)
+    {
+        float qa = 0, qb = 0;
+        foreach (int window in MergerQualityWindows)
+        {
+            qa = MergerWindowQuality(a, apos, window);
+            qb = MergerWindowQuality(b, bpos, window);
+            if (qa != qb) break;
+        }
+
+        return qa >= qb;
+    }
+
+    private static readonly int[] MergerQualityWindows = { 5, 10, 20 };
+
+    /// <summary>
+    /// EMBOSS merger_quality: points in [pos, pos+window) and (pos−window, pos) divided by
+    /// 2·window+1; ACGTU = 2, IUPAC ambiguity codes MRWSYKVHDB = 1, other symbols and off-end = 0.
+    /// </summary>
+    private static float MergerWindowQuality(string seq, int pos, int window)
+    {
+        int value = 0;
+        for (int i = pos; i < pos + window && i < seq.Length; i++)
+            value += MergerBasePoints(seq[i]);
+        for (int j = pos - 1; j > pos - window && j >= 0; j--)
+            value += MergerBasePoints(seq[j]);
+        return (float)(value / (window * 2.0 + 1.0));
+    }
+
+    private static int MergerBasePoints(char c) => char.ToUpperInvariant(c) switch
+    {
+        'A' or 'C' or 'G' or 'T' or 'U' => 2,
+        'M' or 'R' or 'W' or 'S' or 'Y' or 'K' or 'V' or 'H' or 'D' or 'B' => 1,
+        _ => 0,
+    };
 
     /// <summary>
     /// Default gap length, in characters, used when a paired-end link reports a non-positive
