@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The runner of the corruption rows of work package S2.4 (see run_corpus_s24.py): opens one damaged container through the PUBLIC API of the build under test and runs a battery of calls over it, in Checked or Trusted mode. Outside the shipped code and
+    not part of Seqeron.sln. The build under test comes from EsaDir (a directory with SuffixTree.Esa.dll, SuffixTree.Core.dll and SuffixTree.Persistent.dll):
+      dotnet build SuffixTree.Esa/SuffixTree.Esa.csproj -c Release -o <esa dir>
+      dotnet build Corpus.csproj -c Release -p:EsaDir=<esa dir> -o <out dir>
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="SuffixTree.Core"><HintPath>$(EsaDir)/SuffixTree.Core.dll</HintPath></Reference>
+    <Reference Include="SuffixTree.Esa"><HintPath>$(EsaDir)/SuffixTree.Esa.dll</HintPath></Reference>
+    <Reference Include="SuffixTree.Persistent"><HintPath>$(EsaDir)/SuffixTree.Persistent.dll</HintPath></Reference>
+  </ItemGroup>
+
+</Project>

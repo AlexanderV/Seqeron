@@ -200,7 +200,7 @@ internal static class CorruptionFuzz
         return null;
     }
 
-    private static (byte[] Image, string What, EsaValidationLevel? Must) Damage(byte[] clean, DamageKind kind, SplitMix64 rng, LcpChildCase c)
+    internal static (byte[] Image, string What, EsaValidationLevel? Must) Damage(byte[] clean, DamageKind kind, SplitMix64 rng, LcpChildCase c)
     {
         byte[] image = (byte[])clean.Clone();
         SesaOracle o = SesaOracle.FromBytes(image);
