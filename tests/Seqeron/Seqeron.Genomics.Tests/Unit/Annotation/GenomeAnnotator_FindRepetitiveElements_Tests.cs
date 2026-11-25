@@ -264,6 +264,18 @@ public class GenomeAnnotator_FindRepetitiveElements_Tests
         Assert.That(inverted, Is.EqualTo(new[] { (0, 8, "inverted_repeat", "AGGATCCT") }));
     }
 
+    // F39 — minRepeatLength 1 reaches single-base-pair stems (EMBOSS palindrome -minpallen 1; was clamped to 2).
+    [Test]
+    public void FindRepetitiveElements_MinRepeatLengthOne_ReportsArmOneInvertedRepeat()
+    {
+        var inverted = GenomeAnnotator.FindRepetitiveElements("TCA", minRepeatLength: 1, minCopies: 2)
+            .Where(e => e.type == "inverted_repeat").ToList();
+
+        Assert.That(inverted, Is.EqualTo(new[] { (0, 3, "inverted_repeat", "T[C]A") }));
+        Assert.That(GenomeAnnotator.FindRepetitiveElements("TCA", minRepeatLength: 2, minCopies: 2)
+            .Where(e => e.type == "inverted_repeat"), Is.Empty);
+    }
+
     // F15 — loop up to 100 nt (EMBOSS palindrome -gaplimit / IUPACpal -g defaults = 100); the old cap was 50.
     [Test]
     public void FindRepetitiveElements_LoopOf80_ReportedWithinEmbossGapLimit()
@@ -331,7 +343,7 @@ public class GenomeAnnotator_FindRepetitiveElements_Tests
             var expected = Seqeron.Genomics.Analysis.RepeatFinder.FindMicrosatellites(seq, 1, 60, c)
                 .Where(r => r.TotalLength >= m)
                 .Select(r => (r.Position, r.Position + r.TotalLength, "tandem_repeat", seq.Substring(r.Position, r.TotalLength)))
-                .Concat(Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(seq, Math.Max(m, 2), 100, 0, 0, Math.Max(100, Math.Max(m, 2)))
+                .Concat(Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(seq, m, 100, 0, 0, Math.Max(100, m))
                     .Select(r => (r.LeftArmStart, r.RightArmStart + r.ArmLength, "inverted_repeat",
                         r.LoopLength == 0 ? r.LeftArm + r.RightArm : r.LeftArm + "[" + r.Loop + "]" + r.RightArm)))
                 .ToList();

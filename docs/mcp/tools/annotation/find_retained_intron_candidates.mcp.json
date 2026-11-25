@@ -6,12 +6,17 @@
   "stability": "stable",
   "methodId": "SpliceSitePredictor.FindRetainedIntronCandidates",
   "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L905",
-  "description": "Find short, moderately-scored intron candidates likely to be retained in some transcripts.",
+  "description": "Find retained-intron candidates by sequence-level features (open reading frame; optional length, weak-site and GC filters).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "RNA/DNA sequence to analyze", "minLength": 1 },
-      "minScore": { "type": "number", "description": "Minimum combined intron score", "default": 0.5 }
+      "minScore": { "type": "number", "description": "Minimum combined intron score", "default": 0.5 },
+      "maxIntronLength": { "type": "integer", "description": "Optional maximum intron length (nt)" },
+      "maxIntronScore": { "type": "number", "description": "Optional: keep only introns with combined score below this (weak sites)" },
+      "minGcFraction": { "type": "number", "description": "Optional minimum G+C fraction (0-1)" },
+      "requireOpenReadingFrame": { "type": "boolean", "description": "No in-frame stop in some phase", "default": true },
+      "requireLengthMultipleOf3": { "type": "boolean", "description": "Intron length divisible by 3", "default": true }
     },
     "required": ["sequence"]
   },
@@ -20,7 +25,7 @@
     "properties": {
       "introns": {
         "type": "array",
-        "items": { "type": "object", "description": "Intron with Length < 500 and Score < 0.8" }
+        "items": { "type": "object", "description": "Intron satisfying the criteria" }
       }
     },
     "required": ["introns"]
@@ -30,7 +35,7 @@
   ],
   "examples": [
     {
-      "name": "Short moderate-score intron",
+      "name": "Frame-compatible intron",
       "input": { "sequence": "<exon1>GUAAGU<60xA><14xU>CAG<exon2>", "minScore": 0.2 },
       "output": { "introns": [ { "type": "U2" } ] }
     },

@@ -124,3 +124,8 @@ GenomeScope `uniroot` (scipy `brentq`) vs closed form: max |Δ| 2.3e-16 over the
 - Merqury quirks reproduced faithfully: a zero slope never marks the valley (plateau → filt 0); a histogram rising from its first line gives filt = second depth − 1.
 - compleasm quirk reproduced: abutting complete copies (half-open stop = next start) merge into one cluster → Single.
 - `identityThreshold` default kept at 0.9 (compleasm's protein default is 0.4).
+
+## R1-WP1 addendum (2026-11-25): ASCII fold (A15-7, A11-6)
+
+Sources opened: `Infrastructure/SequenceCase.cs` remarks (ASCII-only fold; B01 F21), `SequenceExtensions.IsValidDna` (IUPAC-IUB unambiguous DNA = Biopython `unambiguous_dna_letters`). `IsAcgt(span)` vs `IsValidDna(span)` differ only for lower-case input, which `FindRepetitiveRegions` has already upper-cased. Non-ACGT (incl. non-ASCII) symbols make a WindowMasker unit invalid exactly as `N` does (tests compare the result with the `N` variant). Note: `CalculateLocalQuality` passes the window to `SequenceComplexity.CalculateLinguisticComplexity`, which folds with `ToUpperInvariant` itself (B04 file, left as is; cross-batch note in the WP report).
+

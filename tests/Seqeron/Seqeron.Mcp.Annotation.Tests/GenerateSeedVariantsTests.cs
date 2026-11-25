@@ -40,4 +40,12 @@ public class GenerateSeedVariantsTests
             Assert.That(result.Variants[0], Is.EqualTo("GAGGUAG"));
         });
     }
+
+    [Test]
+    public void GenerateSeedVariants_HasNoIncludeWobbleParameter()
+    {
+        // WP-R2-5 / R2-A3: the no-op parameter was removed (no source defines wobble semantics for seed variants).
+        var method = typeof(AnnotationTools).GetMethod(nameof(AnnotationTools.GenerateSeedVariants))!;
+        Assert.That(method.GetParameters().Select(p => p.Name), Is.EqualTo(new[] { "seedSequence" }));
+    }
 }

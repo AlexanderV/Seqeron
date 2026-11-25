@@ -34,6 +34,7 @@ reports the motif's 0-based `position`, the matched `sequence`, and a `score` eq
 | `upstreamWindow` | integer | No | 20 | Upstream window size (nt) to search before each ORF start |
 | `minDistance` | integer | No | 4 | Minimum aligned distance from motif to start codon (nt) |
 | `maxDistance` | integer | No | 15 | Maximum aligned distance from motif to start codon (nt) |
+| `scoreMode` | string | No | MotifLength | `MotifLength`: `motif.Length / 6`. `LogOdds`: Prodigal log-odds weight (clamped ±4) of the hit's motif/spacer bin, trained on the input genome itself (>= 20000 nt; Hyatt et al. 2010) |
 
 ## Output Schema
 
@@ -46,6 +47,7 @@ reports the motif's 0-based `position`, the matched `sequence`, and a `score` eq
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1001 | scoreMode must be MotifLength or LogOdds |
 
 ## Examples
 

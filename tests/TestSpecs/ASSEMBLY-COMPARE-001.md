@@ -72,3 +72,8 @@
 | M4 | Planted inversion, rearrangement, unrelated | 3 / 2 / 0 blocks with strands | `FindSyntenicBlocks_PlantedInversion…`, `…Rearrangement…`, `…Unrelated…` |
 | M5 | Reference repeat, N, gap > maxGap, minBlockSize | oracle values | `…ReferenceRepeatIsNotAnAnchor`, `…SingleMismatchSymbol…`, `…GapBeyondMaxGap…`, `…MinBlockSize…` |
 | M6 | Identical sequences | one block over the whole sequence | MutationKillers3 `…CollinearBlock…`, `GenomeAssemblyAnalyzerTests.FindSyntenicBlocks_IdenticalSequences_FindsBlock`, MCP identical |
+
+## R1-WP1 addendum (2026-11-25): ASCII fold, span unit lookup, `IsValidDna` (A15-7, A11-6)
+
+`GenomeAssemblyAnalyzer`: five `ToUpperInvariant` folds -> `SequenceCase.ToUpperAscii`; `FindRepetitiveRegions` unit counts via `KmerEnumerator` + span lookup (new private `UnitCounts`); private `IsAcgt` deleted -> `IsValidDna` (identical on the upper-cased input). New tests in `Unit/Chromosome/GenomeAssemblyAnalyzer_AsciiFold_Tests.cs`: `FindRepetitiveRegions_NonAsciiLetter_ActsAsNonAcgtSymbol` (U+017F, U+0130 vs N), `FindRepetitiveRegions_LowerCase_EqualsUpperCase`, `EstimateCompletenessFromKmers_LongSAndS_AreDistinctKmers`, `EstimateCompletenessFromKmers_Canonical_NonAsciiKmer_RejectedAsNotAcgt`, `FindMarkerHits_NonAsciiMarkerBase_FullLengthHitFound`, `FindMarkerHits_LowerCaseMarkerAndAssembly_FullIdentity`, `FindSyntenicBlocks_NonAsciiQueryLetter_ActsAsNonAcgt`, `CalculateLocalQuality_NonAsciiLetter_ExcludedFromGc`.
+

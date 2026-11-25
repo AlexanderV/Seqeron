@@ -16,8 +16,8 @@ Enumerate single-nucleotide variants of a seed sequence.
 
 Returns the original seed followed by every single-position substitution over the RNA alphabet A/C/G/U.
 For a seed of length L this yields `1 + 3L` sequences (the original plus 3 substitutions at each of L
-positions). Useful for enumerating near-seed target patterns. The `includeWobble` flag is reserved for a
-future wobble-aware expansion and currently does not change the output.
+positions). Useful for enumerating near-seed target patterns. All single substitutions, including those that
+would pair as G:U, are always enumerated (no source defines wobble semantics for seed variants, so there is no wobble option).
 
 ## Core Documentation Reference
 
@@ -28,7 +28,6 @@ future wobble-aware expansion and currently does not change the output.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `seedSequence` | string | Yes | Seed nucleotide sequence |
-| `includeWobble` | boolean | No | Reserved (currently unused); default true |
 
 ## Output Schema
 

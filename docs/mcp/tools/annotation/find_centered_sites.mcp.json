@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_centered_sites",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.FindCenteredSites",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.GrimsonContext.cs#L170",
+  "description": "Find centered miRNA target sites (Shin et al. 2010): >= 11 contiguous Watson-Crick pairs at miRNA nt 4-15 without a perfect seed match.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mRnaSequence": {
+        "type": "string",
+        "description": "mRNA nucleotide sequence (T→U applied internally)",
+        "minLength": 1
+      },
+      "miRna": {
+        "type": "object",
+        "description": "Query miRNA (name, sequence, seedSequence, seedStart, seedEnd)",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "string"
+          },
+          "seedSequence": {
+            "type": "string"
+          },
+          "seedStart": {
+            "type": "integer"
+          },
+          "seedEnd": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "sequence",
+          "seedSequence",
+          "seedStart",
+          "seedEnd"
+        ]
+      }
+    },
+    "required": [
+      "mRnaSequence",
+      "miRna"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "targetSequence": {
+              "type": "string"
+            },
+            "miRnaName": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "seedMatchLength": {
+              "type": "integer"
+            },
+            "score": {
+              "type": "number"
+            },
+            "freeEnergy": {
+              "type": "number"
+            },
+            "alignment": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "required": [
+      "sites"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "mRNA sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "miRNA cannot be null or empty"
+    }
+  ],
+  "examples": [
+    {
+      "name": "12-nt run at nt 4-15",
+      "input": {
+        "mRnaSequence": "GGGGGGGGGGCAACCUACUACCGGGGGGGGGG",
+        "miRna": {
+          "name": "let-7a",
+          "sequence": "UGAGGUAGUAGGUUGUAUAGUU",
+          "seedSequence": "GAGGUAG",
+          "seedStart": 1,
+          "seedEnd": 7
+        }
+      },
+      "output": {
+        "sites": [
+          {
+            "start": 10,
+            "end": 21,
+            "type": "Centered",
+            "seedMatchLength": 12,
+            "score": 0
+          }
+        ]
+      }
+    }
+  ]
+}

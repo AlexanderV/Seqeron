@@ -204,3 +204,8 @@ threshold ∈ {0, 0.3, 0.5, 0.6, 0.7, 0.75, 1.0}; require_multiple random). C#
 | `A`,`A` | 1.5 | N | False | `N` |
 | `AAT`,`AAC` | −1 | N | False | `AAN` |
 | `ACGTACGT`,`AC-TACG.`,`ACCTA`,`ATGT` | 0.5 | N | True | `ACGTACGN` |
+
+## R1-WP1 addendum (2026-11-25): ASCII fold (A15-7)
+
+Sources opened: `docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md` (Biopython 1.85 `dumb_consensus`, EMBOSS `cons`/`merger`, ABySS `createConsensus` already cited), B01 F21 / B02 `Infrastructure/SequenceCase.ToUpperAscii` XML remarks (U+017F must stay invalid; EMBOSS pepstats skips it). Reference numbers: the expected values in `SequenceAssembler_AsciiFold_Tests` are hand-derived from those rules (quality 2/11 vs 3/11 for the merger case; 2/3 vs threshold 0.7 for the consensus case); the refactor itself was checked by a differential test (old vs new, 20,000 random alignments for `GenerateDumbConsensus`; bit-identical outputs).
+

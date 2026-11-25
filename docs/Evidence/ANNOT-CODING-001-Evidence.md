@@ -231,3 +231,24 @@ Test fixtures (locked in `GenomeAnnotator_CpatCodingProbability_Tests.cs`): five
 hexamer table (index i in lexicographic order → coding (i mod 7)/1000, non-coding (i mod 5)/1000) run through the real `cpat`
 CLI with `Human_logitModel.RData` (default, `--antisense`, `--best-orf l`, `--start ATG,GTG,TTG --stop TAA,TAG --top-orf 2`) and
 `ORFFinder.orf_candidates(start_coden=[])`; EMBOSS `tcode` rows for transcript t1 (63 windows).
+
+
+## CPAT training oracle (B11 audit A4, 2026-11-25)
+
+Opened/used: CPAT 3.0.5 PyPI wheel (`cpmodule/__init__.py` `make_hexamer_tab`, `make_logitModel`; `FrameKmer.py`; `utils.py` `make_logit`, `extract_feature_from_seq`; `find_orfs.py`), the `liguowang/cpat` repository checkout (`docs/index.rst` "How to choose cutoff", `prebuilt_models/Human_cutoff.txt`, `test_files/`), R 4.x `glm`. CPAT data is used only as an oracle input and is not bundled (GPL vs MIT; the earlier BLOCKED proof stands) - the algorithm is implemented, the data is supplied by the caller.
+
+Source facts. (1) `make_hexamer_tab`: coding table = hexamers at frame 0, step 3 of the CDS set; non-coding = frame 0, step **1** of the non-coding set; hexamers containing N are not output and not in the total; value = count / total; rows in A,C,G,T lexicographic order, `str(float)`. (2) `make_logitModel`: per transcript the longest ORF (`ORFFinder`, sense, `--min-orf` 30, top-3, first) -> features mRNA length, ORF length, Fickett (CPAT table set), `kmer_ratio`; transcripts with no ORF skipped; R `glm(Label ~ mRNA + ORF + Fickett + Hexamer, binomial)`, Label 1 coding. (3) Cutoff: the CPAT docs state "Optimum cutoffs were determined from TG-ROC" (Human 0.364, sensitivity = specificity = 0.966); no cutoff code ships, so TG-ROC (Greiner et al. 2000: the intersection of the sensitivity and specificity curves) is implemented as argmin |Se - Sp| over the training probabilities (call coding when p >= c; ties: larger Se+Sp, then smaller c).
+
+CPAT defect found (not copied): `make_logitModel`'s default `--stop "TAG, TAA, TGA"` is split on `,` without stripping, giving stops `TAG`, ` TAA`, ` TGA`, so the CLI default effectively stops only at TAG (ORF 1 425 vs 837 nt on the first Human transcript). The documented stops (TAG, TAA, TGA) are the default here; the oracle runs pass `--stop TAG,TAA,TGA`. `cpat` itself splits correctly.
+
+| Quantity | Oracle | Result |
+|---|---|---|
+| Hexamer table, 3 000 Human CDS + 3 000 Human non-coding (4 096 rows) | `make_hexamer_tab` text | **0 differing lines** (byte-identical incl. Python float repr) |
+| Hexamer table, 200 + 200 and synthetic sets | same | byte-identical |
+| Coefficients, 3 000 coding + 3 000 non-coding transcripts (2 971 with an ORF) | R `coef(mylogit)` from `make_logitModel` | intercept -8.6588590994866994 vs -8.658859099492972 (rel 7e-13); ORF 0.01122351994295589 vs ...2963521 (1e-12); Fickett 3.7184006265638065 vs ...681657 (1e-12); Hexamer 5.9249784599742856 vs ...735795 (1e-12); mRNA 1.6271281963112109e-07 vs 1.6271281949332545e-07 (8.5e-10); deviance 1156.9357201108814 vs ...8626 (1.6e-14); 10 iterations, converged |
+| Coefficients, 200 + 200 | same | intercept -7.9212827145114346 vs -7.9212827145135565 (2.7e-12), deviance 64.75775930072642 vs ...648, 10 iterations |
+| TG-ROC cutoff, same 3 000 + 2 971 | CPAT Human 0.364 / Se = Sp 0.966 (different 10 000-gene training data) | 0.36419729 with Se 0.9670, Sp 0.9670 |
+| Held-out probabilities (600 coding + 600 non-coding unseen transcripts, 1 194 with an ORF) | `cpat -d <make_logitModel RData> -x <table> --min-orf 30` `ORF_prob.best.tsv` | max abs diff 6.1e-13, max rel 3.6e-12 (R prints 15 digits) |
+| Small synthetic set (embedded in the unit tests): 13 + 9 rows | R glm / `cpat` / independent R TG-ROC scan | coefficients, deviance, 6 iterations, cutoff 0.64722981501159438 (Se 10/13, Sp 7/9), 2 held-out probabilities all within 1e-9 |
+
+The IRLS follows `glm.fit` (start mu = (y + 0.5)/2, eta = logit(mu), R `logit_linkinv` clamp at |eta| 30, `mu.eta` floor DBL_EPSILON, stop at |dev - devold|/(|dev| + 0.1) < 1e-8, 25 iterations), so the iterates and the last deviance agree with R; the residual coefficient difference (<= 1e-9 relative) is R's QR vs the column-scaled normal equations used here. No existing logistic fit in the library (`StatisticsHelper`, MiRNA/Crispr code use fixed coefficients), so one is added inside `CpatModel`.

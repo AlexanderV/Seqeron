@@ -56,9 +56,9 @@ INV-03/INV-04 hold for the two-sided stage (the three-argument overload, `MaxErr
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | reads | `IReadOnlyList<string>` | required | Reads to correct (ASCII case-insensitive) | non-null; no null element |
-| kmerSize | `int` | 15 | k-mer length *k* | ≥ 1 |
-| minKmerFrequency | `int` | 2 | Trusted cut-off *t* (Musket `-minmulti`) | ≥ 1 |
-| options | `ErrorCorrectionOptions` | (3-arg overload: `TwoSidedForwardStrand`) | `CountReverseComplement` (Musket: true), `MaxIterations` (`-maxiter`, Musket 2, ≥ 1), `MaxErrorsPerKmer` (`-maxerr`, Musket 4, 0 = stage 1 only, ≥ 0); `ErrorCorrectionOptions.Musket` = Musket 1.1 defaults | non-null |
+| kmerSize | `int` | 21 | k-mer length *k* (Musket `option.cpp`: default `-k` 21) | ≥ 1 |
+| minKmerFrequency | `int` | 3 | Trusted cut-off *t* (Musket `-minmulti`); Musket's default (`-minmulti -1`) estimates it from the histogram valley, `main.cpp` starts the valley scan at index 2 and increments once more, so the estimate is always ≥ 3 and 3 is the smallest value Musket itself can choose | ≥ 1 |
+| options | `ErrorCorrectionOptions` | (3-arg overload: `TwoSided` = canonical spectrum, stage 1 only) | `CountReverseComplement` (Musket: true), `MaxIterations` (`-maxiter`, Musket 2, ≥ 1), `MaxErrorsPerKmer` (`-maxerr`, Musket 4, 0 = stage 1 only, ≥ 0); `ErrorCorrectionOptions.Musket` = Musket 1.1 defaults; `TwoSidedForwardStrand` = explicit forward-strand-only opt-out | non-null |
 
 ### 3.2 Output / Return Value
 
@@ -103,7 +103,7 @@ Null `reads`/`options` → `ArgumentNullException`; null read element → `Argum
 
 **Implementation location:** [SequenceAssembler.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAssembler.cs)
 
-- `SequenceAssembler.ErrorCorrectReads(reads, kmerSize, minKmerFrequency)`: two-sided stage to convergence, forward strand (= `ErrorCorrectionOptions.TwoSidedForwardStrand`).
+- `SequenceAssembler.ErrorCorrectReads(reads, kmerSize, minKmerFrequency)`: two-sided stage to convergence over a canonical spectrum (= `ErrorCorrectionOptions.TwoSided`); `ErrorCorrectionOptions.TwoSidedForwardStrand` is the explicit forward-only opt-out.
 - `SequenceAssembler.ErrorCorrectReads(reads, kmerSize, minKmerFrequency, ErrorCorrectionOptions)`: Musket corrector; `ErrorCorrectionOptions.Musket` = Musket 1.1 defaults.
 - Private: `BuildKmerSpectrum` (Core `CountKmersSpan`), `MusketCorrector` (`TwoSided` = `paraCorrectCoreTwoSides`, `OneSided` = `paraCorrectCore`, `SelectAllMutations`, `Successor`, `Predecessor`, `VoteAndFix`), `StlHeap` (libstdc++ heap order).
 - MCP: `error_correct_reads` (`musket`, `countReverseComplement`, `maxIterations`, `maxErrorsPerKmer`).
@@ -126,7 +126,7 @@ The spectrum is computed once from the original reads and held fixed (as Musket)
 **Intentionally simplified:**
 
 - Coverage cut-off: parameterised instead of auto-selected from the histogram valley; **consequence:** the caller must supply a data-appropriate cut-off rather than relying on automatic selection [1][2].
-- k selection: fixed default; **consequence:** caller should pass *k* suited to the data depth [2].
+- k selection: fixed Musket default k = 21 (as Musket without `-k`); **consequence:** caller should pass *k* suited to the genome size and depth [2].
 
 **Not implemented:**
 
@@ -139,7 +139,7 @@ The spectrum is computed once from the original reads and held fixed (as Musket)
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Cut-off and k are parameters, not auto-selected | Assumption | Caller must choose them from data | accepted | ASM-03; defaults documented as non-behavioral for tested contract |
-| 2 | 3-arg overload counts the forward strand only (Musket: canonical) | Deviation (backward compatibility) | reads from the opposite strand do not support each other and can be miscorrected (test `ErrorCorrectReads_ReverseStrandReads_*`) | open (audit to decide default) | use `ErrorCorrectionOptions.Musket` or `CountReverseComplement = true` |
+| 2 | 3-arg overload counts canonical k-mers as Musket (default flipped from forward-only, audit A9-1) | Resolved | forward-only counting miscorrects reads from the opposite strand (test `ErrorCorrectReads_ReverseStrandReads_*`) | resolved | explicit opt-out `ErrorCorrectionOptions.TwoSidedForwardStrand` / `CountReverseComplement = false` |
 | 3 | Reads shorter than 2k − 1: stage 1 probes the true leftmost covering k-mer | Deviation from musket-1.1 code (follows the paper) | musket-1.1 advances its left k-mer from position 0 and probes a spliced k-mer | accepted | oracle `fix_quirks` |
 | 4 | Stage-2 left look-ahead tests the k-mers really preceding the corrected k-mer | Deviation from musket-1.1 code | musket-1.1 `predecessor(seq, ipos - 1, ..)` skips base ipos − 1 | accepted | test `ErrorCorrectReads_AggressiveStage_LookAheadUsesTruePrecedingKmers` |
 | 5 | Non-ACGT symbols kept distinct; cut-off 1 honoured; output fully upper-cased | Deviation | Musket encodes non-ACGT as A, drops singleton k-mers, keeps input case of uncorrected bases | accepted | |

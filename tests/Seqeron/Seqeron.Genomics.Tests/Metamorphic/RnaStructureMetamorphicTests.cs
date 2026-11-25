@@ -603,8 +603,8 @@ public class RnaStructureMetamorphicTests
     // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 154.
     //
     // API under test (RnaSecondaryStructure.CalculatePartitionFunction):
-    //   Z = Σ over all pseudoknot-free structures of exp(−βE); with the simplified fixed-per-pair
-    //   model every additional admissible pair adds Boltzmann-weighted structures to the ensemble.
+    //   Z = Σ over all pseudoknot-free structures of exp(−βE); on the Turner 2004 model every
+    //   additional admissible pair adds Boltzmann-weighted structures to the ensemble.
     //
     // Relations (derived from the ensemble sum, NOT from output):
     //   • MON  (more pairing options ⇒ higher Z): a sequence with no possible pair has Z = 1 (only
@@ -1044,10 +1044,10 @@ public class RnaStructureMetamorphicTests
     {
         // GAAAC: only the open chain or the single G(0)·C(4) hairpin (3-nt loop). Analytic pins.
         var gaaac = RnaSecondaryStructure.CalculateUnpairedProbabilities("GAAAC");
-        gaaac.PartitionFunction.Should().BeApproximately(1.0001565052764922, 1e-12, because: "GAAAC analytic Z");
-        gaaac.BasePairProbabilities[(0, 4)].Should().BeApproximately(0.00015648078642340854, 1e-12, because: "GAAAC analytic P(0,4)");
-        gaaac.UnpairedProbabilities[0].Should().BeApproximately(0.9998435192135765, 1e-12, because: "GAAAC analytic p_unpaired(0)");
-        gaaac.EnsembleFreeEnergy.Should().BeApproximately(-9.64416549414892e-05, 1e-12, because: "GAAAC analytic ΔG = −RT·ln Z");
+        gaaac.PartitionFunction.Should().BeApproximately(1.0001566226391072, 1e-12, because: "GAAAC analytic Z");
+        gaaac.BasePairProbabilities[(0, 4)].Should().BeApproximately(0.00015659811229750914, 1e-12, because: "GAAAC analytic P(0,4)");
+        gaaac.UnpairedProbabilities[0].Should().BeApproximately(0.9998434018877025, 1e-12, because: "GAAAC analytic p_unpaired(0)");
+        gaaac.EnsembleFreeEnergy.Should().BeApproximately(-9.652222780968157e-05, 1e-12, because: "GAAAC analytic ΔG = −RT·ln Z");
 
         // The all-unpaired 5-window of GAAAC is the open-chain-only term = 1/Z.
         RnaSecondaryStructure.CalculateRegionUnpairedProbability("GAAAC", windowEnd: 4, windowLength: 5)
@@ -1056,9 +1056,9 @@ public class RnaStructureMetamorphicTests
 
         // CAAAAG: 4-nt loop with a terminal mismatch. Second analytic pin.
         var caaaag = RnaSecondaryStructure.CalculateUnpairedProbabilities("CAAAAG");
-        caaaag.PartitionFunction.Should().BeApproximately(1.0012902114608, 1e-12, because: "CAAAAG analytic Z");
-        caaaag.BasePairProbabilities[(0, 5)].Should().BeApproximately(0.0012885489601637966, 1e-12, because: "CAAAAG analytic P(0,5)");
-        caaaag.UnpairedProbabilities[0].Should().BeApproximately(0.9987114510398362, 1e-12, because: "CAAAAG analytic p_unpaired(0)");
+        caaaag.PartitionFunction.Should().BeApproximately(1.0012909459959691, 1e-12, because: "CAAAAG analytic Z");
+        caaaag.BasePairProbabilities[(0, 5)].Should().BeApproximately(0.0012892816030459742, 1e-12, because: "CAAAAG analytic P(0,5)");
+        caaaag.UnpairedProbabilities[0].Should().BeApproximately(0.998710718396954, 1e-12, because: "CAAAAG analytic p_unpaired(0)");
 
         // INV under case folding: the constants are case-agnostic.
         var lower = RnaSecondaryStructure.CalculateUnpairedProbabilities("gaaac");

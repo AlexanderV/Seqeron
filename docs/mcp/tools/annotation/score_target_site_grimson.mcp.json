@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "score_target_site_grimson",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.ScoreTargetSiteGrimson",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.GrimsonContext.cs#L75",
+  "description": "TargetScan 5.0 / Grimson et al. (2007) context score of an 8mer, 7mer-m8 or 7mer-A1 site with its four contributions (log2 units).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mRnaSequence": {
+        "type": "string",
+        "description": "3′UTR / mRNA nucleotide sequence (T→U applied internally)",
+        "minLength": 1
+      },
+      "miRnaSequence": {
+        "type": "string",
+        "description": "miRNA nucleotide sequence",
+        "minLength": 1
+      },
+      "siteStart": {
+        "type": "integer",
+        "description": "0-based inclusive site start"
+      },
+      "siteEnd": {
+        "type": "integer",
+        "description": "0-based inclusive site end"
+      },
+      "siteType": {
+        "type": "string",
+        "description": "Seed8mer, Seed7merM8 or Seed7merA1 (others are not scored)",
+        "enum": [
+          "Seed8mer",
+          "Seed7merM8",
+          "Seed7merA1",
+          "Seed6mer",
+          "Offset6mer",
+          "Centered"
+        ]
+      }
+    },
+    "required": [
+      "mRnaSequence",
+      "miRnaSequence",
+      "siteStart",
+      "siteEnd",
+      "siteType"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "scored": {
+        "type": "boolean"
+      },
+      "score": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "siteTypeContribution": {
+            "type": "number"
+          },
+          "threePrimePairingContribution": {
+            "type": "number"
+          },
+          "localAuContribution": {
+            "type": "number"
+          },
+          "positionContribution": {
+            "type": "number"
+          },
+          "threePrimePairingScore": {
+            "type": "number"
+          },
+          "localAuFraction": {
+            "type": "number"
+          },
+          "contextScore": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "required": [
+      "scored"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "mRNA sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "miRNA sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Site indices [s, e] are out of range for sequence of length L"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown siteType (valid values listed)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "8mer in a poly-G 3′UTR",
+      "input": {
+        "mRnaSequence": "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGCUACCUCAGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+        "miRnaSequence": "UGAGGUAGUAGGUUGUAUAGUU",
+        "siteStart": 100,
+        "siteEnd": 107,
+        "siteType": "Seed8mer"
+      },
+      "output": {
+        "scored": true,
+        "score": {
+          "type": "Seed8mer",
+          "siteTypeContribution": -0.31,
+          "positionContribution": -0.053
+        }
+      }
+    }
+  ]
+}

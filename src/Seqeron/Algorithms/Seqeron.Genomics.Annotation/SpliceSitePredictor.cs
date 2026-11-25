@@ -1555,20 +1555,106 @@ public static class SpliceSitePredictor
     }
 
     /// <summary>
-    /// Finds retained intron candidates (introns that might be retained in some transcripts).
+    /// Sequence-level criteria for <see cref="FindRetainedIntronCandidates(string, RetainedIntronCriteria, double)"/>.
     /// </summary>
     /// <remarks>
-    /// Retention (rMATS / SUPPA RI: the intron and both flanking exons form one exon in a transcript)
-    /// is a transcript-level property that genomic sequence alone cannot establish. The candidates are
-    /// the predicted introns shorter than 500 nt with combined score below 0.8: retained introns of
-    /// mammals are short and have weaker splice sites (Braunschweig et al. 2014 Genome Res 24:1774).
-    /// The 500 nt / 0.8 cut-offs are heuristics, not published thresholds.
+    /// Braunschweig et al. 2014 (Genome Res 24:1774, PMC4216919) report that retained introns are, relative to
+    /// constitutively spliced introns, "on average shorter, more C/G rich, and associated with weaker splice
+    /// sites" (one-sided Mann-Whitney, all P &lt; 0.001; logistic "IR code" ROC AUC 0.79). The paper gives
+    /// directions only, no absolute cut-offs, so <see cref="MaxIntronLength"/>, <see cref="MaxIntronScore"/>
+    /// and <see cref="MinGcFraction"/> have NO default (null = criterion not applied). The reading-frame
+    /// criterion rests on Jacob &amp; Smith 2017 (Nat Rev Genet 18:437): a retained intron that keeps the ORF
+    /// open (no in-frame stop, length a multiple of 3) does not trigger nonsense-mediated decay.
+    /// </remarks>
+    /// <param name="MinIntronLength">Smallest intron considered (default 60, the <see cref="PredictIntrons(string,int,int,double)"/> default).</param>
+    /// <param name="MaxIntronLength">Longest intron considered; null = <c>100000</c> (the <see cref="PredictIntrons(string,int,int,double)"/> default).</param>
+    /// <param name="MaxIntronScore">Report only introns whose combined score is below this value (weak sites); null = off.</param>
+    /// <param name="MinGcFraction">Report only introns with at least this G+C fraction (0-1); null = off.</param>
+    /// <param name="RequireOpenReadingFrame">Require that, in at least one of the three phases of the surrounding frame,
+    /// no codon overlapping the intron is a stop codon (<see cref="Seqeron.Genomics.Core.GeneticCode.Standard"/>).</param>
+    /// <param name="RequireLengthMultipleOf3">Require intron length divisible by 3 (downstream frame preserved).</param>
+    public sealed record RetainedIntronCriteria(
+        int MinIntronLength = 60,
+        int? MaxIntronLength = null,
+        double? MaxIntronScore = null,
+        double? MinGcFraction = null,
+        bool RequireOpenReadingFrame = true,
+        bool RequireLengthMultipleOf3 = true);
+
+    /// <summary>
+    /// Finds retained-intron candidates with the default <see cref="RetainedIntronCriteria"/>
+    /// (open reading frame, length multiple of 3; no numeric cut-off).
+    /// </summary>
+    public static IEnumerable<Intron> FindRetainedIntronCandidates(string sequence, double minScore = 0.5) =>
+        FindRetainedIntronCandidates(sequence, new RetainedIntronCriteria(), minScore);
+
+    /// <summary>
+    /// Finds retained-intron candidates: predicted introns (<see cref="PredictIntrons(string,int,int,double)"/>)
+    /// that satisfy the sequence-level features of retained introns.
+    /// </summary>
+    /// <remarks>
+    /// Retention itself is defined by intron-body read coverage (PIR; Braunschweig 2014) and cannot be
+    /// established from sequence alone. Criteria (each optional, see <see cref="RetainedIntronCriteria"/>):
+    /// length, weak splice sites (combined intron score), high GC (Braunschweig 2014), and the open-frame
+    /// test (Jacob &amp; Smith 2017): the intron starts at phase p (0-2 exonic nt already in the codon); the
+    /// codons of the grid starting at <c>Start - p</c> that overlap the intron (flanking exon nt taken from
+    /// <paramref name="sequence"/>, complete codons only) must contain no stop codon; the candidate passes
+    /// when some phase satisfies it. T = U, case-insensitive.
     /// </remarks>
     public static IEnumerable<Intron> FindRetainedIntronCandidates(
         string sequence,
+        RetainedIntronCriteria criteria,
         double minScore = 0.5)
     {
-        return PredictIntrons(sequence, 60, 499, minScore).Where(i => i.Score < 0.8);
+        if (string.IsNullOrEmpty(sequence))
+            return Enumerable.Empty<Intron>();
+
+        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+        int maxLen = criteria.MaxIntronLength ?? 100000;
+        var result = new List<Intron>();
+        foreach (var intron in PredictIntrons(upper, criteria.MinIntronLength, maxLen, minScore))
+        {
+            if (criteria.MaxIntronScore is double maxScore && !(intron.Score < maxScore))
+                continue;
+            if (criteria.MinGcFraction is double minGc && GcFraction(intron.Sequence) < minGc)
+                continue;
+            if (criteria.RequireLengthMultipleOf3 && intron.Length % 3 != 0)
+                continue;
+            if (criteria.RequireOpenReadingFrame && !HasOpenFrame(upper, intron.Start, intron.End))
+                continue;
+            result.Add(intron);
+        }
+        return result;
+    }
+
+    private static double GcFraction(string s)
+    {
+        int gc = 0;
+        foreach (char c in s)
+            if (c == 'G' || c == 'C')
+                gc++;
+        return s.Length == 0 ? 0 : (double)gc / s.Length;
+    }
+
+    private static bool HasOpenFrame(string upper, int start, int end)
+    {
+        for (int phase = 0; phase < 3; phase++)
+        {
+            int codonStart = start - phase;
+            if (codonStart < 0)
+                continue;
+            bool open = true;
+            for (int k = codonStart; k <= end && open; k += 3)
+            {
+                if (k + 3 > upper.Length)
+                    break;
+                if (Seqeron.Genomics.Core.GeneticCode.Standard.IsStopCodon(upper.Substring(k, 3)))
+                    open = false;
+            }
+            if (open)
+                return true;
+        }
+        return false;
     }
 
     #endregion

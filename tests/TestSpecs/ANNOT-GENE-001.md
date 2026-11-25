@@ -7,7 +7,7 @@
 | **Test Unit ID** | ANNOT-GENE-001 |
 | **Area** | Annotation |
 | **Algorithm** | Gene Prediction |
-| **Canonical Methods** | `GenomeAnnotator.PredictGenes`, `GenomeAnnotator.FindRibosomeBindingSites` |
+| **Canonical Methods** | `GenomeAnnotator.PredictGenes`, `GenomeAnnotator.FindRibosomeBindingSites`, `GenomeAnnotator.TrainRbsModel`, `GenomeAnnotator.ClassifyRbsStart` |
 | **Complexity** | O(n) |
 | **Status** | ☑ Complete |
 
@@ -21,6 +21,7 @@
 | Shine & Dalgarno (1975) | Primary | Original SD sequence identification |
 | Chen et al. (1994) | Primary | Optimal aligned spacing: 5 nt (E. coli); functional range 4-15 bp |
 | Laursen et al. (2005) | Review | Bacterial translation initiation mechanisms |
+| Hyatt et al. (2010) / Prodigal V2.6.3 binary | Primary + oracle | Genome-trained RBS (28 motif/spacer bins) and start-type log-odds, self-supervised single-genome training, DP gene model; binary output on E. coli K-12 locked (A2) |
 
 ## Method Specifications
 
@@ -46,6 +47,14 @@
 - Only maximal motifs per start (no hit contained in another in-range hit); each (position, motif) reported once
 - Distance to start codon (aligned spacing) is within [minDistance, maxDistance]
 - Score is normalized (motif.Length / 6.0) — declared heuristic: published RBS scores need genome-trained weights (Prodigal) or a thermodynamic model (RBS Calculator)
+
+### 3. Prodigal start model (opt-in, review 2026-09 A2)
+
+- `TrainRbsModel(genome)` = Prodigal single-genome training (`-t`): 28 `rbs_wt` + 3 `type_wt` equal the binary training file (E. coli K-12 1-150 kb: |diff| < 1e-9; full E. coli and S. enterica genomes: 5e-5, see Evidence).
+- `ClassifyRbsStart(seq, start, strand, model?)` = Prodigal `rbs_score` (best exact + one-mismatch bin, weight rule).
+- `FindRibosomeBindingSites*(…, RbsScoreMode.LogOdds, model?)`: score = weight of the hit's (motif, spacer) bin; default `MotifLength` (len/6) unchanged.
+- `PredictGenes(…, StartSelection, model?)`: `LongestOrf` (default, unchanged), `ProdigalScore` (argmax coding+RBS+type+upstream per stop), `ProdigalDynamicProgramming` (complete Prodigal model; gene set identical to `prodigal -f gff`).
+- Prodigal modes train on the input (≥ 20 000 nt, else `ArgumentException`); genomes that do not use SD → `NotSupportedException` (non-SD trainer not ported).
 
 ## Test Cases
 
@@ -101,6 +110,7 @@
 |------|--------|
 | `GenomeAnnotator_Gene_Tests.cs` | Canonical: 32 tests (26 methods, 6 parametric cases) |
 | `GenomeAnnotatorTests.cs` | Retained: GFF3/promoter/other tests |
+| `GenomeAnnotator_ProdigalStart_Tests.cs` | A2 (22 methods/cases): training weights = Prodigal `-t` file (1e-9), DP gene set = `prodigal -f gff` (129/129), start agreement ProdigalScore 126/128 vs LongestOrf 81/128, 8 RBS-bin cases (independent Python port), reverse strand, score modes, gene-set training, validation. Oracle data `TestData/Prodigal/*` |
 
 ## Coverage Classification
 

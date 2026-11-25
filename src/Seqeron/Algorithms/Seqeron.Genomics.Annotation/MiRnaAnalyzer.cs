@@ -56,13 +56,6 @@ public static partial class MiRnaAnalyzer
         Seed7merA1,    // 7mer-A1: positions 2-7 + A at position 1
         Seed6mer,      // 6mer: positions 2-7
         Offset6mer,    // offset 6mer: positions 3-8
-        /// <summary>
-        /// Never emitted. 3'-supplementary pairing is not a site class: Grimson et al. (2007) treat it as an
-        /// additive term (the 3' pairing score) of a seed site — see
-        /// <see cref="MiRnaAnalyzer.ScoreTargetSiteGrimson(string, string, int, int, TargetSiteType)"/>.
-        /// Kept for backward compatibility of the public enum.
-        /// </summary>
-        Supplementary,
         /// <summary>Centered site (Shin et al. 2010): ≥ 11 contiguous Watson–Crick pairs at miRNA nt 4–15; emitted by <see cref="MiRnaAnalyzer.FindCenteredSites"/>, not by <see cref="MiRnaAnalyzer.FindTargetSites"/>.</summary>
         Centered
     }
@@ -2495,11 +2488,15 @@ public static partial class MiRnaAnalyzer
 
     #region Pre-miRNA Prediction
 
-    // Consecutive-pairing screen thresholds.
-    // Stem: pre-miRNA stems carry a ~22-bp miRNA duplex; >= 18 consecutive bp required — Krol et al. (2004).
+    // Consecutive-pairing screen thresholds — OPERATIONAL SCREEN PARAMETERS, NOT A PUBLISHED CRITERION.
+    // Stem: 18 consecutive bp is a fast-screen choice (a miRNA:miRNA* duplex spans ~22 nt, so a perfectly
+    // pairing stem of >= 18 bp is a conservative subset of the published >= 16 bp criterion, Ambros 2003, that
+    // the default MFE mode applies). Krol et al. (2004, JBC 279:42230) is a structure-probing study of 10
+    // human precursors and states no 18-bp threshold; it is cited only for G:U pairs / bulged stems.
     private const int HeuristicMinStemBasePairs = 18;
-    // Hairpin loop: NNDB Turner 2004 prohibits hairpin loops shorter than 3 nt; pre-miRNA terminal loops are
-    // ~3-15 nt, up to ~25 nt — Bartel (2004), Cell 116:281.
+    // Hairpin loop: NNDB Turner 2004 prohibits hairpin loops shorter than 3 nt (the lower bound). The upper bound
+    // 25 nt is the loop limit the MFE mode applies (Bartel 2004, Cell 116:281, loop range as cited there); both
+    // are screen parameters here, not a verified verbatim published criterion.
     private const int HeuristicMinTerminalLoop = 3;
     private const int HeuristicMaxTerminalLoop = 25;
 
@@ -3636,6 +3633,12 @@ public static partial class MiRnaAnalyzer
     /// <see cref="FindPreMiRnaHairpinsByMfe"/>) and their defaults are unchanged. The model was
     /// trained from PUBLIC-DOMAIN miRBase precursors against dinucleotide-shuffled negatives
     /// (Bonnet et al. 2004 convention); NO trained GPL miRDeep2 code or weights are used.
+    /// <para>
+    /// <b>This is an in-repo model, NOT a published classifier</b>: a small ridge-logistic regression
+    /// (13 positives, 52 shuffles, 5 features) whose training set and trainer live in this file. For a
+    /// published classifier with the authors' own trained model use
+    /// <see cref="ClassifyPreMiRnaTripletSvm"/> (Triplet-SVM, Xue et al. 2005).
+    /// </para>
     /// </summary>
     /// <param name="sequence">Candidate nucleotide sequence (RNA or DNA; T read as U; case-insensitive).</param>
     /// <param name="threshold">Decision threshold on P(natural) (default 0.5, the Bayes cutoff).</param>
@@ -4022,12 +4025,12 @@ public static partial class MiRnaAnalyzer
     /// </summary>
     /// <remarks>
     /// The input is TargetScan-normalised first (upper-case, T→U) so that no variant duplicates
-    /// the original. <paramref name="includeWobble"/> has no effect: every single substitution,
-    /// including those whose target-site pairing would be a G:U wobble, is always enumerated.
-    /// It is retained only for API compatibility.
+    /// the original. Every single substitution, including those whose target-site pairing would be a
+    /// G:U wobble, is enumerated; no source defines a narrower or wider wobble-specific variant set
+    /// for seeds.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="seedSequence"/> is null.</exception>
-    public static IEnumerable<string> GenerateSeedVariants(string seedSequence, bool includeWobble = true)
+    public static IEnumerable<string> GenerateSeedVariants(string seedSequence)
     {
         ArgumentNullException.ThrowIfNull(seedSequence);
         return GenerateSeedVariantsIterator(NormalizeSeed(seedSequence));

@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 using System.Text;
 
 namespace Seqeron.Genomics.Alignment;
@@ -81,6 +82,7 @@ public static class SequenceAssembler
     /// <see cref="AssemblyParameters.MinOverlap"/> &lt; 1, or <see cref="AssemblyParameters.MinIdentity"/>
     /// outside [0, 1].
     /// </exception>
+    /// <exception cref="ArgumentException">A read is null. (A null or empty read set returns an empty result.)</exception>
     public static AssemblyResult AssembleOLC(
         IReadOnlyList<string> reads,
         AssemblyParameters? parameters = null)
@@ -90,8 +92,10 @@ public static class SequenceAssembler
         var param = parameters ?? DefaultParameters;
         ValidateOverlapThresholds(param.MinOverlap, param.MinIdentity);
 
+        // A null read set is treated like an empty one (as AssembleDeBruijn); a null read is invalid.
         if (reads == null || reads.Count == 0)
             return new AssemblyResult(Array.Empty<string>(), 0, 0, 0, 0, 0);
+        RequireNoNullReads(reads, nameof(reads));
 
         // Overlap + Layout + Consensus (greedy layout over the substring-free read set).
         // Every read is placed in exactly one layout (as a path member or a contained read).
@@ -225,12 +229,17 @@ public static class SequenceAssembler
     /// over the O(N+a) suffix-tree approach because <paramref name="minIdentity"/> permits
     /// mismatches, which the exact-match suffix tree cannot model (Langmead OLC p.16).
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="reads"/> is null.</exception>
+    /// <exception cref="ArgumentException">A read is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minOverlap"/> &lt; 1 or <paramref name="minIdentity"/> outside [0, 1].</exception>
     public static IReadOnlyList<Overlap> FindAllOverlaps(
         IReadOnlyList<string> reads,
         int minOverlap = 20,
         double minIdentity = 0.9)
     {
         ValidateOverlapThresholds(minOverlap, minIdentity);
+        ArgumentNullException.ThrowIfNull(reads);
+        RequireNoNullReads(reads, nameof(reads));
         var overlaps = new List<Overlap>();
 
         for (int i = 0; i < reads.Count; i++)
@@ -261,6 +270,8 @@ public static class SequenceAssembler
     /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
     /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
     /// <returns>List of overlaps found.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="reads"/> is null.</exception>
+    /// <exception cref="ArgumentException">A read is null.</exception>
     public static IReadOnlyList<Overlap> FindAllOverlaps(
         IReadOnlyList<string> reads,
         int minOverlap,
@@ -269,6 +280,8 @@ public static class SequenceAssembler
         IProgress<double>? progress = null)
     {
         ValidateOverlapThresholds(minOverlap, minIdentity);
+        ArgumentNullException.ThrowIfNull(reads);
+        RequireNoNullReads(reads, nameof(reads));
         var overlaps = new List<Overlap>();
         int total = reads.Count * reads.Count;
         int processed = 0;
@@ -311,12 +324,15 @@ public static class SequenceAssembler
     /// <paramref name="minOverlap"/> &lt; 1 (an overlap of length 0 is no overlap), or
     /// <paramref name="minIdentity"/> outside [0, 1].
     /// </exception>
+    /// <exception cref="ArgumentNullException"><paramref name="seq1"/> or <paramref name="seq2"/> is null.</exception>
     public static (int length, int pos1, int pos2)? FindOverlap(
         string seq1, string seq2,
         int minOverlap = 20,
         double minIdentity = 0.9)
     {
         ValidateOverlapThresholds(minOverlap, minIdentity);
+        ArgumentNullException.ThrowIfNull(seq1);
+        ArgumentNullException.ThrowIfNull(seq2);
 
         // Check if suffix of seq1 overlaps with prefix of seq2
         int maxPossible = Math.Min(seq1.Length, seq2.Length);
@@ -340,8 +356,11 @@ public static class SequenceAssembler
     /// <c>1 − HammingDistance / length</c> (case-insensitive). Returns 0 for unequal lengths
     /// and 1 for two empty strings.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="seq1"/> or <paramref name="seq2"/> is null.</exception>
     public static double CalculateIdentity(string seq1, string seq2)
     {
+        ArgumentNullException.ThrowIfNull(seq1);
+        ArgumentNullException.ThrowIfNull(seq2);
         if (seq1.Length != seq2.Length) return 0;
         return WindowIdentity(seq1, seq2);
     }
@@ -354,6 +373,16 @@ public static class SequenceAssembler
     {
         if (a.Length == 0) return 1;
         return (double)(a.Length - a.HammingDistance(b)) / a.Length; // matches / L
+    }
+
+    /// <summary>A null element of a read/contig set is invalid input (not an empty sequence).</summary>
+    private static void RequireNoNullReads(IReadOnlyList<string> reads, string paramName)
+    {
+        for (int i = 0; i < reads.Count; i++)
+        {
+            if (reads[i] is null)
+                throw new ArgumentException($"{paramName}[{i}] is null.", paramName);
+        }
     }
 
     private static void ValidateOverlapThresholds(int minOverlap, double minIdentity)
@@ -573,24 +602,27 @@ public static class SequenceAssembler
         if (reads == null)
             return graph;
 
+        // Span lookup: a node string is allocated only for its first occurrence as a prefix.
+        var nodes = graph.GetAlternateLookup<ReadOnlySpan<char>>();
+
         foreach (string read in reads)
         {
             if (read == null || read.Length < k)
                 continue; // A read shorter than k contributes no k-mers (Langmead DBG p.16).
 
-            // Chop the read into k-mers: i in [0, read.Length - k].
-            for (int i = 0; i <= read.Length - k; i++)
+            // Chop the read into k-mers (canonical enumerator): i in [0, read.Length - k].
+            foreach (ReadOnlySpan<char> kmer in read.AsSpan().EnumerateKmers(k))
             {
-                string prefix = read.Substring(i, k - 1);     // left (k-1)-mer
-                string suffix = read.Substring(i + 1, k - 1); // right (k-1)-mer
+                ReadOnlySpan<char> prefix = kmer[..(k - 1)]; // left (k-1)-mer
+                ReadOnlySpan<char> suffix = kmer[1..];       // right (k-1)-mer
 
-                if (!graph.TryGetValue(prefix, out var neighbors))
+                if (!nodes.TryGetValue(prefix, out var neighbors))
                 {
                     neighbors = new List<string>();
-                    graph[prefix] = neighbors;
+                    nodes[prefix] = neighbors;
                 }
 
-                neighbors.Add(suffix);
+                neighbors.Add(suffix.ToString());
             }
         }
 
@@ -698,6 +730,7 @@ public static class SequenceAssembler
     private static List<string> SpellStrandPairsOnce(IReadOnlyList<IReadOnlyList<string>> paths)
     {
         var covered = new HashSet<string>(StringComparer.Ordinal);
+        var coveredLookup = covered.GetAlternateLookup<ReadOnlySpan<char>>();
         var contigs = new List<string>();
         foreach (var path in paths)
         {
@@ -706,11 +739,13 @@ public static class SequenceAssembler
             if (covered.Contains(contig[..k]))
                 continue;
 
-            for (int i = 0; i + k <= contig.Length; i++)
+            char[] rc = new char[k];
+            foreach (ReadOnlySpan<char> kmer in contig.AsSpan().EnumerateKmers(k))
             {
-                string kmer = contig.Substring(i, k);
-                covered.Add(kmer);
-                covered.Add(ReverseComplement(kmer));
+                coveredLookup.Add(kmer);
+                if (!kmer.TryGetReverseComplement(rc))
+                    throw new InvalidOperationException("Reverse-complement buffer too small.");
+                coveredLookup.Add(rc);
             }
 
             string reverse = ReverseComplement(contig);
@@ -753,9 +788,13 @@ public static class SequenceAssembler
     }
 
     /// <summary>Reverse complement through the canonical Core helper.</summary>
-    private static string ReverseComplement(string sequence) =>
-        string.Create(sequence.Length, sequence,
-            static (dest, src) => src.AsSpan().TryGetReverseComplement(dest));
+    private static string ReverseComplement(string sequence)
+    {
+        Span<char> buffer = sequence.Length <= 256 ? stackalloc char[sequence.Length] : new char[sequence.Length];
+        if (!sequence.AsSpan().TryGetReverseComplement(buffer))
+            throw new InvalidOperationException("Reverse-complement buffer too small.");
+        return new string(buffer);
+    }
 
     /// <summary>k-mers split into two (k-1)-mer nodes, so k must be at least 2 (Langmead DBG p.5).</summary>
     private static void ValidateDeBruijnK(int k)
@@ -783,6 +822,7 @@ public static class SequenceAssembler
     /// <see cref="int.MaxValue"/> are exact.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> is null.</exception>
+    /// <exception cref="ArgumentException">A contig is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="totalReads"/> is negative.</exception>
     public static AssemblyResult CalculateStats(
         IReadOnlyList<string> contigs, int totalReads)
@@ -796,6 +836,7 @@ public static class SequenceAssembler
     /// least the minimum contig length; Zerbino &amp; Birney 2008, <c>src/graphStats.c</c>).
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> is null.</exception>
+    /// <exception cref="ArgumentException">A contig is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="totalReads"/> is negative, or <paramref name="assembledReads"/> is outside [0, totalReads].
     /// </exception>
@@ -808,10 +849,11 @@ public static class SequenceAssembler
             throw new ArgumentOutOfRangeException(nameof(assembledReads), assembledReads,
                 "The number of assembled reads must lie in [0, totalReads].");
 
+        RequireNoNullReads(contigs, nameof(contigs));
         if (contigs.Count == 0)
             return new AssemblyResult(contigs, totalReads, assembledReads, 0, 0, 0);
 
-        var sortedLengths = contigs.Select(c => c?.Length ?? 0).OrderDescending().ToArray();
+        var sortedLengths = contigs.Select(c => c.Length).OrderDescending().ToArray();
         long totalLength = 0;
         foreach (int length in sortedLengths)
             totalLength += length;
@@ -969,9 +1011,9 @@ public static class SequenceAssembler
         {
             char p = contig1[start1 + i];
             char q = contig2[i];
-            if (char.ToUpperInvariant(p) == 'N') merged.Append(q);
-            else if (char.ToUpperInvariant(q) == 'N') merged.Append(p);
-            else if (char.ToUpperInvariant(p) != char.ToUpperInvariant(q))
+            if (SequenceCase.ToUpperAscii(p) == 'N') merged.Append(q);
+            else if (SequenceCase.ToUpperAscii(q) == 'N') merged.Append(p);
+            else if (SequenceCase.ToUpperAscii(p) != SequenceCase.ToUpperAscii(q))
                 merged.Append(MergerFirstHasBestQuality(contig1, contig2, start1 + i, i) ? p : q);
             else merged.Append(p);
         }
@@ -1010,7 +1052,7 @@ public static class SequenceAssembler
         return (float)(value / (window * 2.0 + 1.0));
     }
 
-    private static int MergerBasePoints(char c) => char.ToUpperInvariant(c) switch
+    private static int MergerBasePoints(char c) => SequenceCase.ToUpperAscii(c) switch
     {
         'A' or 'C' or 'G' or 'T' or 'U' => 2,
         'M' or 'R' or 'W' or 'S' or 'Y' or 'K' or 'V' or 'H' or 'D' or 'B' => 1,
@@ -1058,10 +1100,12 @@ public static class SequenceAssembler
     /// greedy rule, gap/overlap handling and output order.
     /// </summary>
     /// <param name="contigs">The contigs to scaffold, indexed by position; links reference these indices.</param>
-    /// <param name="links">Links <c>(contig1, contig2, gapSize)</c>; out-of-range and self links are ignored.</param>
+    /// <param name="links">Links <c>(contig1, contig2, gapSize)</c>; each index must lie in [0, contigs.Count) and the two contigs must differ.</param>
     /// <param name="gapCharacter">The character used to fill gaps between contigs (default <c>'N'</c>).</param>
     /// <returns>The scaffolds, one string per scaffold, ordered by their lowest contig index.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> or <paramref name="links"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A contig index is outside [0, contigs.Count).</exception>
+    /// <exception cref="ArgumentException">A contig is null, or a link joins a contig to itself.</exception>
     public static IReadOnlyList<string> Scaffold(
         IReadOnlyList<string> contigs,
         IReadOnlyList<(int contig1, int contig2, int gapSize)> links,
@@ -1113,11 +1157,12 @@ public static class SequenceAssembler
     /// link are singleton scaffolds. Scaffolds are listed by their lowest contig index.</para>
     /// </remarks>
     /// <param name="contigs">The contigs to scaffold, indexed by position; links reference these indices.</param>
-    /// <param name="links">Oriented, weighted links; out-of-range and self links are ignored.</param>
+    /// <param name="links">Oriented, weighted links; each index must lie in [0, contigs.Count) and the two contigs must differ.</param>
     /// <param name="gapCharacter">The character used to fill gaps between contigs (default <c>'N'</c>).</param>
     /// <returns>The scaffolds, one string per scaffold, ordered by their lowest contig index.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="contigs"/> or <paramref name="links"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A link has <see cref="ScaffoldLink.Weight"/> &lt; 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A link has <see cref="ScaffoldLink.Weight"/> &lt; 1 or a contig index outside [0, contigs.Count).</exception>
+    /// <exception cref="ArgumentException">A contig is null, or a link joins a contig to itself.</exception>
     public static IReadOnlyList<string> Scaffold(
         IReadOnlyList<string> contigs,
         IReadOnlyList<ScaffoldLink> links,
@@ -1125,8 +1170,18 @@ public static class SequenceAssembler
     {
         ArgumentNullException.ThrowIfNull(contigs);
         ArgumentNullException.ThrowIfNull(links);
+        RequireNoNullReads(contigs, nameof(contigs));
         for (int i = 0; i < links.Count; i++)
         {
+            if ((uint)links[i].Contig1 >= (uint)contigs.Count)
+                throw new ArgumentOutOfRangeException(nameof(links), links[i].Contig1,
+                    $"Link {i} references contig {links[i].Contig1}; valid indices are 0..{contigs.Count - 1}.");
+            if ((uint)links[i].Contig2 >= (uint)contigs.Count)
+                throw new ArgumentOutOfRangeException(nameof(links), links[i].Contig2,
+                    $"Link {i} references contig {links[i].Contig2}; valid indices are 0..{contigs.Count - 1}.");
+            if (links[i].Contig1 == links[i].Contig2)
+                throw new ArgumentException(
+                    $"Link {i} joins contig {links[i].Contig1} to itself; a scaffold link needs two distinct contigs.", nameof(links));
             if (links[i].Weight < 1)
                 throw new ArgumentOutOfRangeException(nameof(links), links[i].Weight,
                     $"Link {i} has weight {links[i].Weight}; a link is supported by at least one mate pair.");
@@ -1155,9 +1210,6 @@ public static class SequenceAssembler
         foreach (int li in order)
         {
             var link = links[li];
-            if ((uint)link.Contig1 >= (uint)n || (uint)link.Contig2 >= (uint)n || link.Contig1 == link.Contig2)
-                continue;
-
             int exit = 2 * link.Contig1 + (link.Contig1Reversed ? 0 : 1);
             int entry = 2 * link.Contig2 + (link.Contig2Reversed ? 1 : 0);
             if (partner[exit] >= 0 || partner[entry] >= 0) continue;   // end already joined (branch)
@@ -1245,7 +1297,7 @@ public static class SequenceAssembler
         int sinceGap = 0;                              // bases placed after the last gap run
         for (int i = 0; i < path.Count; i++)
         {
-            string seq = contigs[path[i].Contig] ?? string.Empty;
+            string seq = contigs[path[i].Contig];
             if (path[i].Reversed) seq = ReverseComplement(seq);
 
             if (i == 0)
@@ -1288,8 +1340,8 @@ public static class SequenceAssembler
         int start = placed.Length - overlap;
         for (int i = 0; i < overlap; i++)
         {
-            char a = char.ToUpperInvariant(placed[start + i]);
-            char b = char.ToUpperInvariant(next[i]);
+            char a = SequenceCase.ToUpperAscii(placed[start + i]);
+            char b = SequenceCase.ToUpperAscii(next[i]);
             if (a != b && a != 'N' && b != 'N') return false;
         }
 
@@ -1307,10 +1359,12 @@ public static class SequenceAssembler
     private const int DefaultMinOverlap = 20;
 
     /// <summary>
-    /// Calculates per-base sequencing coverage (read depth) along the reference, forward strand
-    /// only. Equivalent to
+    /// Calculates per-base sequencing coverage (read depth) along the reference, searching both
+    /// strands as Bowtie 2 and BWA do by default (<c>--nofw/--norc</c> disable one strand).
+    /// Equivalent to
     /// <see cref="CalculateCoverage(string, IReadOnlyList{string}, int, bool, bool)"/> with
-    /// <c>includeReverseComplement: false, excludeMultiMapped: false</c>.
+    /// <c>includeReverseComplement: true, excludeMultiMapped: false</c>; pass
+    /// <c>includeReverseComplement: false</c> to the five-argument overload for the forward strand only.
     /// </summary>
     /// <param name="reference">Reference sequence; depth is reported per position.</param>
     /// <param name="reads">Reads to map against the reference.</param>
@@ -1320,7 +1374,7 @@ public static class SequenceAssembler
     /// <exception cref="ArgumentException"><paramref name="reads"/> contains a null element.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minOverlap"/> is less than 1.</exception>
     public static int[] CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = DefaultMinOverlap) =>
-        CalculateCoverage(reference, reads, minOverlap, includeReverseComplement: false, excludeMultiMapped: false);
+        CalculateCoverage(reference, reads, minOverlap, includeReverseComplement: true, excludeMultiMapped: false);
 
     /// <summary>
     /// Calculates per-base sequencing coverage (read depth) along the reference.
@@ -1544,7 +1598,7 @@ public static class SequenceAssembler
             {
                 if (pos >= read.Length) continue;
 
-                char c = ignoreCase ? char.ToUpperInvariant(read[pos]) : read[pos];
+                char c = ignoreCase ? SequenceCase.ToUpperAscii(read[pos]) : read[pos];
                 if (c == GapDash || c == GapDot) continue;
 
                 counts[c] = counts.GetValueOrDefault(c, 0) + 1;
@@ -1588,19 +1642,22 @@ public static class SequenceAssembler
     private const int PhredAsciiOffset = 33;
 
     /// <summary>
-    /// Quality-trims reads using the BWA / cutadapt running-sum algorithm on both ends with the
-    /// same cutoff (cutadapt <c>-q C,C</c>), then drops reads shorter than <paramref name="minLength"/>.
+    /// Quality-trims the 3' end of reads with the BWA / cutadapt running-sum algorithm (a single
+    /// cutadapt <c>-q C</c> = <c>-q 0,C</c>; BWA <c>aln -q C</c>), then drops reads shorter than
+    /// <paramref name="minLength"/>.
     /// </summary>
     /// <remarks>
     /// Equivalent to <see cref="QualityTrimReads(IReadOnlyList{ValueTuple{string, string}}, int, int, int, int)"/>
-    /// with <c>cutoffFront = cutoffBack = minQuality</c> and Phred+33 qualities. Note that a single
-    /// cutadapt <c>-q C</c> (and BWA <c>aln -q C</c>) trims the 3' end only; use the five-argument
-    /// overload with <c>cutoffFront: 0</c> for that behaviour.
+    /// with <c>cutoffFront = 0, cutoffBack = minQuality</c> and Phred+33 qualities: cutadapt's
+    /// <c>-q [5'CUTOFF,]3'CUTOFF</c> documentation says "If only one cutoff is given, it is used for
+    /// the 3' end only", and BWA <c>bwa_trim_read</c> trims the 3' end only. Pass both cutoffs to the
+    /// five-argument overload (e.g. <c>cutoffFront: C, cutoffBack: C</c> = cutadapt <c>-q C,C</c>)
+    /// to trim both ends.
     /// A cutoff &lt; 1 disables trimming (BWA <c>trim_qual &lt; 1</c> guard; in cutadapt's loop the
     /// first step already makes the sum negative, so nothing is cut).
     /// </remarks>
     /// <param name="reads">Reads as (sequence, Phred+33 quality string) pairs; the two strings must be equal length per read.</param>
-    /// <param name="minQuality">Quality cutoff subtracted from each Phred score at both ends. Values &lt; 1 disable trimming.</param>
+    /// <param name="minQuality">Quality cutoff subtracted from each Phred score at the 3' end. Values &lt; 1 disable trimming.</param>
     /// <param name="minLength">Reads whose trimmed length is below this are dropped (cutadapt <c>-m</c>).</param>
     /// <returns>The surviving trimmed sequences, in input order.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="reads"/> or a read's sequence/quality is null.</exception>
@@ -1610,7 +1667,7 @@ public static class SequenceAssembler
         IReadOnlyList<(string sequence, string quality)> reads,
         int minQuality = 20,
         int minLength = 50)
-        => QualityTrimReads(reads, minQuality, minQuality, minLength, PhredAsciiOffset);
+        => QualityTrimReads(reads, 0, minQuality, minLength, PhredAsciiOffset);
 
     /// <summary>
     /// Quality-trims reads with cutadapt's <c>quality_trim_index</c> (the BWA <c>bwa_trim_read</c>
@@ -1729,13 +1786,15 @@ public static class SequenceAssembler
     // Musket 2-bit code order (kmer.cpp encode/decodeToUpper): A=0, C=1, G=2, T=3; complement = code ^ 3.
     private const string MusketBases = "ACGT";
 
-    // Default k-mer length (kept for backward compatibility; Musket's own default is 21 and it is
-    // data-dependent in practice). Callers should choose k from their genome size and coverage.
-    private const int DefaultErrorCorrectKmerSize = 15;
+    // Default k-mer length: Musket 1.1 option.cpp uses k = 21 when -k is not given
+    // (opt.klist.push_back(make_pair(21, 536870912))).
+    private const int DefaultErrorCorrectKmerSize = 21;
 
-    // Default trusted cut-off (Musket -minmulti; Musket itself estimates it from the valley of the
-    // k-mer histogram and discards singleton k-mers, so its effective cut-off is >= 2).
-    private const int DefaultMinKmerFrequency = 2;
+    // Default trusted cut-off (Musket -minmulti). Musket's default (-minmulti -1) estimates it from the
+    // k-mer histogram valley (main.cpp: valleyIndex starts at 2 and is incremented once more after the
+    // plateau scan, so the estimate is always >= 3). 3 is the smallest cut-off Musket can itself choose;
+    // a data-driven valley estimate is a separate option (not part of this default).
+    private const int DefaultMinKmerFrequency = 3;
 
     // Musket fixErroneousBase is called with minVote = 3 (paracorrect.cpp, ParaCorrect stage 3).
     private const int MusketMinimumVote = 3;
@@ -1773,7 +1832,19 @@ public static class SequenceAssembler
         /// <summary>
         /// The behaviour of the three-argument <see cref="ErrorCorrectReads(IReadOnlyList{string}, int, int)"/>:
         /// Musket stage 1 (two-sided conservative correction) only, iterated until no further unique
-        /// correction exists, over a forward-strand spectrum.
+        /// correction exists, over a canonical (both-strand) spectrum as in Musket.
+        /// </summary>
+        public static ErrorCorrectionOptions TwoSided { get; } = new()
+        {
+            CountReverseComplement = true,
+            MaxIterations = int.MaxValue,
+            MaxErrorsPerKmer = 0,
+        };
+
+        /// <summary>
+        /// Explicit opt-out of canonical counting: the two-sided stage over a forward-strand spectrum
+        /// (the pre-audit default of the three-argument overload). Reads from the opposite strand then
+        /// are not supported by the spectrum, which can leave them uncorrected or miscorrect them.
         /// </summary>
         public static ErrorCorrectionOptions TwoSidedForwardStrand { get; } = new()
         {
@@ -1785,10 +1856,11 @@ public static class SequenceAssembler
 
     /// <summary>
     /// Corrects substitution errors in reads with the conservative two-sided k-mer spectrum rule of
-    /// Musket (stage 1), over a forward-strand spectrum, iterating until no further unique correction
-    /// exists. Equivalent to
+    /// Musket (stage 1), over a canonical (both-strand) k-mer spectrum as Musket counts it, iterating
+    /// until no further unique correction exists. Equivalent to
     /// <see cref="ErrorCorrectReads(IReadOnlyList{string}, int, int, ErrorCorrectionOptions)"/> with
-    /// <see cref="ErrorCorrectionOptions.TwoSidedForwardStrand"/>.
+    /// <see cref="ErrorCorrectionOptions.TwoSided"/>; use
+    /// <see cref="ErrorCorrectionOptions.TwoSidedForwardStrand"/> for the forward-strand-only spectrum.
     /// </summary>
     /// <remarks>
     /// A k-mer is trusted (solid) when its multiplicity is ≥ <paramref name="minKmerFrequency"/>; a base
@@ -1812,7 +1884,7 @@ public static class SequenceAssembler
         IReadOnlyList<string> reads,
         int kmerSize = DefaultErrorCorrectKmerSize,
         int minKmerFrequency = DefaultMinKmerFrequency) =>
-        ErrorCorrectReads(reads, kmerSize, minKmerFrequency, ErrorCorrectionOptions.TwoSidedForwardStrand);
+        ErrorCorrectReads(reads, kmerSize, minKmerFrequency, ErrorCorrectionOptions.TwoSided);
 
     /// <summary>
     /// Corrects substitution errors in reads with the Musket multistage k-mer spectrum corrector

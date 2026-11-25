@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "pooled_rscu",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.GetCodonUsage",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#GetCodonUsage",
+  "description": "Relative Synonymous Codon Usage (RSCU = n*x/sum(x) per synonymous family) over in-frame coding sequences with counts pooled across sequences (CodonW -totals); stop codons excluded, unobserved family = 0.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "In-frame coding DNA or RNA sequences",
+        "minItems": 1
+      },
+      "geneticCode": {
+        "type": "integer",
+        "description": "NCBI translation table number (default 1)",
+        "default": 1
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "rscu": {
+        "type": "object",
+        "description": "Sense codon -> RSCU",
+        "additionalProperties": {
+          "type": "number"
+        }
+      }
+    },
+    "required": [
+      "rscu"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequences cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown genetic code table: N"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Leucine family pooled over two sequences",
+      "input": {
+        "sequences": [
+          "CTTCTTCTG",
+          "CTTTTA"
+        ]
+      },
+      "output": {
+        "rscu": {
+          "CTT": 3.6,
+          "CTG": 1.2,
+          "TTA": 1.2,
+          "CTC": 0.0,
+          "CTA": 0.0,
+          "TTG": 0.0
+        }
+      }
+    }
+  ]
+}

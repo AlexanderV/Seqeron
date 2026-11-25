@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "score_targetscan_conservation",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.ScoreTargetScanConservation",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.TargetScanConservation.cs#L612",
+  "description": "TargetScan 7.0 branch-length score, PCT and conservation call per site of a multi-species 3′UTR alignment.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "miRnaSeedOrMature": {
+        "type": "string",
+        "description": "7-nt seed region (miRNA nt 2–8) or a mature miRNA of ≥ 8 nt",
+        "minLength": 7
+      },
+      "alignedUtrs": {
+        "type": "object",
+        "description": "Species identifier → aligned 3′UTR (gaps '-'; lower case = ORF overlap)",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "speciesWithMiRna": {
+        "type": "array",
+        "description": "Species in which the miRNA family is annotated (only these are searched); default all",
+        "items": {
+          "type": "string"
+        }
+      },
+      "referenceSpecies": {
+        "type": "string",
+        "description": "Reference species for the UTR bin (default 9606)"
+      },
+      "utrBin": {
+        "type": "integer",
+        "description": "TargetScan bin 1–10 to use instead of the computed one",
+        "minimum": 1,
+        "maximum": 10
+      },
+      "thresholds": {
+        "type": "string",
+        "description": "TargetScanHuman7 (default) or TargetScanMouse7",
+        "enum": [
+          "TargetScanHuman7",
+          "TargetScanMouse7"
+        ]
+      }
+    },
+    "required": [
+      "miRnaSeedOrMature",
+      "alignedUtrs"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "utrBin": {
+        "type": "integer"
+      },
+      "medianBranchLength": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "groups": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "groupNumber": {
+              "type": "integer"
+            },
+            "groupType": {
+              "type": "string"
+            },
+            "siteTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "species": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sites": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "species": {
+                    "type": "string"
+                  },
+                  "msaStart": {
+                    "type": "integer"
+                  },
+                  "msaEnd": {
+                    "type": "integer"
+                  },
+                  "utrStart": {
+                    "type": "integer"
+                  },
+                  "utrEnd": {
+                    "type": "integer"
+                  },
+                  "siteType": {
+                    "type": "string"
+                  },
+                  "orfOverlap": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "speciesBySiteType": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "siteType": {
+                    "type": "string"
+                  },
+                  "species": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "site": {
+              "type": "object",
+              "properties": {
+                "species": {
+                  "type": "string"
+                },
+                "msaStart": {
+                  "type": "integer"
+                },
+                "msaEnd": {
+                  "type": "integer"
+                },
+                "utrStart": {
+                  "type": "integer"
+                },
+                "utrEnd": {
+                  "type": "integer"
+                },
+                "siteType": {
+                  "type": "string"
+                },
+                "orfOverlap": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "groupNumber": {
+              "type": "integer"
+            },
+            "speciesWithSite": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "branchLength": {
+              "type": "number"
+            },
+            "pct": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "conserved": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "required": [
+      "utrBin",
+      "groups",
+      "sites"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Expected the 7-nt seed region or a mature miRNA of >= 8 nt"
+    },
+    {
+      "code": 1001,
+      "message": "alignedUtrs cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "referenceSpecies cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "utrBin must be 1-10"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown thresholds (valid values listed)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Kit gene LIN28B, let-7/98",
+      "input": {
+        "miRnaSeedOrMature": "GAGGUAG",
+        "alignedUtrs": {
+          "9606": "<aligned UTR of the kit sample>",
+          "10090": "<…>"
+        },
+        "speciesWithMiRna": [
+          "10090",
+          "10116",
+          "9031",
+          "9606",
+          "9615"
+        ]
+      },
+      "output": {
+        "utrBin": 1,
+        "medianBranchLength": 1.12468545,
+        "sites": [
+          {
+            "groupNumber": 1,
+            "branchLength": 1.6379,
+            "pct": 0.0058,
+            "conserved": false
+          }
+        ]
+      }
+    }
+  ]
+}

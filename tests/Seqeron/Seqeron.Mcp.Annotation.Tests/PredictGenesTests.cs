@@ -60,4 +60,23 @@ public class PredictGenesTests
             Assert.That(forward.Attributes["translation"], Does.EndWith("*"));
         });
     }
+
+    [Test]
+    public void PredictGenes_StartSelection_DefaultEqualsLongestOrf()
+    {
+        var def = AnnotationTools.PredictGenes(CreateMinimalOrf(100), minOrfLength: 50);
+        var explicitMode = AnnotationTools.PredictGenes(CreateMinimalOrf(100), minOrfLength: 50, startSelection: "LongestOrf");
+
+        Assert.That(explicitMode.Genes.Select(g => (g.Start, g.End, g.Strand)), Is.EqualTo(def.Genes.Select(g => (g.Start, g.End, g.Strand))));
+    }
+
+    [Test]
+    public void PredictGenes_StartSelection_InvalidOrTooShortForProdigal_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => AnnotationTools.PredictGenes(CreateMinimalOrf(100), startSelection: "Bogus"));
+        Assert.Throws<ArgumentException>(() => AnnotationTools.PredictGenes(CreateMinimalOrf(100), startSelection: "7"));
+        // Prodigal modes train on the input: < 20000 nt cannot be trained on.
+        Assert.Throws<ArgumentException>(() => AnnotationTools.PredictGenes(CreateMinimalOrf(100), minOrfLength: 50, startSelection: "ProdigalScore"));
+        Assert.Throws<ArgumentException>(() => AnnotationTools.PredictGenes(CreateMinimalOrf(100), minOrfLength: 50, startSelection: "ProdigalDynamicProgramming"));
+    }
 }

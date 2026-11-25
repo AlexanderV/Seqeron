@@ -1,6 +1,6 @@
 # error_correct_reads
 
-Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schmidt & Maskell 2013). k-mers with multiplicity ≥ `minKmerFrequency` are trusted. Default: Musket stage 1 (two-sided conservative correction — per iteration, the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted is substituted; ambiguous positions unchanged), iterated to convergence over a forward-strand spectrum. `musket: true` runs the full Musket 1.1 corrector (canonical both-strand k-mers, `-maxiter 2`, `-maxerr 4`: adds the aggressive one-sided stage and the voting stage); `countReverseComplement` / `maxIterations` / `maxErrorsPerKmer` override the chosen preset.
+Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schmidt & Maskell 2013). k-mers with multiplicity ≥ `minKmerFrequency` are trusted. Default: Musket stage 1 (two-sided conservative correction — per iteration, the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted is substituted; ambiguous positions unchanged), iterated to convergence over a canonical (both-strand) k-mer spectrum as Musket counts it. `musket: true` runs the full Musket 1.1 corrector (canonical both-strand k-mers, `-maxiter 2`, `-maxerr 4`: adds the aggressive one-sided stage and the voting stage); `countReverseComplement: false` (forward-strand-only spectrum) / `maxIterations` / `maxErrorsPerKmer` override the chosen preset.
 
 ## Overview
 
@@ -14,7 +14,7 @@ Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schm
 
 ## Description
 
-Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schmidt & Maskell 2013). k-mers with multiplicity ≥ `minKmerFrequency` are trusted. Default: Musket stage 1 (two-sided conservative correction — per iteration, the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted is substituted; ambiguous positions unchanged), iterated to convergence over a forward-strand spectrum. `musket: true` runs the full Musket 1.1 corrector (canonical both-strand k-mers, `-maxiter 2`, `-maxerr 4`: adds the aggressive one-sided stage and the voting stage); `countReverseComplement` / `maxIterations` / `maxErrorsPerKmer` override the chosen preset.
+Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schmidt & Maskell 2013). k-mers with multiplicity ≥ `minKmerFrequency` are trusted. Default: Musket stage 1 (two-sided conservative correction — per iteration, the first untrusted position with exactly one alternative base making both its leftmost and rightmost covering k-mers trusted is substituted; ambiguous positions unchanged), iterated to convergence over a canonical (both-strand) k-mer spectrum as Musket counts it. `musket: true` runs the full Musket 1.1 corrector (canonical both-strand k-mers, `-maxiter 2`, `-maxerr 4`: adds the aggressive one-sided stage and the voting stage); `countReverseComplement: false` (forward-strand-only spectrum) / `maxIterations` / `maxErrorsPerKmer` override the chosen preset.
 
 ## Core Documentation Reference
 
@@ -25,8 +25,8 @@ Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schm
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `reads` | array<string> | Yes | Input reads. |
-| `kmerSize` | integer | No | K-mer size used to build the frequency table (>= 1). (default: 21) |
-| `minKmerFrequency` | integer | No | Trusted cut-off (>= 1), Musket `-minmulti`. (default: 3) |
+| `kmerSize` | integer | No | K-mer size used to build the frequency table (>= 1); Musket `-k` default. (default: 21) |
+| `minKmerFrequency` | integer | No | Trusted cut-off (>= 1), Musket `-minmulti`; 3 is the smallest cut-off Musket's own valley estimator can return. (default: 3) |
 | `musket` | boolean | No | Full Musket 1.1 corrector (both strands, `-maxiter 2`, `-maxerr 4`). (default: false) |
 | `countReverseComplement` | boolean | No | Optional: canonical (both-strand) k-mer counting; overrides the preset. |
 | `maxIterations` | integer | No | Optional: Musket `-maxiter` (>= 1); overrides the preset. |
@@ -122,10 +122,10 @@ Corrects substitution errors with the Musket k-mer spectrum corrector (Liu, Schm
 }
 ```
 
-The first three reads are the reverse complement of `GATTACAGGCTTC`. With canonical counting every genomic
-3-mer is trusted and the C→G error at index 6 is fixed. Without it (`musket: false`, default) the forward-only
-spectrum never sees the read's genomic k-mers, and the untrusted `GAT` at index 0 is changed to `AAT`
-(`AATTACGGGCTTC`), so use `musket: true` or `countReverseComplement: true` for double-stranded data.
+The first three reads are the reverse complement of `GATTACAGGCTTC`. With canonical counting (the default and
+`musket: true`) every genomic 3-mer is trusted and the C→G error at index 6 is fixed. With the explicit opt-out
+`countReverseComplement: false` the forward-only spectrum never sees the read's genomic k-mers, and the untrusted
+`GAT` at index 0 is changed to `AAT` (`AATTACGGGCTTC`).
 
 ## Worked Example
 

@@ -67,7 +67,7 @@ Input is upper-cased; `U` is folded to `T` for the shared engine (positions unch
 
 ### 4.1 Steps
 
-1. Normalise (upper case, U→T) and delegate to `RepeatFinder.FindMaximalStemsUpper` (shared with the DNA API, which additionally validates `minArmLength ≥ 2`).
+1. Normalise (upper case, U→T) and delegate to `RepeatFinder.FindMaximalStemsUpper` (shared with the DNA API, which additionally validates `minArmLength ≥ 1`).
 2. The engine enumerates inward-maximal stems by their innermost pair and loop, extends outward, and removes stems contained in both arms of a stem on a shifted diagonal (exact test, `IsContainedInShiftedStem`); with k mismatches it uses the EMBOSS `palindrome` candidate walk.
 3. Map `(LeftArmStart, RightArmStart, ArmLength)` to the tuple.
 

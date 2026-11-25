@@ -3760,7 +3760,7 @@ public static class RepeatFinder
     private static void ValidateInvertedRepeatParameters(
         int minArmLength, int maxLoopLength, int minLoopLength, int maxMismatches, int maxArmLength)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(minArmLength, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minArmLength, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(minLoopLength);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxLoopLength, minLoopLength);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMismatches);

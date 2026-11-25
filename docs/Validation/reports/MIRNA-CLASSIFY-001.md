@@ -172,3 +172,30 @@ Oracles: scikit-learn 1.9.1 / scipy 1.18.1 (fit), ViennaRNA 2.8.0 `RNA.fold` (ra
   `PreMiRnaFeatures.BasePairingPropensity`; docs no longer attribute raw MFE to Bonnet 2004 nor %paired to Xue 2005;
   threshold doc corrected (training prior 1 : 4, not balanced).
 - **F26 Bonnet 2004 randfold test** was missing: `CalculateRandfoldPValue` (randfold.c counting, ε 1e-7) added.
+
+---
+
+## B13 WP-9 / A12 (2026-11-25) — published classifier obtained: Triplet-SVM
+
+README rule: a published classifier must be implemented when obtainable. Sources tried (outcome):
+- bioinfo.au.tsinghua.edu.cn/mirnasvm/ (original Triplet-SVM site): connection failed from the review host.
+- GitHub repository search (`gh`/api, fetch): `PeterScott/mirna-prediction-nodejs` (web front end bundling the **unmodified Triplet-SVM package** `progs/triplet-svm-classifier060304` and MiPred) — raw files retrievable: trained model `models/trainset_hsa163_cds168_unite.txt.model` (SHA-256 c4f2825c…07f7), Perl scripts 1–4, readme and the 40-example run (`examples/`). **Obtained.**
+- MiPred (Ng & Mishra 2007) package in the same repository (`progs/MiPred`, Perl + R randomForest `microRNAcheck_parallel.pl` retrieved): needs R randomForest model files and RNAfold/RNAfold-derived features not retrievable as a reproducible reference here — not implemented (DOABLE only with the randomForest binaries; not attempted).
+- microPred, HuntMi, miRBoost, MiRPara, HextractoR, mirnaDetect, PyPI/Bioconductor packages: GitHub search returned no repository with a retrievable model (`microPred`: unrelated hits; `miRBoost`, `HuntMi`: none).
+
+Implemented: `ClassifyPreMiRnaTripletSvm` (+ `ComputeTripletFeatures`, `TripletSvmDecisionValue`) in `MiRnaAnalyzer.TripletSvm.cs` with the model in `MiRnaAnalyzer.TripletSvmModel.cs`. Cross-check: libsvm 3.36 (`svm_predict_values`, compiled from the PyPI sdist) on the package model reproduces the shipped `predict_result.txt` 40/40; the C# port equals the Perl pipeline + libsvm on 981 random folds (0 differences) and on 5 Seqeron-folded pri-miRNAs (decision values 1.0197–1.5514, all real) plus shuffles (3 of 5 give no stem-loop with 22 pairs per arm, 2 of 5 are false positives at 0.13 / 0.82).
+Licence note: the package and mirror state no licence; only the numeric model parameters are bundled (source URL + hash in the data file header).
+`ClassifyPreMiRna` stays as the in-repo model; its XML doc and docs now say it is not a published classifier.
+
+## B13 WP-R2-1 (2026-11-25) — published classifier obtained: MiPred (F47)
+
+The round-1 note above ("needs R randomForest model files ... not attempted") is superseded: the model and the script were retrievable and are now implemented.
+Attribution: MiPred is Jiang P, Wu H, Wang W, Ma W, Sun X, Lu Z, Nucleic Acids Res 35:W339 (doi:10.1093/nar/gkm368); Ng & Mishra 2007 (Bioinformatics 23:1321) is a different tool (miR-abela, source of dP).
+Sources opened: `raw.githubusercontent.com/PeterScott/mirna-prediction-nodejs/master/progs/MiPred/{model.RData (3,043,828 B, SHA-256 51dda943…eb46… see data header), microRNAcheck_parallel.pl (17,996 B, SHA-256 5b8fd4af…bb75), Note.txt}` (GitHub API listing was refused by the environment proxy; the exact file names were supplied); paper abstract/snippets via web search (feature groups: local contiguous triplet structure-sequence composition + MFE + randomization p-value; 1000 dinucleotide shuffles in the paper, 999 in the script).
+Safety handling: downloaded into its own directory; the Perl was READ as text only and never executed; `model.RData` was never `load()`ed/`readRDS()`ed — it was parsed with the pure-Python `rdata` reader (python `-I`), forest arrays extracted (ntree 1000, nrnodes 103, ndbigtree 9..103, 56,324 nodes = 28,662 terminal + 27,662 interior, nclass 2 (N, P), 34 numeric variables; each tree verified a consistent binary tree) and re-encoded compactly (~0.39 MB packed, 0.56 MB generated source).
+Script facts ported (line by line): input clean-up (`tr/atcgATCGUu/ /c`, delete whitespace, upper, T→U); fold; pre-judgement (`seq_fe <= -15 && pairs >= 18 && no multiloop && 51 <= len <= 137`; pairs = count of `(` unless the structure matches `\(\.+\)[.,()]*\(\.+\)` (second hairpin) in which case the count stays undefined); 32 triplet counts over positions 2..n−1 with nucleotide order A,U,G,C × `(((`,`((.`,`(.(`,`(..`,`.((`,`.(.`,`..(`,`...` (closing brackets are never counted — the `tr/)/(/` line is commented out in the script) divided by the sequence LENGTH; 999 randfold shuffles, p = (1 + #{≤})/1000 (the script's `cpt_ega` starts at 1 = randfold's rule = `CalculateRandfoldPValue`); features V1..V32, V33 = MFE (kcal/mol as printed), V34 = p; R `predict(model, test, type = "prob")[,2] > 0.5` ⇒ real.
+Verification: (1) traversal semantics against R itself — forests trained locally with R `randomForest` 4.7-1.1 on synthetic data, exported with `getTree` into the same encoding and loader, 560 rows incl. 160 split-point rows and 4 exact 30:30 ties, votes equal `predict(type = "vote", norm.votes = FALSE)` on all 560 (MP7); (2) the real forest: independent numpy traversal equals the C# votes on 10 feature vectors and 60 stored training rows; all 331 stored training rows are classified correctly in sample (163 P / 168 N); (3) the 5 miRBase precursors (hairpin parts of the RealPriMiRnas rows) are hairpin-like and vote real with the canonical fold (781, 823, 836, 802, 784 of 1000; the independent Python/ViennaRNA path 780, 823, 836, 801, 784); shuffled hairpins vote pseudo (270–322).
+Observations: the three long pri-miRNAs with flanks (hsa-mir-21: multiloop, hsa-let-7a-1: 140 nt) are rejected by the package's own pre-judgement — MiPred expects a precursor-sized hairpin; hsa-mir-155 (125 nt) and hsa-mir-30a (111 nt) with flanks pass and vote real.
+Not reproducible: the p-value feature (Perl `rand`, randfold triplet-swap shuffle, RNAfold 1.x energies) — the library's fixed-seed shuffle gives the same distribution (statistical agreement tested, MP9), not the same draw.
+Licence: the package states none; only numeric model parameters are bundled; flagged for the repository owner.
+

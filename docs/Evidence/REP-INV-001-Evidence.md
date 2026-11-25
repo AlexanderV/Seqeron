@@ -138,3 +138,6 @@ pair reached by the last diagonal step scores but is not counted, so `Score ≥ 
 | random 200 kb | wobble, k = 2 | 764 301 | 2.1 s |
 | random 5 kb | arm 2, unbounded loop, k = 1 | 808 585 | 7.2 s (output-bound) |
 | random 200 kb / 1 Mb | scored, maxrepeat 2000 | 0 / 2 | 3.2 s / 16 s |
+
+### minArmLength 1 (B11 for B04, R15, 2026-11-25)
+EMBOSS 6.6.0 `palindrome -minpallen 1 -maxpallen 100 -gaplimit 100 -nummismatches 0 -overlap Y` vs `RepeatFinder.FindInvertedRepeats(s, 1, 100, 0, 0, 100)`: 600 random A/C/G/T, A/T, G/C sequences (n 2-70), 80,052 stems, 0 differences. EMBOSS never tests an adjacent pair at minpallen 1 (`palindrome.c`: `for(rev = iend; rev > current + minLen; rev--)`), so arm-1 loop-0 stems are excluded from the comparison; N (EMBOSS pairs n-n inside mixed stems) not compared (RepeatFinder: non-ACGT never pair).

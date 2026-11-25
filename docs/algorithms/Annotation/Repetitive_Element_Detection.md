@@ -44,7 +44,7 @@ Among all exact stems, only those **not contained in both arms in another stem**
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | dnaSequence | string | required | DNA sequence to scan | non-null; case-insensitive (upper-cased internally) |
-| minRepeatLength | int | 10 | tandem: minimum total span (bp); inverted: minimum arm length (raised to 2, RepeatFinder's minimum stem) | ≥ 1 |
+| minRepeatLength | int | 10 | tandem: minimum total span (bp); inverted: minimum arm length (1 = a single base pair, EMBOSS `-minpallen` minimum) | ≥ 1 |
 | minCopies | int | 2 | minimum adjacent copies for a tandem repeat | ≥ 2 |
 | sequence (ClassifyRepeat) | string | required | repeat sequence to classify | non-null; case-insensitive |
 | repeatDb (ClassifyRepeat) | IReadOnlyDictionary<string,string> | required | library: element sequence → class label | non-null |
@@ -69,7 +69,7 @@ Coordinates are 0-based with exclusive end. The alphabet is DNA; input is upper-
 
 1. Validate inputs; upper-case the sequence.
 2. **Tandem repeats:** `RepeatFinder.FindMicrosatellites(seq, 1, 60, minCopies)` (one O(n) scan per period: visit run starts only, extend to the right-maximal end, report the primitive ACGT unit with its complete copies); keep runs with span ≥ `minRepeatLength`.
-3. **Inverted repeats:** `RepeatFinder.FindInvertedRepeats(seq, max(minRepeatLength, 2), 100, minLoopLength: 0, maxArmLength: max(100, arm minimum))` — maximal exact stems (EMBOSS palindrome model); the composite is `leftArm + rightArm` or `leftArm[loop]rightArm`.
+3. **Inverted repeats:** `RepeatFinder.FindInvertedRepeats(seq, minRepeatLength, 100, minLoopLength: 0, maxArmLength: max(100, arm minimum))` — maximal exact stems (EMBOSS palindrome model); the composite is `leftArm + rightArm` or `leftArm[loop]rightArm`.
 4. **Classification (exact):** the class of the longest library element occurring in the query on either strand (element or its reverse complement ⊆ query); **(scored):** the class of the library element with the best Smith-Waterman-Gotoh score (`SequenceAligner.LocalAlignAffine`, both strands) ≥ `minScore`, ties to the longer element; else `Simple_repeat` if the whole query is ≥ 2 complete copies of a primitive ACGT motif of 1–6 bp (`RepeatFinder.FindMicrosatellites`), else `Unknown`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
@@ -125,7 +125,6 @@ Detection is exact-match only (no mismatches/IUPAC degeneracy in arms). Tandem r
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Exact overload = containment (both strands); scored overload = SW-Gotoh with a match/mismatch scheme | Scope | RM matrices / complexity adjustment not reproduced | accepted | §5.3; Evidence |
-| 2 | Inverted-repeat arm minimum is max(minRepeatLength, 2) | Deviation | minRepeatLength 1 reports no arm-1 stems (EMBOSS `-minpallen` allows 1) | B04 request R15 (QUEUE.md) | RepeatFinder validates `minArmLength ≥ 2` |
 
 ## 6. Edge Cases and Limitations
 

@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fold_mirna_duplex",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.FoldMiRnaDuplex",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L690",
+  "description": "Minimum-free-energy miRNA·target duplex (RNAduplex / duplexfold model, Turner 2004): structure, base pairs and free energy.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "miRnaSequence": {
+        "type": "string",
+        "description": "miRNA nucleotide sequence",
+        "minLength": 1
+      },
+      "targetSequence": {
+        "type": "string",
+        "description": "Target nucleotide sequence",
+        "minLength": 1
+      },
+      "maxLoopSize": {
+        "type": "integer",
+        "description": "Maximum unpaired nt per side of an internal loop / bulge (default 30)",
+        "default": 30
+      }
+    },
+    "required": [
+      "miRnaSequence",
+      "targetSequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "found": {
+        "type": "boolean"
+      },
+      "duplex": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "miRnaSequence": {
+            "type": "string"
+          },
+          "targetSequence": {
+            "type": "string"
+          },
+          "miRnaStart": {
+            "type": "integer"
+          },
+          "miRnaEnd": {
+            "type": "integer"
+          },
+          "targetStart": {
+            "type": "integer"
+          },
+          "targetEnd": {
+            "type": "integer"
+          },
+          "structure": {
+            "type": "string",
+            "description": "RNAduplex notation"
+          },
+          "basePairs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "miRnaIndex": {
+                  "type": "integer"
+                },
+                "targetIndex": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "freeEnergy": {
+            "type": "number",
+            "description": "Turner 2004 kcal/mol"
+          }
+        }
+      }
+    },
+    "required": [
+      "found"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "miRNA sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Target sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "maxLoopSize must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Perfect let-7a duplex",
+      "input": {
+        "miRnaSequence": "UGAGGUAGUAGGUUGUAUAGUU",
+        "targetSequence": "AACUAUACAACCUACUACCUCA"
+      },
+      "output": {
+        "found": true,
+        "duplex": {
+          "structure": "((((((((((((((((((((((&))))))))))))))))))))))",
+          "freeEnergy": -35.9
+        }
+      }
+    }
+  ]
+}

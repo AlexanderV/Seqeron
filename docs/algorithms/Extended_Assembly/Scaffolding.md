@@ -80,7 +80,7 @@ first" [4]. A selected path is a scaffold: an ordering *and orientation* of its 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `contigs` | `IReadOnlyList<string>` | required | Contigs indexed by position | non-null; indices referenced by links |
-| `links` | `IReadOnlyList<(int contig1, int contig2, int gapSize)>` | required | Forward links (both `+`, weight 1) | non-null; out-of-range / self indices ignored |
+| `links` | `IReadOnlyList<(int contig1, int contig2, int gapSize)>` | required | Forward links (both `+`, weight 1) | non-null; each index in `[0, contigs.Count)` and `contig1 ≠ contig2` (else `ArgumentOutOfRangeException` / `ArgumentException`) |
 | `links` (overload) | `IReadOnlyList<ScaffoldLink>` | required | `ScaffoldLink(Contig1, Contig2, GapSize, Contig1Reversed=false, Contig2Reversed=false, Weight=1)` | non-null; `Weight ≥ 1` else `ArgumentOutOfRangeException` |
 | `gapCharacter` | `char` | `'N'` | Character used to fill gaps | any char |
 
@@ -92,9 +92,10 @@ first" [4]. A selected path is a scaffold: an ordering *and orientation* of its 
 
 ### 3.3 Preconditions and Validation
 
-Null `contigs` or `links` raise `ArgumentNullException`. An empty `contigs` list returns an empty
-result. Link indices are 0-based positions into `contigs`; a link whose `contig1` or `contig2` is
-out of range, or whose endpoints are equal, is ignored. Contigs without a selected link are
+Null `contigs` or `links` raise `ArgumentNullException`; a null contig raises `ArgumentException`. An empty
+`contigs` list returns an empty result. Link indices are 0-based positions into `contigs`; a link whose
+`contig1` or `contig2` is out of range raises `ArgumentOutOfRangeException` and one whose endpoints are equal
+raises `ArgumentException` (invalid links are rejected eagerly, never silently dropped; R1-WP2 / A5-6). Contigs without a selected link are
 single-contig scaffolds. Case is preserved; reverse complements use the Core IUPAC complement.
 
 ## 4. Algorithm
@@ -187,7 +188,7 @@ overlap collapse when the −d bases agree [1][6]; 100-character unknown gap oth
 | `gapSize = 0` | 100 gap characters | Zero-length gap invalid [2] |
 | `gapSize < 0`, overlap agrees | Collapsed (`ACGTAC`+`TACGGA`, −3 → `ACGTACGGA`) | [1][6] |
 | `gapSize < 0`, overlap disagrees or too long | 100 gap characters | [2] |
-| Out-of-range / self link | Ignored | Indices must reference distinct existing contigs |
+| Out-of-range / self link | `ArgumentOutOfRangeException` / `ArgumentException` | Indices must reference distinct existing contigs (R1-WP2 / A5-6) |
 | `Weight < 1` | `ArgumentOutOfRangeException` | Weight = number of mate pairs |
 | Null `contigs` / `links` | `ArgumentNullException` | Input validation |
 

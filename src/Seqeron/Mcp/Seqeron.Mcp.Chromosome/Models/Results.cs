@@ -161,7 +161,9 @@ public record SuspiciousRegion(
     int Start,
     int End,
     string Reason,
-    double Score);
+    double MaxGcDeviation,
+    double MaxNFraction,
+    double MaxDustScore);
 
 public record SuspiciousRegionsResult(IReadOnlyList<SuspiciousRegion> Items);
 

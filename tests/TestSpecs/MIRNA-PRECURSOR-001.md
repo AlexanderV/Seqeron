@@ -32,7 +32,7 @@
 ### 1.2 Key Evidence Points
 
 1. Pre-miRNAs are ~60–120 nt hairpin structures — Bartel (2004)
-2. Stem length ≥18–22 bp required for Drosha/Dicer processing — Krol (2004)
+2. Stem length: the consecutive-pairing screen uses ≥18 bp as an **operational screen parameter, not a published criterion** (Krol 2004 states no 18-bp threshold; the published criterion is ≥16 bp, Ambros 2003, used by the default MFE mode)
 3. Terminal loop size typically 3–15 nt (up to 25 nt in some cases) — Bartel (2004)
 4. Mature miRNA is ~22 nt, from one arm of the hairpin — Bartel (2009)
 5. Star (passenger) strand from opposite arm — Wikipedia/MicroRNA (citing Bartel 2004)

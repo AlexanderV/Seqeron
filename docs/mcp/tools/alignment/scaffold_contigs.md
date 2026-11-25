@@ -39,7 +39,8 @@ Order and orient contigs into scaffolds from paired-end links with the greedy pa
 | Code | Message |
 |------|---------|
 | 1013 | gapCharacter must be exactly one character |
-| — | ArgumentOutOfRangeException: a link weight < 1 |
+| — | ArgumentOutOfRangeException: a link weight < 1, or a link contig index outside [0, contigs.Length) |
+| — | ArgumentException: contigs is null or contains a null contig, or a link joins a contig to itself |
 
 ## Examples
 

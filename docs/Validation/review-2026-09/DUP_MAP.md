@@ -147,7 +147,7 @@ Re-implementations (not delegating):
 | `Analysis/SequenceStatistics.cs:899` `CalculateGcContentProfile` (inline :915-930) | public | ACGTU. It duplicates `GcSkewCalculator.CalculateWindowedGcContentCore` (:364), and the two **disagree on RNA** |
 | `MolTools/PrimerDesigner.cs:1747` `GcFraction` | private | ACGT only (fine for the DNA-only Owczarzy correction). Same as the canonical for DNA |
 | `IO/FastqParser.cs:344` `CalculateStatistics` (GC inline :372-376) | public | **Denominator = totalBases incl. N**. Differs from the canonical |
-| `Chromosome/GenomeAssemblyAnalyzer.cs:202/210` `CountGC`/`CountBases` | private | Denominator = all non-N chars (IUPAC and gaps included). DIFF |
+| `Chromosome/GenomeAssemblyAnalyzer.cs:202/210` `CountGC`/`CountBases` | private | Denominator = all non-N chars (IUPAC and gaps included). DIFF | — **resolved by B10 F10** (2026-11-25)
 | `MolTools/CodonOptimizer.cs:963` `GetCodonGcContent` | private | Per-codon; fine |
 | `MolTools/CrisprDesigner.cs:557`, `MolTools/AzimuthRuleSet2.cs:179` | private | Fixed-window GC counts inside validated ACGT-only feature code. **LEGIT** |
 
@@ -238,9 +238,9 @@ Two MCP tools both named `can_pair` return different results for inputs containi
 ## 13. Linguistic complexity — MEDIUM (same name, three formulas)
 - `Analysis/SequenceComplexity.cs:29` (→:34): Σobserved/Σpossible over k=1..10 (Trifonov product form).
 - `Analysis/SequenceStatistics.cs:761`: **mean of the per-k ratios**, k=1..6.
-- `Chromosome/GenomeAssemblyAnalyzer.cs:1052` (private): single k=4, skips N-containing k-mers.
+- `Chromosome/GenomeAssemblyAnalyzer.cs:1052` (private): single k=4, skips N-containing k-mers. — **resolved by B10 F52** (2026-11-25)
 
-All three are called "linguistic complexity" but return different numbers. **Fix:** pick SequenceComplexity as canonical. SequenceStatistics should delegate (or be renamed "mean vocabulary usage"). GenomeAssemblyAnalyzer should call it with `maxWordLength=4`, or be renamed.
+All three are called "linguistic complexity" but return different numbers. **Fix:** pick SequenceComplexity as canonical. SequenceStatistics should delegate (or be renamed "mean vocabulary usage"). GenomeAssemblyAnalyzer should call it with `maxWordLength=4`, or be renamed. — **resolved by B10 F52** (2026-11-25)
 
 ## 14. Phred ↔ error probability & encoding detection — MEDIUM
 | Location | Vis. | p≤0 | p≥1 | rounding |
@@ -261,9 +261,9 @@ Encoding detection:
 Stats: `IO/FastqParser.cs:344` `CalculateStatistics` overlaps with `IO/QualityScoreAnalyzer.cs:377/404` (Q20/Q30/mean). **Fix:** FastqParser should delegate encoding detection and quality statistics to QualityScoreAnalyzer.
 
 ## 15. N50 — MEDIUM (bug)
-- **Canonical:** `Chromosome/GenomeAssemblyAnalyzer.cs:233/272/290` `CalculateNx`/`CalculateN50`. Integer-exact `cum*100 ≥ total*x` (QUAST), long totals.
-- `Alignment/SequenceAssembler.cs:570` `CalculateStats`: `halfLength = totalLength/2` (integer division) and an `int` total. **BUG:** for odd totals it stops one contig early. For lengths {4,3,2} it gives N50=4 (canonical: 3). It also overflows above 2^31 bp. Backs MCP `assembly_stats` / `assemble_*` (`AlignmentTools.cs:332`), while the Chromosome MCP `assembly_statistics` uses the canonical.
-- **Fix:** `SequenceAssembler.CalculateStats` should call `GenomeAssemblyAnalyzer.CalculateN50` (or move Nx to a shared place, because Alignment does not reference Chromosome).
+- **Canonical:** `Chromosome/GenomeAssemblyAnalyzer.cs:233/272/290` `CalculateNx`/`CalculateN50`. Integer-exact `cum*100 ≥ total*x` (QUAST), long totals. — **resolved by B10 F8** (2026-11-25)
+- `Alignment/SequenceAssembler.cs:570` `CalculateStats`: `halfLength = totalLength/2` (integer division) and an `int` total. **BUG:** for odd totals it stops one contig early. For lengths {4,3,2} it gives N50=4 (canonical: 3). It also overflows above 2^31 bp. Backs MCP `assembly_stats` / `assemble_*` (`AlignmentTools.cs:332`), while the Chromosome MCP `assembly_statistics` uses the canonical. — **resolved by B10 F8** (2026-11-25)
+- **Fix:** `SequenceAssembler.CalculateStats` should call `GenomeAssemblyAnalyzer.CalculateN50` (or move Nx to a shared place, because Alignment does not reference Chromosome). — **resolved by B10 F8** (2026-11-25)
 
 ## 16. Hamming / identity / k-mer similarity — LOW-MEDIUM
 - Hamming: `Core/SequenceExtensions.cs:388` (span) and `Alignment/ApproximateMatcher.cs:180` (string) are **ID** (case-insensitive, throw on unequal length). `MolTools/CrisprDesigner.cs:400` `CountMismatches` is case-sensitive and returns `int.MaxValue` on unequal length. `ApproximateMatcher.cs:405` `HammingDistanceFast` adds the length difference (**LEGIT** different). **Fix:** ApproximateMatcher should delegate to the span version, and CRISPR should call it after its ACGT validation.
@@ -285,7 +285,7 @@ Stats: `IO/FastqParser.cs:344` `CalculateStatistics` overlaps with `IO/QualitySc
   - `Annotation/GenomeAnnotator.cs:884`: private; primitive and left-maximal, deduplicated.
   - `Chromosome/GenomeAssemblyAnalyzer.cs:745`: 80% purity, approximate.
   - `Analysis/RepeatFinder.cs:22-82` `FindMicrosatellites`.
-  - GenomeAnnotator's exact core is the most correct. GenomicAnalyzer should adopt it. The purity-based search is **LEGIT** different.
+  - GenomeAnnotator's exact core is the most correct. GenomicAnalyzer should adopt it. The purity-based search is **LEGIT** different. — **resolved by B10 F50** (2026-11-25): the purity search was unsourced and now delegates to RepeatFinder TRF.
 - Inverted repeats:
   - `Analysis/RepeatFinder.cs:697`: DNA, loop ≥ minLoop.
   - `Annotation/GenomeAnnotator.cs:958`: private, DNA, gap ≥ 0.

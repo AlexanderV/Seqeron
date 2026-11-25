@@ -483,10 +483,14 @@ public class MiRnaAnalyzer_SeedAnalysis_Tests
     }
 
     [Test]
-    public void GenerateSeedVariants_IncludeWobbleFlag_HasNoEffect()
+    public void GenerateSeedVariants_SevenNtSeed_Yields22_AndHasOnlyTheSingleArgumentOverload()
     {
-        Assert.That(GenerateSeedVariants("GAGGUAG", includeWobble: false),
-            Is.EqualTo(GenerateSeedVariants("GAGGUAG", includeWobble: true)));
+        Assert.That(GenerateSeedVariants("GAGGUAG").ToList(), Has.Count.EqualTo(22));
+        // R2-A3: the dead (string, bool includeWobble) overload was removed.
+        var overloads = typeof(Seqeron.Genomics.Annotation.MiRnaAnalyzer).GetMethods()
+            .Where(m => m.Name == nameof(GenerateSeedVariants)).ToList();
+        Assert.That(overloads, Has.Count.EqualTo(1));
+        Assert.That(overloads[0].GetParameters(), Has.Length.EqualTo(1));
     }
 
     [Test]

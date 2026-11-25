@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "classify_pre_mirna_triplet_svm",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.ClassifyPreMiRnaTripletSvm",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.TripletSvm.cs#L59",
+  "description": "Published Triplet-SVM pre-miRNA classifier (Xue et al. 2005) with the authors' trained libsvm model.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Query nucleotide sequence (RNA or DNA; T read as U)"
+      },
+      "dotBracket": {
+        "type": "string",
+        "description": "Optional structure in '.()' notation (same length); folded when omitted"
+      },
+      "minBasePairs": {
+        "type": "integer",
+        "description": "Minimum paired bases per arm of a retrieved stem-loop (≥ 1)",
+        "default": 22
+      },
+      "minLoopSize": {
+        "type": "integer",
+        "description": "Minimum hairpin loop size of the fold (≥ 0; only when folding)",
+        "default": 3
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "found": {
+        "type": "boolean",
+        "description": "True iff at least one stem-loop was scored"
+      },
+      "candidates": {
+        "type": "array",
+        "description": "One entry per scored stem-loop (start, end, sequence, dotBracket, features, decisionValue, isPreMiRna)"
+      }
+    },
+    "required": [
+      "found",
+      "candidates"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "minBasePairs must be >= 1"
+    },
+    {
+      "code": 1001,
+      "message": "minLoopSize must be >= 0"
+    },
+    {
+      "code": 1001,
+      "message": "dotBracket must have the same length as the sequence."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Supplied structure, 4 bp arms",
+      "input": {
+        "sequence": "GGGGAAAACCCC",
+        "dotBracket": "((((....))))",
+        "minBasePairs": 3
+      },
+      "output": {
+        "found": true,
+        "candidates": [
+          {
+            "start": 1,
+            "end": 12,
+            "dotBracket": "((((....))))"
+          }
+        ]
+      }
+    }
+  ]
+}

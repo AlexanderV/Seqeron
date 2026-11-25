@@ -172,6 +172,32 @@ public class SequenceAssemblerTests
         });
     }
 
+    // A1-5 — null input is rejected eagerly and consistently: a null collection → ArgumentNullException,
+    // a null element → ArgumentException (CalculateStats no longer counts a null contig as length 0).
+    [Test]
+    public void NullCollectionsAndElements_AreRejected()
+    {
+        var withNull = new[] { "ACGTACGTAC", null!, "ACGTACGTAC" };
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => SequenceAssembler.CalculateStats(withNull, 3));
+            Assert.Throws<ArgumentException>(() => SequenceAssembler.CalculateStats(withNull, 3, 2));
+            Assert.Throws<ArgumentException>(() => SequenceAssembler.AssembleOLC(withNull));
+            Assert.Throws<ArgumentNullException>(() => SequenceAssembler.FindAllOverlaps(null!));
+            Assert.Throws<ArgumentNullException>(() => SequenceAssembler.FindAllOverlaps(
+                null!, 5, 0.9, CancellationToken.None));
+            Assert.Throws<ArgumentException>(() => SequenceAssembler.FindAllOverlaps(withNull, 5));
+            Assert.Throws<ArgumentException>(() => SequenceAssembler.FindAllOverlaps(
+                withNull, 5, 0.9, CancellationToken.None));
+            Assert.Throws<ArgumentNullException>(() => SequenceAssembler.FindOverlap(null!, "ACGT", 2));
+            Assert.Throws<ArgumentNullException>(() => SequenceAssembler.FindOverlap("ACGT", null!, 2));
+            Assert.Throws<ArgumentNullException>(() => SequenceAssembler.CalculateIdentity(null!, "ACGT"));
+            Assert.Throws<ArgumentNullException>(() => SequenceAssembler.CalculateIdentity("ACGT", null!));
+            Assert.That(SequenceAssembler.AssembleOLC(null!).Contigs, Is.Empty, "a null read SET stays an empty result");
+        });
+    }
+
     // Velvet usedReads (graphStats.c): a read is used when it lies on a reported contig (node of at
     // least the minimum contig length). r1+r2 overlap by 6 -> contig of 14 (kept); r3 alone (10) is
     // filtered by MinContigLength 12 -> 2 of 3 reads assembled.

@@ -292,9 +292,118 @@ public class GenomeAssemblyAnalyzer_AssemblyStatistics_Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateNx(new[] { 3, 2 }, -5, 50));
             Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateNx(new[] { 2, 3 }, 5, 50));
             Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateNx(new[] { 3, -1 }, 2, 50));
-            Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateNxCurve(new[] { 3, 2 }, 150).ToList());
+            // A3-3: the curve validates eagerly (no enumeration needed to observe the error).
+            Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateNxCurve(new[] { 3, 2 }, 150));
         });
     }
+
+    // A3-3 — null / invalid inputs are rejected eagerly with ArgumentNullException / ArgumentException
+    // (no NullReferenceException, no lazy iterator failure).
+    [Test]
+    public void NullAndInvalidInputs_ThrowEagerly()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateStatistics(null!));
+            Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateStatistics(
+                new[] { ("a", "ACGT"), ("b", (string)null!) }));
+            Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateNx((IEnumerable<int>)null!, 50));
+            Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateNx((IReadOnlyList<int>)null!, 5, 50));
+            Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateN50(null!));
+            Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateAuN(null!));
+            Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateAuN(new[] { 3, -1 }));
+            Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateLengthDistribution(null!));
+            Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateLengthDistribution(new[] { 1 }, null!));
+        });
+    }
+
+    // A3-4 — auN accumulates Σl² and Σl exactly (QUAST au_metric uses Python integers). With
+    // lengths whose squares exceed 2^53 a double accumulation loses the low bits; oracle values
+    // from tools/review/oracles/B10/stats_oracle.py (correctly rounded Fraction(Σl², Σl)).
+    [TestCase(new[] { 2000000000, 1999999999, 1500000001, 3, 1 }, 1863636362.0991735)]   // Σ=5 500 000 004, Σl²≈1.0e19 > 2^63
+    [TestCase(new[] { 94906267, 94906267, 1 }, 94906266.50000001)]                       // Σl² = 18 014 399 031 750 579 > 2^53
+    public void CalculateAuN_BeyondDoublePrecision_MatchesExactQuastValue(int[] lengths, double expected)
+    {
+        Assert.That(GenomeAssemblyAnalyzer.CalculateAuN(lengths), Is.EqualTo(expected).Within(1).Ulps);
+    }
+
+    // A3-4 — 50 × int.MaxValue + 1: Σl² > 2^63 (would overflow a 64-bit sum); oracle 2147483646.98.
+    [Test]
+    public void CalculateAuN_SumOfSquaresAbove2Pow63_NoOverflow()
+    {
+        var lengths = Enumerable.Repeat(int.MaxValue, 50).Append(1).ToArray();
+        Assert.That(GenomeAssemblyAnalyzer.CalculateAuN(lengths), Is.EqualTo(2147483646.98).Within(1).Ulps);
+    }
+
+    #region CalculateNxCurve (A3-6)
+
+    // Oracle (QUAST NG50_and_LG50 with reference = Σl): Assembly B {80,70,50,40,30,20,10,5}.
+    private static readonly (int T, int Nx, int Lx)[] AssemblyBDecileCurve =
+    {
+        (10, 80, 1), (20, 80, 1), (30, 70, 2), (40, 70, 2), (50, 50, 3), (60, 50, 3), (70, 40, 4), (80, 30, 5), (90, 20, 6),
+    };
+
+    [Test]
+    public void CalculateNxCurve_DefaultThresholds_AreDecilesInAscendingOrder_MatchQuastOracle()
+    {
+        var curve = GenomeAssemblyAnalyzer.CalculateNxCurve(AssemblyB.Reverse()).ToList();
+
+        Assert.That(curve.Select(c => (c.Threshold, c.Nx, c.Lx)), Is.EqualTo(AssemblyBDecileCurve),
+            "default thresholds 10..90 in ascending order, each point = QUAST NG50_and_LG50 (input order irrelevant)");
+    }
+
+    [Test]
+    public void CalculateNxCurve_Oracle_500_400_300_200_100()
+    {
+        var curve = GenomeAssemblyAnalyzer.CalculateNxCurve(new[] { 100, 300, 500, 200, 400 }).ToList();
+
+        Assert.That(curve.Select(c => (c.Threshold, c.Nx, c.Lx)), Is.EqualTo(new[]
+        {
+            (10, 500, 1), (20, 500, 1), (30, 500, 1), (40, 400, 2), (50, 400, 2), (60, 400, 2),
+            (70, 300, 3), (80, 300, 3), (90, 200, 4),
+        }));
+    }
+
+    [Test]
+    public void CalculateNxCurve_ExplicitThresholds_SortedAscending_DuplicatesKept()
+    {
+        var curve = GenomeAssemblyAnalyzer.CalculateNxCurve(AssemblyB, 90, 50, 50, 0, 100).ToList();
+
+        Assert.That(curve.Select(c => c.Threshold), Is.EqualTo(new[] { 0, 50, 50, 90, 100 }));
+        Assert.That(curve[1], Is.EqualTo(curve[2]), "a repeated threshold yields an identical repeated entry");
+        Assert.That(curve[1].Nx, Is.EqualTo(50));
+        Assert.That(curve[0].Nx, Is.EqualTo(80), "N0: the first contig already reaches 0% (QUAST: s <= limit at the first length)");
+        Assert.That(curve[4].Nx, Is.EqualTo(5), "N100 is the shortest contig (all 305 bases needed)");
+        Assert.That(curve[4].Lx, Is.EqualTo(8));
+    }
+
+    [Test]
+    public void CalculateNxCurve_PointsEqualCalculateNx()
+    {
+        foreach (var point in GenomeAssemblyAnalyzer.CalculateNxCurve(AssemblyA, 25, 50, 75))
+            Assert.That(point, Is.EqualTo(GenomeAssemblyAnalyzer.CalculateNx(AssemblyA, point.Threshold)));
+    }
+
+    [Test]
+    public void CalculateNxCurve_EmptyLengths_ZerosAtEveryThreshold()
+    {
+        var curve = GenomeAssemblyAnalyzer.CalculateNxCurve(Array.Empty<int>()).ToList();
+        Assert.That(curve, Has.Count.EqualTo(9));
+        Assert.That(curve.All(c => c.Nx == 0 && c.Lx == 0));
+    }
+
+    [Test]
+    public void CalculateNxCurve_NullAndInvalid_ThrowAtTheCall()
+    {
+        // No .ToList()/enumeration: validation is eager (A3-3).
+        Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateNxCurve(null!));
+        Assert.Throws<ArgumentNullException>(() => GenomeAssemblyAnalyzer.CalculateNxCurve(AssemblyA, null!));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateNxCurve(AssemblyA, 50, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GenomeAssemblyAnalyzer.CalculateNxCurve(AssemblyA, 101));
+        Assert.Throws<ArgumentException>(() => GenomeAssemblyAnalyzer.CalculateNxCurve(new[] { 3, -2 }));
+    }
+
+    #endregion
 
     // M18 — auN = QUAST au_metric: Assembly B 16825/305 = 55.16393442622951; {4,3,2} 29/9.
     [TestCase(new[] { 80, 70, 50, 40, 30, 20, 10, 5 }, 55.16393442622951)]

@@ -201,3 +201,16 @@ Both assumptions are parameter defaults (presentation/configuration), not the de
 
 1. (B10) `MotifFinder.GenerateDumbConsensus` (Analysis, B05) re-implements the same rule; cross-batch request to delegate to the 5-arg canonical overload with `ignoreCase: false` after its equal-length check.
 2. The decision rule (strict `>= threshold`, tie→ambiguous, gap-skipping, all-gap guard, length=longest read) is taken verbatim from Biopython `dumb_consensus`. Only the two defaults are documented assumptions, with every source value reachable via parameters.
+
+## R1-WP1 addendum (2026-11-25): ASCII fold / span k-mers (A15-7)
+
+`SequenceAssembler` private `char.ToUpperInvariant` folds -> `SequenceCase.ToUpperAscii`; `BuildDeBruijnGraph` / `SpellStrandPairsOnce` use `KmerEnumerator` + span dictionary lookups; `ReverseComplement` checks the `TryGetReverseComplement` result. New tests in `Unit/Alignment/SequenceAssembler_AsciiFold_Tests.cs`:
+
+| Test | Locks |
+|---|---|
+| `ComputeConsensus_LongS_IsNotCountedAsAsciiS` | Biopython `dumb_consensus`: S, U+017F, s -> 2/3 < 0.7 -> N; threshold 0.5 -> S |
+| `MergeContigs_ResolveConflicts_LongSDiffersFromS_BestQualityDecides` | EMBOSS merger quality windows: "A\u017F"+"ST" -> "AST" |
+| `Scaffold_NegativeGap_LongSOverlapDisagrees_WritesUnknownGap` / `..._LowerCaseOverlapAgrees_Collapsed` | ABySS agreement ignoring ASCII case only; AGP unknown gap 100 |
+| `BuildDeBruijnGraph_NonAsciiLetter_KeptVerbatim_SharedPrefixNodeAccumulates` | node/edge multimap unchanged by the span path |
+| `AssembleDeBruijn_BothStrands_NonAsciiLetter_StrandPairEmittedOnce` | strand-pair emission unchanged |
+

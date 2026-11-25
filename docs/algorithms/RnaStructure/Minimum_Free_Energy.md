@@ -41,7 +41,7 @@ The minimum hairpin loop is 3 nucleotides (`j − i − 1 ≥ 3`) [1][2]. Loop e
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
 | ASM-01 | Nearest-neighbor independence: a loop's energy depends only on its closing pair(s) and adjacent bases. | Non-local stabilization (tertiary contacts) is unmodeled; predicted ΔG° deviates from experiment. |
-| ASM-02 | Fixed conditions: 37 °C, 1 M NaCl (Turner 2004 parameter conditions). | Different temperature/ionic strength shift all loop energies. |
+| ASM-02 | 1 M NaCl (Turner 2004 parameter conditions); default 37 °C. The optional `temperature` (K) rescales every parameter with its Turner 2004 enthalpy, ΔG(T) = ΔH − (ΔH − ΔG₃₇)·T/310.15 (ViennaRNA `md.temperature`, enthalpies from ViennaRNA 2.7.2; NNDB-only terms without enthalpy stay at their 37 °C value; dangles / exterior+multiloop mismatches clamped ≤ 0); the partition function ([RNA_Partition_Function](./RNA_Partition_Function.md)) uses the same rescaled model. At `T ≠ 37 °C` energies are not rounded (ViennaRNA's MFE truncates the rescaled parameters to 0.01 kcal/mol: |ΔMFE| mean 0.05–0.09). | Different ionic strength shifts all loop energies. |
 | ASM-03 | Pseudoknot-free: only non-crossing pairs are scored. | Pseudoknotted folds are outside the optimization. |
 | ASM-04 | Linear DP multiloop model a = 9.3, b = 0 (per unpaired), c = −0.9 (per branch incl. the closing pair) — ViennaRNA 2.7.2 `default.c` ML_closing37/ML_intern37/ML_BASE37 (Turner 2004 set); the NNDB efn2 form (9.25 + 0.91·asymmetry − 0.63·helices + strain) has a non-decomposable asymmetry term and is kept for `CalculateMultibranchLoopEnergy` only. | Multiloop energies follow the RNAfold/RNAstructure DP approximation, not efn2's asymmetry/coaxial-stacking refinement. |
 
@@ -68,6 +68,7 @@ The minimum hairpin loop is 3 nucleotides (`j − i − 1 ≥ 3`) [1][2]. Loop e
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `rnaSequence` | `string` | required | RNA sequence; case-insensitive, T read as U | any other character (N, IUPAC, `-`, `.`) never pairs and takes the max-over-bases mismatch/dangle value (ViennaRNA `vrna_nucleotide_encode` / default.c N rows) |
+| `temperature` | `double` | 310.15 | absolute temperature (K), positive and finite (`CalculateMinimumFreeEnergy`, `CalculateMfeStructure`, `PredictStructureMfe`, `CalculateFreeEnergy`) | rescales every Turner parameter (ASM-02) |
 | `minLoopSize` | `int` | 3 | minimum hairpin loop length (= ViennaRNA `md.min_loop_size`) | values < 3 behave as 3 (as in ViennaRNA: hairpins < 3 nt are INF) [1][2]; larger values forbid shorter hairpins, RNA.fold-identical |
 | `minStemLength`/`maxLoopSize` | `int` | 3 / 10 | (`PredictStructure` only) stem-loop candidate bounds | — |
 

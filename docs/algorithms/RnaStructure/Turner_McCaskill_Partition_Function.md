@@ -35,7 +35,7 @@ RNAplfold unpaired probabilities (the SA feature). [3][4]
 For a sequence `S`, over the set `Ω` of pseudoknot-free structures with energy `E(s)` under the
 Turner-2004 model: [1][2]
 
-- Partition function: `Z = Σ_{s∈Ω} exp(−β E(s))`, with `β = 1/(RT)`, `RT = R·T`, `R ≈ 1.987×10⁻³ kcal/(mol·K)`.
+- Partition function: `Z = Σ_{s∈Ω} exp(−β E(s))`, with `β = 1/(RT)`, `RT = R·T`, `R = 1.98717×10⁻³ kcal/(mol·K)` (ViennaRNA `GASCONST`).
 - Boltzmann probability of a structure: `p(s) = exp(−β E(s)) / Z`.
 - Base-pair probability: `P(i,j) = (Σ_{s ∋ (i,j)} exp(−β E(s))) / Z` (inside/outside recursion). [1]
 - Per-base unpaired probability: `p_unpaired(i) = 1 − Σ_j P(i,j)`. [2]
@@ -55,7 +55,7 @@ loop. `Z = Wexp(0,n−1)`. [1]
 |----|------------|--------------------------|
 | ASM-01 | Nearest-neighbour additivity of the Turner-2004 model (loop energies independent). | Same modelling assumption as the MFE folder; ensemble probabilities inherit any model error. |
 | ASM-02 | Pseudoknot-free structures only. | Crossing (pseudoknotted) pairs are excluded from `Z` and from accessibility. |
-| ASM-03 | Fixed temperature (default 310.15 K) and the Turner-2004 37 °C parameter set. | Probabilities are temperature-specific; a different `T` re-weights the ensemble. |
+| ASM-03 | Temperature `T` (default 310.15 K): every Turner-2004 parameter is rescaled with its enthalpy, `ΔG(T) = ΔH − (ΔH − ΔG₃₇)·T/310.15` (ViennaRNA), not only `RT`. | Probabilities are temperature-specific; see [RNA_Partition_Function](./RNA_Partition_Function.md) §2.2. |
 
 ### 2.4 Properties and Invariants
 
@@ -70,11 +70,9 @@ loop. `Z = Wexp(0,n−1)`. [1]
 
 ### 2.5 Comparison with Related Methods
 
-| Aspect | Turner-2004 McCaskill (this) | Simplified McCaskill (`CalculatePartitionFunction`) | MFE folder (`CalculateMinimumFreeEnergy`) |
-|--------|------------------------------|------------------------------------------------------|-------------------------------------------|
-| Energy model | Full Turner-2004 NN | fixed `E_bp` per pair | full Turner-2004 NN |
-| Output | `Z`, `P(i,j)`, `p_unpaired`, `ΔG_ens`, accessibility | `Z`, `P(i,j)` | scalar MFE / optimal structure |
-| Ensemble | yes | yes (teaching model) | single structure |
+The full ensemble result (`CalculatePartitionFunction`: `Z`, `P(i,j)`, `p_unpaired`, `ΔG_ens`, MFE structure and probability,
+diversity, centroid) is documented in [RNA_Partition_Function](./RNA_Partition_Function.md); `CalculateUnpairedProbabilities`
+returns the same engine's `Z`, `P(i,j)`, `p_unpaired`, `ΔG_ens`. The MFE folder (`CalculateMinimumFreeEnergy`) is the single-structure counterpart.
 
 ## 3. Contract
 
@@ -84,8 +82,8 @@ loop. `Z = Wexp(0,n−1)`. [1]
 |------|------|---------|-------------|-------------|
 | `rnaSequence` | `string` | required | RNA (or DNA; T→U) sequence | case-insensitive; null/empty allowed |
 | `minLoopSize` | `int` | 3 | minimum hairpin loop | clamped to ≥3 (NNDB) |
-| `temperature` | `double` | 310.15 | absolute temperature (K) | must be > 0 |
-| `windowEnd` / `windowLength` | `int` | — | accessibility window (0-based inclusive end, length) | window must fit in the sequence; length > 0 |
+| `temperature` | `double` | 310.15 | absolute temperature (K) | positive, finite |
+| `windowEnd` / `windowLength` | `int` | — | accessibility window (0-based inclusive end, length u) | window must fit in the sequence; length > 0 (signature `CalculateRegionUnpairedProbability(seq, windowEnd, windowLength, minLoopSize, temperature)`) |
 
 ### 3.2 Output / Return Value
 
@@ -98,25 +96,24 @@ loop. `Z = Wexp(0,n−1)`. [1]
 | `UnpairedProbabilities` | `IReadOnlyList<double>` | `p_unpaired(i)`, one per position |
 | `EnsembleFreeEnergy` | `double` | `−RT·ln Z` (kcal/mol) |
 
-`CalculateRegionUnpairedProbability` returns `double` — `P(window unpaired) ∈ [0,1]`.
+`CalculateRegionUnpairedProbability` returns `double` — `P(window unpaired) ∈ [0,1]`; `CalculateRegionOpeningEnergy` returns the opening energy `−RT·ln P` (kcal/mol; 0 when `P = 1`, `+∞` when `P` underflows to 0; Kertesz et al. 2007). MCP: `rna_region_accessibility`.
 
 ### 3.3 Preconditions and Validation
 
 0-based inclusive coordinates. DNA accepted (T read as U); upper-cased internally. Null/empty →
 `Z = 1`, no pairs, `ΔG = 0`. Sequence too short to pair → `Z = 1`, all bases unpaired. A
 non-positive temperature throws `ArgumentOutOfRangeException`. An accessibility window that does
-not fit throws `ArgumentOutOfRangeException`; a window in a too-short sequence returns 1.0.
+not fit throws `ArgumentOutOfRangeException` (this includes a null/empty sequence, a negative or ≥ n `windowEnd`, a window longer than the sequence and `windowLength ≤ 0`; unlike the per-base method, the region method has no "unit partition" result for an empty sequence); a window in a sequence too short to pair returns 1.0. `N`/IUPAC bases never pair, so a region of such bases has probability exactly 1. A `minLoopSize` > 3 removes the short hairpins from both `Z` and `Z_open`.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Fill the inside matrices `Vexp` / `WMexp` / `Wexp` in the Boltzmann domain (mirror of the MFE
-   `FillDp`); `Z = Wexp(0,n−1)`.
-2. `p_unpaired(i)` = `Z_forbid(i)/Z` (re-fill forbidding `i` from pairing) — exact, Z-consistent.
-3. `P(i,j)` = `Z_require(i,j)/Z` (re-fill requiring the pair `(i,j)` with proper nesting).
-4. `ΔG_ensemble = −RT·ln Z`.
-5. Accessibility: `Z_open(window)/Z` (re-fill forbidding every window base from pairing).
+1. Fold the MFE and fill the scaled inside matrices (`FillPartitionInside`), `Z = W(n)`; fill the outside matrices
+   (`ComputePairProbabilities`) → `P(i,j)`; `p_unpaired(i) = 1 − Σ_j P(i,j)` (see [RNA_Partition_Function](./RNA_Partition_Function.md)).
+2. `ΔG_ensemble = −RT·ln Z`.
+3. Accessibility: `Z_open(window)/Z` — the same inside fill with every window base forbidden from pairing (both fills share one scale,
+   which cancels in the ratio; the scale is ViennaRNA's default estimate `−185 + (T−37)·7.27` cal/(mol·nt) since no MFE is needed).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables
 
@@ -125,7 +122,7 @@ The energy contributions are the Turner-2004 NNDB tables already used by the MFE
 mismatches/dangles, terminal-AU, linear multibranch `a/b/c` = 9.3/0/−0.9). [5] The inside recursion
 is unambiguous (single-branch matrix WM1 as in ViennaRNA's fM1; each structure counted once); with
 NNDB-precision parameters the ensemble free energy equals ViennaRNA 2.7.2 `fc.pf()` (d2) to
-≤ 0.003 kcal/mol (gas-constant convention) — RNA-STRUCT-001 Evidence, Validation 2026-11. Each is converted to a Boltzmann factor `exp(−ΔG/RT)`. The **SA** feature
+≤ 0.017 kcal/mol (mean 0.0004; 300 random sequences 10–150 nt, no repeated neighbours) — [Evidence RNA-PARTITION-001 §9](../../Evidence/RNA-PARTITION-001-Evidence.md). Each is converted to a Boltzmann factor `exp(−ΔG/RT)`. The **SA** feature
 (`MiRnaAnalyzer`) reads, for a seed-matched site, the accessibility of the 14-nt window ending 7
 nt 3' of the seed-match start (7mer-A1 decrements the start by 1), `log10`-transforms it, and
 min-max scales by the verbatim Agarwal-2015 SA coefficients. RNAplfold reference parameters:
@@ -135,28 +132,26 @@ min-max scales by the verbatim Agarwal-2015 SA coefficients. RNAplfold reference
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `Z`, `p_unpaired`, `P(i,j)` | `O(n⁵)` worst case | `O(n²)` | one `O(n³)` constrained fill per base (pu) and per candidate pair (bpp); intended for the short windows used by SA |
-| `CalculateRegionUnpairedProbability` | `O(n³)` | `O(n²)` | two fills (full + window-forbidden) |
+| `Z`, `p_unpaired`, `P(i,j)` | `O(n³)` | `O(n²)` | inside + outside recursion (McCaskill), no per-pair refold |
+| `CalculateRegionUnpairedProbability` | `O(n³)` | `O(n²)` | two inside fills (full + window-forbidden) |
 | SA over a 3'UTR site | `O(W³)` | `O(W²)` | local fold of a `W=80` context |
 
 ## 5. Implementation Notes
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [RnaSecondaryStructure.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs)
+**Implementation location:** [RnaSecondaryStructure.PartitionFunction.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.PartitionFunction.cs)
 
-- `RnaSecondaryStructure.CalculateUnpairedProbabilities(seq, minLoopSize, temperature)`: `Z`, `P(i,j)`, `p_unpaired`, `ΔG_ensemble`.
+- `RnaSecondaryStructure.CalculateUnpairedProbabilities(seq, minLoopSize, temperature)`: `Z`, `P(i,j)`, `p_unpaired`, `ΔG_ensemble` (projection of `CalculatePartitionFunction`).
 - `RnaSecondaryStructure.CalculateRegionUnpairedProbability(seq, windowEnd, windowLength, …)`: joint region-unpaired probability (`Z_open/Z`).
 - `MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(...)` → `SaContribution`: SA feature ([MiRnaAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs)).
 
 ### 5.2 Current Behavior
 
-`p_unpaired(i)` and `P(i,j)` are computed by **constrained re-folds** of the same inside DP
-(forbid a base from pairing; require a specific pair with non-crossing nesting), guaranteeing
-`Σ_j P(i,j) + p_unpaired(i) = 1` to floating-point precision (verified to ~1e-15) without a
-bespoke outside recursion. SA folds a local `W=80` context around the window (RNAplfold's
-local-folding intent; a base pairs only within ±`L=40`). When the SA window does not fit the UTR,
-SA contributes 0 and is reported in `OmittedFeatures` (matching the perl's missing-`_lunp` → 0).
+`P(i,j)` comes from McCaskill's outside recursion, `p_unpaired(i) = 1 − Σ_j P(i,j)`, so `Σ_j P(i,j) + p_unpaired(i) = 1` to
+floating-point precision (exhaustive-enumeration test: 1e-9). SA folds a local `W=80` context around the window (RNAplfold's
+local-folding intent; a base pairs only within ±`L=40`). When the SA window does not fit the UTR, SA contributes 0 and is reported
+in `OmittedFeatures` (matching the perl's missing-`_lunp` → 0).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -165,19 +160,22 @@ SA contributes 0 and is reported in `OmittedFeatures` (matching the perl's missi
 - `Z = Σ exp(−E/RT)` on the Turner-2004 model; `P(i,j)`, `p_unpaired(i) = 1 − Σ_j P(i,j)`, `ΔG_ensemble = −RT·ln Z`. [1][2]
 - Region accessibility `Z_open/Z` and the TargetScan SA window (row `utrStart+7`, `L=14`, `log10`, min-max scaled by the SA row). [3][4]
 
+**Scope of the accessibility value (not a simplification of the unit):** `CalculateRegionUnpairedProbability` is the WHOLE-sequence ensemble quantity `Z_open/Z`, i.e. what RNAplfold `-u` reports for window `W ≥ n` and span `L ≥ n`. Verified against ViennaRNA 2.7.2: exact hard-constraint ratio `exp(−(G_constrained − G_ens)/RT)` (1440 random regions u = 1…n, 8–200 nt, 20/37/60 °C: max |Δ| 0.0056, mean 2e-5; the maximum is ViennaRNA's `SMOOTH()` end-dangle quirk) and `RNA.pfl_fold_up(seq, u, n, n)` (600 random queries: max |Δ| 1.0e-3; identical to the constraint ratio to 2e-6 on the locked cases). The joint probability is **not** the product of per-base `p_unpaired` (e.g. `GGGGAAAACCCCUUUUGGGG`, 5′ arm: joint > 1.2 × product).
+
 **Intentionally simplified:**
 
 - Local SA fold uses a single `W=80` context window rather than RNAplfold's full sliding-window average over all `W`-windows; **consequence:** the accessibility of the 14-nt site is captured (bases pair only within ±`L=40`), but values can differ slightly from a full RNAplfold run near long-range context.
 
 **Not implemented:**
 
+- RNAplfold's sliding-window local accessibility (`W < n`, maximum pair span `L < n`, Bernhart et al. 2006; ViennaRNA `pf_window.c`, `compute_pU`). It is not the arithmetic mean of independent per-window ensembles: the mean of `Z_open/Z` over the windows `[a, a+W−1]` that contain the region, each folded with `md.max_bp_span = L`, differs from `RNA.pfl_fold_up(seq, u, W, L)` by up to 0.07 (60 nt, W = 30, L = 15), so it needs the exterior-context bookkeeping of `pf_window.c` (≈ 1500 lines) to be ported. Registered as a separate work item; until then the exact RNAplfold value can be supplied to `ScoreTargetSiteContextPlusPlus` (`PlfoldUnpairedProbability`).
 - Pseudoknotted contributions to `Z` / accessibility; **users should rely on:** no nearest-neighbour ensemble model includes them (energy-model floor).
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | `O(n⁵)` bpp (constrained refold per pair) | Assumption | slow on long sequences | accepted | exactness over speed for the short SA windows; `p_unpaired` / `Z` / accessibility are `O(n³)` |
+| 1 | Single `W=80` SA window instead of RNAplfold's sliding-window average | Simplification | see §5.3 | accepted | MiRNA unit (B13) |
 
 ## 6. Edge Cases and Limitations
 
@@ -192,8 +190,7 @@ SA contributes 0 and is reported in `OmittedFeatures` (matching the perl's missi
 
 ### 6.2 Limitations
 
-Pseudoknot-free only; nearest-neighbour model error is inherited; the per-pair bpp refold is
-`O(n⁵)` (intended for short windows, not genome-scale folding); the SA local-fold is a single
+Pseudoknot-free only; nearest-neighbour model error is inherited; the SA local-fold is a single
 `W=80` window, not the full RNAplfold sliding-window average. PCT (conservation) is not part of
 this capability.
 
@@ -203,12 +200,12 @@ this capability.
 
 **Numerical walk-through (the analytic tiny case).** `GAAAC` can adopt only the open chain or the
 single hairpin closed by G(0)–C(4) over the 3-nt loop `AAA` (Turner hairpin energy 5.4 kcal/mol,
-G–C ⇒ no terminal-AU penalty). With `RT = 1.987·310.15/1000 = 0.61626805`:
+G–C ⇒ no terminal-AU penalty). With `RT = 1.98717·310.15/1000 = 0.6163207755`:
 
-- `Z = 1 + exp(−5.4/RT) = 1.0001565052764922`
-- `P(0,4) = exp(−5.4/RT)/Z = 0.00015648078642340854`
-- `p_unpaired(0) = p_unpaired(4) = 0.9998435192135765`; `p_unpaired(2) = 1`
-- `ΔG_ensemble = −RT·ln Z ≈ −9.644×10⁻⁵ ≤ MFE = 0`
+- `Z = 1 + exp(−5.4/RT) = 1.0001566226391072`
+- `P(0,4) = exp(−5.4/RT)/Z = 0.00015659811229750914`
+- `p_unpaired(0) = p_unpaired(4) = 0.9998434018877025`; `p_unpaired(2) = 1`
+- `ΔG_ensemble = −RT·ln Z ≈ −9.652×10⁻⁵ ≤ MFE = 0`
 - `CalculateRegionUnpairedProbability("GAAAC", 4, 5) = 1/Z` (only the open chain leaves the whole window unpaired).
 
 ### 7.3 Related Tests, Evidence, or Documents
@@ -216,7 +213,7 @@ G–C ⇒ no terminal-AU penalty). With `RT = 1.987·310.15/1000 = 0.61626805`:
 - Tests: [RnaSecondaryStructure_UnpairedProbabilities_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_UnpairedProbabilities_Tests.cs) — covers `INV-01`..`INV-06` and the analytic case.
 - Tests: [MiRnaAnalyzer_TargetPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/MiRnaAnalyzer_TargetPrediction_Tests.cs) — `CTX-SA-001` (SA wiring).
 - Evidence: [MIRNA-TARGET-001-Evidence.md](../../../docs/Evidence/MIRNA-TARGET-001-Evidence.md) (§ SA — structural accessibility).
-- Related algorithms: [RNA_Partition_Function](./RNA_Partition_Function.md) (simplified model), [RNA_Free_Energy](./RNA_Free_Energy.md) (MFE folder).
+- Related algorithms: [RNA_Partition_Function](./RNA_Partition_Function.md) (partition-function unit), [RNA_Free_Energy](./RNA_Free_Energy.md) (MFE folder).
 
 ## 8. References
 

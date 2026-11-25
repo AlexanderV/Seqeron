@@ -2482,9 +2482,6 @@ public static class SequenceStatistics
 
     #region Sequence Windows
 
-    // GC content is expressed as a percentage per the GC-content definition
-    // GC% = (G + C) / (A + T + G + C) × 100  [Wikipedia GC-content; Biopython gc_fraction ×100].
-    private const double PercentScale = 100.0;
     // Default sliding-window width for GC profiling (bp); a window of 100 is a common
     // local-GC resolution and matches the sibling profile methods in this class.
     private const int DefaultGcProfileWindow = 100;
@@ -2601,10 +2598,8 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence))
             return Array.Empty<double>();
 
-        double scale = fraction ? 1.0 : PercentScale;
-        return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction)
-            .Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize)
-                .Select(i => sequence.AsSpan(i).CalculateGcFraction() * scale));
+        return GcSkewCalculator.CalculateWindowedGcContent(sequence, windowSize, stepSize, fraction, includePartialWindow: true)
+            .Select(p => p.GcContent);
     }
 
     /// <summary>
@@ -2631,22 +2626,9 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence))
             return Array.Empty<double>();
 
-        double scale = fraction ? 1.0 : PercentScale;
-        return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction, ambiguityMode)
-            .Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize)
-                .Select(i => sequence.AsSpan(i).CalculateGcFraction(ambiguityMode) * scale));
-    }
-
-    // Starts k·step (k ≥ 0) with start < length but start + windowSize > length — the truncated
-    // windows that Biopython's range(0, len, step) slicing adds after the complete ones. long
-    // arithmetic avoids int overflow for huge steps/windows.
-    private static IEnumerable<int> PartialWindowStarts(int length, int windowSize, int stepSize)
-    {
-        long first = length >= windowSize
-            ? ((long)(length - windowSize) / stepSize + 1) * stepSize
-            : 0;
-        for (long i = first; i < length; i += stepSize)
-            yield return (int)i;
+        return GcSkewCalculator.CalculateWindowedGcContent(
+                sequence, windowSize, stepSize, fraction, ambiguityMode, includePartialWindow: true)
+            .Select(p => p.GcContent);
     }
 
     // Shared eager validation for the sliding-window profiles (as GcSkewCalculator.CalculateWindowedGcSkew):
@@ -2691,8 +2673,8 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
             return Array.Empty<double>();
 
-        return CompleteWindowStarts(sequence.Length, windowSize, stepSize)
-            .Select(i => CalculateShannonEntropy(sequence.Substring(i, windowSize)));
+        return GcSkewCalculator.EnumerateWindows(sequence.Length, windowSize, stepSize, includePartialWindow: false)
+            .Select(w => CalculateShannonEntropy(sequence.Substring(w.Start, w.Length)));
     }
 
     /// <summary>
@@ -2723,9 +2705,8 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence))
             return Array.Empty<double>();
 
-        return CalculateEntropyProfile(sequence, windowSize, stepSize)
-            .Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize)
-                .Select(i => CalculateShannonEntropy(sequence.Substring(i))));
+        return GcSkewCalculator.EnumerateWindows(sequence.Length, windowSize, stepSize, includePartialWindow: true)
+            .Select(w => CalculateShannonEntropy(sequence.Substring(w.Start, w.Length)));
     }
 
     /// <summary>
@@ -2765,19 +2746,8 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence))
             return Array.Empty<double>();
 
-        var starts = CompleteWindowStarts(sequence.Length, windowSize, stepSize);
-        if (includePartialWindow)
-            starts = starts.Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize));
-
-        return starts.Select(i => SequenceComplexity.CalculateKmerEntropy(
-            sequence.Substring(i, Math.Min(windowSize, sequence.Length - i)), k));
-    }
-
-    // Offsets 0, step, 2·step, … ≤ length − windowSize of the complete windows (none when W > length).
-    private static IEnumerable<int> CompleteWindowStarts(int length, int windowSize, int stepSize)
-    {
-        for (long i = 0; i <= (long)length - windowSize; i += stepSize)
-            yield return (int)i;
+        return GcSkewCalculator.EnumerateWindows(sequence.Length, windowSize, stepSize, includePartialWindow)
+            .Select(w => SequenceComplexity.CalculateKmerEntropy(sequence.Substring(w.Start, w.Length), k));
     }
 
     #endregion

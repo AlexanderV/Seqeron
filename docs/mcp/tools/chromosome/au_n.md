@@ -15,7 +15,8 @@ Compute auN (area under the Nx curve).
 ## Description
 
 `auN` is a length-weighted contiguity metric that, unlike N50, does not depend on an arbitrary
-threshold: `auN = Σ(lᵢ²) / Σ(lᵢ)`. Returns 0 for empty input.
+threshold: `auN = Σ(lᵢ²) / Σ(lᵢ)`. Returns 0 for empty input. The sums are exact
+128-bit integers (no floating-point loss above 2^53), divided once; negative lengths are rejected.
 
 ## Core Documentation Reference
 

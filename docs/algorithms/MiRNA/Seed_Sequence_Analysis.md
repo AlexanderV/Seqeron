@@ -33,7 +33,7 @@ $$
 \operatorname{mismatches}(a,b) = \sum_{i=1}^{k} [a_i \ne b_i]
 $$
 
-Seeds are first normalised as TargetScan does (`targetscan_70.pl`: `s/T/U/gi; uc()`), the Hamming count uses the canonical `SequenceExtensions.HammingDistance`, and `IsSameFamily = true` only when the normalised seeds are identical (0 mismatches). `GroupBySeedFamily` keys families by the same normalised seed and omits seedless (<8 nt) miRNAs; `FindSimilarMiRnas` uses the `CompareSeedRegions` mismatch count and never reports a seedless miRNA as similar. `GenerateSeedVariants` returns the normalised seed plus all 3·L single-nucleotide substitutions over A/C/G/U (its `includeWobble` flag has no effect).
+Seeds are first normalised as TargetScan does (`targetscan_70.pl`: `s/T/U/gi; uc()`), the Hamming count uses the canonical `SequenceExtensions.HammingDistance`, and `IsSameFamily = true` only when the normalised seeds are identical (0 mismatches). `GroupBySeedFamily` keys families by the same normalised seed and omits seedless (<8 nt) miRNAs; `FindSimilarMiRnas` uses the `CompareSeedRegions` mismatch count and never reports a seedless miRNA as similar. `GenerateSeedVariants` returns the normalised seed plus all 3·L single-nucleotide substitutions over A/C/G/U (the former two-argument `includeWobble` overload and the MCP `includeWobble` parameter were removed: no source defines wobble semantics for seed variants).
 
 ### 2.4 Properties and Invariants
 
@@ -121,7 +121,9 @@ Seeds are first normalised as TargetScan does (`targetscan_70.pl`: `s/T/U/gi; uc
 
 **Not implemented:**
 
-- Noncanonical seed models such as offset seeds, centered pairing, or isomiR-aware family clustering; **users should rely on:** [Target_Site_Prediction.md](../../../docs/algorithms/MiRNA/Target_Site_Prediction.md) for canonical site classes and external miRNA annotation resources for broader family curation.
+- Family clustering of noncanonical seed models or isomiRs; **users should rely on:** [Target_Site_Prediction.md](../../../docs/algorithms/MiRNA/Target_Site_Prediction.md) for canonical site classes and external miRNA annotation resources for broader family curation.
+
+Offset 6mer sites are found by `FindTargetSites` and centered sites (Shin et al. 2010; ≥ 11 contiguous Watson–Crick pairs at miRNA nt 4–15) by `FindCenteredSites`. **3′-compensatory sites are not implemented, with proof:** Bartel 2009 (PMC3794896) and Shin 2010 (PMC2942757) were opened and define them only descriptively (“≥ 9 contiguous pairs centred on nt 13–17 for all validated examples”; “without substantial pairing”), with no numeric threshold; TargetScan has no implementation and there is no oracle.
 
 ## 6. Edge Cases and Limitations
 

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "classify_pre_mirna",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.ClassifyPreMiRna",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L3650",
+  "description": "In-repo ridge-logistic classifier of natural pre-miRNA vs dinucleotide-shuffled background (not a published classifier).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Candidate nucleotide sequence (RNA or DNA; T read as U)"
+      },
+      "threshold": {
+        "type": "number",
+        "description": "Decision threshold on P(natural) in [0, 1]",
+        "default": 0.5
+      },
+      "minLoopSize": {
+        "type": "integer",
+        "description": "Minimum hairpin loop size of the folder (NNDB minimum 3)",
+        "default": 3
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "found": {
+        "type": "boolean",
+        "description": "False for an empty sequence"
+      },
+      "features": {
+        "type": "object",
+        "description": "freeEnergy, amfe, mfei, gcContent, pairedFraction, stemBasePairs, loopSize, length, basePairingPropensity"
+      },
+      "naturalProbability": {
+        "type": "number",
+        "description": "P(natural) in [0, 1]"
+      },
+      "isNatural": {
+        "type": "boolean",
+        "description": "naturalProbability ≥ threshold"
+      }
+    },
+    "required": [
+      "found",
+      "features",
+      "naturalProbability",
+      "isNatural"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "threshold must be in [0, 1]"
+    },
+    {
+      "code": 1001,
+      "message": "minLoopSize must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "hsa-mir-21 is natural",
+      "input": {
+        "sequence": "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA"
+      },
+      "output": {
+        "found": true,
+        "naturalProbability": ">0.95",
+        "isNatural": true
+      }
+    }
+  ]
+}

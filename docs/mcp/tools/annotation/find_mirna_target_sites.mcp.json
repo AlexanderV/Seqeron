@@ -28,7 +28,7 @@
             "end": { "type": "integer" },
             "targetSequence": { "type": "string" },
             "miRnaName": { "type": "string" },
-            "type": { "type": "string", "description": "Seed8mer, Seed7merM8, Seed7merA1, Seed6mer, Offset6mer, Supplementary, or Centered" },
+            "type": { "type": "string", "description": "Seed8mer, Seed7merM8, Seed7merA1, Seed6mer, Offset6mer, or Centered" },
             "seedMatchLength": { "type": "integer" },
             "score": { "type": "number" },
             "freeEnergy": { "type": "number" },

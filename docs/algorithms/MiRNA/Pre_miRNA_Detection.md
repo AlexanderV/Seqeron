@@ -32,7 +32,7 @@ $$
 \{A\!-\!U,\; U\!-\!A,\; G\!-\!C,\; C\!-\!G,\; G\!-\!U,\; U\!-\!G\}
 $$
 
-The acceptance criteria of the opt-in screen (`useConsecutiveScreen: true`) are:
+The acceptance criteria of the opt-in screen (`useConsecutiveScreen: true`) are **operational screen parameters, not a published criterion** (Krol et al. 2004 states no 18-bp threshold; the 18 bp is a conservative subset of the Ambros 2003 ≥ 16 bp criterion that the default MFE mode applies; the 3-nt lower loop bound is the NNDB minimum, the 25-nt upper bound is the MFE-mode loop limit):
 
 - stem length $\ge 18$ bp,
 - loop length $= n - 2 \times \text{stem length}$ with $3 \le \text{loop length} \le 25$,
@@ -214,7 +214,9 @@ The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninter
 - `MiRnaAnalyzer.CalculateMfeIndex(double, int, double)`: MFEI = AMFE/(G+C)%, AMFE = 100·|ΔG°|/length (Zhang 2006).
 - `MiRnaAnalyzer.PredictDroshaDicerCleavage(string, int[, string?, DicerCountingRule])`: Opt-in cleavage-site prediction on the folded stem — Drosha cut (11 bp from the basal junction), Dicer cut (22 nt, 5' or 3' counting), 5p + 3p products on opposite arms with 2-nt 3' overhangs, basal UG and CNNC flags (Han 2006 / Park 2011 / miRDeep2 find_star / Auyeung 2013).
 - `MiRnaAnalyzer.ExtractPreMiRnaFeatures(string, int)`: Opt-in extraction of the published structure/sequence features (MFE, AMFE, MFEI, GC, %paired = 2·dP, dP = |bp|/L [16], stem bp, loop, length) from the real MFE structure (RNA-STRUCT-001).
-- `MiRnaAnalyzer.ClassifyPreMiRna(string, double, int)`: Opt-in **trained** logistic-regression natural-vs-background classifier; returns the features, P(natural), and the boolean call.
+- `MiRnaAnalyzer.ClassifyPreMiRna(string, double, int)`: Opt-in **trained** logistic-regression natural-vs-background classifier (an **in-repo model, not a published classifier**); returns the features, P(natural), and the boolean call.
+- `MiRnaAnalyzer.ClassifyPreMiRnaTripletSvm(string, string?, int, int)`: Opt-in **published** classifier — Triplet-SVM (Xue et al. 2005, listed in ref. 13) with the authors' own trained libsvm RBF model (163 human pre-miRNAs vs 168 pseudo hairpins, 141 support vectors, γ = 16, ρ = 2.74269); ports the package's stem-loop retrieval (≥ 22 paired bases per arm) and 32 triplet-element coding, evaluated with the bundled support vectors (`MiRnaAnalyzer.TripletSvmModel.cs`, source URL + SHA-256 in its header). Reproduces the package's own 40-example run (37 positive/3 negative) and the Perl + libsvm output on Seqeron MFE folds; the only difference from the package is the folder (this library's MFE instead of RNAfold 1.x).
+- `MiRnaAnalyzer.ClassifyPreMiRnaMiPred(string, Random?, int, int)`: Opt-in **published** classifier — MiPred (Jiang et al. 2007 [18]) with the authors' own 1000-tree randomForest (163 human pre-miRNAs vs 168 pseudo hairpins, 34 features, OOB error 3.32 %). Port of `microRNAcheck_parallel.pl`: fold (canonical MFE), hairpin pre-judgement (`AssessMiPredHairpin`: MFE ≤ −15, ≥ 18 pairs, no multiloop, 51–137 nt), 34 features (`ComputeMiPredFeatures`: 32 triplet-element frequencies over the LENGTH, MFE, p-value of 999 dinucleotide shuffles via `CalculateRandfoldPValue`), forest vote (`MiPredVotes`, P-probability > 0.5 ⇒ real). Model data `MiRnaAnalyzer.MiPredModel.cs` (≈ 0.5 MB, source URL + SHA-256 in the header). Differences from the package: this library's fold (RNAfold 1.x there) and its seeded shuffle (randfold's triplet-swap with Perl `rand` there) — the p-value feature is statistical.
 - `MiRnaAnalyzer.ScorePreMiRnaFeatures(PreMiRnaFeatures)`: Opt-in evaluation of the bundled trained model on a feature vector.
 - `MiRnaAnalyzer.DinucleotideShuffle(string, Random)`: Altschul-Erickson (1985) dinucleotide-preserving shuffle (uniform over all sequences with the same doublet counts and ends), last-exit arborescence drawn by Wilson's walk as in uShuffle (Jiang et al. 2008) [15]; draw-for-draw identical to `ushuffle.c` — the background-set generator (Bonnet 2004 / randfold `-d` convention).
 - `MiRnaAnalyzer.CalculateRandfoldPValue(string, int, Random, int)`: Opt-in randfold test (Bonnet 2004 [6]; `randfold.c` counting): P = (1 + #{shuffle ΔG° ≤ ΔG°})/(N + 1) over N dinucleotide shuffles.
@@ -249,11 +251,11 @@ By default (F40) every window is folded with the canonical MFE engine and accept
   threshold 0.5 = minimum-error cutoff under the training prior (1 : 4).
   70/30 split. **No GPL miRDeep2 code or weights are used** (its published method was consulted only).
 
-**Intentionally simplified:**
+**Intentionally simplified (opt-in `useConsecutiveScreen: true` screen only; the default is the MFE fold, F40, with the star from the 2-nt-overhang rule of `find_star`):**
 
-- Stem discovery requires uninterrupted end-pairing from the candidate ends inward; **consequence:** biologically valid precursors with internal bulges, asymmetric loops, or local mismatches are frequently missed.
-- Mature and star sequences are extracted symmetrically from fixed arm positions; **consequence:** arm switching, offset mature products, and heterogeneous isomiR processing are not represented.
-- Candidate discovery is exhaustive over fixed windows rather than full secondary-structure optimization; **consequence:** overlapping windows can generate multiple related candidates and the search remains purely heuristic.
+- The screen requires uninterrupted end-pairing from the candidate ends inward; **consequence:** precursors with internal bulges, asymmetric loops, or local mismatches are missed (the default MFE mode tolerates them).
+- The screen extracts mature and star symmetrically from fixed arm positions (blunt labels); **consequence:** arm switching, offset mature products and isomiR heterogeneity are not represented in screen mode.
+- The screen is exhaustive over fixed windows without secondary-structure optimisation, and its 18-bp / 3–25-nt thresholds are operational screen parameters, not a published criterion; **consequence:** overlapping windows can give related candidates.
 
 **Not implemented:**
 
@@ -380,3 +382,4 @@ var bg = MiRnaAnalyzer.ClassifyPreMiRna(
 15. Jiang M, Anderson J, Gillespie J, Mayne M. 2008. uShuffle: a useful tool for shuffling biological sequences while preserving the k-let counts. BMC Bioinformatics. 9:192. (source `ushuffle.c` 1.1.2, `shuffle2`: Wilson random arborescence.)
 16. Ng KLS, Mishra SK. 2007. De novo SVM classification of precursor microRNAs from genomic pseudo hairpins using global and intrinsic folding measures. Bioinformatics. 23(11):1321-1330. (dP = |bp|/L, Schultes et al. 1999.)
 17. Friedländer MR, Chen W, Adamidi C, Maaskola J, Einspanier R, Knespel S, Rajewsky N. 2008. Discovering microRNAs from deep sequencing data using miRDeep. Nat Biotechnol. 26(4):407-415. doi:10.1038/nbt1394. (`find_star` in rajewsky-lab/mirdeep2 `src/miRDeep2_core_algorithm.pl`: star from mature via base-pair partners with a 2-nt 3' overhang.)
+18. Jiang P, Wu H, Wang W, Ma W, Sun X, Lu Z. 2007. MiPred: classification of real and pseudo microRNA precursors using random forest prediction model with combined features. Nucleic Acids Research. 35(Web Server issue):W339-W344. doi:10.1093/nar/gkm368. (Features: triplet structure-sequence composition + MFE + randomisation p-value; random forest; model and script from the package `progs/MiPred`.)

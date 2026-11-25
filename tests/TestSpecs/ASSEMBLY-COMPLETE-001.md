@@ -120,3 +120,8 @@
 | `GenomeAssemblyAnalyzer_MutationKillers2_Tests.AssessCompleteness_CompleteAndMissingMarkers` | "Absent" G80 is found on the reverse strand (C40) | Absent marker (GT)40 |
 | `GenomeAssemblyAnalyzer_MutationKillers3/4/6` completeness tests, `GenomeAssemblyAnalyzerTests.AssessCompleteness_*` | Consistent with sources (D% equal for n = C) | Kept |
 | MCP `EstimateCompletenessFromKmersTests` | Mixed-length pseudo k-mers, completeness 1 without assembly | Rewritten with oracle values |
+
+## R1-WP1 addendum (2026-11-25): ASCII fold, span unit lookup, `IsValidDna` (A15-7, A11-6)
+
+`GenomeAssemblyAnalyzer`: five `ToUpperInvariant` folds -> `SequenceCase.ToUpperAscii`; `FindRepetitiveRegions` unit counts via `KmerEnumerator` + span lookup (new private `UnitCounts`); private `IsAcgt` deleted -> `IsValidDna` (identical on the upper-cased input). New tests in `Unit/Chromosome/GenomeAssemblyAnalyzer_AsciiFold_Tests.cs`: `FindRepetitiveRegions_NonAsciiLetter_ActsAsNonAcgtSymbol` (U+017F, U+0130 vs N), `FindRepetitiveRegions_LowerCase_EqualsUpperCase`, `EstimateCompletenessFromKmers_LongSAndS_AreDistinctKmers`, `EstimateCompletenessFromKmers_Canonical_NonAsciiKmer_RejectedAsNotAcgt`, `FindMarkerHits_NonAsciiMarkerBase_FullLengthHitFound`, `FindMarkerHits_LowerCaseMarkerAndAssembly_FullIdentity`, `FindSyntenicBlocks_NonAsciiQueryLetter_ActsAsNonAcgt`, `CalculateLocalQuality_NonAsciiLetter_ExcludedFromGc`.
+

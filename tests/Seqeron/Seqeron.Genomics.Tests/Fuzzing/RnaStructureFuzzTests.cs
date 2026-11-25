@@ -121,7 +121,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • CalculateHairpinLoopEnergy(string, char, char, bool) → double — the loop ΔG°37;
 ///     its n&gt;30 branch is the ONLY place a temperature (R·T at 310.15 K) enters the
 ///     additive energy, via the Jacobson-Stockmayer log extrapolation (§2.2, §4.1).
-///   • CalculatePartitionFunction(string, basePairEnergy, temperature) and
+///   • CalculatePartitionFunction(string, minLoopSize, temperature) and
 ///     CalculateStructureProbability(structureEnergy, ensembleEnergy, temperature) —
 ///     the Boltzmann surfaces where the absolute temperature T appears in a
 ///     DENOMINATOR (β = 1/RT, RT = R·T/1000 kcal/mol). These are the T=0 / T&lt;0
@@ -894,7 +894,7 @@ public class RnaStructureFuzzTests
         dg.Should().BeLessThan(-5.0, "three G-C stacks sum to a strongly negative ΔG (≈ −9 to −10 kcal/mol)");
 
         // Boltzmann surface at the physical default temperature is well-formed and finite.
-        var pf = RnaSecondaryStructure.CalculatePartitionFunction("GGGGCCCC", basePairEnergy: -1.0);
+        var pf = RnaSecondaryStructure.CalculatePartitionFunction("GGGGCCCC");
         pf.PartitionFunction.Should().BeGreaterThanOrEqualTo(1.0, "Z ≥ 1 (the empty structure is always counted)");
         double.IsFinite(pf.PartitionFunction).Should().BeTrue();
 

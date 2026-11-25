@@ -14,8 +14,8 @@ namespace Seqeron.Genomics.Tests.Unit.Analysis;
 [TestFixture]
 public class RnaSecondaryStructure_UnpairedProbabilities_Tests
 {
-    // RT = R·T/1000 with R = 1.987 cal/(mol·K), T = 310.15 K → 0.61626805 kcal/mol.
-    private const double Rt = 1.987 * 310.15 / 1000.0;
+    // RT = R·T/1000 with R = 1.98717 cal/(mol·K) (ViennaRNA GASCONST), T = 310.15 K → 0.6163207755 kcal/mol.
+    private const double Rt = 1.98717 * 310.15 / 1000.0;
 
     #region Analytic tiny case (the solid pin)
 
@@ -29,9 +29,9 @@ public class RnaSecondaryStructure_UnpairedProbabilities_Tests
         // Hand-derived from the Turner hairpin energy (verified: CalculateHairpinLoopEnergy = 5.4).
         const double dG = 5.4;
         double w = Math.Exp(-dG / Rt);
-        double expectedZ = 1.0 + w;                 // 1.0001565052764922
-        double expectedP = w / expectedZ;           // 0.00015648078642340854
-        double expectedPu = 1.0 - expectedP;        // 0.9998435192135765
+        double expectedZ = 1.0 + w;                 // 1.0001566226391072
+        double expectedP = w / expectedZ;           // 0.00015659811229750914
+        double expectedPu = 1.0 - expectedP;        // 0.9998434018877025
 
         var r = CalculateUnpairedProbabilities("GAAAC");
 
@@ -60,12 +60,12 @@ public class RnaSecondaryStructure_UnpairedProbabilities_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(r.PartitionFunction, Is.EqualTo(1.0001565052764922).Within(1e-15),
-                "Z exactly 1.0001565052764922");
-            Assert.That(r.BasePairProbabilities[(0, 4)], Is.EqualTo(0.00015648078642340854).Within(1e-15),
-                "P(0,4) exactly 0.00015648078642340854");
-            Assert.That(r.UnpairedProbabilities[0], Is.EqualTo(0.9998435192135765).Within(1e-15),
-                "p_unpaired(0) exactly 0.9998435192135765");
+            Assert.That(r.PartitionFunction, Is.EqualTo(1.0001566226391072).Within(1e-15),
+                "Z exactly 1.0001566226391072");
+            Assert.That(r.BasePairProbabilities[(0, 4)], Is.EqualTo(0.00015659811229750914).Within(1e-15),
+                "P(0,4) exactly 0.00015659811229750914");
+            Assert.That(r.UnpairedProbabilities[0], Is.EqualTo(0.9998434018877025).Within(1e-15),
+                "p_unpaired(0) exactly 0.9998434018877025");
         });
     }
 
@@ -77,7 +77,7 @@ public class RnaSecondaryStructure_UnpairedProbabilities_Tests
     // The closing helix spans the whole 6-nt sequence ⇒ no dangling ends, no terminal-AU penalty, so
     //   w = exp(-4.1/RT),  Z = 1 + w,  P(0,5) = w/Z,  p_unpaired = 1 - P(0,5).
     // Hand-derived from the published Turner-2004 tables (NOT read back from the code):
-    //   Z = 1.0012902114608,  P(0,5) = 0.0012885489601637966,  p_unpaired(0) = 0.9987114510398362.
+    //   Z = 1.0012909459959691,  P(0,5) = 0.0012892816030459742,  p_unpaired(0) = 0.998710718396954.
     [Test]
     public void CalculateUnpairedProbabilities_CAAAAG_MatchesAnalyticPartitionFunction()
     {
@@ -93,16 +93,16 @@ public class RnaSecondaryStructure_UnpairedProbabilities_Tests
         {
             Assert.That(r.PartitionFunction, Is.EqualTo(expectedZ).Within(1e-12),
                 "Z = 1 + exp(-(5.6-1.5)/RT) over {open chain, single C-G hairpin with 4-nt loop}");
-            Assert.That(r.PartitionFunction, Is.EqualTo(1.0012902114608).Within(1e-12),
-                "Z exactly 1.0012902114608 (analytic)");
+            Assert.That(r.PartitionFunction, Is.EqualTo(1.0012909459959691).Within(1e-12),
+                "Z exactly 1.0012909459959691 (analytic)");
             Assert.That(r.BasePairProbabilities[(0, 5)], Is.EqualTo(expectedP).Within(1e-12),
                 "P(0,5) = exp(-ΔG/RT)/Z");
-            Assert.That(r.BasePairProbabilities[(0, 5)], Is.EqualTo(0.0012885489601637966).Within(1e-12),
-                "P(0,5) exactly 0.0012885489601637966 (analytic)");
+            Assert.That(r.BasePairProbabilities[(0, 5)], Is.EqualTo(0.0012892816030459742).Within(1e-12),
+                "P(0,5) exactly 0.0012892816030459742 (analytic)");
             Assert.That(r.UnpairedProbabilities[0], Is.EqualTo(expectedPu).Within(1e-12),
                 "p_unpaired(0) = 1 - P(0,5)");
-            Assert.That(r.UnpairedProbabilities[0], Is.EqualTo(0.9987114510398362).Within(1e-12),
-                "p_unpaired(0) exactly 0.9987114510398362 (analytic)");
+            Assert.That(r.UnpairedProbabilities[0], Is.EqualTo(0.998710718396954).Within(1e-12),
+                "p_unpaired(0) exactly 0.998710718396954 (analytic)");
             Assert.That(r.UnpairedProbabilities[2], Is.EqualTo(1.0).Within(1e-12),
                 "interior loop base 2 can never pair ⇒ p_unpaired = 1");
             Assert.That(r.EnsembleFreeEnergy, Is.EqualTo(-Rt * Math.Log(expectedZ)).Within(1e-12),

@@ -5,7 +5,7 @@
 | Algorithm Group | Annotation |
 | Test Unit ID | ANNOT-GENE-001 |
 | Related Projects | Seqeron.Genomics |
-| Implementation Status | Simplified |
+| Implementation Status | Simplified default; Prodigal start model opt-in (genome-trained) |
 | Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
@@ -125,7 +125,8 @@ Repository-specific behavior confirmed by source and tests:
 - Every emitted annotation has `Type = "CDS"` and `Product = "hypothetical protein"`.
 - The emitted attributes are `frame`, `protein_length`, and `translation`; `protein_length` trims the terminal `*` from the translated protein, while `translation` preserves the raw translated sequence.
 - `FindRibosomeBindingSites(...)` internally uses `FindOrfs(dnaSequence, minLength: 30)` and then filters to forward-strand ORFs before scanning upstream windows.
-- The current RBS score is based only on motif length, not on the literature-derived spacing optimum or a full affinity model.
+- The default RBS score is motif length / 6 (`RbsScoreMode.MotifLength`, backward compatible). `RbsScoreMode.LogOdds` returns the Prodigal log-odds weight of the hit's motif/spacer bin from an `RbsModel` trained on the input genome (`TrainRbsModel`).
+- `PredictGenes(..., StartSelection.LongestOrf)` is the default; `ProdigalScore` picks, per stop, the start with the best Prodigal coding + RBS + start-type + upstream score; `ProdigalDynamicProgramming` runs the complete Prodigal gene model (gene set identical to Prodigal V2.6.3 on E. coli K-12: 4314/4314, S. enterica Typhi CT18: 4676/4676; see `docs/Evidence/ANNOT-GENE-001-Evidence.md`).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -138,11 +139,13 @@ Repository-specific behavior confirmed by source and tests:
 **Intentionally simplified:**
 
 - `PredictGenes(...)` uses ORF structure only and does not incorporate promoter boxes or RBS scores into the generated gene annotations; **consequence:** the gene list is not ranked or filtered by upstream regulatory evidence.
-- `PredictGenes(...)` picks the first (most upstream) start per stop and emits every stop-distinct ORF; **consequence:** start sites are not refined by RBS/coding evidence (Prodigal-style) and overlapping ORFs with different stops are not reconciled into one preferred model.
-- `FindRibosomeBindingSites(...)` uses a fixed motif library and length-normalized scores; **consequence:** the reported scores do not model initiation strength or spacer effects. This is kept because the published RBS scores are genome- or model-specific: Prodigal scores each (motif, spacer) bin (`shine_dalgarno_exact`/`_mm`, 28 bins, spacers 3-4/5-10/11-12/13-15 bp) with log-likelihood weights trained iteratively on the input genome's own predicted genes (`train_starts_sd()`, requires the complete Prodigal gene model), and the RBS Calculator (Salis et al. 2009) needs ViennaRNA/NUPACK-exact mRNA–16S folding energies plus empirically fitted spacing/standby terms.
+- `PredictGenes(...)` by default picks the first (most upstream) start per stop and emits every stop-distinct ORF; **consequence:** with the default start selection start sites are not refined by RBS/coding evidence (64 % of Prodigal's starts on E. coli K-12). Opt in with `StartSelection.ProdigalScore` (98.5 % of stop-shared starts identical to Prodigal) or `ProdigalDynamicProgramming` (100 %, also reconciles overlapping ORFs).
+- `FindRibosomeBindingSites(...)` by default uses a fixed motif library and length-normalized scores; **consequence:** the default scores do not model initiation strength or spacer effects. The published genome-trained model is available as `RbsScoreMode.LogOdds` (Prodigal `train_starts_sd`: 28 motif/spacer bins, ln(freq in genes / freq among candidate starts), clamped ±4; trained self-supervised on the input genome). The RBS Calculator (Salis et al. 2009, thermodynamic mRNA–16S folding) is not implemented.
 - The helper scans only forward-strand ORFs for RBS hits; **consequence:** reverse-strand genes can be predicted without a corresponding RBS record from this method.
 
 **Not implemented:**
+
+- Prodigal's non-SD motif trainer (`train_starts_nonsd`, genomes with `uses_sd` = 0), metagenomic mode, multi-record training and translation tables other than 11 (`NotSupportedException` / not offered).
 
 - Promoter `-10` / `-35` scoring integrated into gene prediction; **users should rely on:** [Promoter_Detection.md](Promoter_Detection.md) for the repository's separate promoter-motif helper.
 - Codon-bias, organism-specific training, or comparative gene-finding models; **users should rely on:** no current alternative in this repository.

@@ -62,7 +62,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// AGP unknown-gap length 100 is used (INV-02). Following a path concatenates the
 /// contigs verbatim in link order separated by gap runs (INV-03, INV-05). Each
 /// contig appears in EXACTLY ONE scaffold (INV-04). Out-of-range / self links are
-/// ignored; a link at an already-joined end or closing a cycle is rejected, links
+/// rejected (ArgumentOutOfRange / Argument, A5-6); a link at an already-joined end or closing a cycle is rejected, links
 /// taken in input order (§3.3, §5.2). Unjoined contigs are length-1 scaffolds;
 /// scaffolds are listed by their lowest contig index. Empty contigs → empty result; null contigs/links → ArgumentNullException.
 ///   SequenceAssembler.Scaffold(
@@ -305,32 +305,28 @@ public class AssemblyScaffoldFuzzTests
         AssertWellFormed(scaffolds, contigs, 'N');
     }
 
-    // A single contig with a self-link (0→0) → self/equal-endpoint link ignored, still one scaffold.
+    // A single contig with a self-link (0→0) is invalid input (A5-6): rejected, never followed into a loop.
     [Test]
-    public void Scaffold_SingleContigSelfLink_IgnoredNoCrash()
+    public void Scaffold_SingleContigSelfLink_Throws()
     {
         var contigs = new[] { "GATTACA" };
-        var links = new[] { (0, 0, 5) }; // self link → ignored (§3.3, §6.1)
+        var links = new[] { (0, 0, 5) };
 
         Action act = () => SequenceAssembler.Scaffold(contigs, links);
-        act.Should().NotThrow("a self link is ignored, not followed into an infinite loop");
-
-        var scaffolds = SequenceAssembler.Scaffold(contigs, links);
-        scaffolds.Should().Equal(new[] { "GATTACA" }, "self link ignored → lone contig scaffold");
+        act.Should().Throw<ArgumentException>("a self link is rejected eagerly, not silently ignored");
     }
 
-    // A single contig with out-of-range links → ignored, no IndexOutOfRange.
+    // A single contig with out-of-range links is invalid input (A5-6): ArgumentOutOfRangeException, no IndexOutOfRange.
     [Test]
-    public void Scaffold_SingleContigOutOfRangeLinks_IgnoredNoCrash()
+    public void Scaffold_SingleContigOutOfRangeLinks_Throws()
     {
         var contigs = new[] { "TTTT" };
-        var links = new[] { (0, 5, 3), (-1, 0, 2), (0, int.MaxValue, 9), (int.MinValue, 0, 1) };
 
-        Action act = () => SequenceAssembler.Scaffold(contigs, links);
-        act.Should().NotThrow("out-of-range link indices are ignored, no IndexOutOfRange (§3.3)");
-
-        var scaffolds = SequenceAssembler.Scaffold(contigs, links);
-        scaffolds.Should().Equal(new[] { "TTTT" }, "all links out of range → lone contig scaffold");
+        foreach (var link in new[] { (0, 5, 3), (-1, 0, 2), (0, int.MaxValue, 9), (int.MinValue, 0, 1) })
+        {
+            Action act = () => SequenceAssembler.Scaffold(contigs, new[] { link });
+            act.Should().Throw<ArgumentOutOfRangeException>($"link {link} references a contig that does not exist");
+        }
     }
 
     // An empty single contig is degenerate but valid: one empty scaffold, no DivideByZero.
@@ -447,14 +443,15 @@ public class AssemblyScaffoldFuzzTests
             int n = rng.Next(1, 10);
             var contigs = RandomContigs(rng, n, 0, 12);
 
-            // Generate many links, deliberately dense to force conflicts, cycles and out-of-range refs.
+            // Generate many links, deliberately dense to force conflicts and cycles.
             int linkCount = rng.Next(0, n * 3 + 4);
             var links = new List<(int, int, int)>(linkCount);
             for (int k = 0; k < linkCount; k++)
             {
-                // Mix in-range and out-of-range / self / negative indices and extreme gaps.
-                int c1 = rng.Next(5) == 0 ? rng.Next(-2, n + 3) : rng.Next(0, n);
-                int c2 = rng.Next(5) == 0 ? rng.Next(-2, n + 3) : rng.Next(0, n);
+                // Valid indices only (out-of-range / self links are rejected, A5-6); extreme gaps.
+                int c1 = rng.Next(0, n);
+                int c2 = rng.Next(0, n);
+                if (c1 == c2) continue;
                 int gap = rng.Next(6) switch
                 {
                     0 => 0,

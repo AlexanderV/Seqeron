@@ -12,7 +12,8 @@
     "properties": {
       "dnaSequence": { "type": "string", "description": "DNA sequence to annotate", "minLength": 1 },
       "minOrfLength": { "type": "integer", "description": "Minimum ORF length in amino acids", "default": 100 },
-      "prefix": { "type": "string", "description": "Gene identifier prefix", "default": "gene" }
+      "prefix": { "type": "string", "description": "Gene identifier prefix", "default": "gene" },
+      "startSelection": { "type": "string", "enum": ["LongestOrf", "ProdigalScore", "ProdigalDynamicProgramming"], "description": "Start selection: LongestOrf (default), ProdigalScore (Prodigal start score per stop) or ProdigalDynamicProgramming (Prodigal gene model; needs >= 20000 nt)", "default": "LongestOrf" }
     },
     "required": ["dnaSequence"]
   },

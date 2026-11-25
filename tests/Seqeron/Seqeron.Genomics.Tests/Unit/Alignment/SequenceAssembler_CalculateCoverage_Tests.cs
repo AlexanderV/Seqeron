@@ -231,8 +231,11 @@ public class SequenceAssembler_CalculateCoverage_Tests
 
         Assert.Multiple(() =>
         {
+            // A6-1 default flip: the 3-argument overload searches both strands (Bowtie 2 / BWA default).
             Assert.That(SequenceAssembler.CalculateCoverage(reference, reads, 6),
-                Is.EqualTo(new int[12]), "forward strand only: no 6-match placement");
+                Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0 }), "both strands by default");
+            Assert.That(SequenceAssembler.CalculateCoverage(reference, reads, 6, includeReverseComplement: false),
+                Is.EqualTo(new int[12]), "explicit forward-only (Bowtie 2 --norc): no 6-match placement");
             Assert.That(SequenceAssembler.CalculateCoverage(reference, reads, 6, includeReverseComplement: true),
                 Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0 }));
             Assert.That(SequenceAssembler.CalculateCoverage(reference, new[] { "ttgacc", "GGTCAA" }, 6, includeReverseComplement: true),

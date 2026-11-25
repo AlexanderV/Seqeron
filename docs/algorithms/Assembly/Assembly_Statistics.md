@@ -64,12 +64,13 @@ Let the contig lengths be `L₁ ≥ L₂ ≥ … ≥ Lₙ` (sorted descending) a
 | `AssemblyStatistics` | record struct | `N50, L50, N90, L90, LargestContig, SmallestContig, TotalLength, TotalLengthNoGaps, MeanLength, MedianLength, GcContent, TotalGaps, TotalGapLength, GapPercentage`, `TotalSequences` |
 | `NxStatistics` | record struct | `Threshold, Nx, Lx, CumulativeLength` |
 | `CalculateN50` | `int` | N50 length |
-| `CalculateAuN` | `double` | auN = Σl²/Σl |
+| `CalculateAuN` | `double` | auN = Σl²/Σl, accumulated exactly (128-bit Σl², 64-bit Σl; oracle QUAST `au_metric` incl. Σl² > 2^53), divided once |
+| `CalculateNxCurve` | `IEnumerable<NxStatistics>` | Nx/Lx per threshold, ascending (default 10, 20, …, 90; duplicates kept); eager validation |
 | `GapInfo` | record struct | `SequenceId, Start, End, Length, GapType` (0-based inclusive) |
 
 ### 3.3 Preconditions and Validation
 
-Lengths/positions are 0-based; gap coordinates are inclusive `[Start, End]`. N-runs are matched case-insensitively (`N`/`n`). GC fraction = pooled (G+C)/(A+C+G+T) — QUAST `GC_content` (after `correct_seq` upper-cases and turns IUPAC codes into N); N, IUPAC codes and gap symbols are in neither count (canonical Core `CountGcAndValidNucleotides`). Empty input is handled without throwing: `CalculateStatistics` returns an all-zero record, `CalculateNx` returns `Nx=Lx=0`, `CalculateAuN` returns `0` (see §6.1). The core `CalculateNx` rejects a negative length or lengths that are not non-increasing (`ArgumentException`); `CalculateLengthDistribution` rejects bin bounds that are not strictly increasing.
+Lengths/positions are 0-based; gap coordinates are inclusive `[Start, End]`. N-runs are matched case-insensitively (`N`/`n`). GC fraction = pooled (G+C)/(A+C+G+T) — QUAST `GC_content` (after `correct_seq` upper-cases and turns IUPAC codes into N); N, IUPAC codes and gap symbols are in neither count (canonical Core `CountGcAndValidNucleotides`). Empty input is handled without throwing: `CalculateStatistics` returns an all-zero record, `CalculateNx` returns `Nx=Lx=0`, `CalculateAuN` returns `0` (see §6.1). The core `CalculateNx` rejects a negative length or lengths that are not non-increasing (`ArgumentException`); `CalculateLengthDistribution` rejects bin bounds that are not strictly increasing. Null collections raise `ArgumentNullException` and null sequences / negative lengths `ArgumentException` at the call (`CalculateNxCurve` validates eagerly, it is not a lazy iterator).
 
 ## 4. Algorithm
 

@@ -98,7 +98,9 @@ majority-vote nucleotide [2 (p.28)].
 ### 3.3 Preconditions and Validation
 
 Reads are 0-indexed. `AssembleOLC(null)` and `AssembleOLC([])` return an empty
-`AssemblyResult` (no exception). Overlap matching is **case-insensitive** (identity is
+`AssemblyResult` (no exception); a null *read* raises `ArgumentException`. `FindAllOverlaps(null)`,
+`FindOverlap(null, …)`, `CalculateIdentity(null, …)` raise `ArgumentNullException` (a null read element in
+`FindAllOverlaps`/`CalculateStats` raises `ArgumentException`; `CalculateStats` no longer counts a null contig as length 0). Overlap matching is **case-insensitive** (identity is
 computed on upper-cased characters). The alphabet is unconstrained (any `char` strings;
 DNA/RNA/protein all work). `Position2` of an overlap is always 0 (prefix of the second
 read). Identity is the fraction of matching positions over the overlap window; an overlap

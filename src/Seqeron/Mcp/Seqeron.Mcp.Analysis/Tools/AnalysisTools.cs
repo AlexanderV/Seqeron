@@ -842,7 +842,7 @@ public class AnalysisTools
     [Description("Sequences whose two arms are reverse-complement of each other (hairpin candidates). Maximal stems (EMBOSS palindrome); optional mismatches (palindrome -nummismatches), maximum arm length (-maxpallen) and G-U wobble pairs.")]
     public static FindInvertedRepeatsResult FindInvertedRepeats(
         [Description("DNA sequence.")] string sequence,
-        [Description("Minimum arm length (default 4).")] int minArmLength = 4,
+        [Description("Minimum arm length (default 4, >= 1).")] int minArmLength = 4,
         [Description("Maximum loop length (default 50).")] int maxLoopLength = 50,
         [Description("Minimum loop length (default 3).")] int minLoopLength = 3,
         [Description("Maximum mismatched pairs inside a stem (default 0 = exact; EMBOSS palindrome -nummismatches).")] int maxMismatches = 0,
@@ -3226,39 +3226,94 @@ public class AnalysisTools
     [Description("Zuker-style minimum free energy with Turner 2004 parameters (O(n³)). Returns kcal/mol.")]
     public static MinimumFreeEnergyResult MinimumFreeEnergy(
         [Description("RNA sequence.")] string rnaSequence,
-        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3)
+        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3,
+        [Description("Absolute temperature in Kelvin (default 310.15 = 37 °C). Every Turner 2004 parameter is rescaled with its enthalpy, dG(T) = dH - (dH - dG37)*T/310.15 (ViennaRNA md.temperature).")] double temperature = 310.15)
     {
         if (string.IsNullOrEmpty(rnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
 
-        return new MinimumFreeEnergyResult(RnaSecondaryStructure.CalculateMinimumFreeEnergy(rnaSequence, minLoopSize));
+        return new MinimumFreeEnergyResult(RnaSecondaryStructure.CalculateMinimumFreeEnergy(rnaSequence, minLoopSize, temperature));
     }
 
     [McpServerTool(Name = "rna_structure_energy", Title = "RNA — Structure Free Energy (eval)", ReadOnly = true)]
     [Description("Turner 2004 free energy (kcal/mol) of a given pseudoknot-free dot-bracket structure, loop by loop with the same model as minimum_free_energy (ViennaRNA RNAeval -d2 counterpart).")]
     public static RnaStructureEnergyResult RnaStructureEnergy(
         [Description("RNA sequence (T read as U, case-insensitive).")] string rnaSequence,
-        [Description("Dot-bracket structure of the same length using only '(', ')' and '.'.")] string dotBracket)
+        [Description("Dot-bracket structure of the same length using only '(', ')' and '.'.")] string dotBracket,
+        [Description("Absolute temperature in Kelvin (default 310.15 = 37 °C); Turner 2004 parameters rescaled with their enthalpies.")] double temperature = 310.15)
     {
         if (string.IsNullOrEmpty(rnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
         if (dotBracket is null)
             throw new ArgumentException("Structure cannot be null", nameof(dotBracket));
 
-        return new RnaStructureEnergyResult(RnaSecondaryStructure.CalculateFreeEnergy(rnaSequence, dotBracket));
+        return new RnaStructureEnergyResult(RnaSecondaryStructure.CalculateFreeEnergy(rnaSequence, dotBracket, temperature));
     }
 
     [McpServerTool(Name = "rna_mfe_structure", Title = "RNA — MFE Secondary Structure (fold)", ReadOnly = true)]
     [Description("Minimum-free-energy secondary structure (Zuker DP traceback, Turner 2004, dangles d2; ViennaRNA RNAfold counterpart): dot-bracket, base pairs and MFE (kcal/mol, equals minimum_free_energy). T read as U, case-insensitive.")]
     public static RnaMfeStructureResult RnaMfeStructure(
         [Description("RNA sequence (T read as U, case-insensitive; other characters never pair).")] string rnaSequence,
-        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3)
+        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3,
+        [Description("Absolute temperature in Kelvin (default 310.15 = 37 °C); Turner 2004 parameters rescaled with their enthalpies.")] double temperature = 310.15)
     {
         if (string.IsNullOrEmpty(rnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
 
-        var s = RnaSecondaryStructure.PredictStructureMfe(rnaSequence, minLoopSize);
+        var s = RnaSecondaryStructure.PredictStructureMfe(rnaSequence, minLoopSize, temperature);
         return new RnaMfeStructureResult(s.Sequence, s.DotBracket, s.BasePairs.Select(ToItem).ToArray(), s.MinimumFreeEnergy);
+    }
+
+    [McpServerTool(Name = "rna_partition_function", Title = "RNA — Partition Function (McCaskill)", ReadOnly = true)]
+    [Description("McCaskill equilibrium partition function on the Turner 2004 model (ViennaRNA RNAfold -p, dangles d2): Z, ensemble free energy -RT ln Z, base-pair probabilities (pairs with probability >= minProbability), per-base unpaired probabilities, MFE structure and its Boltzmann probability, ensemble diversity (mean base-pair distance) and centroid structure. Temperature rescales every Turner parameter with its enthalpy; matrices are scaled per nucleotide (pf_scale) so long sequences do not overflow. T read as U, case-insensitive; N/IUPAC never pair.")]
+    public static RnaPartitionFunctionResult RnaPartitionFunction(
+        [Description("RNA sequence (T read as U, case-insensitive; other characters never pair).")] string rnaSequence,
+        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3,
+        [Description("Absolute temperature in Kelvin (default 310.15 = 37 °C).")] double temperature = 310.15,
+        [Description("Report only base pairs with probability >= this value (default 0.001; 0 lists every pair with P > 0).")] double minProbability = 0.001)
+    {
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+        if (!(minProbability >= 0 && minProbability <= 1))
+            throw new ArgumentOutOfRangeException(nameof(minProbability), "minProbability must be in [0,1].");
+
+        var r = RnaSecondaryStructure.CalculatePartitionFunction(rnaSequence, minLoopSize, temperature);
+        var pairs = r.BasePairProbabilities
+            .Where(kv => kv.Value >= minProbability)
+            .OrderBy(kv => kv.Key.I).ThenBy(kv => kv.Key.J)
+            .Select(kv => new PairProbabilityItem(kv.Key.I, kv.Key.J, kv.Value))
+            .ToArray();
+        return new RnaPartitionFunctionResult(
+            double.IsFinite(r.PartitionFunction) ? r.PartitionFunction : null,
+            r.LogPartitionFunction,
+            r.EnsembleFreeEnergy,
+            pairs,
+            r.UnpairedProbabilities.ToArray(),
+            r.MfeStructure,
+            r.MfeFreeEnergy,
+            r.MfeProbability,
+            r.EnsembleDiversity,
+            r.CentroidStructure,
+            r.Temperature);
+    }
+
+    [McpServerTool(Name = "rna_region_accessibility", Title = "RNA — Region Accessibility (Unpaired Probability)", ReadOnly = true)]
+    [Description("Probability that a contiguous region of RNA is entirely unpaired in the equilibrium ensemble (McCaskill partition function on the Turner 2004 model): Z_open / Z, where Z_open sums the structures in which no base of the region pairs. Equals ViennaRNA RNAplfold -u for window and span >= sequence length (whole-sequence ensemble), not the sliding-window local average. Also returns the opening energy -RT ln P (kcal/mol, Kertesz 2007). The joint probability is not the product of per-base unpaired probabilities. windowEnd is the 0-based inclusive last position, windowLength the number of nucleotides (the region [windowEnd-windowLength+1, windowEnd] must lie in the sequence). T read as U, case-insensitive; N/IUPAC never pair.")]
+    public static RnaRegionAccessibilityResult RnaRegionAccessibility(
+        [Description("RNA sequence (T read as U, case-insensitive; other characters never pair).")] string rnaSequence,
+        [Description("0-based inclusive index of the last nucleotide of the region.")] int windowEnd,
+        [Description("Region length in nucleotides (>= 1; TargetScan uses 14).")] int windowLength,
+        [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3,
+        [Description("Absolute temperature in Kelvin (default 310.15 = 37 °C).")] double temperature = 310.15)
+    {
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+
+        double p = RnaSecondaryStructure.CalculateRegionUnpairedProbability(rnaSequence, windowEnd, windowLength, minLoopSize, temperature);
+        double g = RnaSecondaryStructure.CalculateRegionOpeningEnergy(rnaSequence, windowEnd, windowLength, minLoopSize, temperature);
+        return new RnaRegionAccessibilityResult(
+            windowEnd - windowLength + 1, windowEnd, windowLength, p,
+            double.IsFinite(g) ? g : null, temperature);
     }
 
     [McpServerTool(Name = "predict_rna_structure", Title = "RNA — Predict Secondary Structure", ReadOnly = true)]
@@ -3336,7 +3391,7 @@ public class AnalysisTools
     [Description("Finds maximal antiparallel complementary regions (potential RNA hairpin stems; A·U, G·C and G·U wobble by default, optional interior mismatches). Same stem model as DNA find_inverted_repeats (shared engine); coordinates 0-based inclusive.")]
     public static FindRnaInvertedRepeatsResult FindRnaInvertedRepeats(
         [Description("RNA sequence.")] string sequence,
-        [Description("Minimum arm length (default 4).")] int minLength = 4,
+        [Description("Minimum arm length (default 4, >= 1).")] int minLength = 4,
         [Description("Minimum spacing between arms (default 3).")] int minSpacing = 3,
         [Description("Maximum spacing between arms (default 100).")] int maxSpacing = 100,
         [Description("Maximum interior mismatches per stem (default 0 = perfect stems).")] int maxMismatches = 0,

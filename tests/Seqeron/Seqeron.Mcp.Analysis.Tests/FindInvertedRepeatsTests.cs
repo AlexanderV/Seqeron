@@ -17,8 +17,10 @@ public class FindInvertedRepeatsTests
         Assert.DoesNotThrow(() => AnalysisTools.FindInvertedRepeats("GGGGAAACCCC", 4, 50, 3));
         Assert.Throws<ArgumentException>(() => AnalysisTools.FindInvertedRepeats("", 4, 50, 3));
         Assert.Throws<ArgumentException>(() => AnalysisTools.FindInvertedRepeats(null!, 4, 50, 3));
-        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindInvertedRepeats("GGGGAAACCCC", 1, 50, 3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindInvertedRepeats("GGGGAAACCCC", 0, 50, 3));
         Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindInvertedRepeats("GGGGAAACCCC", 4, 50, -1));
+        // minArmLength 1 is the accepted floor (EMBOSS palindrome.acd minpallen minimum 1).
+        Assert.DoesNotThrow(() => AnalysisTools.FindInvertedRepeats("GGGGAAACCCC", 1, 50, 3));
     }
 
     [Test]

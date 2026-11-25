@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_drosha_dicer_cleavage",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.PredictDroshaDicerCleavage",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L3111",
+  "description": "Predict the Drosha (basal) and Dicer (apical) cleavage sites and the 5p/3p products of a pri-miRNA hairpin.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "pri-miRNA nucleotide sequence (RNA or DNA)",
+        "minLength": 1
+      },
+      "basalJunction": {
+        "type": "integer",
+        "description": "0-based index of the 5′-arm base of the first stem base pair"
+      },
+      "dotBracket": {
+        "type": "string",
+        "description": "Optional dot-bracket structure; default = MFE fold"
+      },
+      "dicerRule": {
+        "type": "string",
+        "description": "FivePrimeCounting (default) or ThreePrimeCounting",
+        "default": "FivePrimeCounting",
+        "enum": [
+          "FivePrimeCounting",
+          "ThreePrimeCounting"
+        ]
+      },
+      "droshaRule": {
+        "type": "string",
+        "description": "BasalJunction (default) or ApicalJunction",
+        "default": "BasalJunction",
+        "enum": [
+          "BasalJunction",
+          "ApicalJunction"
+        ]
+      }
+    },
+    "required": [
+      "sequence",
+      "basalJunction"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "predicted": {
+        "type": "boolean"
+      },
+      "cleavage": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "basalJunction": {
+            "type": "integer"
+          },
+          "apicalJunction": {
+            "type": "integer"
+          },
+          "droshaCut5Prime": {
+            "type": "integer"
+          },
+          "droshaCut3Prime": {
+            "type": "integer"
+          },
+          "matureStart": {
+            "type": "integer"
+          },
+          "matureEnd": {
+            "type": "integer"
+          },
+          "starStart": {
+            "type": "integer"
+          },
+          "starEnd": {
+            "type": "integer"
+          },
+          "threePrimeOverhang": {
+            "type": "integer"
+          },
+          "matureSequence": {
+            "type": "string"
+          },
+          "starSequence": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "string"
+          },
+          "structure": {
+            "type": "string"
+          },
+          "dicerRule": {
+            "type": "string"
+          },
+          "droshaRule": {
+            "type": "string"
+          },
+          "hasCnncMotif": {
+            "type": "boolean"
+          },
+          "hasBasalUgMotif": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "required": [
+      "predicted"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "basalJunction {n} is out of range for sequence of length {L}"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown dicerRule / droshaRule (valid values listed)"
+    },
+    {
+      "code": 1001,
+      "message": "Dot-bracket must be balanced and as long as the sequence."
+    }
+  ],
+  "examples": [
+    {
+      "name": "108-nt model hairpin",
+      "input": {
+        "sequence": "AAAAAGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGAAAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "basalJunction": 5,
+        "dotBracket": ".....(((((((((((((((((((((((((((((((((((........)))))))))))))))))))))))))))))))))))........................."
+      },
+      "output": {
+        "predicted": true,
+        "cleavage": {
+          "droshaCut5Prime": 16,
+          "droshaCut3Prime": 73,
+          "matureStart": 16,
+          "matureEnd": 37,
+          "starStart": 52,
+          "starEnd": 73
+        }
+      }
+    }
+  ]
+}

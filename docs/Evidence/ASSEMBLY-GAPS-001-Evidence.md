@@ -117,3 +117,5 @@ Sample median: mean of the two central values for an even count.
 ## Deviations kept (documented)
 
 IUPAC codes are bases (QUAST → N, seqtk → gap); GapType is a Seqeron length class, not an AGP 7b type (the sequence carries no linkage evidence); FindGaps default 1 (every N-run, matches CalculateStatistics); ExtractContigs numbers only returned contigs.
+
+**R1-WP2 (2026-11-25):** QUAST `qutils.py` `split_by_ns` re-opened: `total_contigs` is incremented for every piece appended and `--min-contig` filters afterwards, so `ExtractContigs` now names `{id}_contig{n}` with n = position among all contigs of the scaffold (same as `AnalyzeScaffolds`); locked by `ExtractContigs_NumbersFromTheFullContigList_AgreeingWithAnalyzeScaffolds` (pieces 5/300/2/250 bp → `s_contig2`, `s_contig4`). Oracle: `tools/review/oracles/B10/stats_oracle.py` header.

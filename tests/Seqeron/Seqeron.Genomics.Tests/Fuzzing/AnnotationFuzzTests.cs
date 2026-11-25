@@ -633,29 +633,41 @@ public class AnnotationFuzzTests
     #region MC — Malformed content: non-DNA characters
 
     /// <summary>
-    /// MC: non-DNA characters (N, IUPAC ambiguity codes, digits, punctuation) embedded
-    /// in the sequence must NOT crash. The canonical finder does not pre-validate the
-    /// alphabet (ORF_Detection.md §3.3): each 3-char codon window is upper-cased and
-    /// tested for exact membership in the fixed A/C/G/T codon sets, so a triplet
-    /// containing a non-ACGT character simply fails start/stop matching and is treated as
-    /// an ordinary non-boundary codon — no out-of-range Substring, no spurious start or
-    /// stop invented from garbage. Here the whole sequence is non-DNA filler with no
-    /// valid start, so the result is empty on both strands.
+    /// MC: IUPAC ambiguity codes (N, R, Y, K, W, S, M, ...) embedded in the sequence must NOT
+    /// crash and invent no ORF. The finder delegates to the canonical getorf engine
+    /// (<c>Translator.FindOrfs</c>): an ambiguous codon is never a start (EMBOSS fills the Starts
+    /// table for A/C/G/T codons only) and is a stop only when every expansion is a stop (TAR), so
+    /// the whole-ambiguity filler has no boundary and no start-to-stop ORF.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void FindOrfs_NonDnaCharacters_DoesNotCrashAndEmitsNoSpuriousOrf()
+    public void FindOrfs_IupacAmbiguityCharacters_DoesNotCrashAndEmitsNoSpuriousOrf()
     {
-        // Length divisible by 3 (12) but full of non-ACGT garbage and ambiguity codes;
-        // no triplet here is a start codon, so nothing can be emitted.
-        const string garbage = "NNNRYK123!?WSM";
+        const string garbage = "NNNRYKWSMBDHVN";
 
         var act = () => GenomeAnnotator.FindOrfs(garbage, minLength: 0, searchBothStrands: true).ToList();
-        act.Should().NotThrow("non-DNA codons fail set membership but never index past the 3-char window or throw");
+        act.Should().NotThrow("IUPAC codes are valid input of the canonical ORF engine");
 
         var orfs = GenomeAnnotator.FindOrfs(garbage, minLength: 0, searchBothStrands: true).ToList();
         orfs.Should().BeEmpty(
-            "no non-ACGT triplet is a start codon, so malformed filler invents no spurious ORF");
+            "no ambiguous triplet is a start codon, so ambiguity filler invents no spurious ORF");
+    }
+
+    /// <summary>
+    /// MC (B11 A1 contract): a character outside the IUPAC nucleotide alphabet (digits,
+    /// punctuation, gap) is rejected with <see cref="ArgumentException"/> by the canonical engine
+    /// in every mode, instead of failing only when the bad codon happened to be translated.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindOrfs_NonIupacCharacters_ThrowArgumentException()
+    {
+        const string garbage = "NNNRYK123!?WSM";
+
+        foreach (bool requireStart in new[] { true, false })
+            foreach (bool both in new[] { true, false })
+                FluentActions.Invoking(() => GenomeAnnotator.FindOrfs(garbage, minLength: 0, both, requireStart).ToList())
+                    .Should().Throw<ArgumentException>();
     }
 
     /// <summary>

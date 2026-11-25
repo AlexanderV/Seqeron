@@ -36,7 +36,7 @@ Such structures can fold into hairpins; `canFormHairpin` is true when the loop i
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | DNA sequence (min length 1) |
-| `minArmLength` | integer | No | Minimum arm length (default 4, ≥ 2) |
+| `minArmLength` | integer | No | Minimum arm length (default 4, ≥ 1) |
 | `maxLoopLength` | integer | No | Maximum loop length (default 50, ≥ `minLoopLength`) |
 | `minLoopLength` | integer | No | Minimum loop length (default 3, ≥ 0) |
 | `maxMismatches` | integer | No | Maximum mismatched pairs inside a stem (default 0, ≥ 0) |
@@ -54,7 +54,7 @@ Such structures can fold into hairpins; `canFormHairpin` is true when the loop i
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
-| 1002 | minArmLength must be ≥ 2; minLoopLength must be ≥ 0; maxLoopLength must be ≥ minLoopLength; maxMismatches must be ≥ 0; maxArmLength must be ≥ minArmLength |
+| 1002 | minArmLength must be ≥ 1; minLoopLength must be ≥ 0; maxLoopLength must be ≥ minLoopLength; maxMismatches must be ≥ 0; maxArmLength must be ≥ minArmLength |
 
 ## Examples
 

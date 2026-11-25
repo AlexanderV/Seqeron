@@ -10,26 +10,78 @@
   "inputSchema": {
     "type": "object",
     "properties": {
-      "rnaSequence": { "type": "string", "description": "RNA sequence (T read as U, case-insensitive; other characters never pair)", "minLength": 1 },
-      "minLoopSize": { "type": "integer", "description": "Minimum hairpin loop size (default 3; values <3 are clamped, as ViennaRNA md.min_loop_size)", "default": 3 }
+      "rnaSequence": {
+        "type": "string",
+        "description": "RNA sequence (T read as U, case-insensitive; other characters never pair)",
+        "minLength": 1
+      },
+      "minLoopSize": {
+        "type": "integer",
+        "description": "Minimum hairpin loop size (default 3; values <3 are clamped, as ViennaRNA md.min_loop_size)",
+        "default": 3
+      },
+      "temperature": {
+        "type": "number",
+        "description": "Absolute temperature in Kelvin (default 310.15 = 37 °C); every Turner 2004 parameter is rescaled with its enthalpy, dG(T) = dH - (dH - dG37)*T/310.15 (ViennaRNA md.temperature)",
+        "default": 310.15,
+        "exclusiveMinimum": 0
+      }
     },
-    "required": ["rnaSequence"]
+    "required": [
+      "rnaSequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "Upper-cased sequence, T read as U" },
-      "dotBracket": { "type": "string" },
-      "basePairs": { "type": "array" },
-      "minimumFreeEnergy": { "type": "number", "description": "kcal/mol" }
+      "sequence": {
+        "type": "string",
+        "description": "Upper-cased sequence, T read as U"
+      },
+      "dotBracket": {
+        "type": "string"
+      },
+      "basePairs": {
+        "type": "array"
+      },
+      "minimumFreeEnergy": {
+        "type": "number",
+        "description": "kcal/mol"
+      }
     },
-    "required": ["sequence", "dotBracket", "basePairs", "minimumFreeEnergy"]
+    "required": [
+      "sequence",
+      "dotBracket",
+      "basePairs",
+      "minimumFreeEnergy"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    }
   ],
   "examples": [
-    { "name": "Hairpin", "input": { "rnaSequence": "GGGAAAACCC" }, "output": { "dotBracket": "(((....)))", "minimumFreeEnergy": -2.02 } },
-    { "name": "Two hairpins", "input": { "rnaSequence": "GAGGGAAAACCCAGGGAAAACCCAC" }, "output": { "dotBracket": "..(((....))).(((....)))..", "minimumFreeEnergy": -7.04 } }
+    {
+      "name": "Hairpin",
+      "input": {
+        "rnaSequence": "GGGAAAACCC"
+      },
+      "output": {
+        "dotBracket": "(((....)))",
+        "minimumFreeEnergy": -2.02
+      }
+    },
+    {
+      "name": "Two hairpins",
+      "input": {
+        "rnaSequence": "GAGGGAAAACCCAGGGAAAACCCAC"
+      },
+      "output": {
+        "dotBracket": "..(((....))).(((....)))..",
+        "minimumFreeEnergy": -7.04
+      }
+    }
   ]
 }

@@ -75,6 +75,7 @@ public class GenomeAssemblyAnalyzerTests
         var contigs = GenomeAssemblyAnalyzer.ExtractContigs(scaffolds, minContigLength: 100).ToList();
 
         Assert.That(contigs, Has.Count.EqualTo(1));
+        Assert.That(contigs[0].Id, Is.EqualTo("scaffold1_contig2"), "the dropped 4-bp contig keeps number 1 (QUAST split_by_ns)");
     }
 
     #endregion
@@ -334,7 +335,7 @@ public class GenomeAssemblyAnalyzerTests
         };
 
         var suspicious = GenomeAssemblyAnalyzer.FindSuspiciousRegions(
-            sequences, minComplexity: 0.5).ToList();
+            sequences, dustThreshold: 2.0).ToList();
 
         Assert.That(suspicious.Any(r => r.Reason.Contains("complexity")), Is.True);
     }

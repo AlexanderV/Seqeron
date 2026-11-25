@@ -45,7 +45,7 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `ErrorCorrectReads(reads, kmerSize, minKmerFrequency)` | SequenceAssembler | Canonical | Musket stage 1 to convergence, forward strand |
+| `ErrorCorrectReads(reads, kmerSize, minKmerFrequency)` | SequenceAssembler | Canonical | Musket stage 1 to convergence over a canonical (both-strand) spectrum (`ErrorCorrectionOptions.TwoSided`); defaults k = 21, cut-off 3 |
 | `ErrorCorrectReads(reads, kmerSize, minKmerFrequency, ErrorCorrectionOptions)` | SequenceAssembler | Canonical | Musket 1.1 corrector (`ErrorCorrectionOptions.Musket`) |
 
 ---
@@ -76,11 +76,11 @@
 | M6 | Null reads → exception | `ErrorCorrectReads(null)` | `ArgumentNullException` | Documented failure mode |
 | M7 | kmerSize < 1 → exception | `ErrorCorrectReads(reads, 0)` | `ArgumentOutOfRangeException` | Documented failure mode |
 | M8 | Leftmost/rightmost probe | k=3, cut-off 2; TCTCT, TCGCT | TCGCT → TCTCT | [1][4] |
-| M9 | Canonical counting | 3×GAAGCCTGTAATC + GATTACGGGCTTC, k=3 | canonical/Musket → GATTACAGGCTTC; forward → AATTACGGGCTTC | [4] main.cpp |
+| M9 | Canonical counting | 3×GAAGCCTGTAATC + GATTACGGGCTTC, k=3 | 3-arg default / canonical / Musket → GATTACAGGCTTC; explicit forward-only (`TwoSidedForwardStrand`) → AATTACGGGCTTC | [4] main.cpp |
 | M10 | Aggressive stage error budget | 3×AAAAAAAA + AACCAAAA, k=4, Musket maxerr 0/1/2/4 | unchanged/unchanged/fixed/fixed | [4] paraCorrectCore |
 | M11 | One correction per iteration | maxiter 1 vs 2 | first error only vs both | [4] ParaCorrect |
 | M12 | Voting stage | ACAATCTTCA, ACAATTGTCA, ACTATTGTCA, k=3 | all ACAATTGTCA | [4] voting.cpp |
-| M13 | Oracle table | 8 random cases (6 Musket, 2 default) | transcription oracle output | [4] |
+| M13 | Oracle table | 10 random cases (6 Musket, 2 default = canonical two-sided, 2 `Forward` = `TwoSidedForwardStrand`; `correct_default_oracle.py`) | transcription oracle output | [4] |
 | M14 | Validation | cut-off < 1, null read, null options, maxiter 0, maxerr −1 | ArgumentOutOfRange / Argument / ArgumentNull | |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -194,11 +194,11 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Default `kmerSize`/`minKmerFrequency` values (Musket/Quake auto-select from data); non-behavioral because every behavioral test passes them explicitly | Implementation defaults only |
+| 1 | Default `kmerSize` = 21 (Musket `option.cpp`) / `minKmerFrequency` = 3 (smallest value of Musket's valley estimator, `main.cpp`); automatic valley estimation is not part of the default (A9-3) | Defaults now sourced; library and MCP equal |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. Quake/Musket additionally trim or discard reads that cannot be corrected (Musket `-maxtrim`, default off) and Quake uses quality-weighted (q-mer) counting; not implemented (counts and lengths preserved). Recorded in algorithm doc §5.3.
-2. (2026-11-25) The three-argument overload counts the forward strand only (backward compatible); Musket counts canonical k-mers. Audit to decide whether the default should switch (test M9 shows a forward-only miscorrection).
+2. (2026-11-25, resolved by round-1 audit A9-1) The three-argument overload counts canonical k-mers as Musket; the forward-strand spectrum is the explicit opt-out `ErrorCorrectionOptions.TwoSidedForwardStrand` (test M9 shows its miscorrection). Test additions: `ErrorCorrectReads_MatchesMusketTranscriptionOracle` rows `Default` (canonical) and `Forward`; MCP `ErrorCorrectReads_MusketOptions_DelegateToCore` (default = canonical, `countReverseComplement: false` = forward-only).

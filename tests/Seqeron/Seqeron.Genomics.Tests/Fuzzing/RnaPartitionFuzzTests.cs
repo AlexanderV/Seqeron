@@ -5,11 +5,13 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// <summary>
 /// Fuzz tests for RNA-PARTITION-001 — the McCASKILL EQUILIBRIUM PARTITION FUNCTION.
 /// Unit under test:
-///   RnaSecondaryStructure.CalculatePartitionFunction(string, double basePairEnergy, double temperature)
-///   → PartitionFunctionResult(double PartitionFunction Z, IReadOnlyDictionary&lt;(int,int),double&gt; P[i,j])
+///   RnaSecondaryStructure.CalculatePartitionFunction(string, int minLoopSize, double temperature)
+///   → PartitionFunctionResult(Z, P[i,j], ensemble free energy, unpaired probabilities, MFE structure + probability,
+///     ensemble diversity, centroid)
 /// in src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs — the McCaskill
 /// (1990) inside recursion Q/Qᵇ giving Z = Q[1,n] in O(n³)/O(n²), followed by the outside
-/// recursion P[i,j] = Qᵇ[i,j]·O[i,j]/Z over the simplified fixed-per-pair energy model.
+/// recursion P[i,j] = Qᵇ[i,j]·O[i,j]/Z on the Turner 2004 nearest-neighbour model (ViennaRNA 2.7.2 pf, with the
+/// per-nucleotide pf_scale so that long sequences do not overflow).
 /// Checklist: docs/checklists/03_FUZZING.md, row 154 (strategy code BE).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
@@ -18,7 +20,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// Degenerate, boundary and out-of-domain inputs must NEVER fail in an undisciplined
 /// way: no IndexOutOfRange off the n×n DP tables (Q, Qᵇ, outside) on length-0/1 spans;
 /// no DivideByZero in P = Qᵇ·O/Z when Z is degenerate; no NaN/Inf in Z or any probability
-/// (notably at the temperature edge, where RT→0 would blow up exp(−βE)); no FALSE
+/// (notably at the temperature edge, where RT→0 would blow up exp(−βE); the ensemble then collapses to the ground state); no FALSE
 /// probability mass on a sequence that cannot pair; and no hang / super-cubic blow-up on a
 /// long homopolymer. Every input resolves to a well-defined, theory-correct ensemble OR a
 /// documented validation outcome (null → ArgumentNullException; T ≤ 0 → ArgumentOutOfRange).
@@ -49,10 +51,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • INV-02 (§2.4): every P[i,j] ∈ [0,1] — a sum of Boltzmann probabilities of structures
 ///     containing (i,j). Per-column the pair-probabilities into a base sum to ≤ 1 (a base can
 ///     be paired in at most one pair per structure), so each row/column sum of P ≤ 1.
-///   • INV-03 (§2.4): with E_bp = 0, Z equals the number of admissible structures (every
-///     Boltzmann weight is exp(0)=1). §7.1 worked example: Z("GGGAAACCC", E_bp=0) = 20 and
-///     P[0,8] = 6/20 = 0.30.
-///   • INV-04 (§2.4): Z strictly increases as E_bp decreases (each pair weight grows).
+///   • INV-03: G = −RT·ln Z is a lower bound of the MFE and P(unpaired i) + Σ_j P(i,j) = 1.
+///   • INV-04: a longer perfect stem has a lower ensemble free energy.
 ///   • §2.2 / §5.2: P uses the FULL outside recursion (external + enclosing terms), so a
 ///     nestable pair receives strictly more than its external-only share.
 ///   • Keys are 0-based with i &lt; j; only A-U, G-C, G-U pair; T is treated as U.
@@ -94,7 +94,11 @@ public class RnaPartitionFuzzTests
     {
         double z = r.PartitionFunction;
         double.IsNaN(z).Should().BeFalse($"Z must never be NaN ({because})");
-        double.IsInfinity(z).Should().BeFalse($"Z must never be ±∞ ({because})");
+        double.IsNegativeInfinity(z).Should().BeFalse($"Z must never be −∞ ({because})");
+        if (double.IsPositiveInfinity(z))
+            r.LogPartitionFunction.Should().BeGreaterThan(700.0, $"Z may only be +∞ beyond the double range, then ln Z is the finite answer ({because})");
+        double.IsFinite(r.LogPartitionFunction).Should().BeTrue($"ln Z is always finite ({because})");
+        double.IsFinite(r.EnsembleFreeEnergy).Should().BeTrue($"the ensemble free energy is always finite ({because})");
         z.Should().BeGreaterThanOrEqualTo(1.0, $"INV-01: Z ≥ 1 — the empty structure always weighs exp(0)=1 ({because})");
 
         r.BasePairProbabilities.Should().NotBeNull($"the probability map is never null ({because})");
@@ -157,11 +161,11 @@ public class RnaPartitionFuzzTests
         r.BasePairProbabilities.Should().BeEmpty("no positions exist, so no pair can form (§3.3)");
         AssertWellFormedEnsemble(r, 0, "empty sequence");
 
-        // Pathological energy / temperature on the empty boundary still yields Z = 1, no pairs.
-        foreach (double e in new[] { -100.0, 0.0, 100.0 })
+        // Pathological loop-size / temperature on the empty boundary still yields Z = 1, no pairs.
+        foreach (int m in new[] { -5, 0, 3, 100 })
         {
-            var rr = RnaSecondaryStructure.CalculatePartitionFunction("", basePairEnergy: e);
-            rr.PartitionFunction.Should().Be(1.0, $"empty sequence is Z = 1 for any E_bp (here {e})");
+            var rr = RnaSecondaryStructure.CalculatePartitionFunction("", minLoopSize: m);
+            rr.PartitionFunction.Should().Be(1.0, $"empty sequence is Z = 1 for any minLoopSize (here {m})");
             rr.BasePairProbabilities.Should().BeEmpty();
         }
         RnaSecondaryStructure.CalculatePartitionFunction("", temperature: 1e-9)
@@ -290,14 +294,10 @@ public class RnaPartitionFuzzTests
     }
 
     /// <summary>
-    /// BE — sub-Kelvin temperature edge (the genuine overflow hazard). As T → 0⁺, RT → 0 and
-    /// the per-pair Boltzmann weight exp(−βE_bp) for a stabilising pair overflows IEEE double to
-    /// +∞ — inherent to a non-log-space partition function (the doc's only precondition is
-    /// T &gt; 0, and §2.4 notes Z scales with RT). The fuzzing contract here is the DISCIPLINED
-    /// outcome: no exception, and critically NO NaN leaking into any probability via P = Qᵇ·O/Z
-    /// (the source guards the probability loop with <c>if (z &gt; 0)</c>, so an overflow to +∞
-    /// yields an EMPTY probability map rather than ∞/∞ = NaN). Z may be a well-defined +∞ here,
-    /// but it must never be NaN and must remain ≥ 1.
+    /// BE — sub-Kelvin temperature edge (the genuine overflow hazard). As T → 0⁺, RT → 0 and the Boltzmann weight
+    /// exp(−βE) of a single stabilising loop overflows IEEE double to +∞. The disciplined outcome (ground-state limit):
+    /// no exception, NO NaN anywhere (Z, ln Z, G, probabilities) — the ensemble collapses onto the MFE structure
+    /// (G = MFE, P(MFE) = 1), Z may be a well-defined +∞ with a finite ln Z, and Z stays ≥ 1.
     /// </summary>
     [Test]
     [CancelAfter(20_000)]
@@ -319,33 +319,23 @@ public class RnaPartitionFuzzTests
     }
 
     /// <summary>
-    /// BE — energy edge: E_bp = 0 (every Boltzmann weight is exp(0)=1) and extreme magnitudes.
-    /// At E_bp = 0, Z must equal the COUNT of admissible structures (INV-03). A large positive
-    /// E_bp (destabilising) drives pair weights → 0, so the ensemble collapses toward the open
-    /// chain: Z → 1 and pair mass → 0. A large negative E_bp must still yield finite, in-range
-    /// probabilities. None of these may produce NaN/Inf (RNA_Partition_Function.md §2.4).
+    /// BE — hot / cold energy edges. At very high temperature every structure is nearly equally likely
+    /// (RT ≫ |ΔG|), at very low temperature the ensemble collapses onto the MFE structure (G → MFE, P(MFE) → 1);
+    /// none of them may produce NaN/Inf probabilities.
     /// </summary>
     [Test]
-    public void EnergyEdges_NoNaN_AndZeroEnergyCountsStructures()
+    public void EnergyEdges_HotAndCold_NoNaN_AndGroundStateAtLowTemperature()
     {
         const string seq = "GGGAAACCC";
 
-        // E_bp = 0 → Z is the structure count; documented worked example = 20.
-        PartitionFunctionResult zero = RnaSecondaryStructure.CalculatePartitionFunction(seq, basePairEnergy: 0.0);
-        zero.PartitionFunction.Should().BeApproximately(20.0, 1e-9,
-            "INV-03 / §7.1: with E_bp = 0, Z('GGGAAACCC') = number of admissible structures = 20");
-        AssertWellFormedEnsemble(zero, seq.Length, "E_bp = 0");
+        PartitionFunctionResult hot = RnaSecondaryStructure.CalculatePartitionFunction(seq, temperature: 5000.0);
+        AssertWellFormedEnsemble(hot, seq.Length, "T = 5000 K");
 
-        // Strongly destabilising → ensemble collapses to the open chain (Z → 1, mass → 0).
-        PartitionFunctionResult hot = RnaSecondaryStructure.CalculatePartitionFunction(seq, basePairEnergy: 100.0);
-        hot.PartitionFunction.Should().BeApproximately(1.0, 1e-6,
-            "a strongly destabilising E_bp drives every pair weight → 0, so Z → 1");
-        TotalPairMass(hot).Should().BeApproximately(0.0, 1e-6, "no pairing mass when pairs are forbidden by energy");
-        AssertWellFormedEnsemble(hot, seq.Length, "E_bp = +100");
-
-        // Strongly stabilising → still finite and in-range (no NaN/Inf).
-        PartitionFunctionResult cold = RnaSecondaryStructure.CalculatePartitionFunction(seq, basePairEnergy: -10.0);
-        AssertWellFormedEnsemble(cold, seq.Length, "E_bp = -10");
+        // GGGGAAAACCCC has a unique ground state (GGGAAACCC has two degenerate MFE structures, so P(MFE) would be ≈ 0.9 there).
+        PartitionFunctionResult cold = RnaSecondaryStructure.CalculatePartitionFunction("GGGGAAAACCCC", temperature: 20.0);
+        AssertWellFormedEnsemble(cold, 12, "T = 20 K");
+        cold.EnsembleFreeEnergy.Should().BeApproximately(cold.MfeFreeEnergy, 0.05, "at 20 K the ensemble is the ground state");
+        cold.MfeProbability.Should().BeGreaterThan(0.99);
     }
 
     #endregion
@@ -383,7 +373,7 @@ public class RnaPartitionFuzzTests
     /// flanking the AAAA loop), proving the DP actually counts structures rather than returning
     /// the degenerate Z = 1. We assert at least one stem pair has meaningful mass and that the
     /// most-probable stem pair is one of the canonical (i, n−1−i) G·C closures. We do NOT
-    /// hard-code Vienna numbers (simplified model, ASM-01); we assert the documented INVARIANTS.
+    /// hard-code Vienna numbers here (see the unit test table); we assert the documented INVARIANTS.
     /// </summary>
     [Test]
     [CancelAfter(20_000)]
@@ -417,43 +407,70 @@ public class RnaPartitionFuzzTests
     }
 
     /// <summary>
-    /// POSITIVE sanity — documented WORKED EXAMPLE (§7.1): with E_bp = 0 every weight is 1,
-    /// so Z("GGGAAACCC") is exactly the number of admissible non-crossing structures = 20, and
-    /// the outermost pair (0,8) appears in 6 of them → P[0,8] = 6/20 = 0.30. Pinning this exact
-    /// rational value verifies BOTH the inside count AND the FULL outside recursion (the
-    /// external-term-only formula would under-report (0,8); §2.2, §5.2).
+    /// POSITIVE sanity — worked example locked to ViennaRNA 2.7.2 (NNDB-precision parameter file, d2, 37 °C):
+    /// GGGAAAACCC → MFE −2.02 (((....))), ensemble free energy −2.1535, P(MFE structure) 0.8053, ensemble diversity
+    /// 1.3215 (RNA.fold_compound.pf / pr_structure / mean_bp_distance).
     /// </summary>
     [Test]
-    public void WorkedExample_GGGAAACCC_ZeroEnergy_MatchesDoc()
+    public void WorkedExample_GGGAAAACCC_MatchesViennaRna()
     {
-        PartitionFunctionResult r = RnaSecondaryStructure.CalculatePartitionFunction("GGGAAACCC", basePairEnergy: 0.0);
+        PartitionFunctionResult r = RnaSecondaryStructure.CalculatePartitionFunction("GGGAAAACCC");
 
-        r.PartitionFunction.Should().BeApproximately(20.0, 1e-9,
-            "§7.1: Z('GGGAAACCC', E_bp=0) = 20 admissible structures");
-        r.BasePairProbabilities.Should().ContainKey((0, 8));
-        r.BasePairProbabilities[(0, 8)].Should().BeApproximately(0.30, 1e-9,
-            "§7.1: 6 of 20 structures contain (0,8) → P[0,8] = 6/20 = 0.30 (full outside recursion)");
-        AssertWellFormedEnsemble(r, 9, "worked example GGGAAACCC");
+        r.MfeStructure.Should().Be("(((....)))");
+        r.MfeFreeEnergy.Should().BeApproximately(-2.02, 1e-9);
+        r.EnsembleFreeEnergy.Should().BeApproximately(-2.1535, 0.01);
+        r.MfeProbability.Should().BeApproximately(0.8053, 0.005);
+        r.EnsembleDiversity.Should().BeApproximately(1.3215, 0.01);
+        AssertWellFormedEnsemble(r, 10, "worked example GGGAAAACCC");
     }
 
     /// <summary>
-    /// INV-04 (§2.4): Z strictly increases as E_bp decreases — each pair weight exp(−βE_bp)
-    /// grows and Z is a positive combination of them. A monotone sweep of decreasing E_bp on a
-    /// foldable sequence must give strictly increasing Z (and always ≥ 1).
+    /// INV-04: lengthening a perfect G·C stem (same loop) lowers the ensemble free energy monotonically.
     /// </summary>
     [Test]
-    public void Monotonicity_ZIncreasesAsEnergyDecreases()
+    public void Monotonicity_LongerStem_LowersEnsembleFreeEnergy()
     {
-        const string seq = "GGGGAAAACCCC";
-        double[] energies = { 2.0, 1.0, 0.0, -1.0, -2.0, -3.0 }; // strictly decreasing
-        double prevZ = double.NegativeInfinity;
-        foreach (double e in energies)
+        double prev = double.PositiveInfinity;
+        for (int stem = 2; stem <= 8; stem++)
         {
-            double z = RnaSecondaryStructure.CalculatePartitionFunction(seq, basePairEnergy: e).PartitionFunction;
-            z.Should().BeGreaterThanOrEqualTo(1.0, "INV-01 holds at every energy");
-            z.Should().BeGreaterThan(prevZ, $"INV-04: Z strictly increases as E_bp decreases (at E_bp = {e})");
-            prevZ = z;
+            string seq = new string('G', stem) + "AAAA" + new string('C', stem);
+            double g = RnaSecondaryStructure.CalculatePartitionFunction(seq).EnsembleFreeEnergy;
+            g.Should().BeLessThan(prev, $"a {stem}-bp stem is more stable than a {stem - 1}-bp stem");
+            prev = g;
         }
+    }
+
+    #endregion
+
+    #region BE — Numerical stability and speed: n = 1000 and n = 2000 (pf_scale)
+
+    /// <summary>
+    /// Long random sequences must neither overflow nor underflow (ViennaRNA <c>pf_scale</c>: every matrix is stored scaled by
+    /// <c>us^len</c>): n = 1000 has ln Z ≈ 535 (Z ≈ 10²³², finite), n = 2000 has ln Z ≈ 1030 (Z beyond the double range → +∞ with a
+    /// finite ln Z / ensemble free energy). The ensemble stays normalised (Σ P(pairs) + Σ P(unpaired) = n), G ≤ MFE, and the
+    /// ensemble free energy of the n = 1000 sequence is within the ViennaRNA-parity band of the same sequences at smaller n
+    /// (G/n between −0.25 and −0.40 kcal/mol per nucleotide for random GC 0.5 RNA).
+    /// </summary>
+    [TestCase(1000, 11)]
+    [TestCase(2000, 12)]
+    [CancelAfter(900_000)]
+    public void LongSequences_NoOverflow_NoNaN_Normalised(int n, int seed, CancellationToken _)
+    {
+        string seq = RandomRna(n, seed);
+        PartitionFunctionResult r = RnaSecondaryStructure.CalculatePartitionFunction(seq);
+
+        AssertWellFormedEnsemble(r, n, $"random n = {n}");
+        double.IsFinite(r.EnsembleFreeEnergy).Should().BeTrue();
+        r.EnsembleFreeEnergy.Should().BeLessThanOrEqualTo(r.MfeFreeEnergy + 1e-9);
+        (r.EnsembleFreeEnergy / n).Should().BeInRange(-0.45, -0.20, "random ACGU RNA folds at ≈ −0.3 kcal/mol per nucleotide");
+        if (n >= 2000)
+            double.IsPositiveInfinity(r.PartitionFunction).Should().BeTrue("Z of a 2000-mer exceeds the double range, ln Z stays finite");
+        else
+            double.IsFinite(r.PartitionFunction).Should().BeTrue("Z of a 1000-mer (≈ e^535) is representable");
+
+        double mass = r.BasePairProbabilities.Values.Sum() * 2 + r.UnpairedProbabilities.Sum();
+        mass.Should().BeApproximately(n, 1e-6, "every position is either paired or unpaired with total probability 1");
+        r.BasePairProbabilities.Values.Should().OnlyContain(p => double.IsFinite(p) && p > 0 && p <= 1.0 + 1e-9);
     }
 
     #endregion

@@ -114,14 +114,37 @@ public class SequenceAssembler_QualityTrimReads_Tests
         // Arrange
         var reads = new List<(string, string)> { ("ACGTACGTAC", "$#%,()<;IK") };
 
-        // Act
+        // Act: both ends explicitly (cutadapt -q 10,10); the 3-argument overload is 3'-only (cutadapt -q 10).
         IReadOnlyList<string> result =
-            SequenceAssembler.QualityTrimReads(reads, minQuality: 10, minLength: 1);
+            SequenceAssembler.QualityTrimReads(reads, cutoffFront: 10, cutoffBack: 10, minLength: 1);
 
         // Assert
         Assert.That(result, Has.Count.EqualTo(1), "read survives");
         Assert.That(result[0], Is.EqualTo("GTAC"),
             "5' running-sum minimum at index 5 keeps the last four (high-quality) bases");
+    }
+
+    // S1b — default flip (A8-1): a single cutoff C trims the 3' end only (cutadapt `-q C` = `-q 0,C`;
+    //      BWA `aln -q C`), so the low-quality 5' prefix of the S1 read is kept. cutadapt 5.2
+    //      quality_trim_index(q, 0, 10) = (0, 10) for these qualities.
+    [Test]
+    public void QualityTrimReads_SingleCutoff_TrimsThreePrimeEndOnly()
+    {
+        var reads = new List<(string, string)> { ("ACGTACGTAC", "$#%,()<;IK") };
+
+        Assert.That(SequenceAssembler.QualityTrimReads(reads, minQuality: 10, minLength: 1),
+            Is.EqualTo(new[] { "ACGTACGTAC" }), "5' prefix kept: single cutoff is 3'-only");
+    }
+
+    // S1c — a low-quality 3' tail is still trimmed by the single cutoff: qualities
+    //      40,40,40,40,2,2 ("IIII##"), cutoff 10 -> cutadapt (0, 4).
+    [Test]
+    public void QualityTrimReads_SingleCutoff_TrimsLowQualityThreePrimeTail()
+    {
+        var reads = new List<(string, string)> { ("ACGTAC", "IIII##") };
+
+        Assert.That(SequenceAssembler.QualityTrimReads(reads, minQuality: 10, minLength: 1),
+            Is.EqualTo(new[] { "ACGT" }));
     }
 
     // S2 — Min-length boundary: trimmed length exactly equals minLength -> kept.
@@ -203,7 +226,7 @@ public class SequenceAssembler_QualityTrimReads_Tests
 
         // Act
         IReadOnlyList<string> result =
-            SequenceAssembler.QualityTrimReads(reads, minQuality: 10, minLength: 1);
+            SequenceAssembler.QualityTrimReads(reads, cutoffFront: 10, cutoffBack: 10, minLength: 1);
 
         // Assert
         Assert.That(result, Has.Count.EqualTo(1), "the isolated good base survives");
@@ -225,7 +248,7 @@ public class SequenceAssembler_QualityTrimReads_Tests
 
         // Act
         IReadOnlyList<string> result =
-            SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 1);
+            SequenceAssembler.QualityTrimReads(reads, cutoffFront: 20, cutoffBack: 20, minLength: 1);
 
         // Assert
         Assert.That(result, Is.Empty,
@@ -298,8 +321,8 @@ public class SequenceAssembler_QualityTrimReads_Tests
         });
     }
 
-    // F-TRIM-2 — the single-cutoff overload equals cutoffFront = cutoffBack (cutadapt `-q C,C`),
-    //      and the five-argument overload with cutoffFront 0 is the cutadapt/BWA default 3'-only trim.
+    // F-TRIM-2 — the single-cutoff overload equals cutoffFront = 0 (cutadapt `-q C` = `-q 0,C`: "If only one
+    //      cutoff is given, it is used for the 3' end only"; BWA `aln -q`), and both ends need both cutoffs.
     [Test]
     public void QualityTrimReads_SeparateCutoffs_ThreePrimeOnlyKeepsLowQualityPrefix()
     {
@@ -308,9 +331,11 @@ public class SequenceAssembler_QualityTrimReads_Tests
         Assert.Multiple(() =>
         {
             Assert.That(SequenceAssembler.QualityTrimReads(reads, 10, 1),
-                Is.EqualTo(SequenceAssembler.QualityTrimReads(reads, 10, 10, 1)));
+                Is.EqualTo(SequenceAssembler.QualityTrimReads(reads, 0, 10, 1)));
             Assert.That(SequenceAssembler.QualityTrimReads(reads, cutoffFront: 0, cutoffBack: 10, minLength: 1),
                 Is.EqualTo(new[] { "ACGTACGTAC" }), "3'-only (cutadapt -q 10): the low-quality 5' run is kept");
+            Assert.That(SequenceAssembler.QualityTrimReads(reads, cutoffFront: 10, cutoffBack: 10, minLength: 1),
+                Is.EqualTo(new[] { "GTAC" }), "both ends (cutadapt -q 10,10) trim the 5' prefix");
         });
     }
 

@@ -11,7 +11,7 @@
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "minArmLength": { "type": "integer", "description": "Minimum arm length (default 4)", "minimum": 2, "default": 4 },
+      "minArmLength": { "type": "integer", "description": "Minimum arm length (default 4)", "minimum": 1, "default": 4 },
       "maxLoopLength": { "type": "integer", "description": "Maximum loop length (default 50, >= minLoopLength)", "default": 50 },
       "minLoopLength": { "type": "integer", "description": "Minimum loop length (default 3)", "minimum": 0, "default": 3 },
       "maxMismatches": { "type": "integer", "description": "Maximum mismatched pairs inside a stem (default 0 = exact)", "minimum": 0, "default": 0 },
@@ -47,7 +47,7 @@
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1002, "message": "minArmLength must be >= 2; minLoopLength must be >= 0; maxLoopLength must be >= minLoopLength; maxMismatches must be >= 0; maxArmLength must be >= minArmLength" }
+    { "code": 1002, "message": "minArmLength must be >= 1; minLoopLength must be >= 0; maxLoopLength must be >= minLoopLength; maxMismatches must be >= 0; maxArmLength must be >= minArmLength" }
   ],
   "examples": [
     {

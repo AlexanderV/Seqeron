@@ -108,6 +108,9 @@ public record FindRepetitiveElementsResult(IReadOnlyList<RepetitiveElement> Repe
 /// <summary>Result of codon_usage.</summary>
 public record CodonUsageResult(Dictionary<string, int> Usage);
 
+/// <summary>Result of pooled_rscu: sense codon (upper-case DNA) to RSCU.</summary>
+public record PooledRscuResult(Dictionary<string, double> Rscu);
+
 // ================================
 // VariantCaller — shared DTOs
 // ================================
@@ -493,6 +496,164 @@ public record AlignMiRnaToTargetResult(
 
 /// <summary>Result of find_pre_mirna_hairpins.</summary>
 public record FindPreMiRnaHairpinsResult(IReadOnlyList<PreMiRnaHairpinDto> Hairpins);
+
+/// <summary>Result of calculate_randfold_pvalue. <c>Found</c> is false (P = 1) for an empty sequence.</summary>
+public record CalculateRandfoldPValueResult(bool Found, double FreeEnergy, double PValue, int Iterations, int LowerOrEqualCount, int Seed);
+
+/// <summary>Features fed to the in-repo pre-miRNA logistic model.</summary>
+public record PreMiRnaFeaturesDto(
+    double FreeEnergy, double Amfe, double Mfei, double GcContent, double PairedFraction,
+    int StemBasePairs, int LoopSize, int Length, double BasePairingPropensity);
+
+/// <summary>Result of classify_pre_mirna. <c>Found</c> is false (<c>Features</c> null) for an empty sequence.</summary>
+public record ClassifyPreMiRnaResult(bool Found, PreMiRnaFeaturesDto? Features, double NaturalProbability, bool IsNatural);
+
+/// <summary>One stem-loop scored by the Triplet-SVM model (1-based start/end in the query).</summary>
+public record TripletSvmCandidateDto(
+    int Start, int End, string Sequence, string DotBracket, IReadOnlyList<double> Features, double DecisionValue, bool IsPreMiRna);
+
+/// <summary>Result of classify_pre_mirna_triplet_svm. <c>Found</c> is false when no stem-loop was retrieved.</summary>
+public record ClassifyPreMiRnaTripletSvmResult(bool Found, IReadOnlyList<TripletSvmCandidateDto> Candidates);
+
+/// <summary>Base pair of a miRNA·target duplex (0-based indices, miRNA 5'→3' and target 5'→3').</summary>
+public record DuplexBasePairDto(int MiRnaIndex, int TargetIndex);
+
+/// <summary>Result of fold_mirna_duplex. <c>Found</c> is false (and <c>Duplex</c> null) when no base pair is possible.</summary>
+public record FoldMiRnaDuplexResult(bool Found, MiRnaDuplexStructureDto? Duplex);
+
+/// <summary>Minimum-free-energy miRNA·target duplex (RNAduplex model, Turner 2004).</summary>
+public record MiRnaDuplexStructureDto(
+    string MiRnaSequence,
+    string TargetSequence,
+    int MiRnaStart,
+    int MiRnaEnd,
+    int TargetStart,
+    int TargetEnd,
+    string Structure,
+    IReadOnlyList<DuplexBasePairDto> BasePairs,
+    double FreeEnergy);
+
+/// <summary>Result of predict_drosha_dicer_cleavage. <c>Predicted</c> is false (and <c>Cleavage</c> null) when the stem or junction does not allow a prediction.</summary>
+public record PredictDroshaDicerCleavageResult(bool Predicted, DroshaDicerCleavageDto? Cleavage);
+
+/// <summary>Predicted Drosha/Dicer cut coordinates (0-based, inclusive spans) and 5p/3p products.</summary>
+public record DroshaDicerCleavageDto(
+    int BasalJunction,
+    int ApicalJunction,
+    int DroshaCut5Prime,
+    int DroshaCut3Prime,
+    int MatureStart,
+    int MatureEnd,
+    int StarStart,
+    int StarEnd,
+    string MatureSequence,
+    string StarSequence,
+    string Sequence,
+    string Structure,
+    int ThreePrimeOverhang,
+    bool HasCnncMotif,
+    bool HasBasalUgMotif,
+    string DicerRule,
+    string DroshaRule);
+
+/// <summary>Result of find_centered_sites.</summary>
+public record FindCenteredSitesResult(IReadOnlyList<TargetSiteDto> Sites);
+
+/// <summary>TargetScan 5.0 / Grimson 2007 context score with its contributions (log2 units).</summary>
+public record GrimsonContextScoreDto(
+    string Type,
+    double SiteTypeContribution,
+    double ThreePrimePairingContribution,
+    double LocalAuContribution,
+    double PositionContribution,
+    double ThreePrimePairingScore,
+    double LocalAuFraction,
+    double? ContextScore);
+
+/// <summary>Result of score_target_site_grimson. <c>Scored</c> is false (and <c>Score</c> null) for site types TargetScan 5.0 has no coefficients for.</summary>
+public record ScoreTargetSiteGrimsonResult(bool Scored, GrimsonContextScoreDto? Score);
+
+/// <summary>Optional multi-species conservation input of score_target_site_context_plus_plus (tree + species with the site; PCT sigmoid row optional).</summary>
+public record ContextConservationInputDto(
+    string? Newick,
+    int? TargetScanBin,
+    IReadOnlyList<string> SpeciesWithSite,
+    PctSigmoidParametersDto? SigmoidParameters);
+
+/// <summary>PCT sigmoid parameters PCT(Bls) = b0 + b1 / (1 + exp(-b2*Bls + b3)).</summary>
+public record PctSigmoidParametersDto(double B0, double B1, double B2, double B3);
+
+/// <summary>TargetScan 7 context++ (Agarwal 2015) per-feature contributions of one site.</summary>
+public record ContextPlusPlusScoreDto(
+    string SiteType,
+    double Intercept,
+    double LocalAuContribution,
+    double SRna1Contribution,
+    double SRna8Contribution,
+    double Site8Contribution,
+    double SaContribution,
+    double ThreePrimePairingContribution,
+    double MinDistContribution,
+    double Len3UtrContribution,
+    double Off6mContribution,
+    double SpsContribution,
+    double TaContribution,
+    double LenOrfContribution,
+    double Orf8mContribution,
+    double PctContribution,
+    double BranchLengthScore,
+    double Pct,
+    bool PctIsNa,
+    double ContextScorePartial,
+    double? ContextScore,
+    IReadOnlyList<string> OmittedFeatures);
+
+/// <summary>Result of score_target_site_context_plus_plus.</summary>
+public record ScoreTargetSiteContextPlusPlusResult(ContextPlusPlusScoreDto Score);
+
+/// <summary>Result of compute_ta_3utr: the site count N and TA_3UTR = log10(N) (0 when N = 0).</summary>
+public record ComputeTa3UtrResult(long SiteCount, double Ta, int UtrCount);
+
+/// <summary>One seed-match site of a TargetScan 3'UTR alignment (1-based coordinates, as targetscan_70.pl).</summary>
+public record TargetScanAlignedSiteDto(
+    string Species,
+    int MsaStart,
+    int MsaEnd,
+    int UtrStart,
+    int UtrEnd,
+    string SiteType,
+    bool OrfOverlap);
+
+/// <summary>Species of a site group that have a given site type (or a type containing it).</summary>
+public record TargetScanSiteTypeSpeciesDto(string SiteType, IReadOnlyList<string> Species);
+
+/// <summary>A TargetScan site group: overlapping seed-match sites across species.</summary>
+public record TargetScanSiteGroupDto(
+    int GroupNumber,
+    string GroupType,
+    IReadOnlyList<string> SiteTypes,
+    IReadOnlyList<string> Species,
+    IReadOnlyList<TargetScanAlignedSiteDto> Sites,
+    IReadOnlyList<TargetScanSiteTypeSpeciesDto> SpeciesBySiteType);
+
+/// <summary>Result of find_targetscan_site_groups.</summary>
+public record FindTargetScanSiteGroupsResult(IReadOnlyList<TargetScanSiteGroupDto> Groups);
+
+/// <summary>One site with TargetScan branch length, PCT (null = NA) and conservation call.</summary>
+public record TargetScanSiteConservationDto(
+    TargetScanAlignedSiteDto Site,
+    int GroupNumber,
+    IReadOnlyList<string> SpeciesWithSite,
+    double BranchLength,
+    double? Pct,
+    bool Conserved);
+
+/// <summary>Result of score_targetscan_conservation. <c>MedianBranchLength</c> is null when the bin was supplied by the caller.</summary>
+public record ScoreTargetScanConservationResult(
+    int UtrBin,
+    double? MedianBranchLength,
+    IReadOnlyList<TargetScanSiteGroupDto> Groups,
+    IReadOnlyList<TargetScanSiteConservationDto> Sites);
 
 /// <summary>Result of analyze_target_context.</summary>
 public record AnalyzeTargetContextResult(

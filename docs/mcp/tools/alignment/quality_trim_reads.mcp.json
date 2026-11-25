@@ -16,7 +16,7 @@
       },
       "minQuality": {
         "type": "integer",
-        "description": "Quality cutoff subtracted from each Phred score at both ends (values < 1 disable trimming).",
+        "description": "Quality cutoff subtracted from each Phred score at the 3' end (values < 1 disable trimming); the 5' end uses cutoffFront.",
         "default": 20
       },
       "minLength": {
@@ -26,11 +26,11 @@
       },
       "cutoffFront": {
         "type": "integer",
-        "description": "Optional 5' cutoff overriding minQuality for the 5' end (< 1 leaves the 5' end untrimmed; cutadapt -q 5',3')."
+        "description": "Optional 5' cutoff (cutadapt -q 5',3'); default 0 = 5' end untrimmed (< 1 leaves the 5' end untrimmed)."
       },
       "cutoffBack": {
         "type": "integer",
-        "description": "Optional 3' cutoff overriding minQuality for the 3' end (< 1 leaves the 3' end untrimmed)."
+        "description": "Optional 3' cutoff overriding minQuality for the 3' end (< 1 leaves the 3' end untrimmed). Default = minQuality."
       },
       "phredOffset": {
         "type": "integer",

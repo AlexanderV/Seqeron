@@ -50,7 +50,7 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = 20)` | SequenceAssembler | Canonical | Returns `int[]` of length `reference.Length`; element i = number of placed reads spanning position i. Forward strand. |
+| `CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = 20)` | SequenceAssembler | Canonical | Returns `int[]` of length `reference.Length`; element i = number of placed reads spanning position i. Both strands (Bowtie 2/BWA default; = 5-arg overload with `includeReverseComplement: true`); forward-only via `includeReverseComplement: false`. |
 | `CalculateCoverage(reference, reads, minOverlap, bool includeReverseComplement, bool excludeMultiMapped = false)` | SequenceAssembler | Canonical | Both strands / multi-mapping filter. Placement delegates to `ApproximateMatcher.FindBestMatch` / `FindWithMismatches`. |
 
 ---
@@ -100,7 +100,7 @@
 
 | ID | Test Case | Expected | Evidence | Test |
 |----|-----------|----------|----------|------|
-| P1 | Reverse-strand read `TTGACC` on `ACGGTCAATGCC`, minOverlap 6 | forward-only all 0; both strands `[0,0,1,1,1,1,1,1,0,0,0,0]`; + `GGTCAA` lower/upper → 2× | [6][9] | `CalculateCoverage_ReverseStrandRead_PlacedOnlyWhenBothStrandsSearched` |
+| P1 | Reverse-strand read `TTGACC` on `ACGGTCAATGCC`, minOverlap 6 | 3-arg default and `includeReverseComplement: true` → `[0,0,1,1,1,1,1,1,0,0,0,0]`; explicit `includeReverseComplement: false` → all 0; + `GGTCAA` lower/upper → 2× (pysam `samtools depth -a` oracle) | [6][9] | `CalculateCoverage_ReverseStrandRead_PlacedOnlyWhenBothStrandsSearched`; MCP `CalculateCoverage_StrandAndMultiMapOptions_DelegateToCore` (default both strands; `excludeMultiMapped` on both strands → all 0, forward-only → `[0,0,1,1,1,1,1,0,0,0]`) |
 | P2 | RC strictly better (`TTTCC` on `GGGAAACCC`) | `[0,1,1,1,1,1,0,0,0]` | [6][9] | `CalculateCoverage_ReverseComplementStrictlyBetter_IsChosen` |
 | P3 | Multi-mapped reads counted once / excluded | see Evidence table | [6][7][8][9] | `CalculateCoverage_MultiMappedRead_CountedOnceOrExcluded` |
 | P4 | Reverse palindrome `ACGT` both strands same span = 1 locus | `[0,0,1,1,1,1,0,0]` | [7][9] | `CalculateCoverage_ReversePalindrome_BothStrandsSameSpan_IsUnique` |

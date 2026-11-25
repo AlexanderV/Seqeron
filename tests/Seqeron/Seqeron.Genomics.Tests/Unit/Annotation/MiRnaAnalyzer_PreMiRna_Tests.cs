@@ -388,7 +388,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
         Assert.That(results, Is.Empty,
             "Sequence with only 15 bp stem must be rejected — " +
-            "pre-miRNA requires ≥ 18 bp stem (Krol 2004). " +
+            "consecutive screen requires ≥ 18 bp stem (operational screen parameter). " +
             "Note: sequence is 55 nt, so this tests stem rejection, not the window-length filter");
     }
 

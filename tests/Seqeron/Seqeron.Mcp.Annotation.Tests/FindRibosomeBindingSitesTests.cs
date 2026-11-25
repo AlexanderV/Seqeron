@@ -65,4 +65,19 @@ public class FindRibosomeBindingSitesTests
 
         Assert.That(result.Sites.Any(s => s.Sequence == "AGGAGG"), Is.True);
     }
+
+    [Test]
+    public void FindRibosomeBindingSites_ScoreMode_ValidatedAndDefaultIsMotifLength()
+    {
+        string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 8);
+
+        var def = AnnotationTools.FindRibosomeBindingSites(sequence);
+        var explicitMode = AnnotationTools.FindRibosomeBindingSites(sequence, scoreMode: "motiflength");
+
+        Assert.That(explicitMode.Sites.Select(s => (s.Position, s.Sequence, s.Score)), Is.EqualTo(def.Sites.Select(s => (s.Position, s.Sequence, s.Score))));
+        Assert.Throws<ArgumentException>(() => AnnotationTools.FindRibosomeBindingSites(sequence, scoreMode: "Bogus"));
+        Assert.Throws<ArgumentException>(() => AnnotationTools.FindRibosomeBindingSites(sequence, scoreMode: "5"));
+        // LogOdds trains on the input genome: < 20000 nt cannot be trained on.
+        Assert.Throws<ArgumentException>(() => AnnotationTools.FindRibosomeBindingSites(sequence, scoreMode: "LogOdds").Sites.ToList());
+    }
 }

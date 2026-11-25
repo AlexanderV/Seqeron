@@ -5,7 +5,7 @@ namespace Seqeron.Genomics.Annotation;
 /// <summary>
 /// Provides genome annotation algorithms including ORF finding and gene prediction.
 /// </summary>
-public static class GenomeAnnotator
+public static partial class GenomeAnnotator
 {
     /// <summary>
     /// Represents an open reading frame (ORF).
@@ -88,16 +88,11 @@ public static class GenomeAnnotator
     /// <c>is_start()</c> in Prodigal <c>sequence.c</c> accepts exactly ATG/GTG/TTG for
     /// translation table 11). This is a start-selection policy, not a genetic-code table:
     /// stop recognition and codon translation come from the canonical
-    /// <see cref="GeneticCode.Standard"/> via <see cref="GeneticCode.IsStopCodon"/> and
-    /// <see cref="Translator.Translate(string, GeneticCode?, int, bool)"/>.
+    /// <see cref="GeneticCode.Standard"/>, and the scan itself is the canonical getorf engine
+    /// <see cref="Translator.FindOrfs(string, OrfFindMode, GeneticCode?, int, int, int, bool, bool, bool)"/>
+    /// / <see cref="Translator.FindStartToStopOrfs"/>.
     /// </summary>
-    private static readonly HashSet<string> StartCodons = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "ATG", "GTG", "TTG"
-    };
-
-    /// <summary>Genetic code used for stop recognition and translation (NCBI table 1).</summary>
-    private static GeneticCode OrfGeneticCode => GeneticCode.Standard;
+    private static readonly string[] StartCodons = { "ATG", "GTG", "TTG" };
 
     /// <summary>
     /// Finds all open reading frames in a DNA sequence.
@@ -116,6 +111,14 @@ public static class GenomeAnnotator
     /// codon without a stop; no start-codon sub-ORFs are added.
     /// </param>
     /// <returns>All found ORFs.</returns>
+    /// <remarks>
+    /// Delegates to the canonical getorf port in <see cref="Translator"/>: stop-to-stop is
+    /// <see cref="OrfFindMode.TranslationStopToStop"/>; start-to-stop is
+    /// <see cref="Translator.FindStartToStopOrfs"/> with the ATG/GTG/TTG start set and nested starts
+    /// reported. Input must be IUPAC nucleotides (case-insensitive, U read as T); any other
+    /// character raises <see cref="ArgumentException"/>. Only stop-terminated ORFs are returned in
+    /// start-to-stop mode. Results are ordered strand, frame, then start.
+    /// </remarks>
     public static IEnumerable<OpenReadingFrame> FindOrfs(
         string dnaSequence,
         int minLength = 100,
@@ -123,168 +126,45 @@ public static class GenomeAnnotator
         bool requireStartCodon = true)
     {
         if (string.IsNullOrEmpty(dnaSequence))
-            yield break;
+            return Enumerable.Empty<OpenReadingFrame>();
 
-        var geneticCode = OrfGeneticCode;
+        // minLength is in amino acids; an empty region is not an ORF, so stop-to-stop needs >= 1 residue.
+        int minAa = Math.Max(minLength, requireStartCodon ? 0 : 1);
+        int minSize = (int)Math.Min((long)minAa * 3, int.MaxValue);
 
-        // Search forward strand
-        foreach (var orf in FindOrfsInStrand(dnaSequence, geneticCode, minLength, requireStartCodon, false))
-        {
-            yield return orf;
-        }
+        var features = requireStartCodon
+            ? Translator.FindStartToStopOrfs(dnaSequence, StartCodons, reportNestedStarts: true,
+                minSize: minSize, maxSize: int.MaxValue, searchBothStrands: searchBothStrands)
+            : Translator.FindOrfs(dnaSequence, OrfFindMode.TranslationStopToStop,
+                minSize: minSize, maxSize: int.MaxValue, searchBothStrands: searchBothStrands);
 
-        // Search reverse complement
-        if (searchBothStrands)
-        {
-            string revComp = DnaSequence.GetReverseComplementString(dnaSequence);
-            foreach (var orf in FindOrfsInStrand(revComp, geneticCode, minLength, requireStartCodon, true))
-            {
-                // Adjust coordinates for reverse strand
-                int adjStart = dnaSequence.Length - orf.End;
-                int adjEnd = dnaSequence.Length - orf.Start;
-                yield return orf with { Start = adjStart, End = adjEnd };
-            }
-        }
+        string revComp = searchBothStrands ? DnaSequence.GetReverseComplementString(dnaSequence) : string.Empty;
+        int length = dnaSequence.Length;
+
+        return features
+            .Where(f => !requireStartCodon || f.IsTerminated)
+            .Select(f => ToOpenReadingFrame(f, dnaSequence, revComp, length))
+            .OrderBy(o => o.IsReverseComplement)
+            .ThenBy(o => o.Frame)
+            .ThenBy(o => o.IsReverseComplement ? length - o.End : o.Start)
+            .ToList();
     }
 
-    private static IEnumerable<OpenReadingFrame> FindOrfsInStrand(
-        string sequence,
-        GeneticCode geneticCode,
-        int minLength,
-        bool requireStartCodon,
-        bool isReverseComplement)
+    // Maps a getorf record (0-based inclusive end, scanned-strand coordinates) to the half-open
+    // forward-strand OpenReadingFrame; the protein carries the terminating '*' as translated.
+    private static OpenReadingFrame ToOpenReadingFrame(OrfFeature f, string forward, string revComp, int length)
     {
-        // Search all three reading frames
-        for (int frame = 0; frame < 3; frame++)
-        {
-            foreach (var orf in FindOrfsInFrame(sequence, frame, geneticCode, minLength, requireStartCodon, isReverseComplement))
-            {
-                yield return orf;
-            }
-        }
-    }
-
-    private static IEnumerable<OpenReadingFrame> FindOrfsInFrame(
-        string sequence,
-        int frame,
-        GeneticCode geneticCode,
-        int minLength,
-        bool requireStartCodon,
-        bool isReverseComplement)
-    {
-        return requireStartCodon
-            ? FindStartToStopOrfsInFrame(sequence, frame, geneticCode, minLength, isReverseComplement)
-            : FindStopToStopOrfsInFrame(sequence, frame, geneticCode, minLength, isReverseComplement);
-    }
-
-    /// <summary>
-    /// Start-to-stop ORFs in one frame: every pending start is closed by the next in-frame stop.
-    /// </summary>
-    private static IEnumerable<OpenReadingFrame> FindStartToStopOrfsInFrame(
-        string sequence,
-        int frame,
-        GeneticCode geneticCode,
-        int minLength,
-        bool isReverseComplement)
-    {
-        var currentOrfStarts = new List<int>();
-
-        for (int i = frame; i <= sequence.Length - 3; i += 3)
-        {
-            string codon = sequence.Substring(i, 3);
-
-            if (StartCodons.Contains(codon))
-            {
-                currentOrfStarts.Add(i);
-            }
-            else if (geneticCode.IsStopCodon(codon))
-            {
-                foreach (int start in currentOrfStarts)
-                {
-                    int orfAaLength = (i - start) / 3;
-                    if (orfAaLength >= minLength)
-                    {
-                        string orfSeq = sequence.Substring(start, i + 3 - start);
-                        yield return new OpenReadingFrame(
-                            Start: start,
-                            End: i + 3,
-                            Frame: frame + 1,
-                            IsReverseComplement: isReverseComplement,
-                            Sequence: orfSeq,
-                            ProteinSequence: TranslateWithInitiatorMet(orfSeq, geneticCode));
-                    }
-                }
-
-                currentOrfStarts.Clear();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Stop-to-stop regions in one frame (EMBOSS getorf <c>-find 0</c>, linear sequence):
-    /// the frame is treated as already open at its offset, every stop closes the current
-    /// region and opens the next one at the following codon, and the region still open at the
-    /// end of the sequence is reported up to the last complete codon. Regions that contain no
-    /// sense codon are not ORFs and are skipped.
-    /// </summary>
-    private static IEnumerable<OpenReadingFrame> FindStopToStopOrfsInFrame(
-        string sequence,
-        int frame,
-        GeneticCode geneticCode,
-        int minLength,
-        bool isReverseComplement)
-    {
-        int regionStart = frame;
-        int i = frame;
-
-        for (; i <= sequence.Length - 3; i += 3)
-        {
-            if (!geneticCode.IsStopCodon(sequence.Substring(i, 3)))
-                continue;
-
-            int aaLength = (i - regionStart) / 3;
-            if (aaLength >= 1 && aaLength >= minLength)
-            {
-                string orfSeq = sequence.Substring(regionStart, i + 3 - regionStart);
-                yield return new OpenReadingFrame(
-                    Start: regionStart,
-                    End: i + 3,
-                    Frame: frame + 1,
-                    IsReverseComplement: isReverseComplement,
-                    Sequence: orfSeq,
-                    ProteinSequence: Translator.Translate(orfSeq, geneticCode).Sequence);
-            }
-
-            regionStart = i + 3;
-        }
-
-        // Trailing region without a stop: i is now the first codon position that does not fit.
-        int endPos = i;
-        int trailingAa = (endPos - regionStart) / 3;
-        if (endPos > regionStart && trailingAa >= minLength)
-        {
-            string orfSeq = sequence.Substring(regionStart, endPos - regionStart);
-            yield return new OpenReadingFrame(
-                Start: regionStart,
-                End: endPos,
-                Frame: frame + 1,
-                IsReverseComplement: isReverseComplement,
-                Sequence: orfSeq,
-                ProteinSequence: Translator.Translate(orfSeq, geneticCode).Sequence);
-        }
-    }
-
-    /// <summary>
-    /// Translates a start-codon-initiated ORF with the canonical translator, rendering the
-    /// initiating codon as Met: an alternative initiator (GTG/TTG) is decoded by initiator
-    /// tRNA-fMet, so EMBOSS getorf (<c>-methionine</c>, default Y: "START codons at the
-    /// beginning of protein products will usually code for Methionine") and Biopython
-    /// <c>Seq.translate(cds=True)</c> both emit M for it (GTGAAAAAAAAATAA → MKKK).
-    /// </summary>
-    private static string TranslateWithInitiatorMet(string orfSeq, GeneticCode geneticCode)
-    {
-        string protein = Translator.Translate(orfSeq, geneticCode).Sequence;
-        return protein.Length == 0 || protein[0] == 'M' ? protein : string.Concat("M", protein.AsSpan(1));
+        int start = f.StartPosition;
+        int end = f.EndPosition + 1;
+        string strandSeq = f.IsReverseStrand ? revComp : forward;
+        string protein = f.IsTerminated ? f.Sequence + "*" : f.Sequence;
+        return new OpenReadingFrame(
+            Start: f.IsReverseStrand ? length - end : start,
+            End: f.IsReverseStrand ? length - start : end,
+            Frame: Math.Abs(f.Frame),
+            IsReverseComplement: f.IsReverseStrand,
+            Sequence: strandSeq.Substring(start, end - start),
+            ProteinSequence: protein);
     }
 
     /// <summary>
@@ -339,20 +219,30 @@ public static class GenomeAnnotator
     /// reverse-strand Shine-Dalgarno hits, use
     /// <see cref="FindRibosomeBindingSitesBothStrands"/>.
     /// </remarks>
+    /// <param name="scoreMode">
+    /// <see cref="RbsScoreMode.MotifLength"/> (default, legacy): score = motif length / 6.
+    /// <see cref="RbsScoreMode.LogOdds"/>: score = the Prodigal log-odds weight of the hit's (motif, spacer) bin
+    /// (Hyatt et al. 2010) from <paramref name="model"/>, or from a model trained on <paramref name="dnaSequence"/>
+    /// itself when <paramref name="model"/> is <see langword="null"/> (needs ≥ 20 000 nt).
+    /// </param>
+    /// <param name="model">Trained RBS model for <see cref="RbsScoreMode.LogOdds"/>.</param>
     public static IEnumerable<(int position, string sequence, double score)> FindRibosomeBindingSites(
         string dnaSequence,
         int upstreamWindow = 20,
         int minDistance = 4,
-        int maxDistance = 15)
+        int maxDistance = 15,
+        RbsScoreMode scoreMode = RbsScoreMode.MotifLength,
+        RbsModel? model = null)
     {
         if (string.IsNullOrEmpty(dnaSequence))
             yield break;
 
+        var weights = ResolveRbsWeights(dnaSequence, scoreMode, model);
         var orfs = FindOrfs(dnaSequence, minLength: 30)
             .Where(o => !o.IsReverseComplement)
             .ToList();
 
-        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, orfs, upstreamWindow, minDistance, maxDistance))
+        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, orfs, upstreamWindow, minDistance, maxDistance, weights))
         {
             yield return (hit.position, hit.sequence, hit.score);
         }
@@ -379,16 +269,20 @@ public static class GenomeAnnotator
         string dnaSequence,
         int upstreamWindow = 20,
         int minDistance = 4,
-        int maxDistance = 15)
+        int maxDistance = 15,
+        RbsScoreMode scoreMode = RbsScoreMode.MotifLength,
+        RbsModel? model = null)
     {
         if (string.IsNullOrEmpty(dnaSequence))
             yield break;
+
+        var weights = ResolveRbsWeights(dnaSequence, scoreMode, model);
 
         var allOrfs = FindOrfs(dnaSequence, minLength: 30).ToList();
 
         // Forward strand: scan the genomic sequence as-is.
         var forwardOrfs = allOrfs.Where(o => !o.IsReverseComplement).ToList();
-        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, forwardOrfs, upstreamWindow, minDistance, maxDistance))
+        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, forwardOrfs, upstreamWindow, minDistance, maxDistance, weights))
         {
             yield return (hit.position, hit.sequence, hit.score, '+');
         }
@@ -408,7 +302,7 @@ public static class GenomeAnnotator
             .Select(o => o with { Start = len - o.End, End = len - o.Start })
             .ToList();
 
-        foreach (var hit in ScanStrandForShineDalgarno(revComp, reverseOrfsInRevComp, upstreamWindow, minDistance, maxDistance))
+        foreach (var hit in ScanStrandForShineDalgarno(revComp, reverseOrfsInRevComp, upstreamWindow, minDistance, maxDistance, weights))
         {
             // hit.position is the 5' base of the motif within the reverse-complement string;
             // the motif occupies revComp[position, position+len) ↔ forward
@@ -416,6 +310,26 @@ public static class GenomeAnnotator
             int forwardPosition = len - hit.position - hit.sequence.Length;
             yield return (forwardPosition, hit.sequence, hit.score, '-');
         }
+    }
+
+
+    private static IReadOnlyList<double>? ResolveRbsWeights(string dnaSequence, RbsScoreMode mode, RbsModel? model)
+    {
+        if (mode == RbsScoreMode.MotifLength) return null;
+        return (model ?? TrainRbsModel(dnaSequence)).BinWeights;
+    }
+
+    /// <summary>
+    /// Prodigal exact-match bin of a Shine-Dalgarno hit: motif score = −2 + Σ(2 per A, 3 per G) over the matched
+    /// positions of AGGAGG, spacer class from the distance to the start codon (<c>shine_dalgarno_exact</c>).
+    /// </summary>
+    private static int RbsBinOfHit(string motif, int distanceToStart)
+    {
+        int offset = "AGGAGG".IndexOf(motif, StringComparison.Ordinal);
+        double ctr = -2.0;
+        for (int k = offset; k < offset + motif.Length; k++) ctr += k % 3 == 0 ? 2.0 : 3.0;
+        int bin = ProdigalEngine.ExactBinOf(ctr, ProdigalEngine.ExactSpacerClass(distanceToStart, motif.Length));
+        return bin < 0 ? 0 : bin;
     }
 
     /// <summary>
@@ -442,7 +356,8 @@ public static class GenomeAnnotator
         IReadOnlyList<OpenReadingFrame> orfs,
         int upstreamWindow,
         int minDistance,
-        int maxDistance)
+        int maxDistance,
+        IReadOnlyList<double>? binWeights = null)
     {
         var reported = new HashSet<(int position, string motif)>();
 
@@ -454,7 +369,7 @@ public static class GenomeAnnotator
             if (searchEnd <= searchStart) continue;
 
             string upstream = sequence.Substring(searchStart, searchEnd - searchStart).ToUpperInvariant();
-            var hitsForStart = new List<(int position, string motif)>();
+            var hitsForStart = new List<(int position, string motif, int distance)>();
 
             foreach (string motif in ShineDalgarnoMotifs)
             {
@@ -468,7 +383,7 @@ public static class GenomeAnnotator
                         && !hitsForStart.Any(h => h.position <= genomicPos
                                                   && genomicPos + motif.Length <= h.position + h.motif.Length))
                     {
-                        hitsForStart.Add((genomicPos, motif));
+                        hitsForStart.Add((genomicPos, motif, distanceToStart));
                     }
 
                     pos = upstream.IndexOf(motif, pos + 1, StringComparison.Ordinal);
@@ -477,8 +392,10 @@ public static class GenomeAnnotator
 
             foreach (var hit in hitsForStart)
             {
-                if (reported.Add(hit))
-                    yield return (hit.position, hit.motif, hit.motif.Length / 6.0);
+                if (reported.Add((hit.position, hit.motif)))
+                    yield return (hit.position, hit.motif, binWeights == null
+                        ? hit.motif.Length / 6.0
+                        : binWeights[RbsBinOfHit(hit.motif, hit.distance)]);
             }
         }
     }
@@ -495,19 +412,88 @@ public static class GenomeAnnotator
     /// preceding in-frame STOP. Start choice here follows the longest-ORF (first start) rule;
     /// no RBS- or coding-score-based start refinement is performed.
     /// </remarks>
+    /// <param name="dnaSequence">Genome / contig sequence.</param>
+    /// <param name="minOrfLength">Minimum ORF length in amino acids (ORF-based modes).</param>
+    /// <param name="prefix">Gene id prefix.</param>
+    /// <param name="startSelection">
+    /// <see cref="StartSelection.LongestOrf"/> (default, legacy), <see cref="StartSelection.ProdigalScore"/> (per stop,
+    /// the start with the best Prodigal coding + RBS log-odds + start-type + upstream score) or
+    /// <see cref="StartSelection.ProdigalDynamicProgramming"/> (Prodigal's complete gene model). The Prodigal modes
+    /// need a genome (≥ 20 000 nt) to train on unless <paramref name="model"/> carries a full trained model
+    /// (<see cref="TrainRbsModel(string)"/>); a model trained from a gene set supplies only the RBS/start-type weights.
+    /// </param>
+    /// <param name="model">Optional trained model for the Prodigal modes (default: train on <paramref name="dnaSequence"/>).</param>
     public static IEnumerable<GeneAnnotation> PredictGenes(
         string dnaSequence,
         int minOrfLength = 100,
-        string prefix = "gene")
+        string prefix = "gene",
+        StartSelection startSelection = StartSelection.LongestOrf,
+        RbsModel? model = null)
     {
+        if (startSelection == StartSelection.ProdigalDynamicProgramming)
+            return PredictGenesProdigalDp(dnaSequence, prefix, model);
+
         var orfs = FindOrfs(dnaSequence, minOrfLength, searchBothStrands: true, requireStartCodon: true)
             // Stop codon identity: forward stop ends at End; reverse stop sits at forward Start.
             .GroupBy(o => (o.IsReverseComplement, stop: o.IsReverseComplement ? o.Start : o.End))
-            .Select(g => g.MaxBy(o => o.End - o.Start))
-            .OrderBy(o => o.Start)
-            .ThenBy(o => o.IsReverseComplement)
+            .Select(g => startSelection == StartSelection.ProdigalScore ? g.ToList() : new List<OpenReadingFrame> { g.MaxBy(o => o.End - o.Start) })
             .ToList();
 
+        if (startSelection == StartSelection.ProdigalScore)
+        {
+            var scored = ProdigalEngine.ScoreGenome(dnaSequence, model, out _);
+            orfs = orfs.Select(g => new List<OpenReadingFrame> { ChooseProdigalStart(g, scored) }).ToList();
+        }
+
+        return EmitGenes(orfs.Select(g => g[0]).OrderBy(o => o.Start).ThenBy(o => o.IsReverseComplement), prefix);
+    }
+
+    /// <summary>The candidate start with the highest Prodigal start score; longest ORF when none is a Prodigal node.</summary>
+    private static OpenReadingFrame ChooseProdigalStart(List<OpenReadingFrame> group, ProdigalEngine.ScoredGenome scored)
+    {
+        OpenReadingFrame? best = null; double bestScore = double.NegativeInfinity;
+        foreach (var o in group.OrderBy(o => o.IsReverseComplement ? -o.End : o.Start))
+        {
+            // Prodigal node index of the first base of the start codon in forward coordinates.
+            int ndx = o.IsReverseComplement ? o.End - 1 : o.Start;
+            var s = ProdigalEngine.StartScore(scored, o.IsReverseComplement ? -1 : 1, ndx);
+            if (s is { } v && v > bestScore) { bestScore = v; best = o; }
+        }
+        return best ?? group.MaxBy(o => o.End - o.Start);
+    }
+
+    private static IEnumerable<GeneAnnotation> PredictGenesProdigalDp(string dnaSequence, string prefix, RbsModel? model)
+    {
+        var genes = ProdigalEngine.RunDp(dnaSequence, model);
+        int geneCount = 0;
+        foreach (var g in genes.OrderBy(g => g.Start).ThenBy(g => g.Strand == '-'))
+        {
+            geneCount++;
+            string cds = dnaSequence.Substring(g.Start, g.End - g.Start + 1);
+            if (g.Strand == '-') cds = DnaSequence.GetReverseComplementString(cds);
+            // An initiating codon is translated as Met (Prodigal / getorf convention, as in FindOrfs).
+            string protein = 'M' + Translator.Translate(cds, GeneticCode.BacterialPlastid, 0, false, false).Sequence[1..];
+            yield return new GeneAnnotation(
+                GeneId: $"{prefix}_{geneCount:D4}",
+                Start: g.Start,
+                End: g.End + 1,
+                Strand: g.Strand,
+                Type: "CDS",
+                Product: "hypothetical protein",
+                Attributes: new Dictionary<string, string>
+                {
+                    ["protein_length"] = protein.TrimEnd('*').Length.ToString(),
+                    ["translation"] = protein,
+                    ["start_codon"] = cds[..3],
+                    ["cscore"] = g.Cscore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                    ["sscore"] = g.Sscore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                    ["rbs_bin"] = g.RbsBin.ToString(),
+                });
+        }
+    }
+
+    private static IEnumerable<GeneAnnotation> EmitGenes(IEnumerable<OpenReadingFrame> orfs, string prefix)
+    {
         int geneCount = 0;
 
         foreach (var orf in orfs)
@@ -1457,7 +1443,401 @@ public static class GenomeAnnotator
 
             return (coding, noncoding);
         }
+
+        /// <summary>
+        /// Writes the model's hexamer tables in the CPAT <c>make_hexamer_tab</c> format that
+        /// <see cref="ParseHexamerTable"/> reads: a <c>hexamer\tcoding\tnoncoding</c> header, then one
+        /// tab-separated row per hexamer present in both tables (rows absent from either table are never
+        /// scored, so they are not written), in ordinal (A&lt;C&lt;G&lt;T) order — the order CPAT writes
+        /// — with frequencies in Python <c>str(float)</c> form (shortest round-trip), so
+        /// <c>ParseHexamerTable(ToHexamerTable())</c> reproduces the tables exactly.
+        /// </summary>
+        public IReadOnlyList<string> ToHexamerTable()
+        {
+            var lines = new List<string> { "hexamer\tcoding\tnoncoding" };
+            foreach (string kmer in CodingHexamerFrequencies.Keys.Where(NoncodingHexamerFrequencies.ContainsKey).OrderBy(k => k, StringComparer.Ordinal))
+                lines.Add($"{kmer}\t{PythonFloat(CodingHexamerFrequencies[kmer])}\t{PythonFloat(NoncodingHexamerFrequencies[kmer])}");
+            return lines;
+        }
+
+        private static string PythonFloat(double value)
+        {
+            string s = value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            if (s.Contains('E')) return s.Replace('E', 'e');
+            return s.Contains('.') ? s : s + ".0";
+        }
+
+        private const string Acgt = "ACGT";
+
+        /// <summary>
+        /// Builds the CPAT hexamer-frequency tables (CPAT <c>make_hexamer_tab</c>, Wang et al. 2013):
+        /// the coding table counts the in-frame hexamers (frame 0, step 3) of the coding sequences
+        /// (CDS from start to stop codon, no UTR), the non-coding table every hexamer (step 1) of the
+        /// non-coding sequences; each count is divided by the table's total over all 4,096 A/C/G/T hexamers
+        /// (hexamers containing N are not counted). Returns all 4,096 hexamers, A&lt;C&lt;G&lt;T order.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">A sequence set is null.</exception>
+        /// <exception cref="ArgumentException">A sequence has a character other than A, C, G, T, N (case-insensitive), or a set contains no complete A/C/G/T hexamer.</exception>
+        public static (IReadOnlyDictionary<string, double> Coding, IReadOnlyDictionary<string, double> Noncoding)
+            BuildHexamerTable(IEnumerable<string> codingSequences, IEnumerable<string> noncodingSequences)
+        {
+            ArgumentNullException.ThrowIfNull(codingSequences);
+            ArgumentNullException.ThrowIfNull(noncodingSequences);
+            var coding = CountHexamers(codingSequences, step: 3, nameof(codingSequences));
+            var noncoding = CountHexamers(noncodingSequences, step: 1, nameof(noncodingSequences));
+            return (coding, noncoding);
+        }
+
+        private static Dictionary<string, double> CountHexamers(IEnumerable<string> sequences, int step, string paramName)
+        {
+            var counts = new Dictionary<string, long>(StringComparer.Ordinal);
+            foreach (string raw in sequences)
+            {
+                string seq = ValidateCpatSequence(raw, paramName);
+                for (int i = 0; i + HexamerWordSize <= seq.Length; i += step)
+                {
+                    string kmer = seq.Substring(i, HexamerWordSize);
+                    if (kmer.Contains('N')) continue;
+                    counts[kmer] = counts.GetValueOrDefault(kmer) + 1;
+                }
+            }
+
+            double total = counts.Values.Sum();
+            if (total == 0) throw new ArgumentException("The sequence set contains no complete A/C/G/T hexamer.", paramName);
+
+            var table = new Dictionary<string, double>(4096, StringComparer.Ordinal);
+            var buffer = new char[HexamerWordSize];
+            for (int index = 0; index < 4096; index++)
+            {
+                int rest = index;
+                for (int p = HexamerWordSize - 1; p >= 0; p--, rest /= 4) buffer[p] = Acgt[rest % 4];
+                string kmer = new(buffer);
+                table[kmer] = counts.GetValueOrDefault(kmer) / total;
+            }
+
+            return table;
+        }
+
+        private static string ValidateCpatSequence(string? raw, string paramName)
+        {
+            if (raw is null) throw new ArgumentException("Sequence set contains a null sequence.", paramName);
+            string seq = raw.ToUpperInvariant();
+            foreach (char c in seq)
+                if (c is not ('A' or 'C' or 'G' or 'T' or 'N'))
+                    throw new ArgumentException($"CPAT sequences may contain only A, C, G, T, N; found '{c}'.", paramName);
+            return seq;
+        }
+
+        /// <summary>
+        /// Trains a CPAT model (Wang et al. 2013) from caller-supplied data: builds the hexamer tables with
+        /// <see cref="BuildHexamerTable"/> from <paramref name="codingCds"/> and
+        /// <paramref name="noncodingTranscripts"/>, then <see cref="Train(IEnumerable{string}, IEnumerable{string}, IReadOnlyDictionary{string, double}, IReadOnlyDictionary{string, double}, CpatTrainingOptions?)"/>.
+        /// </summary>
+        public static CpatTrainingResult Train(
+            IEnumerable<string> codingTranscripts,
+            IEnumerable<string> noncodingTranscripts,
+            IEnumerable<string> codingCds,
+            CpatTrainingOptions? options = null)
+        {
+            ArgumentNullException.ThrowIfNull(codingTranscripts);
+            ArgumentNullException.ThrowIfNull(noncodingTranscripts);
+            ArgumentNullException.ThrowIfNull(codingCds);
+            var noncodingList = noncodingTranscripts as IReadOnlyCollection<string> ?? noncodingTranscripts.ToList();
+            var (coding, noncoding) = BuildHexamerTable(codingCds, noncodingList);
+            return Train(codingTranscripts, noncodingList, coding, noncoding, options);
+        }
+
+        /// <summary>
+        /// Trains a CPAT model from data the caller supplies (no CPAT data is bundled).
+        /// Per CPAT <c>make_logitModel</c>: for every coding / non-coding transcript the longest ORF
+        /// (CPAT <c>ORFFinder</c>, sense strand, longer than <see cref="CpatTrainingOptions.MinOrfLength"/> nt)
+        /// gives the features mRNA length, ORF length, Fickett TESTCODE (<see cref="FickettTableSet.Cpat"/>)
+        /// and hexamer score; transcripts without an ORF are skipped. The coefficients are the maximum-likelihood
+        /// fit of R <c>glm(Label ~ mRNA + ORF + Fickett + Hexamer, family = binomial)</c> (Label 1 = coding),
+        /// computed by the same iteratively-reweighted least squares (R <c>glm.fit</c> start values, deviance stop
+        /// <c>|Δdev|/(|dev|+0.1) &lt; 1e−8</c>, 25 iterations). The cutoff is the TG-ROC optimum documented by
+        /// CPAT (<c>docs: "Optimum cutoffs were determined from TG-ROC"</c>, Greiner et al. 2000): the coding-probability
+        /// threshold (call coding when p ≥ cutoff) at which sensitivity and specificity on the training set are
+        /// closest (ties: higher sum, then lower cutoff).
+        /// </summary>
+        /// <param name="codingTranscripts">Protein-coding transcript sequences (mRNA).</param>
+        /// <param name="noncodingTranscripts">Non-coding transcript sequences.</param>
+        /// <param name="codingHexamerFrequencies">Coding hexamer table (see <see cref="BuildHexamerTable"/>).</param>
+        /// <param name="noncodingHexamerFrequencies">Non-coding hexamer table.</param>
+        /// <param name="options">ORF-search options (CPAT <c>make_logitModel</c> defaults when null).</param>
+        /// <exception cref="ArgumentNullException">An argument is null.</exception>
+        /// <exception cref="ArgumentException">A sequence has a character other than A, C, G, T, N; or a class has no transcript with an ORF.</exception>
+        /// <exception cref="InvalidOperationException">The design matrix is rank-deficient (e.g. all features constant).</exception>
+        public static CpatTrainingResult Train(
+            IEnumerable<string> codingTranscripts,
+            IEnumerable<string> noncodingTranscripts,
+            IReadOnlyDictionary<string, double> codingHexamerFrequencies,
+            IReadOnlyDictionary<string, double> noncodingHexamerFrequencies,
+            CpatTrainingOptions? options = null)
+        {
+            ArgumentNullException.ThrowIfNull(codingTranscripts);
+            ArgumentNullException.ThrowIfNull(noncodingTranscripts);
+            ArgumentNullException.ThrowIfNull(codingHexamerFrequencies);
+            ArgumentNullException.ThrowIfNull(noncodingHexamerFrequencies);
+            options ??= new CpatTrainingOptions();
+            ArgumentNullException.ThrowIfNull(options.StartCodons);
+            ArgumentNullException.ThrowIfNull(options.StopCodons);
+            ArgumentOutOfRangeException.ThrowIfNegative(options.MinOrfLength);
+
+            var starts = new HashSet<string>(options.StartCodons.Select(c => c.ToUpperInvariant()), StringComparer.Ordinal);
+            var stops = new HashSet<string>(options.StopCodons.Select(c => c.ToUpperInvariant()), StringComparer.Ordinal);
+
+            var rows = new List<(double Mrna, double Orf, double Fickett, double Hexamer, double Label)>();
+            int codingCount = AddFeatureRows(codingTranscripts, 1.0, nameof(codingTranscripts));
+            int noncodingCount = AddFeatureRows(noncodingTranscripts, 0.0, nameof(noncodingTranscripts));
+            if (codingCount == 0) throw new ArgumentException("No coding transcript has an ORF.", nameof(codingTranscripts));
+            if (noncodingCount == 0) throw new ArgumentException("No non-coding transcript has an ORF.", nameof(noncodingTranscripts));
+
+            int n = rows.Count;
+            var x = new double[n, 5];
+            var y = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                x[i, 0] = 1; x[i, 1] = rows[i].Mrna; x[i, 2] = rows[i].Orf; x[i, 3] = rows[i].Fickett; x[i, 4] = rows[i].Hexamer;
+                y[i] = rows[i].Label;
+            }
+
+            var (beta, deviance, iterations, converged) = FitLogisticIrls(x, y);
+            if (!beta.All(double.IsFinite))
+                throw new InvalidOperationException("The CPAT logistic fit diverged (non-finite coefficients; the classes are perfectly separable).");
+
+            // TG-ROC cutoff over the training probabilities (R predict(type = "response") on the training rows).
+            var probabilities = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                double eta = 0;
+                for (int j = 0; j < 5; j++) eta += beta[j] * x[i, j];
+                probabilities[i] = RLogitInverse(eta);
+            }
+
+            var (cutoff, sensitivity, specificity) = SelectTgRocCutoff(probabilities, y);
+            var model = new CpatModel(codingHexamerFrequencies, noncodingHexamerFrequencies,
+                beta[0], beta[1], beta[2], beta[3], beta[4], cutoff);
+            return new CpatTrainingResult(model, codingCount, noncodingCount, deviance, iterations, converged, sensitivity, specificity);
+
+            int AddFeatureRows(IEnumerable<string> transcripts, double label, string paramName)
+            {
+                int added = 0;
+                foreach (string raw in transcripts)
+                {
+                    string seq = ValidateCpatSequence(raw, paramName);
+                    var candidates = new List<(char Strand, int Frame, int Start, int End, string Sequence)>();
+                    for (int frame = 0; frame < 3; frame++)
+                        FindCpatOrfsInFrame(seq, frame, '+', starts, stops, options.MinOrfLength, candidates);
+                    if (candidates.Count == 0) continue;
+
+                    // extract_feature_from_seq: sorted(by length, reverse)[0]; the sort is stable, so ties keep the earlier frame/ORF.
+                    string orf = candidates.OrderByDescending(c => c.Sequence.Length).First().Sequence;
+                    rows.Add((seq.Length, orf.Length,
+                        CalculateFickettScore(orf, FickettTableSet.Cpat),
+                        CalculateCodingPotential(orf, codingHexamerFrequencies, noncodingHexamerFrequencies),
+                        label));
+                    added++;
+                }
+
+                return added;
+            }
+        }
+
+        // R glm.fit(family = binomial(link = "logit")) for an n×p design (unit weights): mustart = (y + 0.5)/2,
+        // eta = logit(mu); repeat { z = eta + (y−mu)/(mu(1−mu)), w = mu(1−mu); beta = WLS(z ~ X, w);
+        // eta = Xβ; mu = expit(eta); dev = Σ 2[y ln(y/mu) + (1−y) ln((1−y)/(1−mu))] } until |dev − devold|/(|dev| + 0.1) < 1e−8
+        // (epsilon) or 25 iterations (maxit). The WLS solve uses column-scaled normal equations (same solution as R's QR).
+        private static (double[] Beta, double Deviance, int Iterations, bool Converged) FitLogisticIrls(double[,] x, double[] y)
+        {
+            const int maxIterations = 25;
+            const double epsilon = 1e-8;
+            int n = y.Length, p = x.GetLength(1);
+
+            var mu = new double[n];
+            var eta = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                mu[i] = (y[i] + 0.5) / 2.0;
+                eta[i] = Math.Log(mu[i] / (1 - mu[i]));
+            }
+
+            double devOld = BinomialDeviance(y, mu);
+            var beta = new double[p];
+            double dev = devOld;
+            bool converged = false;
+            int iteration = 0;
+            while (iteration < maxIterations)
+            {
+                iteration++;
+                var z = new double[n];
+                var w = new double[n];
+                for (int i = 0; i < n; i++)
+                {
+                    // R binomial()$mu.eta = max(e^−|η| / (1 + e^−|η|)², DBL_EPSILON); variance = μ(1−μ); IRLS weight μ.eta²/variance.
+                    double t = Math.Exp(-Math.Abs(eta[i]));
+                    double muEta = Math.Max(t / ((1 + t) * (1 + t)), DblEpsilon);
+                    double variance = mu[i] * (1 - mu[i]);
+                    z[i] = eta[i] + (y[i] - mu[i]) / muEta;
+                    w[i] = muEta * muEta / variance;
+                }
+
+                beta = SolveWeightedLeastSquares(x, z, w);
+                for (int i = 0; i < n; i++)
+                {
+                    double e = 0;
+                    for (int j = 0; j < p; j++) e += x[i, j] * beta[j];
+                    eta[i] = e;
+                    mu[i] = RLogitInverse(e);
+                }
+
+                dev = BinomialDeviance(y, mu);
+                if (Math.Abs(dev - devOld) / (Math.Abs(dev) + 0.1) < epsilon) { converged = true; break; }
+                devOld = dev;
+            }
+
+            return (beta, dev, iteration, converged);
+        }
+
+        private const double DblEpsilon = 2.220446049250313e-16;
+
+        // R logit_linkinv (family.c): η < −30 → ε/(1+ε), η > 30 → 1/(1+ε), else e^η/(1+e^η).
+        private static double RLogitInverse(double eta)
+        {
+            double t;
+            if (eta < -30) t = DblEpsilon;
+            else if (eta > 30) t = 1.0 / DblEpsilon;
+            else t = Math.Exp(eta);
+            return t / (1 + t);
+        }
+
+        private static double BinomialDeviance(double[] y, double[] mu)
+        {
+            double dev = 0;
+            for (int i = 0; i < y.Length; i++)
+                dev += y[i] > 0.5 ? -2 * Math.Log(mu[i]) : -2 * Math.Log(1 - mu[i]);
+            return dev;
+        }
+
+        private static double[] SolveWeightedLeastSquares(double[,] x, double[] z, double[] w)
+        {
+            int n = z.Length, p = x.GetLength(1);
+            var scale = new double[p];
+            for (int j = 0; j < p; j++)
+            {
+                double sumSquares = 0;
+                for (int i = 0; i < n; i++) sumSquares += x[i, j] * x[i, j];
+                scale[j] = sumSquares > 0 ? Math.Sqrt(sumSquares / n) : 1.0;
+            }
+
+            var a = new double[p, p + 1];
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < p; j++)
+                {
+                    double xj = w[i] * x[i, j] / scale[j];
+                    for (int k = 0; k <= j; k++) a[j, k] += xj * x[i, k] / scale[k];
+                    a[j, p] += xj * z[i];
+                }
+
+            for (int j = 0; j < p; j++)
+                for (int k = j + 1; k < p; k++) a[j, k] = a[k, j];
+
+            var diagonal = new double[p];
+            for (int j = 0; j < p; j++) diagonal[j] = a[j, j];
+
+            // Gaussian elimination with partial pivoting (singular: pivot ≤ 1e−11 of the column's original diagonal, cf. R's QR tol).
+            for (int col = 0; col < p; col++)
+            {
+                int pivot = col;
+                for (int r = col + 1; r < p; r++)
+                    if (Math.Abs(a[r, col]) > Math.Abs(a[pivot, col])) pivot = r;
+                if (!(Math.Abs(a[pivot, col]) > 1e-11 * diagonal[col]))
+                    throw new InvalidOperationException("The CPAT logistic design matrix is rank-deficient (a feature is constant or collinear).");
+                if (pivot != col)
+                    for (int k = 0; k <= p; k++) (a[col, k], a[pivot, k]) = (a[pivot, k], a[col, k]);
+                for (int r = col + 1; r < p; r++)
+                {
+                    double f = a[r, col] / a[col, col];
+                    for (int k = col; k <= p; k++) a[r, k] -= f * a[col, k];
+                }
+            }
+
+            var beta = new double[p];
+            for (int r = p - 1; r >= 0; r--)
+            {
+                double sum = a[r, p];
+                for (int k = r + 1; k < p; k++) sum -= a[r, k] * beta[k];
+                beta[r] = sum / a[r, r];
+            }
+
+            for (int j = 0; j < p; j++) beta[j] /= scale[j];
+            return beta;
+        }
+
+        // TG-ROC (Greiner et al. 2000; CPAT docs "How to choose cutoff"): the cutoff c (coding when p ≥ c) where the
+        // sensitivity and specificity curves intersect. Candidates are the observed probabilities.
+        private static (double Cutoff, double Sensitivity, double Specificity) SelectTgRocCutoff(double[] probabilities, double[] labels)
+        {
+            int positives = labels.Count(l => l > 0.5), negatives = labels.Length - positives;
+            var order = Enumerable.Range(0, labels.Length).OrderBy(i => probabilities[i]).ToArray();
+
+            double bestCutoff = double.NaN, bestGap = double.PositiveInfinity, bestSum = double.NegativeInfinity;
+            double bestSe = 0, bestSp = 0;
+            int belowPositives = 0, belowNegatives = 0; // samples with p < c
+            for (int k = 0; k < order.Length;)
+            {
+                double c = probabilities[order[k]];
+                // sensitivity = coding with p ≥ c; specificity = non-coding with p < c.
+                double se = (positives - belowPositives) / (double)positives;
+                double sp = belowNegatives / (double)negatives;
+                double gap = Math.Abs(se - sp), sum = se + sp;
+                if (gap < bestGap || (gap == bestGap && sum > bestSum))
+                {
+                    bestCutoff = c; bestGap = gap; bestSum = sum; bestSe = se; bestSp = sp;
+                }
+
+                while (k < order.Length && probabilities[order[k]] == c)
+                {
+                    if (labels[order[k]] > 0.5) belowPositives++; else belowNegatives++;
+                    k++;
+                }
+            }
+
+            return (bestCutoff, bestSe, bestSp);
+        }
     }
+
+    /// <summary>CPAT training options (defaults = CPAT 3.0.5 <c>make_logitModel</c>: ATG / TAG,TAA,TGA, <c>--min-orf</c> 30).</summary>
+    public sealed record CpatTrainingOptions
+    {
+        /// <summary>Start codons (<c>--start</c>, default ATG). Empty: any non-stop codon opens an ORF.</summary>
+        public IReadOnlyList<string> StartCodons { get; init; } = new[] { "ATG" };
+
+        /// <summary>Stop codons (<c>--stop</c>, default TAG, TAA, TGA).</summary>
+        public IReadOnlyList<string> StopCodons { get; init; } = new[] { "TAG", "TAA", "TGA" };
+
+        /// <summary>An ORF is kept when its length in nt (stop included) is strictly greater than this (<c>--min-orf</c>, default 30).</summary>
+        public int MinOrfLength { get; init; } = 30;
+    }
+
+    /// <summary>A trained CPAT model with fit diagnostics.</summary>
+    /// <param name="Model">The model (tables, coefficients, TG-ROC cutoff), ready for <see cref="PredictCodingProbability"/>.</param>
+    /// <param name="CodingSamples">Coding transcripts with an ORF used in the fit.</param>
+    /// <param name="NoncodingSamples">Non-coding transcripts with an ORF used in the fit.</param>
+    /// <param name="Deviance">Residual deviance of the fit (R <c>deviance(glm)</c>).</param>
+    /// <param name="Iterations">IRLS iterations (R <c>glm$iter</c>).</param>
+    /// <param name="Converged">Deviance criterion met within 25 iterations (R <c>glm$converged</c>).</param>
+    /// <param name="Sensitivity">Training-set sensitivity at the cutoff.</param>
+    /// <param name="Specificity">Training-set specificity at the cutoff.</param>
+    public sealed record CpatTrainingResult(
+        CpatModel Model,
+        int CodingSamples,
+        int NoncodingSamples,
+        double Deviance,
+        int Iterations,
+        bool Converged,
+        double Sensitivity,
+        double Specificity);
 
     /// <summary>CPAT ORF-search options (defaults = CPAT 3.0.5 command-line defaults).</summary>
     public sealed record CpatOptions
@@ -1641,9 +2021,6 @@ public static class GenomeAnnotator
     // (palindrome.acd) and IUPACpal -g max_gap default (README) are both 100; |G| >= 0 (WGW^R, Hampson 2021).
     private const int DefaultMaxInvertedGap = 100;
 
-    // Shortest stem RepeatFinder.FindInvertedRepeats accepts (minArmLength >= 2).
-    private const int MinInvertedArmLength = 2;
-
     /// <summary>
     /// Finds repetitive elements in a DNA sequence: exact tandem repeats (head-to-tail
     /// consecutive copies of a primitive motif) and exact inverted repeats (a sequence
@@ -1661,7 +2038,7 @@ public static class GenomeAnnotator
     /// <para>
     /// <b>Inverted repeats</b> are the maximal exact stems of
     /// <see cref="Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(string,int,int,int,int,int,bool)"/>
-    /// with arm ≥ max(<paramref name="minRepeatLength"/>, 2), arm ≤ max(100, that minimum), loop 0..100 — the result
+    /// with arm ≥ <paramref name="minRepeatLength"/>, arm ≤ max(100, that minimum), loop 0..100 — the result
     /// set of EMBOSS <c>palindrome -minpallen m -maxpallen 100 -gaplimit 100 -nummismatches 0 -overlap Y</c>
     /// (the EMBOSS and IUPACpal default limits). Only A/C/G/T pair (A·T, C·G); sub-stems inside a longer stem are not
     /// reported. For inverted repeats <paramref name="minRepeatLength"/> is the minimum <b>arm</b> length.
@@ -1711,10 +2088,9 @@ public static class GenomeAnnotator
                 sequence.Substring(run.Position, run.TotalLength));
         }
 
-        int minArm = Math.Max(minRepeatLength, MinInvertedArmLength);
         foreach (var stem in Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(
-                     sequence, minArm, DefaultMaxInvertedGap, minLoopLength: 0,
-                     maxArmLength: Math.Max(MaxInvertedArmLength, minArm)))
+                     sequence, minRepeatLength, DefaultMaxInvertedGap, minLoopLength: 0,
+                     maxArmLength: Math.Max(MaxInvertedArmLength, minRepeatLength)))
         {
             string composite = stem.LoopLength == 0
                 ? stem.LeftArm + stem.RightArm

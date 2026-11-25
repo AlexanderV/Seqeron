@@ -181,7 +181,7 @@
 1. **MUST Test:** Valid hairpin detection with known stem/loop structure — Evidence: Bartel (2004), Krol (2004)
 2. **MUST Test:** Short sequence returns empty — Evidence: Pre-miRNA minimum ~55 nt (miRBase)
 3. **MUST Test:** Null/empty input handling — Evidence: defensive coding
-4. **MUST Test:** Stem length threshold (≥18 bp required) — Evidence: Krol (2004)
+4. **MUST Test:** Stem length threshold of the consecutive screen (≥18 bp, operational screen parameter, not a published criterion; Krol 2004 states no such threshold) — Evidence: Ambros (2003) ≥16 bp for the published criterion
 5. **MUST Test:** Loop size constraints (3–25 nt) — Evidence: Bartel (2004)
 6. **MUST Test:** T→U conversion in input — Evidence: RNA biology standard
 7. **MUST Test:** Mature and star sequence extraction from correct arms — Evidence: Bartel (2009)
@@ -428,8 +428,10 @@ Dicer ruler and the 22-nt mature length against the database.)
 
 The **trained natural-vs-background miRNA classifier** (miRDeep2-style: a probabilistic/ML score that
 distinguishes genuine pre-miRNAs from random hairpins using read-stacking signatures and a fitted
-model) is **NOT** implemented — it requires a trained model and labelled training data, which are
-data-blocked. The cleavage-site prediction here is the published deterministic measuring-rule
+model) was **not implemented when this note was written** — it needed a trained model and labelled training data
+(superseded: an in-repo logistic model `ClassifyPreMiRna` and the published Triplet-SVM `ClassifyPreMiRnaTripletSvm`
+with the authors' model now exist; MiPred remains open, WP-R2-1; the read-stacking component stays out of scope).
+The cleavage-site prediction here is the published deterministic measuring-rule
 ("ruler") heuristic only.
 
 > **Superseded 2026-06-25.** A trained **structure/sequence-feature** natural-vs-background classifier
@@ -568,7 +570,7 @@ penalised) — scikit-learn `LogisticRegression(C = 1/(λ·n))`.
   AUC **0.984375** (scikit-learn `roc_auc_score`). The earlier "1.0 / 1.0" was on the old shuffles and folder.
 - The PairedFraction weight is now slightly negative (−0.26): PairedFraction, AMFE and MFEI are strongly
   collinear on 45 rows, so individual signs are not interpretable; the model is a fixed, documented fit,
-  not a published classifier (miPred / microPred SVM models are not bundled).
+  not a published classifier (the miPred / microPred SVM models are not bundled; the published Triplet-SVM model is, see `ClassifyPreMiRnaTripletSvm`).
 
 ### Exact feature values (pins the extractor independent of the weights)
 

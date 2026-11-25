@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rna_region_accessibility",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateRegionUnpairedProbability",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.PartitionFunction.cs",
+  "description": "Probability that a contiguous RNA region is entirely unpaired in the McCaskill ensemble (Turner 2004), Z_open/Z (RNAplfold -u with W, L >= n), and its opening energy -RT ln P.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rnaSequence": {
+        "type": "string",
+        "description": "RNA sequence (T read as U, case-insensitive; N/IUPAC never pair)",
+        "minLength": 1
+      },
+      "windowEnd": {
+        "type": "integer",
+        "description": "0-based inclusive index of the last nucleotide of the region",
+        "minimum": 0
+      },
+      "windowLength": {
+        "type": "integer",
+        "description": "Region length in nucleotides",
+        "minimum": 1
+      },
+      "minLoopSize": {
+        "type": "integer",
+        "description": "Minimum hairpin loop size (default 3; values <3 are clamped)",
+        "default": 3
+      },
+      "temperature": {
+        "type": "number",
+        "description": "Absolute temperature in Kelvin (default 310.15)",
+        "default": 310.15,
+        "exclusiveMinimum": 0
+      }
+    },
+    "required": [
+      "rnaSequence",
+      "windowEnd",
+      "windowLength"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "windowStart": { "type": "integer" },
+      "windowEnd": { "type": "integer" },
+      "windowLength": { "type": "integer" },
+      "unpairedProbability": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "Z_open / Z"
+      },
+      "openingEnergy": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "-RT ln P, kcal/mol (null when P is 0)"
+      },
+      "temperature": { "type": "number" }
+    },
+    "required": [
+      "windowStart",
+      "windowEnd",
+      "windowLength",
+      "unpairedProbability",
+      "temperature"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Window must lie inside the sequence; windowLength >= 1; temperature positive and finite"
+    }
+  ],
+  "examples": [
+    {
+      "name": "TargetScan 14-nt window",
+      "input": {
+        "rnaSequence": "GUCUCUGUGCGCAGCACAUGCUCGAGUCGUCGUGA",
+        "windowEnd": 34,
+        "windowLength": 14
+      },
+      "output": {
+        "unpairedProbability": 0.0305,
+        "openingEnergy": 2.15
+      }
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+using Seqeron.Genomics.Infrastructure;
 namespace Seqeron.Genomics.Chromosome;
 
 /// <summary>
@@ -7,17 +8,6 @@ namespace Seqeron.Genomics.Chromosome;
 public static class GenomeAssemblyAnalyzer
 {
     #region Records
-
-    /// <summary>
-    /// Represents an assembled sequence (contig or scaffold).
-    /// </summary>
-    public readonly record struct AssembledSequence(
-        string Id,
-        string Sequence,
-        int Length,
-        double GcContent,
-        int GapCount,
-        int TotalGapLength);
 
     /// <summary>
     /// Assembly statistics summary.
@@ -256,10 +246,13 @@ public static class GenomeAssemblyAnalyzer
     /// </list>
     /// An empty input returns all zeros (QUAST reports these fields as undefined).
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">A sequence is null.</exception>
     public static AssemblyStatistics CalculateStatistics(
         IEnumerable<(string Id, string Sequence)> sequences)
     {
-        var seqList = sequences.Select(s => ParseSequence(s.Id, s.Sequence)).ToList();
+        ArgumentNullException.ThrowIfNull(sequences);
+        var seqList = sequences.Select(s => RequireSequence(s, nameof(sequences))).ToList();
 
         if (seqList.Count == 0)
         {
@@ -268,7 +261,6 @@ public static class GenomeAssemblyAnalyzer
 
         var lengths = seqList.Select(s => s.Length).OrderByDescending(l => l).ToList();
         long totalLength = lengths.Sum(l => (long)l);
-        long totalNoGaps = seqList.Sum(s => (long)(s.Length - s.TotalGapLength));
 
         // Calculate N50/L50
         var n50Stats = CalculateNx(lengths, totalLength, 50);
@@ -277,17 +269,23 @@ public static class GenomeAssemblyAnalyzer
         // GC content: pooled G+C over A+C+G+T (QUAST GC_content) via the canonical Core counter.
         long gcCount = 0;
         long acgtCount = 0;
-        foreach (var s in seqList)
+        int totalGaps = 0;
+        long totalGapLength = 0;
+        foreach (var sequence in seqList)
         {
-            var (gc, valid) = s.Sequence.AsSpan().CountGcAndValidNucleotides();
+            var (gc, valid) = sequence.AsSpan().CountGcAndValidNucleotides();
             gcCount += gc;
             acgtCount += valid;
+
+            // Gap statistics: maximal N/n runs (QUAST split_by_ns, threshold 1).
+            foreach (var (_, runLength) in EnumerateNRuns(sequence))
+            {
+                totalGaps++;
+                totalGapLength += runLength;
+            }
         }
         double gcContent = acgtCount > 0 ? gcCount / (double)acgtCount : 0;
-
-        // Gap statistics
-        int totalGaps = seqList.Sum(s => s.GapCount);
-        long totalGapLength = seqList.Sum(s => (long)s.TotalGapLength);
+        long totalNoGaps = totalLength - totalGapLength;
         double gapPercentage = totalLength > 0 ? totalGapLength * 100.0 / totalLength : 0;
 
         return new AssemblyStatistics(
@@ -306,24 +304,6 @@ public static class GenomeAssemblyAnalyzer
             totalGaps,
             totalGapLength,
             gapPercentage);
-    }
-
-    /// <summary>
-    /// Parses sequence and extracts metrics.
-    /// </summary>
-    private static AssembledSequence ParseSequence(string id, string sequence)
-    {
-        int gapCount = 0;
-        int totalGapLength = 0;
-        foreach (var (_, length) in EnumerateNRuns(sequence))
-        {
-            gapCount++;
-            totalGapLength += length;
-        }
-
-        double gc = sequence.AsSpan().CalculateGcFraction();
-
-        return new AssembledSequence(id, sequence, sequence.Length, gc, gapCount, totalGapLength);
     }
 
     // Nx/Lx threshold percentage for the N50/L50 statistics.
@@ -367,8 +347,12 @@ public static class GenomeAssemblyAnalyzer
     /// </remarks>
     /// <param name="lengths">Contig/scaffold lengths (any order).</param>
     /// <param name="threshold">Percentage threshold x in [0, 100] (50 for N50/L50).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="threshold"/> outside [0, 100].</exception>
+    /// <exception cref="ArgumentException">A length is negative.</exception>
     public static NxStatistics CalculateNx(IEnumerable<int> lengths, int threshold)
     {
+        ArgumentNullException.ThrowIfNull(lengths);
         var sorted = lengths.OrderByDescending(l => l).ToList();
         long total = sorted.Sum(l => (long)l);
         return CalculateNx(sorted, total, threshold);
@@ -385,28 +369,49 @@ public static class GenomeAssemblyAnalyzer
     /// assembly." Returns 0 for an empty input.
     /// </remarks>
     /// <param name="lengths">Contig/scaffold lengths (any order).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> is null.</exception>
+    /// <exception cref="ArgumentException">A length is negative.</exception>
     public static int CalculateN50(IEnumerable<int> lengths)
     {
         return CalculateNx(lengths, N50ThresholdPercent).Nx;
     }
 
     /// <summary>
-    /// Calculates Nx statistics for multiple thresholds.
+    /// Default Nx curve thresholds: the deciles 10, 20, ..., 90 (the percentages of the Nx plot,
+    /// QUAST <c>Nx</c> plot x = 0..100 in steps; N50 and N90 are among them).
     /// </summary>
+    private static readonly int[] DefaultNxCurveThresholds = { 10, 20, 30, 40, 50, 60, 70, 80, 90 };
+
+    /// <summary>
+    /// Calculates Nx/Lx for multiple thresholds (the Nx curve).
+    /// </summary>
+    /// <remarks>
+    /// One <see cref="NxStatistics"/> per entry of <paramref name="thresholds"/>, in ascending
+    /// threshold order (a repeated threshold yields a repeated entry); an empty list means the
+    /// deciles 10, 20, ..., 90. Each point is the canonical
+    /// <see cref="CalculateNx(IReadOnlyList{int},long,int)"/> (QUAST <c>NG50_and_LG50</c>) over the
+    /// assembly size. The arguments are validated and the curve is computed eagerly, so an invalid
+    /// input throws at the call (not on first enumeration).
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> or <paramref name="thresholds"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold is outside [0, 100].</exception>
+    /// <exception cref="ArgumentException">A length is negative.</exception>
     public static IEnumerable<NxStatistics> CalculateNxCurve(
         IEnumerable<int> lengths,
         params int[] thresholds)
     {
+        ArgumentNullException.ThrowIfNull(lengths);
+        ArgumentNullException.ThrowIfNull(thresholds);
+
         var sorted = lengths.OrderByDescending(l => l).ToList();
         long total = sorted.Sum(l => (long)l);
-
         if (thresholds.Length == 0)
-            thresholds = new[] { 10, 20, 30, 40, 50, 60, 70, 80, 90 };
+            thresholds = DefaultNxCurveThresholds;
 
+        var curve = new List<NxStatistics>(thresholds.Length);
         foreach (int t in thresholds.OrderBy(t => t))
-        {
-            yield return CalculateNx(sorted, total, t);
-        }
+            curve.Add(CalculateNx(sorted, total, t));
+        return curve;
     }
 
     /// <summary>
@@ -416,18 +421,31 @@ public static class GenomeAssemblyAnalyzer
     /// Li H (2020), "auN: a new metric to measure assembly contiguity"
     /// (lh3.github.io/2020/04/08/a-new-metric-on-assembly-contiguity); QUAST <c>au_metric</c>
     /// (<c>quast_libs/N50.py</c>). Returns 0 for an empty or all-zero list (QUAST <c>None</c>).
+    /// Σ Lᵢ² and Σ Lⱼ are accumulated exactly in integers (128-bit / 64-bit), so no precision is lost
+    /// for assemblies above 2^53 squared bases; the single division is performed on the exact
+    /// quotient and remainder (error ≤ 1 ulp of the result).
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> is null.</exception>
+    /// <exception cref="ArgumentException">A length is negative.</exception>
     public static double CalculateAuN(IEnumerable<int> lengths)
     {
-        var sorted = lengths.OrderByDescending(l => l).ToList();
-        if (sorted.Count == 0) return 0;
+        ArgumentNullException.ThrowIfNull(lengths);
 
-        long total = sorted.Sum(l => (long)l);
+        long total = 0;
+        UInt128 sumOfSquares = UInt128.Zero;
+        foreach (int length in lengths)
+        {
+            if (length < 0)
+                throw new ArgumentException("Sequence lengths must be non-negative.", nameof(lengths));
+            total += length;
+            sumOfSquares += (UInt128)((ulong)length * (ulong)length);
+        }
         if (total == 0) return 0;
 
-        // auN is the sum of (length * length) / total
-        double auN = sorted.Sum(l => (double)l * l) / total;
-        return auN;
+        // Exact integer quotient + remainder, divided once: Σ L² / total = q + r / total.
+        UInt128 quotient = sumOfSquares / (ulong)total;
+        UInt128 remainder = sumOfSquares % (ulong)total;
+        return (double)quotient + (double)remainder / total;
     }
 
     #endregion
@@ -654,9 +672,11 @@ public static class GenomeAssemblyAnalyzer
     /// N-run of length ≥ <paramref name="minGapLength"/> (default <see cref="DefaultScaffoldGapMinLength"/>
     /// = 10, QUAST <c>Ns_break_threshold</c> and the NCBI assembly-gap convention; pass 1 to cut at every
     /// N); shorter N-runs stay inside the contig. Contigs of length ≥ <paramref name="minContigLength"/>
-    /// are returned in scaffold order, named <c>{id}_contig{n}</c> with n counting the returned contigs
-    /// (QUAST also counts the dropped ones). The contigs are exactly those of
-    /// <see cref="AnalyzeScaffolds"/> with the same <paramref name="minGapLength"/>; case is preserved.
+    /// are returned in scaffold order, named <c>{id}_contig{n}</c> where n is the contig's 1-based
+    /// position among <b>all</b> contigs of its scaffold, dropped short ones included (QUAST
+    /// <c>split_by_ns</c> numbers every piece and <c>--min-contig</c> filters afterwards), so a
+    /// name is the same as the one <see cref="AnalyzeScaffolds"/> gives that contig with the same
+    /// <paramref name="minGapLength"/>; gaps in the numbering mark dropped contigs. Case is preserved.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="scaffolds"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minContigLength"/> &lt; 0 or
@@ -681,11 +701,12 @@ public static class GenomeAssemblyAnalyzer
         foreach (var entry in scaffolds)
         {
             string sequence = RequireSequence(entry, nameof(scaffolds));
-            int contigNum = 1;
-            foreach (var (start, end) in SplitAtGaps(sequence, minGapLength).Contigs)
+            var pieces = SplitAtGaps(sequence, minGapLength).Contigs;
+            for (int c = 0; c < pieces.Count; c++)
             {
+                var (start, end) = pieces[c];
                 if (end - start >= minContigLength)
-                    yield return ($"{entry.Id}_contig{contigNum++}", sequence[start..end]);
+                    yield return ($"{entry.Id}_contig{c + 1}", sequence[start..end]);
             }
         }
     }
@@ -969,7 +990,7 @@ public static class GenomeAssemblyAnalyzer
 
     private static List<(string Id, string Sequence)> MaterializeAssembly(
         IEnumerable<(string Id, string Sequence)> assembly, string paramName)
-        => assembly.Select(s => (s.Id, RequireSequence(s, paramName).ToUpperInvariant())).ToList();
+        => assembly.Select(s => (s.Id, SequenceCase.ToUpperAscii(RequireSequence(s, paramName)))).ToList();
 
     private static string RequireMarker(string id, string? sequence, string paramName)
     {
@@ -977,7 +998,7 @@ public static class GenomeAssemblyAnalyzer
             throw new ArgumentException($"Marker '{id}' sequence is null.", paramName);
         if (sequence.Length == 0)
             throw new ArgumentException($"Marker '{id}' sequence is empty.", paramName);
-        return sequence.ToUpperInvariant();
+        return SequenceCase.ToUpperAscii(sequence);
     }
 
     private static void ValidateFraction(double value, string paramName)
@@ -1066,7 +1087,7 @@ public static class GenomeAssemblyAnalyzer
                     $"All spectrum k-mers must have the same length (found {k} and {kmer.Length}).", nameof(readKmerSpectrum));
             if (count < 1)
                 throw new ArgumentException($"K-mer '{kmer}' has count {count}; counts must be ≥ 1.", nameof(readKmerSpectrum));
-            if (!spectrum.TryAdd(kmer.ToUpperInvariant(), count))
+            if (!spectrum.TryAdd(SequenceCase.ToUpperAscii(kmer), count))
                 throw new ArgumentException($"K-mer '{kmer}' is listed more than once.", nameof(readKmerSpectrum));
         }
         if (spectrum.Count == 0)
@@ -1240,7 +1261,7 @@ public static class GenomeAssemblyAnalyzer
         ArgumentOutOfRangeException.ThrowIfGreaterThan(textend, minCopies);
 
         return FindRepetitiveRegionsCore(
-            sequences.Select(s => (s.Id, Sequence: (s.Sequence ?? string.Empty).ToUpperInvariant())).ToList(),
+            sequences.Select(s => (s.Id, Sequence: SequenceCase.ToUpperAscii(s.Sequence ?? string.Empty))).ToList(),
             kmerSize, minCopies, windowSize, bothStrands, textend);
     }
 
@@ -1248,18 +1269,12 @@ public static class GenomeAssemblyAnalyzer
         List<(string Id, string Sequence)> sequences,
         int k, int cutoff, int windowSize, bool bothStrands, int textend)
     {
-        var forward = new Dictionary<string, int>();
+        var forward = new Dictionary<string, int>(StringComparer.Ordinal);
         var acgt = new KmerCountingOptions(AcgtOnly: true);
         foreach (var (_, sequence) in sequences)
         {
             foreach (var (kmer, n) in KmerAnalyzer.CountKmers(sequence, k, acgt))
                 forward[kmer] = forward.GetValueOrDefault(kmer) + n;
-        }
-
-        int UnitCount(string kmer)
-        {
-            int c = forward.GetValueOrDefault(kmer);
-            return bothStrands ? c + forward.GetValueOrDefault(DnaSequence.GetReverseComplementString(kmer)) : c;
         }
 
         int numUnits = windowSize - k + 1;
@@ -1269,12 +1284,7 @@ public static class GenomeAssemblyAnalyzer
             if (n < windowSize) continue;
 
             // unit[j] = count of the k-mer starting at j (-1 when it contains a non-ACGT symbol).
-            var unit = new int[n - k + 1];
-            for (int j = 0; j < unit.Length; j++)
-            {
-                var span = seq.AsSpan(j, k);
-                unit[j] = IsAcgt(span) ? UnitCount(seq.Substring(j, k)) : -1;
-            }
+            int[] unit = UnitCounts(seq, k, forward, bothStrands);
 
             // Prefix sums of the counts and of the invalid-unit flags give each window's mean in O(1).
             var sum = new long[unit.Length + 1];
@@ -1341,14 +1351,39 @@ public static class GenomeAssemblyAnalyzer
         }
     }
 
-    private static bool IsAcgt(ReadOnlySpan<char> span)
+    /// <summary>
+    /// Count of every k-mer start of an upper-case sequence (-1 for a k-mer with a non-ACGT symbol), looked up
+    /// by span (no per-position string); with <paramref name="bothStrands"/> the reverse-complement count is added.
+    /// </summary>
+    private static int[] UnitCounts(string seq, int k, Dictionary<string, int> forward, bool bothStrands)
     {
-        foreach (char c in span)
+        var lookup = forward.GetAlternateLookup<ReadOnlySpan<char>>();
+        var unit = new int[seq.Length - k + 1];
+        char[] rc = new char[k];
+        int j = 0;
+        foreach (ReadOnlySpan<char> kmer in seq.AsSpan().EnumerateKmers(k))
         {
-            if (c is not ('A' or 'C' or 'G' or 'T')) return false;
+            if (kmer.IsValidDna())
+            {
+                int c = lookup.TryGetValue(kmer, out int f) ? f : 0;
+                if (bothStrands)
+                {
+                    if (!kmer.TryGetReverseComplement(rc))
+                        throw new InvalidOperationException("Reverse-complement buffer too small.");
+                    c += lookup.TryGetValue(rc, out int r) ? r : 0;
+                }
+
+                unit[j] = c;
+            }
+            else
+            {
+                unit[j] = -1;
+            }
+
+            j++;
         }
 
-        return true;
+        return unit;
     }
 
     private static int MaxUnit(int[] unit, int start, int end, int k)
@@ -1667,7 +1702,7 @@ public static class GenomeAssemblyAnalyzer
         {
             for (int i = 0; i < span.Length; i++)
             {
-                char c = char.ToUpperInvariant(state.sequence[i]);
+                char c = SequenceCase.ToUpperAscii(state.sequence[i]);
                 span[i] = c is 'A' or 'C' or 'G' or 'T' ? c : state.mismatchSymbol;
             }
         });
@@ -1917,117 +1952,208 @@ public static class GenomeAssemblyAnalyzer
     #region Quality Assessment
 
     /// <summary>
-    /// Calculates per-base quality metrics.
+    /// Sliding-window sequence-composition metrics of every sequence: GC content, N count and linguistic
+    /// complexity per window (a window-level screen; QUAST reports GC as a whole-assembly value and a
+    /// GC-content distribution over fixed windows).
     /// </summary>
+    /// <remarks>
+    /// Windows start at 0, <paramref name="stepSize"/>, 2·<paramref name="stepSize"/>, … for every start &lt;
+    /// length; the last window(s) are truncated at the sequence end (Biopython <c>GC_skew</c> slicing
+    /// <c>seq[i:i+window]</c>), so a sequence shorter than the window yields one truncated window and no base
+    /// is left uncovered. <c>Position</c> is the 0-based start of the window (not its centre) and
+    /// <c>WindowSize</c> its actual (possibly truncated) length. <c>GcContent</c> is the fraction in [0,1]
+    /// from the canonical <see cref="GcSkewCalculator.CalculateWindowedGcContent(string,int,int,bool,bool)"/>
+    /// (G+C over A+C+G+T+U, the QUAST <c>GC_content</c> rule of ASSEMBLY-STATS-001: N and IUPAC codes are
+    /// not in the denominator; 0 for a window without an A/C/G/T/U base). <c>NCount</c> counts N/n.
+    /// <c>Complexity</c> is the canonical <see cref="SequenceComplexity.CalculateLinguisticComplexity(string,int)"/>
+    /// of the window (m = 10; Troyanskaya et al. 2002).
+    /// </remarks>
+    /// <param name="sequences">(id, sequence) pairs.</param>
+    /// <param name="windowSize">Window length (≥ 1; default 1000).</param>
+    /// <param name="stepSize">Distance between window starts (≥ 1); default max(1, windowSize / 2),
+    /// i.e. 50 % overlap (a convention, not a published value).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is below 1 (windowSize 1 used to make the step 0 and never end).</exception>
     public static IEnumerable<(string SequenceId, int Position, int WindowSize, double GcContent, int NCount, double Complexity)>
         CalculateLocalQuality(
             IEnumerable<(string Id, string Sequence)> sequences,
-            int windowSize = 1000)
+            int windowSize = 1000,
+            int? stepSize = null)
     {
-        foreach (var (id, sequence) in sequences)
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        int step = stepSize ?? Math.Max(1, windowSize / 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(step, 1);
+        return CalculateLocalQualityIterator(sequences, windowSize, step);
+    }
+
+    private static IEnumerable<(string SequenceId, int Position, int WindowSize, double GcContent, int NCount, double Complexity)>
+        CalculateLocalQualityIterator(IEnumerable<(string Id, string Sequence)> sequences, int windowSize, int step)
+    {
+        foreach (var entry in sequences)
         {
-            var upper = sequence.ToUpperInvariant();
-
-            for (int i = 0; i < upper.Length; i += windowSize / 2)
+            string id = entry.Id, sequence = RequireSequence(entry, nameof(sequences));
+            foreach (var w in EnumerateCompositionWindows(sequence, windowSize, step))
             {
-                int end = Math.Min(i + windowSize, upper.Length);
-                string window = upper[i..end];
-
-                int nCount = window.Count(c => c == 'N');
-                double gcContent = window.CalculateGcFractionFast();
-                double complexity = SequenceComplexity.CalculateLinguisticComplexity(window);
-
-                yield return (id, i, end - i, gcContent, nCount, complexity);
+                string window = sequence.Substring(w.Start, w.Length);
+                yield return (id, w.Start, w.Length, w.Gc, w.NCount,
+                    SequenceComplexity.CalculateLinguisticComplexity(SequenceCase.ToUpperAscii(window)));
             }
         }
     }
 
-    /// <summary>
-    /// Identifies potentially misassembled regions.
-    /// </summary>
-    public static IEnumerable<(string SequenceId, int Start, int End, string Reason, double Score)>
-        FindSuspiciousRegions(
-            IEnumerable<(string Id, string Sequence)> sequences,
-            double gcDeviation = 0.15,
-            double minComplexity = 0.3)
+    // The single window driver of the local-quality screens: GC from the canonical windowed GC profile
+    // (includePartialWindow), N count and the number of A/C/G/T/U bases of each window.
+    private static IEnumerable<(int Start, int Length, double Gc, int NCount, int ValidBases)>
+        EnumerateCompositionWindows(string sequence, int windowSize, int step)
     {
-        // First pass: calculate global GC
-        var seqList = sequences.ToList();
-        long totalGc = 0;
-        long totalBases = 0;
+        if (string.IsNullOrEmpty(sequence))
+            yield break;
 
+        foreach (var p in GcSkewCalculator.CalculateWindowedGcContent(
+            sequence, windowSize, step, fraction: true, includePartialWindow: true))
+        {
+            int length = p.WindowEnd - p.WindowStart + 1;
+            var span = sequence.AsSpan(p.WindowStart, length);
+            int n = 0;
+            foreach (char c in span)
+                if (c == 'N' || c == 'n')
+                    n++;
+            yield return (p.WindowStart, length, p.GcContent, n, span.CountGcAndValidNucleotides().ValidCount);
+        }
+    }
+
+    /// <summary>
+    /// A region flagged by <see cref="FindSuspiciousRegions"/>: inclusive 0-based [Start, End] and the
+    /// measured value of every criterion that fired (0 for a criterion that did not).
+    /// </summary>
+    /// <param name="SequenceId">Sequence id.</param>
+    /// <param name="Start">0-based first base.</param>
+    /// <param name="End">0-based last base (inclusive).</param>
+    /// <param name="Reason">"; "-joined criteria in the fixed order High N content, GC deviation, Low complexity.</param>
+    /// <param name="MaxGcDeviation">Largest |window GC − pooled GC| of the GC-flagged windows (fraction).</param>
+    /// <param name="MaxNFraction">Largest N fraction of the N-flagged windows.</param>
+    /// <param name="MaxDustScore">Largest DUST score (Morgulis 2006) of the low-complexity intervals.</param>
+    public readonly record struct SuspiciousRegion(
+        string SequenceId, int Start, int End, string Reason,
+        double MaxGcDeviation, double MaxNFraction, double MaxDustScore);
+
+    /// <summary>
+    /// Sequence-only screen for regions of an assembly that look anomalous. It is <b>not</b> a misassembly
+    /// caller: QUAST/GAGE misassemblies need an alignment to a reference, and no published threshold defines
+    /// "suspicious" for GC or N content, so the cut-offs are caller-set parameters and no composite score is
+    /// reported — each region carries the measured values of the criteria that fired.
+    /// </summary>
+    /// <remarks>
+    /// Criteria (union, then overlapping/adjacent regions of any criterion are merged into one):
+    /// <list type="bullet">
+    /// <item><b>High N content</b> — a window whose N fraction exceeds <paramref name="maxNFraction"/>
+    /// (gaps are N runs in AGP/QUAST; use <see cref="FindGaps"/> for exact gap intervals).</item>
+    /// <item><b>GC deviation</b> — a window whose GC fraction differs from the pooled assembly GC by more than
+    /// <paramref name="gcDeviation"/> (GC-content outlier detection). Pooled GC = Σ(G+C)/Σ(A+C+G+T) over all
+    /// sequences (the ASSEMBLY-STATS-001 / QUAST rule); windows are those of
+    /// <see cref="CalculateLocalQuality"/> (step = windowSize/2), a truncated trailing window is tested only if
+    /// the previous window does not already cover it, and a window without any A/C/G/T/U base has no GC and is
+    /// not tested. No pooled GC (no valid base anywhere) → no GC test.</item>
+    /// <item><b>Low complexity</b> — the perfect intervals of the symmetric DUST algorithm (Morgulis et al.
+    /// 2006; canonical <see cref="SequenceComplexity.FindLowComplexityIntervals(string,int,double,int,DustEngine)"/>,
+    /// window 64, score &gt; <paramref name="dustThreshold"/>, default 2.0 = dustmasker level 20), exact intervals.</item>
+    /// </list>
+    /// Regions are inclusive 0-based [Start, End] = union of the flagged windows/intervals.
+    /// </remarks>
+    /// <param name="sequences">(id, sequence) pairs.</param>
+    /// <param name="gcDeviation">Maximum allowed |window GC − pooled GC| as a fraction (default 0.15; ≥ 0).</param>
+    /// <param name="dustThreshold">DUST score threshold (default 2.0; ≥ 0).</param>
+    /// <param name="maxNFraction">Maximum allowed N fraction per window (default 0.1; in [0,1]).</param>
+    /// <param name="windowSize">GC/N window length (≥ 1; default 500).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A parameter is out of range (also a NaN).</exception>
+    public static IEnumerable<SuspiciousRegion> FindSuspiciousRegions(
+        IEnumerable<(string Id, string Sequence)> sequences,
+        double gcDeviation = 0.15,
+        double dustThreshold = 2.0,
+        double maxNFraction = 0.1,
+        int windowSize = 500)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        if (!(gcDeviation >= 0) || double.IsInfinity(gcDeviation))
+            throw new ArgumentOutOfRangeException(nameof(gcDeviation), gcDeviation, "Must be a finite value ≥ 0.");
+        if (!(maxNFraction >= 0 && maxNFraction <= 1))
+            throw new ArgumentOutOfRangeException(nameof(maxNFraction), maxNFraction, "Must be in [0, 1].");
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        if (!(dustThreshold >= 0) || double.IsInfinity(dustThreshold))
+            throw new ArgumentOutOfRangeException(nameof(dustThreshold), dustThreshold, "Must be a finite value ≥ 0.");
+        return FindSuspiciousRegionsIterator(
+            sequences.Select(e => (e.Id, Sequence: RequireSequence(e, nameof(sequences)))).ToList(), gcDeviation, dustThreshold, maxNFraction, windowSize);
+    }
+
+    private const int NRich = 1, GcOutlier = 2, LowComplexity = 4;
+
+    private static IEnumerable<SuspiciousRegion> FindSuspiciousRegionsIterator(
+        List<(string Id, string Sequence)> seqList, double gcDeviation, double dustThreshold,
+        double maxNFraction, int windowSize)
+    {
+        // Pooled GC over the whole assembly: Σ(G+C) / Σ(A+C+G+T) (QUAST rule, ASSEMBLY-STATS-001).
+        long totalGc = 0, totalValid = 0;
         foreach (var (_, sequence) in seqList)
         {
-            totalGc += sequence.Count(c => c == 'G' || c == 'g' || c == 'C' || c == 'c');
-            totalBases += sequence.Count(c => c != 'N' && c != 'n');
+            var (gc, valid) = sequence.AsSpan().CountGcAndValidNucleotides();
+            totalGc += gc;
+            totalValid += valid;
         }
+        double? globalGc = totalValid > 0 ? totalGc / (double)totalValid : null;
+        int step = Math.Max(1, windowSize / 2);
 
-        double globalGc = totalBases > 0 ? totalGc / (double)totalBases : 0.5;
-
-        // Second pass: find anomalies
         foreach (var (id, sequence) in seqList)
         {
-            var quality = CalculateLocalQuality(
-                new[] { (id, sequence) }, windowSize: 500).ToList();
+            // (start, end inclusive, criterion, measured value)
+            var hits = new List<(int Start, int End, int Flag, double Value)>();
 
-            int regionStart = -1;
-            string? reason = null;
-            double maxScore = 0;
-
-            foreach (var (_, pos, size, gc, nCount, complexity) in quality)
+            int previousStart = -1;
+            foreach (var w in EnumerateCompositionWindows(sequence, windowSize, step))
             {
-                bool suspicious = false;
-                double score = 0;
-                string? currentReason = null;
+                bool covered = w.Length < windowSize && previousStart >= 0 && previousStart + windowSize >= sequence.Length;
+                previousStart = w.Start;
+                if (covered)
+                    continue;
 
-                // High N content
-                if (nCount > size * 0.1)
-                {
-                    suspicious = true;
-                    score = Math.Max(score, nCount / (double)size);
-                    currentReason = "High N content";
-                }
+                int end = w.Start + w.Length - 1;
+                double nFraction = w.NCount / (double)w.Length;
+                if (nFraction > maxNFraction)
+                    hits.Add((w.Start, end, NRich, nFraction));
 
-                // GC deviation
-                if (Math.Abs(gc - globalGc) > gcDeviation)
-                {
-                    suspicious = true;
-                    score = Math.Max(score, Math.Abs(gc - globalGc) / gcDeviation);
-                    currentReason = currentReason == null ? "GC deviation" : currentReason + "; GC deviation";
-                }
-
-                // Low complexity
-                if (complexity < minComplexity && nCount < size * 0.5)
-                {
-                    suspicious = true;
-                    score = Math.Max(score, 1 - complexity / minComplexity);
-                    currentReason = currentReason == null ? "Low complexity" : currentReason + "; Low complexity";
-                }
-
-                if (suspicious && regionStart < 0)
-                {
-                    regionStart = pos;
-                    reason = currentReason;
-                    maxScore = score;
-                }
-                else if (!suspicious && regionStart >= 0)
-                {
-                    yield return (id, regionStart, pos - 1, reason!, maxScore);
-                    regionStart = -1;
-                    reason = null;
-                    maxScore = 0;
-                }
-                else if (suspicious)
-                {
-                    maxScore = Math.Max(maxScore, score);
-                    if (currentReason != null && !reason!.Contains(currentReason))
-                        reason += "; " + currentReason;
-                }
+                if (globalGc is { } g && w.ValidBases > 0 && Math.Abs(w.Gc - g) > gcDeviation)
+                    hits.Add((w.Start, end, GcOutlier, Math.Abs(w.Gc - g)));
             }
 
-            if (regionStart >= 0)
+            foreach (var (start, endExclusive) in SequenceComplexity.FindLowComplexityIntervals(
+                sequence, threshold: dustThreshold))
+                hits.Add((start, endExclusive - 1, LowComplexity,
+                    SequenceComplexity.CalculateDustScore(sequence.Substring(start, endExclusive - start))));
+
+            hits.Sort((x, y) => x.Start != y.Start ? x.Start.CompareTo(y.Start) : x.End.CompareTo(y.End));
+
+            int i = 0;
+            while (i < hits.Count)
             {
-                yield return (id, regionStart, sequence.Length - 1, reason!, maxScore);
+                int rStart = hits[i].Start, rEnd = hits[i].End, flags = 0;
+                double maxGc = 0, maxN = 0, maxDust = 0;
+                for (; i < hits.Count && hits[i].Start <= rEnd + 1; i++)
+                {
+                    var h = hits[i];
+                    rEnd = Math.Max(rEnd, h.End);
+                    flags |= h.Flag;
+                    if (h.Flag == NRich) maxN = Math.Max(maxN, h.Value);
+                    else if (h.Flag == GcOutlier) maxGc = Math.Max(maxGc, h.Value);
+                    else maxDust = Math.Max(maxDust, h.Value);
+                }
+
+                var reasons = new List<string>();
+                if ((flags & NRich) != 0) reasons.Add("High N content");
+                if ((flags & GcOutlier) != 0) reasons.Add("GC deviation");
+                if ((flags & LowComplexity) != 0) reasons.Add("Low complexity");
+                yield return new SuspiciousRegion(id, rStart, rEnd, string.Join("; ", reasons), maxGc, maxN, maxDust);
             }
         }
     }
@@ -2085,12 +2211,15 @@ public static class GenomeAssemblyAnalyzer
     /// </summary>
     /// <param name="lengths">Sequence lengths.</param>
     /// <param name="bins">Strictly increasing upper bounds (empty → 100, 500, 1 000, …, 1 000 000).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="lengths"/> or <paramref name="bins"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="bins"/> is not strictly increasing
     /// (an unsorted bound list would put a length in the first larger bound, not its own bin).</exception>
     public static IReadOnlyDictionary<string, int> CalculateLengthDistribution(
         IEnumerable<int> lengths,
         params int[] bins)
     {
+        ArgumentNullException.ThrowIfNull(lengths);
+        ArgumentNullException.ThrowIfNull(bins);
         if (bins.Length == 0)
             bins = new[] { 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000 };
         for (int i = 1; i < bins.Length; i++)

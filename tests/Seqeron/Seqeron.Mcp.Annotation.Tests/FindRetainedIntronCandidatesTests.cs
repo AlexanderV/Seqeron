@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Seqeron.Genomics.Annotation;
 using Seqeron.Mcp.Annotation.Tools;
 
 namespace Seqeron.Mcp.Annotation.Tests;
@@ -25,16 +26,24 @@ public class FindRetainedIntronCandidatesTests
     [Test]
     public void FindRetainedIntronCandidates_Binding_InvokesSuccessfully()
     {
-        // SpliceSitePredictor.FindRetainedIntronCandidates = PredictIntrons(seq, 60, 500, minScore)
-        // filtered to short (Length < 500) and moderate-score (Score < 0.8) introns.
-        var result = AnnotationTools.FindRetainedIntronCandidates(TwoExon, minScore: 0.2);
+        // Delegates to SpliceSitePredictor.FindRetainedIntronCandidates(seq, criteria, minScore).
+        var criteria = new SpliceSitePredictor.RetainedIntronCriteria(
+            RequireOpenReadingFrame: false, RequireLengthMultipleOf3: false);
+        var expected = SpliceSitePredictor.FindRetainedIntronCandidates(TwoExon, criteria, 0.2).ToList();
+        var result = AnnotationTools.FindRetainedIntronCandidates(TwoExon, minScore: 0.2,
+            requireOpenReadingFrame: false, requireLengthMultipleOf3: false);
 
         Assert.That(result.Introns, Is.Not.Empty);
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Introns.All(i => i.Length < 500), Is.True);
-            Assert.That(result.Introns.All(i => i.Score < 0.8), Is.True);
-        });
+        Assert.That(result.Introns.Select(i => (i.Start, i.End)),
+            Is.EqualTo(expected.Select(i => (i.Start, i.End))));
+    }
+
+    [Test]
+    public void FindRetainedIntronCandidates_OptionalFilters_Apply()
+    {
+        var result = AnnotationTools.FindRetainedIntronCandidates(TwoExon, minScore: 0.2,
+            maxIntronLength: 10, requireOpenReadingFrame: false, requireLengthMultipleOf3: false);
+        Assert.That(result.Introns, Is.Empty);
     }
 
     [Test]

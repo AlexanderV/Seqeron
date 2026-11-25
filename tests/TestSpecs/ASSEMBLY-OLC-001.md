@@ -87,6 +87,7 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | FindOverlap_IdentityThreshold | overlap with 1 mismatch in 8 (7/8 = 0.875) | accepted at minIdentity 0.85, rejected at 0.95 | Source 2 p.11–15 (approximate overlap) |
 | S2 | FindOverlap_MinOverlapBoundary | overlap exactly = minOverlap accepted; one below rejected | accept at L = minOverlap, null below | Source 2 p.5 (`l`) |
+| S2a | A1-5 null handling | null read set → AssembleOLC empty; null read / null contig → ArgumentException; null collection/sequence in FindAllOverlaps/FindOverlap/CalculateIdentity → ArgumentNullException | eager, no NRE | `NullCollectionsAndElements_AreRejected` (SequenceAssemblerTests) |
 | S3 | FindAllOverlaps_BelowThreshold_NoEdges | reads sharing only a 3-base overlap, minOverlap 4 | empty overlap list | INV-2 |
 | S4 | AssembleOLC_ContigLengthBounds | contig length ≤ Σ read lengths and ≥ longest read, for the unambiguous chain | bounds hold (property) | INV-4 |
 | S5 | FindAllOverlaps_Cancellable_SameResult | cancellable overload with `CancellationToken.None` yields same edge set as the basic overload | edge sets equal | Delegate smoke |

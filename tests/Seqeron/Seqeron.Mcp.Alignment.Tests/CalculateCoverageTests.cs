@@ -29,11 +29,18 @@ public class CalculateCoverageTests
     public void CalculateCoverage_StrandAndMultiMapOptions_DelegateToCore()
     {
         // samtools depth -a oracle (Evidence): TTGACC = revcomp(GGTCAA at [2,8)).
-        Assert.That(AlignmentTools.CalculateCoverage("ACGGTCAATGCC", new[] { "TTGACC" }, 6, includeReverseComplement: true).Coverage,
-            Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0 }));
+        Assert.That(AlignmentTools.CalculateCoverage("ACGGTCAATGCC", new[] { "TTGACC" }, 6).Coverage,
+            Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0 }), "A6-1: both strands by default");
+        Assert.That(AlignmentTools.CalculateCoverage("ACGGTCAATGCC", new[] { "TTGACC" }, 6, includeReverseComplement: false).Coverage,
+            Is.EqualTo(new int[12]), "explicit forward-only (Bowtie 2 --norc)");
         // ACGTA hits loci 0 and 4 → skipped with excludeMultiMapped (samtools depth -Q 2).
-        Assert.That(AlignmentTools.CalculateCoverage("ACGTACGTAC", new[] { "ACGTA", "GTACG" }, 5, excludeMultiMapped: true).Coverage,
+        Assert.That(AlignmentTools.CalculateCoverage("ACGTACGTAC", new[] { "ACGTA", "GTACG" }, 5,
+                includeReverseComplement: false, excludeMultiMapped: true).Coverage,
             Is.EqualTo(new[] { 0, 0, 1, 1, 1, 1, 1, 0, 0, 0 }));
+        // Both strands (default): GTACG also matches its reverse complement CGTAC at loci 1 and 5 -> multi-mapped too
+        // (samtools depth -a -Q 2 oracle: all zeros).
+        Assert.That(AlignmentTools.CalculateCoverage("ACGTACGTAC", new[] { "ACGTA", "GTACG" }, 5, excludeMultiMapped: true).Coverage,
+            Is.EqualTo(new int[10]));
         Assert.Throws<ArgumentOutOfRangeException>(() => AlignmentTools.CalculateCoverage("ACGT", new[] { "ACGT" }, 0));
     }
 }

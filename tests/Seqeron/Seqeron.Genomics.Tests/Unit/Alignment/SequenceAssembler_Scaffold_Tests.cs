@@ -152,30 +152,38 @@ public class SequenceAssembler_Scaffold_Tests
         });
     }
 
-    // S2 — A link whose endpoint is out of range is ignored; the contigs remain unjoined.
+    // S2 — A link whose endpoint is out of range is invalid input (silently dropping it would hide a caller
+    // bug: the mate pair's evidence vanishes). Validated eagerly with ArgumentOutOfRangeException.
     [Test]
-    public void Scaffold_OutOfRangeLink_Ignored()
+    public void Scaffold_OutOfRangeLink_Throws()
     {
         var contigs = new[] { "AA", "TT" };
-        var links = new[] { (0, 5, 2) };
 
-        var scaffolds = SequenceAssembler.Scaffold(contigs, links);
-
-        Assert.That(scaffolds, Is.EqualTo(new[] { "AA", "TT" }),
-            "An out-of-range contig2 index (5) is ignored, leaving two single-contig scaffolds.");
+        Assert.Multiple(() =>
+        {
+            var high = Assert.Throws<ArgumentOutOfRangeException>(
+                () => SequenceAssembler.Scaffold(contigs, new[] { (0, 5, 2) }));
+            Assert.That(high!.ActualValue, Is.EqualTo(5));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.Scaffold(contigs, new[] { (2, 0, 2) }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.Scaffold(contigs, new[] { (-1, 1, 2) }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.Scaffold(Array.Empty<string>(), new[] { (0, 0, 2) }));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.Scaffold(
+                contigs, new[] { new SequenceAssembler.ScaffoldLink(0, 2, 1) }));
+        });
     }
 
-    // S3 — A self-link (contig1 == contig2) is ignored.
+    // S3 — A self-link (contig1 == contig2) cannot order a contig after itself: ArgumentException.
     [Test]
-    public void Scaffold_SelfLink_Ignored()
+    public void Scaffold_SelfLink_Throws()
     {
         var contigs = new[] { "AA", "TT" };
-        var links = new[] { (0, 0, 2) };
 
-        var scaffolds = SequenceAssembler.Scaffold(contigs, links);
-
-        Assert.That(scaffolds, Is.EqualTo(new[] { "AA", "TT" }),
-            "A self-link cannot order a contig after itself and is ignored.");
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => SequenceAssembler.Scaffold(contigs, new[] { (0, 0, 2) }));
+            Assert.Throws<ArgumentException>(() => SequenceAssembler.Scaffold(
+                contigs, new[] { new SequenceAssembler.ScaffoldLink(1, 1, 2, true, false) }));
+        });
     }
 
     // S4 — Null contigs must throw, matching sibling input-validation conventions (MergeContigs).
