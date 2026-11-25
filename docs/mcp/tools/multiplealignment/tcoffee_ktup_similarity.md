@@ -8,7 +8,7 @@ The k-tuple similarity matrix of the T-Coffee guide-tree stage.
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `tcoffee_ktup_similarity` |
-| **Method ID** | `SequenceAligner.TCoffeeKtupSimilarity` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeKtupSimilarity` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

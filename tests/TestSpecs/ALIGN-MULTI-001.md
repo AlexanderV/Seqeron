@@ -187,7 +187,7 @@
 This addendum covers the iterative-refinement aligner added to remove the progressive method's
 single-pass "once a gap, always a gap" limitation.
 
-- **Canonical Method:** `SequenceAligner.MultipleAlignIterative(IEnumerable<DnaSequence>, ScoringMatrix?, int maxIterations)`
+- **Canonical Method:** `Seqeron.Genomics.ClustalW.ClustalWAligner.MultipleAlignIterative(IEnumerable<DnaSequence>, ScoringMatrix?, int maxIterations)`
 - **Type:** Canonical (deep evidence-based testing)
 - **Status:** ☑ Validated (the 2026-06 checklist reset is superseded by the audit rounds of this review; see the audit sections of this file)
 - **Canonical test file:** `tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlignIterative_Tests.cs`
@@ -255,7 +255,7 @@ Adds the consistency-based aligner that optimises the **T-Coffee consistency obj
 objective class from the SP score), via primary library + library extension + progressive alignment
 on the extended library.
 
-- **Canonical Method:** `SequenceAligner.MultipleAlignConsistency(IEnumerable<DnaSequence>, ScoringMatrix?)`
+- **Canonical Method:** `Seqeron.Genomics.TCoffee.TCoffeeAligner.MultipleAlignConsistency(IEnumerable<DnaSequence>, ScoringMatrix?)`
 - **Type:** Canonical (deep evidence-based testing)
 - **Status:** ☐ In Progress (checklists reset)
 - **Canonical test file:** `tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlignConsistency_Tests.cs`
@@ -343,7 +343,7 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 # Addendum: ClustalW guide-tree distance (audit A1-15, B09 F51)
 
 **Class:** `SequenceAligner_ClustalWDistance_Tests` (17 tests) + `Seqeron.Mcp.Alignment.Tests.MultipleAlignTests` (2).
-**Subject:** `SequenceAligner.ClustalWPairwiseAlign` (port of ClustalW 2.1 `FullPairwiseAlign`) and `MsaDistanceMode.ClustalWAffine` for `MultipleAlignProgressive/Iterative/Consistency` (additive `MsaOptions`, default `Linear` = unchanged).
+**Subject:** `Seqeron.Genomics.ClustalW.ClustalWAligner.ClustalWPairwiseAlign` (port of ClustalW 2.1 `FullPairwiseAlign`) and `MsaDistanceMode.ClustalWAffine` for `MultipleAlignProgressive/Iterative/Consistency` (additive `MsaOptions`, default `Linear` = unchanged).
 
 | ID | Test | Source / oracle |
 |----|------|-----------------|
@@ -384,7 +384,7 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 # Addendum: guide trees (audit A1-12, B09 F53) and anchor chaining (audit A1-16, B09 F54)
 
 **Classes:** `SequenceAligner_GuideTree_Tests` (18 tests), `AnchorBasedAligner_ChainEquivalence_Tests` (5), `Seqeron.Mcp.Alignment.Tests.MultipleAlignTests` (2 `guideTree` tests).
-**Subject:** `MsaOptions.GuideTree` (`Upgma` default / `NeighborJoining`), the canonical `PhylogeneticAnalyzer.BuildTreeFromMatrix` + `TreeBuildOptions` (`TieTolerance`, `TieOrder`), `SequenceAligner.BuildProgressiveGuideTree` / `BuildClustalWNeighborJoiningGuideTree` (internal); `AnchorBasedAligner.ChainAnchors`.
+**Subject:** `MsaOptions.GuideTree` (`Upgma` default / `NeighborJoining`), the canonical `PhylogeneticAnalyzer.BuildTreeFromMatrix` + `TreeBuildOptions` (`TieTolerance`, `TieOrder`), `Seqeron.Genomics.ClustalW.ClustalWAligner.BuildProgressiveGuideTree` / `BuildClustalWNeighborJoiningGuideTree` (internal); `AnchorBasedAligner.ChainAnchors`.
 
 | ID | Test | Source / oracle |
 |----|------|-----------------|
@@ -408,7 +408,7 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 # Addendum: ClustalW fast pairwise stage and ClustalW multiple alignment (audit A1-15b / A1-10b, B09 F55 / F56)
 
 **Classes:** `SequenceAligner_ClustalWQuick_Tests` (10 tests), `SequenceAligner_ClustalWMultiple_Tests` (9), `SequenceAligner_GuideTree_Tests` (unchanged, now run on ClustalW's NJ arithmetic), `Seqeron.Mcp.Alignment.Tests.MultipleAlignTests` (2 new) and `ToolRegistrationContractTests` (`multiple_align_clustalw`).
-**Subject:** `SequenceAligner.ClustalWQuickPairwiseAlign` / `MsaDistanceMode.ClustalWQuick` / `MsaOptions.QuickPairwise`, `SequenceAligner.MultipleAlignClustalW(sequences, ClustalWOptions?, ScoringMatrix?)`, `SequenceAligner.ClustalWNeighborJoining` (internal).
+**Subject:** `Seqeron.Genomics.ClustalW.ClustalWAligner.ClustalWQuickPairwiseAlign` / `MsaDistanceMode.ClustalWQuick` / `MsaOptions.QuickPairwise`, `Seqeron.Genomics.ClustalW.ClustalWAligner.MultipleAlignClustalW(sequences, ClustalWOptions?, ScoringMatrix?)`, `Seqeron.Genomics.ClustalW.ClustalWAligner.ClustalWNeighborJoining` (internal).
 
 | ID | Test | Source / oracle |
 |----|------|-----------------|
@@ -522,7 +522,7 @@ Tests added (all lock oracle values: Biopython 1.88 pair optima and independent 
 
 ## 2026-11 audit round 1 (A1-10d part 3, B09 F68): ClustalW nucleotide matrices (`-DNAMATRIX`, `-PWDNAMATRIX`, `-TRANSWEIGHT`)
 
-`ClustalWOptions.DnaMatrix / PairwiseDnaMatrix / UserDnaMatrix / PairwiseUserDnaMatrix / UserDnaMatrixUse`, `ClustalWDnaPairwiseOptions`, `SequenceAligner.ClustalWPairwiseAlign(.., ClustalWDnaPairwiseOptions)`; test class `SequenceAligner_ClustalWDnaMatrix_Tests` (9 tests), oracle `TestData/Alignment/clustalw_dna_matrix_oracle.tsv` (360 sets: 125 command-line runs, 235 interactive-menu runs, matrix files embedded).
+`ClustalWOptions.DnaMatrix / PairwiseDnaMatrix / UserDnaMatrix / PairwiseUserDnaMatrix / UserDnaMatrixUse`, `ClustalWDnaPairwiseOptions`, `Seqeron.Genomics.ClustalW.ClustalWAligner.ClustalWPairwiseAlign(.., ClustalWDnaPairwiseOptions)`; test class `SequenceAligner_ClustalWDnaMatrix_Tests` (9 tests), oracle `TestData/Alignment/clustalw_dna_matrix_oracle.tsv` (360 sets: 125 command-line runs, 235 interactive-menu runs, matrix files embedded).
 
 | ID | Test | Expected | Source |
 |----|------|----------|--------|

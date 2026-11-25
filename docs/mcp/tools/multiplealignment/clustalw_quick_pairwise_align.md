@@ -8,7 +8,7 @@ ClustalW 2.1 fast k-tuple pairwise stage (-QUICKTREE).
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `clustalw_quick_pairwise_align` |
-| **Method ID** | `SequenceAligner.ClustalWQuickPairwiseAlign` |
+| **Method ID** | `Seqeron.Genomics.ClustalW.ClustalWAligner.ClustalWQuickPairwiseAlign` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

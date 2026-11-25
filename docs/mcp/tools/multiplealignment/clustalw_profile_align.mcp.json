@@ -4,7 +4,7 @@
  "serverName": "MultipleAlignment",
  "version": "1.0.0",
  "stability": "stable",
- "methodId": "SequenceAligner.AlignClustalWProfiles",
+ "methodId": "Seqeron.Genomics.ClustalW.ClustalWAligner.AlignClustalWProfiles",
  "docRef": "Seqeron.Genomics.ClustalW/ClustalWAligner.Profile.cs",
  "description": "ClustalW 2.1's profile-profile alignment of two existing alignments (clustalw -PROFILE1=a -PROFILE2=b -PROFILE, Clustal::profileAlign), ported step by step and verified row-for-row against the installed clustalw 2.1 on 600 DNA and protein sets (profiles produced by clustalw itself, option variants included): the rows of both profiles are kept (gaps '-' allowed; a profile may be one sequence), the identities inside each profile weight its sequences by the neighbour-joining tree of the profile (or UPGMA, clustering='upgma'), an initial alignment with equal weights measures the identities between the profiles, and the two profiles are aligned by Myers-Miller profile-profile alignment with position-specific gap penalties (weights = identity to the other profile x tree weight). Reproduced defects of the program: the tree of a profile 2 that does not start at sequence 1 is built from the identities of the FIRST sequences of the alignment, and the identities inside the profiles are truncated to integers. Parameters as multiple_align_clustalw (type 'dna' or 'protein'; gapOpen / gapExtend, transitionWeight, noWeights, negative; protein: matrix, noPreferredGaps, noHydrophilicGaps, variableRegionGaps, gapDist, hydrophilicResidues). Rows are returned: profile 1, then profile 2, in input order.",
  "inputSchema": {

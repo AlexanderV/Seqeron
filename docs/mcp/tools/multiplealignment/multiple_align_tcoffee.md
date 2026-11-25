@@ -8,7 +8,7 @@ The multiple alignment of the T-Coffee 13.41 program (t_coffee; Notredame, Higgi
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `multiple_align_tcoffee` |
-| **Method ID** | `SequenceAligner.MultipleAlignTCoffeeProgram` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.MultipleAlignTCoffeeProgram` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

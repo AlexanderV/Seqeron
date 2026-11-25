@@ -84,7 +84,7 @@ Tests (`SequenceAligner_GapProfile_Tests`): 600 random forced-recursion cases (6
 | `LocalAlignTopN` / `LocalAlignAffineTopN` (all overloads) | in-memory declumper up to `TopNMaxCells` = 25 M cells, then `O(m + n)` per round (§2.4) | none; time `O(m n)` per reported alignment (+1) |
 | `LocalAlignCoOptimal` / `LocalAlignAffineCoOptimal` | `O(m n)` matrices | 25 M cells: `ArgumentException` above (the enumeration is output-exponential, no linear-space form) |
 | `*GeneralGap` (arbitrary `w(k)`, linear/affine `w` are delegated) | `O(m n)`, 33 bytes per cell, time `O(m n (m + n))` | `SequenceAligner.GeneralGapMaxCells` = 4 000 000 cells: larger inputs throw `ArgumentException` (no linear-space variant exists for a non-affine `w`) |
-| progressive / iterative / consistency MSA profile DP | `O(m n)` doubles | `SequenceAligner.ProfileMatrixMaxCells` = 50 000 000 cells: `ArgumentException`; the exact center-star `MultipleAlign` uses the linear-space pairwise stage and has no such matrix |
+| progressive / iterative / consistency MSA profile DP | `O(m n)` doubles | `Seqeron.Genomics.ClustalW.ClustalWAligner.ProfileMatrixMaxCells` = 50 000 000 cells: `ArgumentException`; the exact center-star `MultipleAlign` uses the linear-space pairwise stage and has no such matrix |
 
 Measured (Release build, one core, random DNA with 10 % edits, BLAST DNA scoring 2/-3/5/2, 2026-11-18; peak working set of the process):
 

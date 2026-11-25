@@ -8,7 +8,7 @@ The guide tree T-Coffee builds for a set of sequences, as Newick.
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `tcoffee_guide_tree` |
-| **Method ID** | `SequenceAligner.TCoffeeGuideTree` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeGuideTree` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

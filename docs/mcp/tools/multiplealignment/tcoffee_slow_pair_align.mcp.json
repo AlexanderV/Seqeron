@@ -4,7 +4,7 @@
  "serverName": "MultipleAlignment",
  "version": "1.0.0",
  "stability": "stable",
- "methodId": "SequenceAligner.TCoffeeSlowPairAlign",
+ "methodId": "Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeSlowPairAlign",
  "docRef": "Seqeron.Genomics.TCoffee/TCoffeeAligner.Primary.cs",
  "description": "The 'slow_pair' pair-wise method of T-Coffee 13.41 (the global alignment behind its primary libraries): Myers-Miller linear-space global alignment with the program's matrices and penalties - DNA: dna_idmat (10 / 0), gap open -10, extend -1; protein: BLOSUM62. gapOpen / gapExtend / matrix are the method's own overrides (t_coffee -method slow_pair@EP@GOP@-30@GEP@-3@MATRIX@blosum50mt); matrix names are the T-Coffee matrix names (blosum62mt, blosum50mt, pam250mt, dna_idmat, ...). Returns the two aligned rows. Verified against the program's slow_pair libraries (see multiple_align_tcoffee).",
  "inputSchema": {

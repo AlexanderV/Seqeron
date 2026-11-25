@@ -4,7 +4,7 @@
  "serverName": "MultipleAlignment",
  "version": "1.0.0",
  "stability": "stable",
- "methodId": "SequenceAligner.ClustalWGuideTreeText",
+ "methodId": "Seqeron.Genomics.ClustalW.ClustalWAligner.ClustalWGuideTreeText",
  "docRef": "Seqeron.Genomics.ClustalW/ClustalWAligner.Trees.cs",
  "description": "The guide-tree file clustalw writes for its neighbour-joining clustering (UnRootedClusterTree::treeFromDistMatrix + ClusterTreeOutput::printPhylipTree / twoWaySplit) of the sequences `names` from their pairwise distances: '(a:d,b:d);' for two sequences (d = half the distance, five significant digits, as the program writes it), else the unrooted tree as three subtrees under the first parenthesis, every node on its own lines, branch lengths with five decimals (the text of the .dnd file). The distances are ClustalW's own (the fractional differences clustalw computes in its pairwise stage; see clustalw_pairwise_align / clustalw_quick_pairwise_align). VERIFICATION: the neighbour-joining and printing routines are the ones multiple_align_clustalw runs; their guide-tree text equals the .dnd files of the installed clustalw 2.1 (committed guide-tree oracle, random DNA sets).",
  "inputSchema": {

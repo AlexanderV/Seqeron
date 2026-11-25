@@ -144,7 +144,7 @@ The `SequenceAligner.MultipleAlign()` method implements the **center-star alignm
 
 # Addendum: Iterative Refinement (MultipleAlignIterative) — collected 2026-06-23
 
-This addendum covers the **iterative refinement** aligner `SequenceAligner.MultipleAlignIterative`,
+This addendum covers the **iterative refinement** aligner `Seqeron.Genomics.ClustalW.ClustalWAligner.MultipleAlignIterative`,
 which removes the single-pass "once a gap, always a gap" limitation of the progressive method by
 re-splitting the alignment along guide-tree edges and re-aligning the two sub-profiles, keeping the
 result only on a non-decreasing sum-of-pairs (SP) score.
@@ -269,7 +269,7 @@ gap −1); independently recomputed with a stand-alone SP function during test a
 
 # Addendum: Consistency-based MSA (T-Coffee) — `MultipleAlignConsistency`, collected 2026-06-23
 
-This addendum covers the **consistency-based** aligner `SequenceAligner.MultipleAlignConsistency`,
+This addendum covers the **consistency-based** aligner `Seqeron.Genomics.TCoffee.TCoffeeAligner.MultipleAlignConsistency`,
 which optimises the T-Coffee **consistency objective** (a distinct objective class from the
 sum-of-pairs score the other methods optimise), via a primary library + library extension +
 progressive alignment on the extended library.

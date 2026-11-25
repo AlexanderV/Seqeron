@@ -8,7 +8,7 @@ T-Coffee 13.41 evaluation of an alignment (score_ascii)
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `tcoffee_evaluate` |
-| **Method ID** | `SequenceAligner.TCoffeeEvaluate` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeEvaluate` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

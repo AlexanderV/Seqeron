@@ -4,7 +4,7 @@
   "serverName": "MultipleAlignment",
   "version": "1.0.0",
   "stability": "stable",
-  "methodId": "SequenceAligner.TCoffeeEvaluate",
+  "methodId": "Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeEvaluate",
   "docRef": "Seqeron.Genomics.TCoffee/TCoffeeAligner.Evaluate.cs",
   "description": "The consistency evaluation of an alignment that t_coffee -infile aln -mode evaluate -output score_ascii (T-Coffee 13.41, Notredame, Higgins & Heringa 2000; evaluate mode triplet, -n_core 1) computes: the library of the sequences of the alignment (proba_pair by default) is relaxed, and a residue scores trunc(10 x S / M), at most 9, where M is 1000 plus the sum of min(w(r, r2), w(r2, r3)) over the two-step library paths starting at the residue and S is 1000 plus the part of that sum whose end residue lies in the column of the residue; the column scores (the cons row), the sequence scores (0 - 100) and the alignment score (SCORE=, 0 - 100) are the same ratios over the column, the sequence and the whole alignment. Returns the scores and the score_ascii file (header, SCORE=, the per-sequence scores, blocks of 48 columns with the residue scores 0 - 9, - for a gap, and the cons row). The sequences are sorted by name before the library is built, as the program does (-inorder aligned). Library options as in multiple_align_tcoffee ('options' is a t_coffee flag string, e.g. '-method slow_pair -relax_lib 0'). VERIFICATION: the score_ascii text equals the installed t_coffee on 300 / 300 committed alignments (DNA and protein, 2 - 8 rows, t_coffee and random alignments, lower case; scripts/alignment/generate_tcoffee_score_oracle.py).",
   "inputSchema": {

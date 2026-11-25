@@ -8,7 +8,7 @@ ClustalW 2.1 neighbour-joining guide-tree file (.dnd) from pairwise distances.
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `clustalw_guide_tree` |
-| **Method ID** | `SequenceAligner.ClustalWGuideTreeText` |
+| **Method ID** | `Seqeron.Genomics.ClustalW.ClustalWAligner.ClustalWGuideTreeText` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

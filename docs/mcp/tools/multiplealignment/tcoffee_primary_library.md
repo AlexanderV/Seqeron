@@ -8,7 +8,7 @@ The primary library T-Coffee builds for a set of sequences.
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `tcoffee_primary_library` |
-| **Method ID** | `SequenceAligner.TCoffeePrimaryLibraryEntries` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeePrimaryLibraryEntries` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

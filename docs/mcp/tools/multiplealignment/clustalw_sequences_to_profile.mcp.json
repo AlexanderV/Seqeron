@@ -4,7 +4,7 @@
  "serverName": "MultipleAlignment",
  "version": "1.0.0",
  "stability": "stable",
- "methodId": "SequenceAligner.AlignClustalWSequencesToProfile",
+ "methodId": "Seqeron.Genomics.ClustalW.ClustalWAligner.AlignClustalWSequencesToProfile",
  "docRef": "Seqeron.Genomics.ClustalW/ClustalWAligner.Profile.cs",
  "description": "ClustalW 2.1's sequence-to-profile alignment (clustalw -PROFILE1=a -PROFILE2=b -SEQUENCES, Clustal::sequencesAlignToProfile / MSA::seqsAlignToProfile), ported step by step and verified row-for-row against the installed clustalw 2.1 on 600 DNA and protein sets: the sequences are added to the existing alignment one at a time, the one with the highest identity to the aligned set first. Distances: the identities inside the profile (countid), the full (distance='clustalw') or fast k-tuple (distance='clustalw-quick', ktuple / window / topDiagonals / pairGap) pairwise stage between every other pair of rows (computed on the rows with their gaps; pwGapOpen / pwGapExtend / pwMatrix), then the neighbour-joining tree of all rows (or UPGMA) weights them; each sequence is aligned with weights = tree weight x identity to it and Myers-Miller profile alignment with position-specific gap penalties. Other parameters as multiple_align_clustalw. Rows are returned: profile, then sequences, in input order.",
  "inputSchema": {

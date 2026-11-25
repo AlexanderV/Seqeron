@@ -8,7 +8,7 @@ ClustalW 2.1 full pairwise stage (FullPairwiseAlign) for DNA or protein pairs.
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `clustalw_pairwise_align` |
-| **Method ID** | `SequenceAligner.ClustalWPairwiseAlign` |
+| **Method ID** | `Seqeron.Genomics.ClustalW.ClustalWAligner.ClustalWPairwiseAlign` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

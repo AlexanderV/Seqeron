@@ -8,7 +8,7 @@ T-Coffee lalign_id_pair: the top-N non-intersecting local alignments (Huang-Mill
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `tcoffee_lalign_top_alignments` |
-| **Method ID** | `SequenceAligner.TCoffeeLalignTopAlignments` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeLalignTopAlignments` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

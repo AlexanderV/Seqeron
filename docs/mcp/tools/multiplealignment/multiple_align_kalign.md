@@ -8,7 +8,7 @@ Kalign 3.3.5's multiple sequence alignment, ported from the program.
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `multiple_align_kalign` |
-| **Method ID** | `SequenceAligner.KalignRun` |
+| **Method ID** | `Seqeron.Genomics.Kalign.KalignAligner.KalignRun` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

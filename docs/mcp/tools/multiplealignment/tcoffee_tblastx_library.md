@@ -8,7 +8,7 @@ T-Coffee tblastx_msa library built from the XML of an all-against-all tblastx se
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `tcoffee_tblastx_library` |
-| **Method ID** | `SequenceAligner.TCoffeeTblastxLibraryEntries` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeTblastxLibraryEntries` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

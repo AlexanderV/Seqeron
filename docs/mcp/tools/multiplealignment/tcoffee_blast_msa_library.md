@@ -8,7 +8,7 @@ T-Coffee blastp_msa library built from the XML of an all-against-all BLAST searc
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `tcoffee_blast_msa_library` |
-| **Method ID** | `SequenceAligner.TCoffeeBlastMsaLibraryEntries` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeBlastMsaLibraryEntries` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

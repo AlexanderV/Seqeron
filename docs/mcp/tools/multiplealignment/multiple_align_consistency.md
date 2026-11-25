@@ -8,7 +8,7 @@ Consistency-based MSA (T-Coffee; Notredame, Higgins & Heringa 2000): a primary l
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `multiple_align_consistency` |
-| **Method ID** | `SequenceAligner.MultipleAlignConsistency` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.MultipleAlignConsistency` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

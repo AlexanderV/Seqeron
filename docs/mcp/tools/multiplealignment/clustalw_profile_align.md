@@ -8,7 +8,7 @@ ClustalW 2.1 profile-profile alignment of two existing alignments (clustalw -PRO
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `clustalw_profile_align` |
-| **Method ID** | `SequenceAligner.AlignClustalWProfiles` |
+| **Method ID** | `Seqeron.Genomics.ClustalW.ClustalWAligner.AlignClustalWProfiles` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

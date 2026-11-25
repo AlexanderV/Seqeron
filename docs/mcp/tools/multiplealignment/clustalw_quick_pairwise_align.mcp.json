@@ -4,7 +4,7 @@
  "serverName": "MultipleAlignment",
  "version": "1.0.0",
  "stability": "stable",
- "methodId": "SequenceAligner.ClustalWQuickPairwiseAlign",
+ "methodId": "Seqeron.Genomics.ClustalW.ClustalWAligner.ClustalWQuickPairwiseAlign",
  "docRef": "Seqeron.Genomics.ClustalW/ClustalWAligner.Quick.cs",
  "description": "The fast pairwise stage of ClustalW 2.1 (clustalw -QUICKTREE -ALIGN: FastPairwiseAlign::pairAlign; Wilbur & Lipman 1983 k-tuple diagonals), an exact port with the score conversion of pairwiseAlign: the best chain of k-tuple fragments (fragmentScore), the percent score fragmentScore / shorter length x 100 (percent = true; the raw fragment score otherwise) and the guide-tree distance (100 - score) / 100. type 'dna' (default; -KTUPLE 2, -WINDOW 4, -TOPDIAGS 4, -PAIRGAP 5) or 'protein' (1 / 5 / 5 / 3). Not an alignment identity. maxSequenceLength = the longest sequence of the whole input set (ClustalW bounds its fragment list by 2 x 2 x this value and reports partialAlignment beyond it; default the longer of the two). Verified against the installed clustalw 2.1.",
  "inputSchema": {

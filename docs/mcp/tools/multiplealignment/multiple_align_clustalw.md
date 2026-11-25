@@ -8,7 +8,7 @@ ClustalW 2.1's multiple alignment of DNA (clustalw -TYPE=DNA -ALIGN) or PROTEIN 
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `multiple_align_clustalw` |
-| **Method ID** | `SequenceAligner.MultipleAlignClustalW` |
+| **Method ID** | `Seqeron.Genomics.ClustalW.ClustalWAligner.MultipleAlignClustalW` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

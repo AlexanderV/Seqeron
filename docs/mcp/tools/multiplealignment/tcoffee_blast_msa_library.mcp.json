@@ -4,7 +4,7 @@
  "serverName": "MultipleAlignment",
  "version": "1.0.0",
  "stability": "stable",
- "methodId": "SequenceAligner.TCoffeeBlastMsaLibraryEntries",
+ "methodId": "Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeBlastMsaLibraryEntries",
  "docRef": "Seqeron.Genomics.TCoffee/TCoffeeAligner.Blast.cs",
  "description": "The library t_coffee -method blastp_msa builds (-lib_only -out_lib) from the XML of the all-against-all BLAST search of the sequences (blastall -p blastp -m7, or BLAST+ -outfmt 5): for every high-scoring pair (Hsp_qseq / Hsp_hseq) the residue pairs of its gap-free alignment columns with the HSP's percent identity (integer, truncated) as the weight, an entry and its mirror, in the printed format of tcoffee_primary_library (0-based positions, sequence index of the first smaller than that of the second, self hits not printed). The BLAST search itself is the external program and is NOT run here: pass its XML in blastXml (one Iteration per sequence in input order; the hits are matched to the sequences by their Hit_def name). VERIFICATION: the library equals the one the installed t_coffee writes on every committed set with a library (70 or more oracle sets, scripts/alignment/generate_tcoffee_external_oracle.py).",
  "inputSchema": {

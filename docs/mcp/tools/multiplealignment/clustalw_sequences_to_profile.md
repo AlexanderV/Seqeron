@@ -8,7 +8,7 @@ ClustalW 2.1 alignment of sequences to an existing profile (clustalw -SEQUENCES)
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `clustalw_sequences_to_profile` |
-| **Method ID** | `SequenceAligner.AlignClustalWSequencesToProfile` |
+| **Method ID** | `Seqeron.Genomics.ClustalW.ClustalWAligner.AlignClustalWSequencesToProfile` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

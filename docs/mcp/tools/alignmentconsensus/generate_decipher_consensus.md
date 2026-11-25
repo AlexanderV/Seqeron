@@ -8,7 +8,7 @@ Bioconductor DECIPHER `ConsensusSequence` consensus (DNA, RNA or protein).
 |----------|-------|
 | **Server** | AlignmentConsensus |
 | **Tool Name** | `generate_decipher_consensus` |
-| **Method ID** | `MotifFinder.GenerateDecipherConsensus` |
+| **Method ID** | `Seqeron.Genomics.AlignmentConsensus.DecipherConsensus.GenerateDecipherConsensus` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

@@ -4,7 +4,7 @@
  "serverName": "MultipleAlignment",
  "version": "1.0.0",
  "stability": "stable",
- "methodId": "SequenceAligner.TCoffeeTblastxLibraryEntries",
+ "methodId": "Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeTblastxLibraryEntries",
  "docRef": "Seqeron.Genomics.TCoffee/TCoffeeAligner.Blast.cs",
  "description": "The library t_coffee -method tblastx_msa builds (tc_generic_method.pl -mode=tblastx_msa = seq2tblastx_lib) from the XML of the all-against-all tblastx search of nucleotide sequences: for every hit of a later sequence the nucleotide pairs of every high-scoring pair (the query / hit ranges of the translated frames, minus-strand frames mapped back to the plus strand, weight = the HSP's percent identity, integer truncated), an entry and its mirror, in the printed format of tcoffee_primary_library (0-based positions, first sequence index smaller than the second). The tblastx search is the external program and is NOT run here: pass its XML in blastXml (one Iteration per sequence in input order, sequences identified by their 1-based position as the program numbers them). VERIFICATION: the library equals the one the installed t_coffee writes on every committed tblastx_msa set with a library (scripts/alignment/generate_tcoffee_external_oracle.py).",
  "inputSchema": {

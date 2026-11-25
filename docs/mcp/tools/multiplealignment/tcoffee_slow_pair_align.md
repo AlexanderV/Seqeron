@@ -8,7 +8,7 @@ T-Coffee slow_pair: Myers-Miller global alignment of two sequences.
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `tcoffee_slow_pair_align` |
-| **Method ID** | `SequenceAligner.TCoffeeSlowPairAlign` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeSlowPairAlign` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

@@ -8,7 +8,7 @@ Progressive MSA followed by MUSCLE-style tree-dependent restricted-partitioning 
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `multiple_align_iterative` |
-| **Method ID** | `SequenceAligner.MultipleAlignIterative` |
+| **Method ID** | `Seqeron.Genomics.ClustalW.ClustalWAligner.MultipleAlignIterative` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

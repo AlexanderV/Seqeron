@@ -8,7 +8,7 @@ ProbCons 1.12 (port of the program)
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `multiple_align_probcons` |
-| **Method ID** | `SequenceAligner.ProbConsRun` |
+| **Method ID** | `Seqeron.Genomics.TCoffee.ProbConsAligner.ProbConsRun` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

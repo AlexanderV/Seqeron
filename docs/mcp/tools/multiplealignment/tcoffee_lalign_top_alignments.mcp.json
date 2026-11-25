@@ -4,7 +4,7 @@
  "serverName": "MultipleAlignment",
  "version": "1.0.0",
  "stability": "stable",
- "methodId": "SequenceAligner.TCoffeeLalignTopAlignments",
+ "methodId": "Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeLalignTopAlignments",
  "docRef": "Seqeron.Genomics.TCoffee/TCoffeeAligner.Primary.cs",
  "description": "The 'lalign_id_pair' pair-wise method of T-Coffee 13.41: the topAlignments (t_coffee -lalign_n_top, default 10) best NON-INTERSECTING local alignments of two sequences by Huang & Miller's SIM algorithm, with the program's scoring (DNA: match 10 / mismatch 0 style identity matrix, gaps -10 / -1; protein: BLOSUM62), best first. Each alignment has its two aligned rows, 0-based starts and score. Verified against the program's lalign libraries (see multiple_align_tcoffee).",
  "inputSchema": {

@@ -4,7 +4,7 @@
   "serverName": "AlignmentConsensus",
   "version": "1.0.0",
   "stability": "stable",
-  "methodId": "MotifFinder.GenerateDecipherConsensus",
+  "methodId": "Seqeron.Genomics.AlignmentConsensus.DecipherConsensus.GenerateDecipherConsensus",
   "docRef": "Seqeron.Genomics.AlignmentConsensus/DecipherConsensus.cs#L110",
   "description": "Consensus with Bioconductor DECIPHER ConsensusSequence semantics (DNA, RNA or protein): at each position the least frequent characters are dropped while they represent less than 'threshold' of the sequences and the rest are encoded with an IUPAC degeneracy code (DNA/RNA) or B/Z/J/X (protein); noConsensusChar where the consensus carries less than minInformation. Gaps '-'/'.', masks '+'.",
   "inputSchema": {

@@ -8,7 +8,7 @@ Guide-tree progressive MSA (Feng & Doolittle 1987 / Clustal-style): the ClustalW
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `multiple_align_progressive` |
-| **Method ID** | `SequenceAligner.MultipleAlignProgressive` |
+| **Method ID** | `Seqeron.Genomics.ClustalW.ClustalWAligner.MultipleAlignProgressive` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

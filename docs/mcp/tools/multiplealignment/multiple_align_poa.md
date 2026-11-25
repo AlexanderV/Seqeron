@@ -8,7 +8,7 @@ POA 2.0 partial-order alignment (port of the program)
 |----------|-------|
 | **Server** | MultipleAlignment |
 | **Tool Name** | `multiple_align_poa` |
-| **Method ID** | `SequenceAligner.PoaRun` |
+| **Method ID** | `Seqeron.Genomics.PartialOrderAlignment.PoaAligner.PoaRun` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 

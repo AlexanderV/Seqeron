@@ -4,7 +4,7 @@
  "serverName": "MultipleAlignment",
  "version": "1.0.0",
  "stability": "stable",
- "methodId": "SequenceAligner.TCoffeeGuideTree",
+ "methodId": "Seqeron.Genomics.TCoffee.TCoffeeAligner.TCoffeeGuideTree",
  "docRef": "Seqeron.Genomics.TCoffee/TCoffeeAligner.Tree.cs",
  "description": "The guide tree T-Coffee 13.41 builds for a set of sequences with its defaults (-tree_mode nj -distance_matrix_mode ktup): k-tuple similarity distances, the program's neighbour-joining routine and the rooting of its trifurcation into a binary tree. Returns the tree as Newick text (no branch lengths; leaf labels = names, default s0, s1, ...; left subtree = first profile of the merge) and the leaf indices left to right; the progressive merge order of multiple_align_tcoffee is the post-order of this tree. protein omitted = decided from the letters.",
  "inputSchema": {
