@@ -50,8 +50,11 @@ internal sealed unsafe class WideImage : IDisposable
     private CompactLcp Lcp(bool isChecked) =>
         CompactLcp.FromMappedWide(_kind, _case.N + 1, _views.LcpBasePointer, _views.PairsPointer, _views.Pairs.Count, _width, isChecked);
 
-    /// <summary>The index over these sections: <see cref="EsaIndex.FromViews"/> with the statistics of the in-memory index of the text (they are what the header of a container would say).</summary>
-    internal EsaIndex Index(bool isChecked, char[] alphabet)
+    /// <summary>
+    /// The index over these sections: <see cref="EsaIndex.FromViews"/> with the statistics of the in-memory index of the text (they are what the header of a container would say). <paramref name="psi"/> and <paramref name="rmq"/> give it the PSI and
+    /// RMQ sections at the width of the layout (the navigation pack then reads them in place); without them the pack builds the inverse suffix array and the pyramid.
+    /// </summary>
+    internal EsaIndex Index(bool isChecked, char[] alphabet, bool psi = false, bool rmq = false)
     {
         CompactLcp lcp = Lcp(isChecked);
         var reader = MappedTextReader.FromMemory(_text.Data, _packed.Length, _case.N, _case.Bits);
@@ -59,7 +62,10 @@ internal sealed unsafe class WideImage : IDisposable
         SaView sa = SaView.FromMapped(_views.SaPointer, _case.N + 1, _width, isChecked);
         ChildTable child = ChildTable.FromMapped(MappedChild.FromMappedWide(_views.ChildPointer, _case.N + 1, _width, lcp, isChecked, _tagged));
         var search = new MappedSearch(WideSearcher.Create(new WideSections(isChecked, _width, _kind, _tagged, _views.SaPointer, _views.ChildPointer, _views.LcpBasePointer, lcp, _text.Data, _case.Bits, _case.N)), lcp, _case.Bits);
-        return EsaIndex.FromViews(text, sa, lcp, child, _case.Index.Statistics, search);
+        SaView? psiView = psi ? SaView.FromMapped(_views.PsiPointer, _case.N + 1, _width, isChecked) : null;
+        SaView? rmqView = rmq && _views.RmqCount > 0 ? SaView.FromMapped(_views.RmqPointer, _views.RmqCount, _width, isChecked) : null;
+        NavSections? navigation = psi || rmq ? new NavSections(psiView, rmqView, SesaFormat.RmqFanout, isChecked, 0) : null;
+        return EsaIndex.FromViews(text, sa, lcp, child, _case.Index.Statistics, search, navigation);
     }
 
     public void Dispose()

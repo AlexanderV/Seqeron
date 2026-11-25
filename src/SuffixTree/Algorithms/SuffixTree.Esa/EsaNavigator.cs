@@ -118,31 +118,35 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
         int count = node.Rb - from + 1;
         if (count <= 0) return;
         SaView sa = _pack.Index.Sa;
-        if (sa.Array is { } array)
-        {
-            results.AddRange(new ReadOnlySpan<int>(array, from, count));
-        }
-        else
-        {
-            int[] positions = sa.ToArray(from, count);
-            foreach (int position in positions)
-                if ((uint)position >= (uint)_n) throw new InvalidDataException($"the suffix array holds {position}, which is no position of a text of {_n} symbols: the file is damaged");
-            results.AddRange(positions);
-        }
+        if (sa.Array is { } array) results.AddRange(new ReadOnlySpan<int>(array, from, count));
+        else CollectMapped(sa, from, count, results);
+    }
+
+    /// <summary>The leaves of a container: the entries are untrusted (S2.5), so each is checked against n before it is handed to the generic algorithms. Out of line: the leaves of an index in memory take the code of S1 above.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void CollectMapped(SaView sa, int from, int count, List<int> results)
+    {
+        int[] positions = sa.ToArray(from, count);
+        foreach (int position in positions)
+            if ((uint)position >= (uint)_n) throw new InvalidDataException($"the suffix array holds {position}, which is no position of a text of {_n} symbols: the file is damaged");
+        results.AddRange(positions);
     }
 
     /// <inheritdoc />
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public int FindAnyLeafPosition(EsaNode node, int depthFromRoot)
     {
-        if (node.Lb == 0)
-        {
-            if (node.Rb < 1) return -1; // the root, or its terminator leaf
-            int first = _sa[1];
-            if (_isMapped && (uint)first >= (uint)_n) throw new InvalidDataException($"the suffix array holds {first} at rank 1, which is no position of a text of {_n} symbols: the file is damaged");
-            return first;
-        }
+        if (node.Lb == 0) return node.Rb >= 1 ? FirstLeafPosition() : -1; // the root, or its terminator leaf
         return node.Pos;
+    }
+
+    /// <summary><c>SA[1]</c>, vetted for a container (out of line: the code of S1 for an index in memory).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private int FirstLeafPosition()
+    {
+        int first = _sa[1];
+        if (_isMapped && (uint)first >= (uint)_n) throw new InvalidDataException($"the suffix array holds {first} at rank 1, which is no position of a text of {_n} symbols: the file is damaged");
+        return first;
     }
 
     /// <inheritdoc />

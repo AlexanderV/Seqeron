@@ -44,4 +44,10 @@ public sealed record EsaOpenOptions
 
     /// <summary>At the <see cref="EsaValidationLevel.Structure"/> level also compare <c>TEXT_SHA256</c> with the SHA-256 of the text (32 zero bytes in the header mean that no hash was recorded; nothing is compared then). Ignored at the other levels.</summary>
     public bool VerifyTextSha256 { get; init; }
+
+    /// <summary>
+    /// The text length from which the navigator of the generic algorithms reads the PSI section of a container in place instead of building the inverse suffix array (work package S2.5; tests set it to 0 to exercise the in-place path at a small
+    /// size). Internal: not part of the public surface.
+    /// </summary>
+    internal long NavigationInPlaceFrom { get; init; } = EsaNavigationPack.InPlaceFrom;
 }

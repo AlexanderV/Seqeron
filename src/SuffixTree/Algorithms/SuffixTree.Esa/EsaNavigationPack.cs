@@ -4,10 +4,13 @@ using SuffixTree.Esa.External;
 namespace SuffixTree.Esa;
 
 /// <summary>The sections that the navigation pack reads where they lie (work package S2.5): PSI and the persisted RMQ pyramid, each absent when the container has none.</summary>
-internal sealed class NavSections(SaView? psi, SaView? rmq, int fanout, bool isChecked = true)
+internal sealed class NavSections(SaView? psi, SaView? rmq, int fanout, bool isChecked = true, long inPlaceFrom = EsaNavigationPack.InPlaceFrom)
 {
     /// <summary>No section: an index built in memory.</summary>
     internal static NavSections None { get; } = new(null, null, SesaFormat.RmqFanout);
+
+    /// <summary>The text length from which the 32-bit navigator of a container reads PSI in place instead of building the inverse suffix array (<see cref="EsaNavigationPack.InPlaceFrom"/>).</summary>
+    internal long InPlaceFrom => inPlaceFrom;
 
     /// <summary>True in <see cref="EsaAccessMode.Checked"/> mode: what the pack reads from PSI is verified against the suffix array before it is used.</summary>
     internal bool IsChecked => isChecked;
@@ -42,6 +45,13 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
     /// <see cref="NotSupportedException"/> that names the member, the limit and the way out; at or below it the array is built when it is first needed, as before. An index built in memory is not limited by it.
     /// </summary>
     internal const long PackHeapLimit = 1L << 28;
+
+    /// <summary>
+    /// The text length from which the 32-bit navigator of a container reads PSI in place instead of building the inverse suffix array (work package S2.5): 2^25 symbols, where the array would take 134 MB. Below it the pack is the pack of S1 (heap
+    /// ISA, as the gate rows measured it): the walk of MEM, MUM and the anchors follows the query along the text, so its reads of ISA (indexed by text position) are consecutive, while PSI is indexed by rank and its reads are not; measured at 10^7 symbols
+    /// the walk over PSI in place was 13 - 15 % slower than over the heap array (the log of S2.5). Above it the heap array is 4 bytes per symbol that a container does not need, and the walk reads PSI. The long kernel reads PSI at any size.
+    /// </summary>
+    internal const long InPlaceFrom = 1L << 25;
 
     private readonly EsaIndex? _index;
     private readonly long _n;
@@ -187,7 +197,7 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
                 : LcpPyramid.Build(index.Lcp, fanout);
             int count = checked((int)sa.Length); // a narrow container has at most int.MaxValue ranks
             Buf<int> psiBuf = default;
-            bool viaPsi = sections.Psi is not null;
+            bool viaPsi = sections.Psi is not null && (index.TextLength >= sections.InPlaceFrom || index.TextLength > PackHeapLimit);
             if (viaPsi) psiBuf = new Buf<int>(sections.Psi!.Value.Pointer, count, "psi");
             else if (index.TextLength <= PackHeapLimit) isa = BuildIsaOf(PosSource.Of(sa), count);
             return new EsaNavigationPack(index, new Buf<int>(sa.Pointer, count, "sa"), isa, psiBuf, viaPsi, pyramid);

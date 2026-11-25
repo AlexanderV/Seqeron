@@ -40,14 +40,17 @@ public class ContainerPackTests
         return new string(chars);
     }
 
-    private static EsaOpenOptions Options(EsaAccessMode access) => new() { Validation = EsaValidationLevel.Header, Access = access };
+    private static EsaOpenOptions Options(EsaAccessMode access, long inPlaceFrom) => new() { Validation = EsaValidationLevel.Header, Access = access, NavigationInPlaceFrom = inPlaceFrom };
 
-    /// <summary>The index over the container <paramref name="image"/> (written to a file of its own, mapped), with the file to dispose.</summary>
-    private static (SesaFile File, EsaIndex Index) Open(TempDir dir, byte[] image, EsaAccessMode access)
+    /// <summary>
+    /// The index over the container <paramref name="image"/> (written to a file of its own, mapped), with the file to dispose. <paramref name="inPlaceFrom"/> is the text length from which the 32-bit navigator reads PSI in place (0: always, the
+    /// path that the texts of the tests would otherwise never take; the default policy is <see cref="EsaNavigationPack.InPlaceFrom"/>).
+    /// </summary>
+    private static (SesaFile File, EsaIndex Index) Open(TempDir dir, byte[] image, EsaAccessMode access, long inPlaceFrom = 0)
     {
         string path = dir.File("c-" + Guid.NewGuid().ToString("N") + ".sesa");
         File.WriteAllBytes(path, image);
-        SesaFile file = SesaFile.Open(path, Options(access));
+        SesaFile file = SesaFile.Open(path, Options(access, inPlaceFrom));
         return (file, EsaIndex.FromFile(file));
     }
 
@@ -126,6 +129,29 @@ public class ContainerPackTests
             var w = new EsaSuffixIndex(indexNeither);
             WideNavigationTests.CompareAll("container with neither", m, w, text);
             Assert.That(indexNeither.Navigation.PayloadBytes, Is.EqualTo((4L * (text.Length + 1)) + levels), "what the pack of S1 holds, no regression for a container of S1");
+        }
+    }
+
+    [Test]
+    public void BelowTheInPlaceLimit_TheContainerWithPsiBuildsTheInverseSuffixArrayAsS1Does_AndTheLimitIsAtLeast([Values(false, true)] bool rmq)
+    {
+        // the policy of S2.5: PSI is read in place from InPlaceFrom symbols on; below it the pack is the pack of S1 (the walk along the text reads ISA in order, PSI by rank: measured 13 - 15 % slower)
+        const string text = "abracadabraabracadabraabracadabra";
+        using var dir = new TempDir();
+        byte[] image = SesaTestFile.Image(LcpChildCase.Of(text), psi: true, rmq: rmq);
+        var m = new EsaSuffixIndex(EsaIndex.Build(text));
+        foreach ((long from, bool inPlace) in new[] { (EsaNavigationPack.InPlaceFrom, false), ((long)text.Length + 1, false), ((long)text.Length, true), (0L, true) })
+        {
+            (SesaFile file, EsaIndex index) = Open(dir, image, EsaAccessMode.Checked, from);
+            using (file)
+            {
+                var w = new EsaSuffixIndex(index);
+                foreach (IndexLocus node in WideNavigationTests.Nodes(m))
+                    Assert.That(w.TrySuffixLink(node, out IndexLocus link), Is.EqualTo(m.TrySuffixLink(node, out IndexLocus expected)), $"{node}");
+                Assert.That(index.Navigation.UsesPsi, Is.EqualTo(inPlace), $"InPlaceFrom {from}: PSI is read in place from n = {text.Length} symbols on");
+                long ranges = rmq ? 0 : LevelBytes(text);
+                Assert.That(index.Navigation.PayloadBytes, Is.EqualTo((inPlace ? 0 : 4L * (text.Length + 1)) + ranges), $"InPlaceFrom {from}");
+            }
         }
     }
 

@@ -15,6 +15,8 @@ internal sealed unsafe class ViewImage : IDisposable
     private readonly GuardedImage _child;
     private readonly GuardedImage _lcpBase;
     private readonly GuardedImage? _pairs;
+    private readonly GuardedImage _psi;
+    private readonly GuardedImage? _rmq;
 
     private ViewImage(LcpChildCase c, int posWidth, LcpKind kind, bool tagged)
     {
@@ -43,7 +45,19 @@ internal sealed unsafe class ViewImage : IDisposable
             }
             _pairs = new GuardedImage(Encode(fields, posWidth, padding), flush: true);
         }
+        // PSI and the RMQ pyramid at the width of the layout (work package S2.5): the sections that the navigation pack reads in place, with the padding of a 5-byte section
+        _psi = new GuardedImage(Encode(SesaRun.NaivePsi(c.Sa).Select(v => (ulong)v), posWidth, padding), flush: true);
+        byte[] levels = SesaTestFile.RmqBytes(c.Lcp.ToArray(), SesaFormat.RmqFanout);
+        RmqCount = levels.Length / 4;
+        if (RmqCount > 0) _rmq = new GuardedImage(Encode(Enumerable.Range(0, (int)RmqCount).Select(i => (ulong)BitConverter.ToUInt32(levels, 4 * i)), posWidth, padding), flush: true);
     }
+
+    /// <summary>Number of entries of the RMQ section (0 for an LCP array of a single entry).</summary>
+    internal long RmqCount { get; }
+
+    internal byte* PsiPointer => _psi.Data;
+
+    internal byte* RmqPointer => _rmq?.Data;
 
     internal LcpChildCase Case { get; }
 
@@ -114,6 +128,8 @@ internal sealed unsafe class ViewImage : IDisposable
 
     public void Dispose()
     {
+        _psi.Dispose();
+        _rmq?.Dispose();
         _sa.Dispose();
         _child.Dispose();
         _lcpBase.Dispose();

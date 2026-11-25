@@ -131,4 +131,43 @@ public class NavigationSparseLargeTests : LargeFixtureBase
         Assert.That(a, Is.EqualTo(Ak(n, 1)));
         Assert.That(idx.Lcp(7, 9), Is.EqualTo(7), "Lcp and Lca need no inverse suffix array");
     }
+
+    /// <summary>The capability matrix at the boundary of the heap array: at 2^28 symbols RankOf and ExtendLeft are degraded (the array is built on first use), at 2^28 + 1 they are unsupported with a note; the suffix link follows PSI.</summary>
+    [TestCase(EsaNavigationPack.PackHeapLimit, true, false)]
+    [TestCase(EsaNavigationPack.PackHeapLimit + 1, true, true)]
+    [TestCase(EsaNavigationPack.PackHeapLimit, false, false)]
+    [TestCase(EsaNavigationPack.PackHeapLimit + 1, false, true)]
+    public void TheCapabilityMatrix_ChangesAtPackHeapLimit(long n, bool psi, bool aboveTheLimit)
+    {
+        ClosedFormText f = new PowerOfA(n);
+        SparseSpec spec = SparseSpec.For(f, psi: psi);
+        SparseLayout layout = SparseContainer.Plan(spec);
+        string path = WriteContainer("limit", spec, SparseContainer.EndPatches(f, layout, 64));
+        using SesaFile file = SesaFile.Open(path, At(EsaAccessMode.Checked));
+        var idx = new EsaSuffixIndex(EsaIndex.FromFile(file));
+        IndexSupport isaOperation = aboveTheLimit ? IndexSupport.Unsupported : IndexSupport.Degraded;
+        Assert.That(idx.Support(IndexOperation.ExtendLeft), Is.EqualTo(isaOperation));
+        Assert.That(idx.Support(IndexOperation.InverseSuffixArrayAccess), Is.EqualTo(isaOperation));
+        Assert.That(idx.Support(IndexOperation.SuffixLink), Is.EqualTo(aboveTheLimit && !psi ? IndexSupport.Unsupported : IndexSupport.Degraded));
+        foreach (IndexOperation operation in new[] { IndexOperation.Parent, IndexOperation.Lcp, IndexOperation.Lca })
+            Assert.That(idx.Support(operation), Is.EqualTo(IndexSupport.Degraded), $"{operation}: the pyramid is built or read from RMQ at any size");
+        foreach (IndexOperation operation in new[] { IndexOperation.Count, IndexOperation.ExtendRight, IndexOperation.Child, IndexOperation.SuffixArrayAccess })
+            Assert.That(idx.Support(operation), Is.EqualTo(IndexSupport.Native));
+        if (aboveTheLimit) Assert.That(idx.SupportNote(IndexOperation.ExtendLeft), Does.Contain("268435456"));
+        Assert.That(idx.SupportNote(IndexOperation.SuffixLink), aboveTheLimit && !psi ? Does.Contain("PSI") : Is.Not.Null.Or.Null);
+    }
+
+    /// <summary>The generic algorithms are 32-bit: over a text above 2^31 - 1 symbols they are refused by name (their 64-bit copies are stage S3's), before anything is read.</summary>
+    [TestCase(TwoTo31 + 10)]
+    [TestCase(TwoTo32 - 4)]
+    public void TheGenericAlgorithms_OverATextAbove2To31_AreRefusedByName(long n)
+    {
+        using SesaFile file = SesaFile.Open(Shell(n), At(EsaAccessMode.Checked));
+        EsaIndex index = EsaIndex.FromFile(file);
+        NotSupportedException e = Assert.Throws<NotSupportedException>(() => index.FindMaximalExactMatches("aaaa", 2))!;
+        Assert.That(e.Message, Does.Contain("MEM").And.Contain("S3"));
+        Assert.Throws<NotSupportedException>(() => index.FindExactMatchAnchors("aaaa", 2));
+        Assert.Throws<NotSupportedException>(() => index.LongestCommonSubstring("aaaa"));
+        Assert.Throws<NotSupportedException>(() => index.CreateNavigator());
+    }
 }

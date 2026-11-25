@@ -38,6 +38,9 @@ public class WideNavigationTests
         return new string(chars);
     }
 
+    /// <summary>The sections that the navigation pack reads in place: none (it builds ISA and the pyramid), PSI only, RMQ only, both.</summary>
+    private static readonly (bool Psi, bool Rmq)[] Sections = [(false, false), (true, false), (false, true), (true, true)];
+
     private static void ForEachLayout(string text, Action<string, EsaSuffixIndex, EsaSuffixIndex> check)
     {
         var memory = new EsaSuffixIndex(EsaIndex.Build(text));
@@ -48,8 +51,11 @@ public class WideNavigationTests
             using var image = new WideImage(c, width, kind, tagged);
             foreach (EsaAccessMode mode in Modes)
             {
-                var wide = new EsaSuffixIndex(image.Index(mode == EsaAccessMode.Checked, alphabet));
-                check($"width {width} {kind}{(tagged ? " tagged" : string.Empty)} {mode} '{(text.Length <= 16 ? text : text[..16] + "...")}'", memory, wide);
+                foreach ((bool psi, bool rmq) in Sections)
+                {
+                    var wide = new EsaSuffixIndex(image.Index(mode == EsaAccessMode.Checked, alphabet, psi, rmq));
+                    check($"width {width} {kind}{(tagged ? " tagged" : string.Empty)} {mode} psi={psi} rmq={rmq} '{(text.Length <= 16 ? text : text[..16] + "...")}'", memory, wide);
+                }
             }
         }
     }
