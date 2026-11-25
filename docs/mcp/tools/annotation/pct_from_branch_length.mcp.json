@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "pct_from_branch_length",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.PctFromBranchLength",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2229",
+  "description": "Probability of conserved targeting (PCT) from a branch-length score: explicit sigmoid row or bundled TargetScan seed row.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "branchLengthScore": {
+        "type": "number",
+        "description": "Bls ≥ 0"
+      },
+      "siteType": {
+        "type": "string",
+        "description": "Seed8mer, Seed7merM8, Seed7merA1, Seed6mer, Offset6mer"
+      },
+      "seedRegion": {
+        "type": "string",
+        "description": "7-nt seed region for the bundled lookup"
+      },
+      "b0": {
+        "type": "number",
+        "description": "Sigmoid b0"
+      },
+      "b1": {
+        "type": "number",
+        "description": "Sigmoid b1"
+      },
+      "b2": {
+        "type": "number",
+        "description": "Sigmoid b2"
+      },
+      "b3": {
+        "type": "number",
+        "description": "Sigmoid b3"
+      }
+    },
+    "required": [
+      "branchLengthScore"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "pct": {
+        "type": "number",
+        "description": "PCT; null = NA"
+      },
+      "isNa": {
+        "type": "boolean",
+        "description": "No bundled row for the seed"
+      },
+      "parameters": {
+        "type": "object",
+        "description": "Sigmoid row used"
+      }
+    },
+    "required": [
+      "pct",
+      "isNa",
+      "parameters"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Provide exactly one of seedRegion (+ siteType) or the sigmoid parameters b0..b3"
+    },
+    {
+      "code": 1001,
+      "message": "b0, b1, b2 and b3 must be given together"
+    },
+    {
+      "code": 1001,
+      "message": "siteType is required with seedRegion"
+    },
+    {
+      "code": 1001,
+      "message": "TargetScan has PCT rows only for Seed8mer, Seed7merM8 and Seed7merA1"
+    },
+    {
+      "code": 1001,
+      "message": "Branch-length score must be a finite value ≥ 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example 1",
+      "input": {
+        "branchLengthScore": 1.6379,
+        "siteType": "Seed7merM8",
+        "seedRegion": "GAGGUAG"
+      },
+      "output": {
+        "pct": 0.0058,
+        "isNa": false,
+        "parameters": {
+          "b0": -0.221367319203409,
+          "b1": 1.24081845475817,
+          "b2": 1.17370692612852,
+          "b3": 3.41806979609985
+        }
+      }
+    }
+  ]
+}

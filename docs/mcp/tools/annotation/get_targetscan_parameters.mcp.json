@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "get_targetscan_parameters",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.TryGetTargetScanPctParameters",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2294",
+  "description": "Bundled TargetScan 7.0 PCT family / PCT sigmoid row / TA / SPS lookup keyed by 7-nt seed region.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "seedRegion": {
+        "type": "string",
+        "description": "7-nt seed region (miRNA nt 2-8)"
+      },
+      "siteType": {
+        "type": "string",
+        "description": "Selects the PCT row and the SPS column"
+      }
+    },
+    "required": [
+      "seedRegion"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "seedRegion": {
+        "type": "string",
+        "description": "Echo"
+      },
+      "isPctSeedFamily": {
+        "type": "boolean",
+        "description": "One of the 111 PCT seed families"
+      },
+      "pctParameters": {
+        "type": "object",
+        "description": "b0-b3"
+      },
+      "hasTaSps": {
+        "type": "boolean",
+        "description": "TA/SPS row exists"
+      },
+      "ta": {
+        "type": "number",
+        "description": "log10 site abundance"
+      },
+      "sps": {
+        "type": "number",
+        "description": "Seed-pairing stability (kcal/mol)"
+      }
+    },
+    "required": [
+      "seedRegion",
+      "isPctSeedFamily",
+      "pctParameters",
+      "hasTaSps",
+      "ta",
+      "sps"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "seedRegion cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown siteType"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example 1",
+      "input": {
+        "seedRegion": "GAGGUAG",
+        "siteType": "Seed7merM8"
+      },
+      "output": {
+        "seedRegion": "GAGGUAG",
+        "isPctSeedFamily": true,
+        "pctParameters": {
+          "b0": -0.221367319203409,
+          "b1": 1.24081845475817,
+          "b2": 1.17370692612852,
+          "b3": 3.41806979609985
+        },
+        "hasTaSps": true,
+        "ta": 3.393,
+        "sps": -9.25
+      }
+    }
+  ]
+}

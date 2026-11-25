@@ -25,7 +25,7 @@ exactly as CPAT `kmer_ratio`.
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L794](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L794)
+- Source: [GenomeAnnotator.cs#L1057](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1057)
 
 ## Input Schema
 

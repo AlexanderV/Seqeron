@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.FindRetainedIntronCandidates",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L905",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1604",
   "description": "Find retained-intron candidates by sequence-level features (open reading frame; optional length, weak-site and GC filters).",
   "inputSchema": {
     "type": "object",

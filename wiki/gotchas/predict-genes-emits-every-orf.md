@@ -6,12 +6,16 @@ mcp_tools:
   - predict_genes
 sources:
   - docs/algorithms/Annotation/Gene_Prediction.md
-source_commit: ec9209f6a267e376a0cd93f5b2e02d3576035966
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-11
-updated: 2026-07-20
+updated: 2026-11-25
 ---
 
 # PredictGenes emits every ORF as a CDS — no overlap resolution, no gene ranking
+
+> **Updated 2026-11-25 (B11 F6, F44).** `PredictGenes` now emits **one gene per stop codon** (longest ORF = most upstream ATG/GTG/TTG; getorf-confirmed), not every nested start. Opt-in `startSelection` ProdigalScore / ProdigalDynamicProgramming (Prodigal V2.6.3 model trained on the input genome) resolves start choice and overlaps; overlap resolution/ranking in the default mode is still absent.
+
 
 **The trap.** `GenomeAnnotator.PredictGenes(...)` looks like a gene finder, but it is
 ORF-first *annotation scaffolding*, not a trained pipeline. It emits **every** qualifying ORF

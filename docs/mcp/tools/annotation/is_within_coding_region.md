@@ -20,7 +20,7 @@ no upstream start codon exists or the position is not in the requested reading f
 
 ## Core Documentation Reference
 
-- Source: [SpliceSitePredictor.cs#L980](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L980)
+- Source: [SpliceSitePredictor.cs#L1728](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1728)
 
 ## Input Schema
 

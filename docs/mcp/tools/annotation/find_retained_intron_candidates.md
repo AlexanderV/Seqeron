@@ -22,7 +22,7 @@ are optional filters, off by default. Retention itself needs transcript (read-co
 
 ## Core Documentation Reference
 
-- Source: [SpliceSitePredictor.cs#L905](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L905)
+- Source: [SpliceSitePredictor.cs#L1604](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1604)
 
 ## Input Schema
 

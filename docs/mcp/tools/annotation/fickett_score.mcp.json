@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fickett_score",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.CalculateFickettScore",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1230",
+  "description": "Fickett (1982) TESTCODE coding statistic of a whole DNA sequence (position asymmetry + base composition look-up tables). Call: < 0.74 non-coding, >= 0.95 coding, else no opinion. tableSet 'fickett1982' (published / EMBOSS tables, default) or 'cpat' (CPAT fickett_value, the feature of CPAT's logistic model).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "tableSet": {
+        "type": "string",
+        "description": "'fickett1982' (default) or 'cpat'",
+        "enum": [
+          "fickett1982",
+          "cpat"
+        ],
+        "default": "fickett1982"
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": {
+        "type": "number",
+        "description": "TESTCODE value"
+      },
+      "call": {
+        "type": "string",
+        "description": "NonCoding, NoOpinion or Coding",
+        "enum": [
+          "NonCoding",
+          "NoOpinion",
+          "Coding"
+        ]
+      }
+    },
+    "required": [
+      "score",
+      "call"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "tableSet must be 'fickett1982' or 'cpat'"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Published tables",
+      "input": {
+        "sequence": "TTATATTTTCCACCCAACATCGTGCACATTAGGCTCACCGCGCCCTACGG"
+      },
+      "output": {
+        "score": 0.8787,
+        "call": "NoOpinion"
+      }
+    },
+    {
+      "name": "CPAT tables",
+      "input": {
+        "sequence": "TTATATTTTCCACCCAACATCGTGCACATTAGGCTCACCGCGCCCTACGG",
+        "tableSet": "cpat"
+      },
+      "output": {
+        "score": 0.8847,
+        "call": "NoOpinion"
+      }
+    }
+  ]
+}

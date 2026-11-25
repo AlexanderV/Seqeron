@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.CalculateCodingPotential",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L794",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1057",
   "description": "Score the coding potential of a DNA sequence using the CPAT hexamer usage-bias log-likelihood (Wang et al. 2013). Positive = coding, negative = non-coding.",
   "inputSchema": {
     "type": "object",

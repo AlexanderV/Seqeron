@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "compute_branch_length_score",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.ComputeBranchLengthScore",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2153",
+  "description": "Friedman 2009 branch-length score (Bls) of a site on a Newick or bundled TargetScan bin tree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "speciesWithSite": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Species (leaf names) in which the site is conserved"
+      },
+      "newick": {
+        "type": "string",
+        "description": "Newick tree; exclusive with targetScanBin"
+      },
+      "targetScanBin": {
+        "type": "integer",
+        "description": "Bundled bin tree 1-10; exclusive with newick"
+      }
+    },
+    "required": [
+      "speciesWithSite"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "branchLengthScore": {
+        "type": "number",
+        "description": "Bls, 4 decimals"
+      },
+      "treeSource": {
+        "type": "string",
+        "description": "`newick` or `targetScanBin N`"
+      }
+    },
+    "required": [
+      "branchLengthScore",
+      "treeSource"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Provide exactly one of newick or targetScanBin"
+    },
+    {
+      "code": 1001,
+      "message": "targetScanBin must be 1-10"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid Newick tree"
+    },
+    {
+      "code": 1001,
+      "message": "speciesWithSite cannot be null"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example 1",
+      "input": {
+        "speciesWithSite": [
+          "9031",
+          "9606",
+          "9615",
+          "10090",
+          "10116"
+        ],
+        "targetScanBin": 1
+      },
+      "output": {
+        "branchLengthScore": 1.6379,
+        "treeSource": "targetScanBin 1"
+      }
+    }
+  ]
+}

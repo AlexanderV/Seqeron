@@ -1660,6 +1660,194 @@ public class AnnotationTools
                 ToDto(s.Site), s.GroupNumber, s.SpeciesWithSite.ToList(), s.BranchLength, s.Pct, s.Conserved)).ToList());
     }
 
+    /// <summary>TargetScan 7.0 3'UTR conservation bin (targetscan_70_BL_bins.pl).</summary>
+    [McpServerTool(Name = "assign_targetscan_utr_bin", Title = "miRNA — Assign TargetScan UTR Bin", ReadOnly = true)]
+    [Description("TargetScan 7.0 3'UTR conservation bin (targetscan_70_BL_bins.pl): for every alignment column where the reference species has a nucleotide, the branch length (minimal connecting subtree on the generic tree) of the species sharing that nucleotide; the median over columns picks bin 1-10 (largest k whose threshold the median exceeds; 1 if none). Input: alignedUtrs (species id → aligned UTR, '-' gaps). Returns bin, medianBranchLength (null when the reference row has no nucleotide) and the 10 bin thresholds (valid for the bundled generic tree). Optional newick replaces the generic tree (single-line recommended, passed unchanged to ParseNewick, no normalisation; the bundled thresholds then no longer apply).")]
+    public static AssignTargetScanUtrBinResult AssignTargetScanUtrBin(
+        [Description("Species identifier → aligned 3'UTR (gaps '-')")] Dictionary<string, string> alignedUtrs,
+        [Description("Reference species (default 9606; must be a leaf of the tree)")] string referenceSpecies = "9606",
+        [Description("Optional single-line Newick tree; default the bundled TargetScan 7.0 generic tree")] string? newick = null)
+    {
+        if (alignedUtrs is null || alignedUtrs.Count == 0)
+            throw new ArgumentException("alignedUtrs cannot be null or empty", nameof(alignedUtrs));
+        if (string.IsNullOrEmpty(referenceSpecies))
+            throw new ArgumentException("referenceSpecies cannot be null or empty", nameof(referenceSpecies));
+        foreach (var (species, utr) in alignedUtrs)
+        {
+            if (string.IsNullOrEmpty(species))
+                throw new ArgumentException("A species key is empty", nameof(alignedUtrs));
+            if (utr is null)
+                throw new ArgumentException($"The aligned UTR of species '{species}' is null", nameof(alignedUtrs));
+        }
+        Genomics.Phylogenetics.PhylogeneticAnalyzer.PhyloNode? tree = null;
+        if (newick is not null)
+            tree = ParseNewickOrThrow(newick, nameof(newick));
+        var bin = MiRnaAnalyzer.AssignTargetScanUtrBin(alignedUtrs, referenceSpecies, tree);
+        return new AssignTargetScanUtrBinResult(bin.Bin,
+            double.IsNaN(bin.MedianBranchLength) ? null : bin.MedianBranchLength,
+            MiRnaAnalyzer.TargetScanUtrBinThresholds.ToList());
+    }
+
+    /// <summary>Friedman 2009 branch-length score (TargetScan 7.0 getBranchLength).</summary>
+    [McpServerTool(Name = "compute_branch_length_score", Title = "miRNA — Compute Branch-Length Score", ReadOnly = true)]
+    [Description("Branch-length score Bls (Friedman et al. 2009; targetscan_70_BL_PCT.pl getBranchLength): total branch length of the minimal subtree connecting speciesWithSite on a phylogenetic tree, rounded to 4 decimals (one species or none = 0; species that are not tree leaves are ignored). Give exactly one tree: newick (passed unchanged to PhylogeneticAnalyzer.ParseNewick: single-line recommended, no whitespace normalisation by the tool) or targetScanBin 1-10 (the bundled TargetScan 7.0 Tree.bin_NN, 84 species as NCBI taxonomy ids).")]
+    public static ComputeBranchLengthScoreResult ComputeBranchLengthScore(
+        [Description("Species (tree leaf names) in which the site is conserved")] IReadOnlyList<string> speciesWithSite,
+        [Description("Single-line Newick tree (leaf names = species, branch lengths = edge lengths); exclusive with targetScanBin")] string? newick = null,
+        [Description("Bundled TargetScan 7.0 bin tree 1-10; exclusive with newick")] int? targetScanBin = null)
+    {
+        if (speciesWithSite is null)
+            throw new ArgumentException("speciesWithSite cannot be null", nameof(speciesWithSite));
+        bool hasNewick = !string.IsNullOrEmpty(newick);
+        if (hasNewick == targetScanBin.HasValue)
+            throw new ArgumentException("Provide exactly one of newick or targetScanBin");
+        if (targetScanBin is < 1 or > 10)
+            throw new ArgumentOutOfRangeException(nameof(targetScanBin), "targetScanBin must be 1-10");
+        var tree = hasNewick
+            ? ParseNewickOrThrow(newick!, nameof(newick))
+            : MiRnaAnalyzer.GetTargetScanBinTree(targetScanBin!.Value);
+        double bls = MiRnaAnalyzer.ComputeBranchLengthScore(tree, speciesWithSite.ToList());
+        return new ComputeBranchLengthScoreResult(bls, hasNewick ? "newick" : $"targetScanBin {targetScanBin}");
+    }
+
+    /// <summary>PCT from a branch-length score: sigmoid row given or looked up by seed.</summary>
+    [McpServerTool(Name = "pct_from_branch_length", Title = "miRNA — PCT From Branch Length", ReadOnly = true)]
+    [Description("Probability of conserved targeting from a branch-length score: PCT = b0 + b1/(1+exp(-b2*Bls+b3)), 4 decimals, negative -> 0, Bls = 0 -> 0 (targetscan_70_BL_PCT.pl). Two modes: (1) give all of b0,b1,b2,b3 (optionally siteType; a 6mer is then 0); (2) give seedRegion (7 nt, nt 2-8) and siteType (8mer, 7mer-m8 or 7mer-A1) to use the bundled TargetScan 7.0 row; a seed outside the 111 PCT families returns pct null / isNa true (TargetScan 'NA'). Exactly one mode.")]
+    public static PctFromBranchLengthResult PctFromBranchLength(
+        [Description("Branch-length score >= 0 (see compute_branch_length_score)")] double branchLengthScore,
+        [Description("Site type: Seed8mer, Seed7merM8, Seed7merA1, Seed6mer (required with seedRegion)")] string? siteType = null,
+        [Description("7-nt seed region (miRNA nt 2-8) for the bundled-row lookup")] string? seedRegion = null,
+        [Description("Sigmoid b0")] double? b0 = null,
+        [Description("Sigmoid b1")] double? b1 = null,
+        [Description("Sigmoid b2")] double? b2 = null,
+        [Description("Sigmoid b3")] double? b3 = null)
+    {
+        MiRnaAnalyzer.TargetSiteType? type = null;
+        if (siteType is not null)
+        {
+            if (!TryParseEnum<MiRnaAnalyzer.TargetSiteType>(siteType, out var t))
+                throw new ArgumentException($"Unknown siteType '{siteType}'. Valid values: {string.Join(", ", Enum.GetNames<MiRnaAnalyzer.TargetSiteType>())}", nameof(siteType));
+            type = t;
+        }
+        bool anyB = b0.HasValue || b1.HasValue || b2.HasValue || b3.HasValue;
+        bool allB = b0.HasValue && b1.HasValue && b2.HasValue && b3.HasValue;
+        bool lookup = seedRegion is not null;
+        if (anyB && !allB)
+            throw new ArgumentException("b0, b1, b2 and b3 must be given together");
+        if (lookup == anyB)
+            throw new ArgumentException("Provide exactly one of seedRegion (+ siteType) or the sigmoid parameters b0..b3");
+
+        if (allB)
+        {
+            var p = new MiRnaAnalyzer.PctSigmoidParameters(b0!.Value, b1!.Value, b2!.Value, b3!.Value);
+            double pct = type is { } st
+                ? MiRnaAnalyzer.PctFromBranchLength(branchLengthScore, p, st)
+                : MiRnaAnalyzer.PctFromBranchLength(branchLengthScore, p);
+            return new PctFromBranchLengthResult(pct, false, new PctSigmoidParametersDto(p.B0, p.B1, p.B2, p.B3));
+        }
+
+        if (type is null)
+            throw new ArgumentException("siteType is required with seedRegion", nameof(siteType));
+        if (type is not (MiRnaAnalyzer.TargetSiteType.Seed8mer or MiRnaAnalyzer.TargetSiteType.Seed7merM8 or MiRnaAnalyzer.TargetSiteType.Seed7merA1))
+            throw new ArgumentException("TargetScan has PCT rows only for Seed8mer, Seed7merM8 and Seed7merA1", nameof(siteType));
+        if (seedRegion!.Length != 7)
+            throw new ArgumentException("seedRegion must be 7 nt (miRNA nt 2-8)", nameof(seedRegion));
+        if (!MiRnaAnalyzer.TryGetTargetScanPctParameters(seedRegion, type.Value, out var row))
+        {
+            // Validate Bls through the library even when there is no row.
+            MiRnaAnalyzer.PctFromBranchLength(branchLengthScore, default(MiRnaAnalyzer.PctSigmoidParameters));
+            return new PctFromBranchLengthResult(null, true, null);
+        }
+        return new PctFromBranchLengthResult(MiRnaAnalyzer.PctFromBranchLength(branchLengthScore, row, type.Value),
+            false, new PctSigmoidParametersDto(row.B0, row.B1, row.B2, row.B3));
+    }
+
+    /// <summary>TargetScan "Conserved" call by branch-length threshold.</summary>
+    [McpServerTool(Name = "is_conserved_by_branch_length", Title = "miRNA — Is Conserved By Branch Length", ReadOnly = true)]
+    [Description("TargetScan 'Conserved' call (selectConservationForThisSite): conserved iff Bls >= the threshold for the site type (TargetScanHuman7: 8mer 1.8, 7mer-m8 2.8, 7mer-A1 3.6; TargetScanMouse7: 0.6, 1.8, 2.5); a 6mer or offset 6mer is never conserved.")]
+    public static IsConservedByBranchLengthResult IsConservedByBranchLength(
+        [Description("Branch-length score >= 0")] double branchLengthScore,
+        [Description("Site type: Seed8mer, Seed7merM8, Seed7merA1, Seed6mer, Offset6mer")] string siteType,
+        [Description("Thresholds: TargetScanHuman7 (default) or TargetScanMouse7")] string thresholds = "TargetScanHuman7")
+    {
+        if (!TryParseEnum<MiRnaAnalyzer.TargetSiteType>(siteType, out var type))
+            throw new ArgumentException($"Unknown siteType '{siteType}'. Valid values: {string.Join(", ", Enum.GetNames<MiRnaAnalyzer.TargetSiteType>())}", nameof(siteType));
+        MiRnaAnalyzer.BranchLengthConservationThresholds th;
+        if (string.Equals(thresholds, "TargetScanHuman7", StringComparison.OrdinalIgnoreCase))
+            th = MiRnaAnalyzer.BranchLengthConservationThresholds.TargetScanHuman7;
+        else if (string.Equals(thresholds, "TargetScanMouse7", StringComparison.OrdinalIgnoreCase))
+            th = MiRnaAnalyzer.BranchLengthConservationThresholds.TargetScanMouse7;
+        else
+            throw new ArgumentException($"Unknown thresholds '{thresholds}'. Valid values: TargetScanHuman7, TargetScanMouse7", nameof(thresholds));
+        bool conserved = MiRnaAnalyzer.IsConservedByBranchLength(branchLengthScore, type, th);
+        double? threshold = type switch
+        {
+            MiRnaAnalyzer.TargetSiteType.Seed8mer => th.Seed8mer,
+            MiRnaAnalyzer.TargetSiteType.Seed7merM8 => th.Seed7merM8,
+            MiRnaAnalyzer.TargetSiteType.Seed7merA1 => th.Seed7merA1,
+            _ => null
+        };
+        return new IsConservedByBranchLengthResult(conserved, threshold);
+    }
+
+    /// <summary>Bundled TargetScan 7.0 PCT / TA / SPS parameter lookup keyed by seed region.</summary>
+    [McpServerTool(Name = "get_targetscan_parameters", Title = "miRNA — Get TargetScan Parameters", ReadOnly = true)]
+    [Description("Bundled TargetScan 7.0 parameter lookup for a 7-nt seed region (miRNA nt 2-8; T read as U, any case): isPctSeedFamily (one of the 111 PCT seed families), pctParameters (sigmoid b0-b3 for the siteType 8mer / 7mer-m8 / 7mer-A1; null otherwise, never for 6mer), and the TA_SPS_by_seed_region row (ta = log10 site abundance; sps = seed-pairing stability for the siteType, null without siteType or for non-canonical types). hasTaSps is false when the seed is not 7 nt over ACGU.")]
+    public static GetTargetScanParametersResult GetTargetScanParameters(
+        [Description("7-nt seed region (miRNA nt 2-8)")] string seedRegion,
+        [Description("Optional site type: Seed8mer, Seed7merM8, Seed7merA1, Seed6mer (selects the PCT row and the SPS column)")] string? siteType = null)
+    {
+        if (string.IsNullOrEmpty(seedRegion))
+            throw new ArgumentException("seedRegion cannot be null or empty", nameof(seedRegion));
+        MiRnaAnalyzer.TargetSiteType? type = null;
+        if (siteType is not null)
+        {
+            if (!TryParseEnum<MiRnaAnalyzer.TargetSiteType>(siteType, out var t))
+                throw new ArgumentException($"Unknown siteType '{siteType}'. Valid values: {string.Join(", ", Enum.GetNames<MiRnaAnalyzer.TargetSiteType>())}", nameof(siteType));
+            type = t;
+        }
+
+        bool family = MiRnaAnalyzer.IsTargetScanPctSeedFamily(seedRegion);
+        PctSigmoidParametersDto? pct = null;
+        if (type is { } st && MiRnaAnalyzer.TryGetTargetScanPctParameters(seedRegion, st, out var row))
+            pct = new PctSigmoidParametersDto(row.B0, row.B1, row.B2, row.B3);
+
+        // TA depends on the seed only (looked up with the 8mer column); SPS is the column of the site type, when it has one.
+        bool has = MiRnaAnalyzer.TryGetTargetScanTaSps(seedRegion, MiRnaAnalyzer.TargetSiteType.Seed8mer, out double ta, out _);
+        double? spsOut = null;
+        if (has && type is { } st2 && MiRnaAnalyzer.TryGetTargetScanTaSps(seedRegion, st2, out _, out double sps))
+            spsOut = sps;
+        return new GetTargetScanParametersResult(seedRegion, family, pct, has, has ? ta : null, spsOut);
+    }
+
+    /// <summary>ORF8m: 8mer sites in an ORF as counted by targetscan_count_8mers.pl.</summary>
+    [McpServerTool(Name = "count_targetscan_orf_8mer_sites", Title = "miRNA — Count TargetScan ORF 8mer Sites", ReadOnly = true)]
+    [Description("context++ feature ORF8m exactly as TargetScan 7.0 targetscan_count_8mers.pl: gap characters ('-', '.') removed, T read as U, the 8mer site reverse_complement(seed region nt 2-8) + 'A' counted case-insensitively, non-overlapping, on the given strand only. Feed count into score_target_site_context_plus_plus (orf8mCount).")]
+    public static CountTargetScanOrf8merSitesResult CountTargetScanOrf8merSites(
+        [Description("ORF (CDS) sequence, RNA or DNA, any case, gaps allowed")] string orfSequence,
+        [Description("7-nt seed region (miRNA nt 2-8)")] string seedRegion)
+    {
+        if (orfSequence is null)
+            throw new ArgumentException("orfSequence cannot be null", nameof(orfSequence));
+        if (string.IsNullOrEmpty(seedRegion) || seedRegion.Length != 7)
+            throw new ArgumentException("seedRegion must be 7 nt (miRNA nt 2-8)", nameof(seedRegion));
+        return new CountTargetScanOrf8merSitesResult(MiRnaAnalyzer.CountTargetScanOrf8merSites(orfSequence, seedRegion));
+    }
+
+    private static Genomics.Phylogenetics.PhylogeneticAnalyzer.PhyloNode ParseNewickOrThrow(string newick, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(newick))
+            throw new ArgumentException("newick cannot be empty", paramName);
+        try
+        {
+            return Genomics.Phylogenetics.PhylogeneticAnalyzer.ParseNewick(newick);
+        }
+        catch (FormatException ex)
+        {
+            throw new ArgumentException($"Invalid Newick tree: {ex.Message}", paramName, ex);
+        }
+    }
+
     private static void ValidateTargetScanInputs(string miRnaSeedOrMature, Dictionary<string, string> alignedUtrs)
     {
         if (string.IsNullOrEmpty(miRnaSeedOrMature) || miRnaSeedOrMature.Length < 7)

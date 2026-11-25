@@ -25,7 +25,7 @@ reported. For pairs with strand and spacer use `find_sigma70_promoters`; for a f
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L794](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L794)
+- Source: [GenomeAnnotator.cs#L976](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L976)
 
 ## Input Schema
 

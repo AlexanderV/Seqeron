@@ -9,9 +9,10 @@ sources:
   - docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md
   - docs/Evidence/SPLICE-DONOR-001-Evidence.md
   - docs/Evidence/SPLICE-PREDICT-001-Evidence.md
-source_commit: 3ae2cfc56ff0d4e03325af1ce7f3fcfd1313ab69
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-10
-updated: 2026-07-17
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: relates_to
@@ -29,6 +30,11 @@ graph:
 ---
 
 # Splice acceptor site prediction (3' splice site)
+
+> **Updated 2026-11-25 (B11 F21–F22, F27–F31).** `FindAcceptorSites` default score is the sourced **Shapiro & Senapathy 1987** 3' ss score (−14..+1, best 8 of 10 pyrimidines + CAGG; 0–100 / 100), replacing the unsourced PWM + PPT heuristic;
+> only full windows are scored; U12 acceptors are scored by the UUCCUUAAC branch site 8–21 nt upstream; `FindBranchPoints` uses Gao 2008 yUnAy (or yeast UACUAAC) instead of YNYURAC; opt-in MaxEntScan score3 mode;
+> `CalculateMaxEntScore(Acceptor)` / MCP `maxent_score` = real MaxEntScan score3 (bits, bit-identical to maxentpy). Older PWM/YNYURAC wording below is historical.
+
 
 The **acceptor site** (**3' splice site**, 3'ss) is the intron end that the
 [spliceosome](https://en.wikipedia.org/wiki/Spliceosome) cleaves and ligates to the

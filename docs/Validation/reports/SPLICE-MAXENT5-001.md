@@ -107,3 +107,5 @@ Covers every Stage-A edge case named in the protocol (window≠9, no GT, non-ACG
 - Full unfiltered `dotnet test Seqeron.sln -c Debug` (net10.0): Failed: 0
   (Seqeron.Genomics.Tests 18762 passed), 2026-06-25.
 - No follow-ups; no entry needed in FINDINGS_REGISTER.
+
+> **Superseded by B11 (2026-11-25), F20 / F19:** `ScoreDonorMaxEnt` no longer calls `Math.Log2`; the final `log2(consScore · restScore)` is computed as `Math.Log(x)/Math.Log(2)`, bit-identical to maxentpy (verified on 200,025 9-mers), and `CalculateMaxEntScore(motif, Donor)` / MCP `maxent_score` now return this score5 instead of a PWM. Statements above about `Math.Log2` and the earlier tolerance describe the code as of 2026-06-25. See `docs/Validation/review-2026-09/B11.md`.

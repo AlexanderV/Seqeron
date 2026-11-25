@@ -29,7 +29,7 @@ falling back to `feature_{n}`. Coordinates stay 1-based inclusive.
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L565](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L565)
+- Source: [GenomeAnnotator.cs#L551](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L551)
 
 ## Input Schema
 

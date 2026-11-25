@@ -13,6 +13,9 @@ updated: 2026-07-09
 
 # Evidence: ANNOT-CODONUSAGE-001
 
+> **Superseded in part by B11 (2026-11-25), F18, F40: RNA codons counted, canonical delegation, `pooled_rscu`.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The validation-evidence artifact for test unit **ANNOT-CODONUSAGE-001** (Relative Synonymous
 Codon Usage — RSCU). One instance of the templated per-algorithm
 [[algorithm-validation-evidence|evidence artifact]] pattern; the algorithm itself is

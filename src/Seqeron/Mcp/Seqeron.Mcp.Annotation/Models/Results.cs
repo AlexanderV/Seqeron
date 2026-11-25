@@ -1092,3 +1092,26 @@ public record RnaseqQualityMetricsResult(
 /// <summary>Result of perform_pca.</summary>
 public record PerformPcaResult(IReadOnlyList<PcaPointDto> Points);
 
+/// <summary>Result of assign_targetscan_utr_bin: bin 1-10, the median per-position branch length (null when the reference row has no nucleotide) and the 10 bin lower bounds (bundled generic tree).</summary>
+public record AssignTargetScanUtrBinResult(int Bin, double? MedianBranchLength, IReadOnlyList<double> BinThresholds);
+
+/// <summary>Result of compute_branch_length_score: Friedman 2009 branch-length score (4 decimals) and the tree source used.</summary>
+public record ComputeBranchLengthScoreResult(double BranchLengthScore, string TreeSource);
+
+/// <summary>Result of pct_from_branch_length. <c>Pct</c> is null (TargetScan "NA") when the seed has no bundled PCT family row; <c>Parameters</c> are the sigmoid row used (null when none).</summary>
+public record PctFromBranchLengthResult(double? Pct, bool IsNa, PctSigmoidParametersDto? Parameters);
+
+/// <summary>Result of is_conserved_by_branch_length: TargetScan "Conserved" call and the threshold applied (null for site types that are never conserved).</summary>
+public record IsConservedByBranchLengthResult(bool Conserved, double? Threshold);
+
+/// <summary>Result of get_targetscan_parameters: PCT family membership, PCT sigmoid row for the site type, and the bundled TA / SPS row.</summary>
+public record GetTargetScanParametersResult(
+    string SeedRegion,
+    bool IsPctSeedFamily,
+    PctSigmoidParametersDto? PctParameters,
+    bool HasTaSps,
+    double? Ta,
+    double? Sps);
+
+/// <summary>Result of count_targetscan_orf_8mer_sites: ORF8m of targetscan_count_8mers.pl.</summary>
+public record CountTargetScanOrf8merSitesResult(int Count);

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.ParseGff3",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L565",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L551",
   "description": "Parse a GFF3 (SO spec v1.26) document into features: 1-based inclusive coordinates, percent-decoded seqid/source/type/attributes, multi-valued attributes as value lists; stops at ##FASTA; spec-invalid feature lines are skipped.",
   "inputSchema": {
     "type": "object",

@@ -24,7 +24,7 @@ the translated `proteinSequence` (ending with `*` for the stop codon).
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L104](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L104)
+- Source: [GenomeAnnotator.cs#L122](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L122)
 - Algorithm: [ORF_Detection.md](../../../algorithms/Annotation/ORF_Detection.md)
 
 ## Input Schema

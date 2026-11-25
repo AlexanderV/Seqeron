@@ -13,9 +13,10 @@ sources:
   - docs/algorithms/Annotation/Relative_Synonymous_Codon_Usage.md
   - docs/Validation/reports/ANNOT-CODONUSAGE-001.md
   - docs/Validation/reports/CODON-RSCU-001.md
-source_commit: e3c96b23abab4c437f04a5ba414ba4d07d96f11b
+  - docs/Validation/review-2026-09/B11.md
+source_commit: 8b85d3b5496273e86f3be2eef7f720a6ce7a257b
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-11-25
 graph:
   relationships:
     - predicate: relates_to
@@ -33,6 +34,9 @@ graph:
 ---
 
 # Relative Synonymous Codon Usage (RSCU)
+
+> **Updated 2026-11-25 (B11 F18, F40).** `GetCodonUsage` counts RNA (U) codons and delegates to `Translator.CountCodons` / `CodonUsageAnalyzer.CalculateRscu`; MCP `pooled_rscu` exposes RSCU pooled over several sequences for any NCBI genetic code (CodonW `-totals`).
+
 
 A per-codon **codon-usage-bias** measure: within each amino acid's set of synonymous codons,
 how over- or under-represented one codon is relative to uniform (unbiased) usage. Introduced by

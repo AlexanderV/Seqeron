@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.GetCodonUsage",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#GetCodonUsage",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L2292",
   "description": "Relative Synonymous Codon Usage (RSCU = n*x/sum(x) per synonymous family) over in-frame coding sequences with counts pooled across sequences (CodonW -totals); stop codons excluded, unobserved family = 0.",
   "inputSchema": {
     "type": "object",

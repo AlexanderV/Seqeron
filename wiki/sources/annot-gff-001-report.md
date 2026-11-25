@@ -13,6 +13,9 @@ updated: 2026-07-11
 
 # Validation report: ANNOT-GFF-001
 
+> **Superseded in part by B11 (2026-11-25), F8–F10: multi-valued attributes, spec column rules, spec-valid export.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The two-stage **validation write-up** for test unit **ANNOT-GFF-001** — GFF3 **input/output
 inside the annotation layer** (`GenomeAnnotator.ToGff3` / `ParseGff3`), validated 2026-06-25.
 This is the *report* artifact that feeds one row of the [[validation-ledger]]; it records the

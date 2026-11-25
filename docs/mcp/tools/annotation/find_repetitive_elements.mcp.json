@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.FindRepetitiveElements",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1682",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L2059",
   "description": "Find exact tandem repeats (maximal runs of a primitive ACGT unit of 1-60 bp, complete copies) and exact inverted repeats (maximal stems, EMBOSS palindrome model: arm >= max(minRepeatLength, 2) and <= 100, loop 0-100) in a DNA sequence.",
   "inputSchema": {
     "type": "object",

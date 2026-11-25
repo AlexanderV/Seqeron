@@ -8,7 +8,7 @@ Relative Synonymous Codon Usage (RSCU) pooled over several in-frame coding seque
 |----------|-------|
 | **Server** | Annotation |
 | **Tool Name** | `pooled_rscu` |
-| **Method ID** | `GenomeAnnotator.GetCodonUsage` (`IEnumerable<string>`, `GeneticCode` overload) |
+| **Method ID** | `GenomeAnnotator.GetCodonUsage` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 
@@ -19,6 +19,10 @@ case-insensitive, U read as T; a triplet with another symbol is skipped without 
 trailing codon ignored, as in `codon_usage`) and computes RSCU = n·x / Σx per synonymous family of the chosen
 NCBI translation table (Sharp, Tuohy & Mosurski 1986; CodonW `-totals`), delegating to
 `CodonUsageAnalyzer.CalculateRscu`. Stop codons are excluded and an unobserved family gives 0.
+
+## Core Documentation Reference
+
+- Source: [GenomeAnnotator.cs#L2292](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L2292) — `GetCodonUsage(IEnumerable<string>, GeneticCode)` overload
 
 ## Input Schema
 

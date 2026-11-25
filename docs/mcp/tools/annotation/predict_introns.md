@@ -22,7 +22,7 @@ sequence, type, and score.
 
 ## Core Documentation Reference
 
-- Source: [SpliceSitePredictor.cs#L625](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L625)
+- Source: [SpliceSitePredictor.cs#L1159](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1159)
 
 ## Input Schema
 

@@ -24,7 +24,7 @@ reports the motif's 0-based `position`, the matched `sequence`, and a `score` eq
 
 ## Core Documentation Reference
 
-- Source: [GenomeAnnotator.cs#L280](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L280)
+- Source: [GenomeAnnotator.cs#L229](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L229)
 
 ## Input Schema
 

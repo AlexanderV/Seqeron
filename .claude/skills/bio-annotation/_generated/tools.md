@@ -119,6 +119,9 @@
 | `pwm_score_thresholds` | Analysis | `PositionWeightMatrix.ScoreDistribution` | [doc](../../../../docs/mcp/tools/analysis/pwm_score_thresholds.md) |
 | `reversal_distance` | Analysis | `ComparativeGenomics.CalculateReversalDistance` | [doc](../../../../docs/mcp/tools/analysis/reversal_distance.md) |
 | `rna_complement_base` | Analysis | `RnaSecondaryStructure.GetComplement` | [doc](../../../../docs/mcp/tools/analysis/rna_complement_base.md) |
+| `rna_mfe_structure` | Analysis | `RnaSecondaryStructure.PredictStructureMfe` | [doc](../../../../docs/mcp/tools/analysis/rna_mfe_structure.md) |
+| `rna_partition_function` | Analysis | `RnaSecondaryStructure.CalculatePartitionFunction` | [doc](../../../../docs/mcp/tools/analysis/rna_partition_function.md) |
+| `rna_structure_energy` | Analysis | `RnaSecondaryStructure.CalculateFreeEnergy` | [doc](../../../../docs/mcp/tools/analysis/rna_structure_energy.md) |
 | `scan_with_alphabet_pwm` | Analysis | `MotifFinder.ScanWithAlphabetPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_alphabet_pwm.md) |
 | `scan_with_pwm` | Analysis | `MotifFinder.ScanWithPwm` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm.md) |
 | `scan_with_pwm_both_strands` | Analysis | `MotifFinder.ScanWithPwmBothStrands` | [doc](../../../../docs/mcp/tools/analysis/scan_with_pwm_both_strands.md) |
@@ -143,11 +146,14 @@
 | `assemble_breakpoint_sequence` | Annotation | `StructuralVariantAnalyzer.AssembleBreakpointSequence` | [doc](../../../../docs/mcp/tools/annotation/assemble_breakpoint_sequence.md) |
 | `build_coexpression_network` | Annotation | `TranscriptomeAnalyzer.BuildCoExpressionNetwork` | [doc](../../../../docs/mcp/tools/annotation/build_coexpression_network.md) |
 | `calculate_conservation` | Annotation | `VariantAnnotator.CalculateConservation` | [doc](../../../../docs/mcp/tools/annotation/calculate_conservation.md) |
+| `calculate_randfold_pvalue` | Annotation | `MiRnaAnalyzer.CalculateRandfoldPValue` | [doc](../../../../docs/mcp/tools/annotation/calculate_randfold_pvalue.md) |
 | `calculate_tpm` | Annotation | `TranscriptomeAnalyzer.CalculateTPM` | [doc](../../../../docs/mcp/tools/annotation/calculate_tpm.md) |
 | `call_variants` | Annotation | `VariantCaller.CallVariants` | [doc](../../../../docs/mcp/tools/annotation/call_variants.md) |
 | `call_variants_from_alignment` | Annotation | `VariantCaller.CallVariantsFromAlignment` | [doc](../../../../docs/mcp/tools/annotation/call_variants_from_alignment.md) |
 | `can_pair` | Annotation | `MiRnaAnalyzer.CanPair` | [doc](../../../../docs/mcp/tools/annotation/can_pair.md) |
 | `classify_mutation` | Annotation | `VariantCaller.ClassifyMutation` | [doc](../../../../docs/mcp/tools/annotation/classify_mutation.md) |
+| `classify_pre_mirna` | Annotation | `MiRnaAnalyzer.ClassifyPreMiRna` | [doc](../../../../docs/mcp/tools/annotation/classify_pre_mirna.md) |
+| `classify_pre_mirna_triplet_svm` | Annotation | `MiRnaAnalyzer.ClassifyPreMiRnaTripletSvm` | [doc](../../../../docs/mcp/tools/annotation/classify_pre_mirna_triplet_svm.md) |
 | `classify_variant` | Annotation | `VariantAnnotator.ClassifyVariant` | [doc](../../../../docs/mcp/tools/annotation/classify_variant.md) |
 | `cluster_discordant_pairs` | Annotation | `StructuralVariantAnalyzer.ClusterDiscordantPairs` | [doc](../../../../docs/mcp/tools/annotation/cluster_discordant_pairs.md) |
 | `cluster_genes_by_expression` | Annotation | `TranscriptomeAnalyzer.ClusterGenesByExpression` | [doc](../../../../docs/mcp/tools/annotation/cluster_genes_by_expression.md) |
@@ -155,6 +161,8 @@
 | `coding_potential` | Annotation | `GenomeAnnotator.CalculateCodingPotential` | [doc](../../../../docs/mcp/tools/annotation/coding_potential.md) |
 | `codon_usage` | Annotation | `GenomeAnnotator.GetCodonUsage` | [doc](../../../../docs/mcp/tools/annotation/codon_usage.md) |
 | `compare_seed_regions` | Annotation | `MiRnaAnalyzer.CompareSeedRegions` | [doc](../../../../docs/mcp/tools/annotation/compare_seed_regions.md) |
+| `compute_ta_3utr` | Annotation | `MiRnaAnalyzer.ComputeTa3Utr / MiRnaAnalyzer.CountSeedSites3Utr` | [doc](../../../../docs/mcp/tools/annotation/compute_ta_3utr.md) |
+| `cpat_coding_probability` | Annotation | `GenomeAnnotator.PredictCodingProbability`, `GenomeAnnotator.PredictBestCodingOrf` | [doc](../../../../docs/mcp/tools/annotation/cpat_coding_probability.md) |
 | `cpg_observed_expected` | Annotation | `EpigeneticsAnalyzer.CalculateCpGObservedExpected` | [doc](../../../../docs/mcp/tools/annotation/cpg_observed_expected.md) |
 | `create_mirna` | Annotation | `MiRnaAnalyzer.CreateMiRna` | [doc](../../../../docs/mcp/tools/annotation/create_mirna.md) |
 | `detect_alternative_splicing` | Annotation | `SpliceSitePredictor.DetectAlternativeSplicing` | [doc](../../../../docs/mcp/tools/annotation/detect_alternative_splicing.md) |
@@ -163,10 +171,13 @@
 | `differential_expression` | Annotation | `TranscriptomeAnalyzer.AnalyzeDifferentialExpression` | [doc](../../../../docs/mcp/tools/annotation/differential_expression.md) |
 | `enrichment_score` | Annotation | `TranscriptomeAnalyzer.CalculateEnrichmentScore` | [doc](../../../../docs/mcp/tools/annotation/enrichment_score.md) |
 | `epigenetic_age` | Annotation | `EpigeneticsAnalyzer.CalculateEpigeneticAge` | [doc](../../../../docs/mcp/tools/annotation/epigenetic_age.md) |
+| `fickett_scan` | Annotation | `GenomeAnnotator.ScanFickettScore` | [doc](../../../../docs/mcp/tools/annotation/fickett_scan.md) |
+| `fickett_score` | Annotation | `GenomeAnnotator.CalculateFickettScore` | [doc](../../../../docs/mcp/tools/annotation/fickett_score.md) |
 | `filter_svs` | Annotation | `StructuralVariantAnalyzer.FilterSVs` | [doc](../../../../docs/mcp/tools/annotation/filter_svs.md) |
 | `find_acceptor_sites` | Annotation | `SpliceSitePredictor.FindAcceptorSites` | [doc](../../../../docs/mcp/tools/annotation/find_acceptor_sites.md) |
 | `find_accessible_regions` | Annotation | `EpigeneticsAnalyzer.FindAccessibleRegions` | [doc](../../../../docs/mcp/tools/annotation/find_accessible_regions.md) |
 | `find_branch_points` | Annotation | `SpliceSitePredictor.FindBranchPoints` | [doc](../../../../docs/mcp/tools/annotation/find_branch_points.md) |
+| `find_centered_sites` | Annotation | `MiRnaAnalyzer.FindCenteredSites` | [doc](../../../../docs/mcp/tools/annotation/find_centered_sites.md) |
 | `find_conserved_elements` | Annotation | `VariantAnnotator.FindConservedElements` | [doc](../../../../docs/mcp/tools/annotation/find_conserved_elements.md) |
 | `find_cpg_islands` | Annotation | `EpigeneticsAnalyzer.FindCpGIslands` | [doc](../../../../docs/mcp/tools/annotation/find_cpg_islands.md) |
 | `find_cpg_sites` | Annotation | `EpigeneticsAnalyzer.FindCpGSites` | [doc](../../../../docs/mcp/tools/annotation/find_cpg_sites.md) |
@@ -191,6 +202,8 @@
 | `find_snps` | Annotation | `VariantCaller.FindSnps` | [doc](../../../../docs/mcp/tools/annotation/find_snps.md) |
 | `find_snps_direct` | Annotation | `VariantCaller.FindSnpsDirect` | [doc](../../../../docs/mcp/tools/annotation/find_snps_direct.md) |
 | `find_split_reads` | Annotation | `StructuralVariantAnalyzer.FindSplitReads` | [doc](../../../../docs/mcp/tools/annotation/find_split_reads.md) |
+| `find_targetscan_site_groups` | Annotation | `MiRnaAnalyzer.FindTargetScanSiteGroups` | [doc](../../../../docs/mcp/tools/annotation/find_targetscan_site_groups.md) |
+| `fold_mirna_duplex` | Annotation | `MiRnaAnalyzer.FoldMiRnaDuplex` | [doc](../../../../docs/mcp/tools/annotation/fold_mirna_duplex.md) |
 | `format_vcf_info` | Annotation | `VariantAnnotator.FormatAsVcfInfo` | [doc](../../../../docs/mcp/tools/annotation/format_vcf_info.md) |
 | `generate_seed_variants` | Annotation | `MiRnaAnalyzer.GenerateSeedVariants` | [doc](../../../../docs/mcp/tools/annotation/generate_seed_variants.md) |
 | `genotype_sv` | Annotation | `StructuralVariantAnalyzer.GenotypeSV` | [doc](../../../../docs/mcp/tools/annotation/genotype_sv.md) |
@@ -212,7 +225,9 @@
 | `parse_vcf_variant` | Annotation | `VariantAnnotator.ParseVcfVariant` | [doc](../../../../docs/mcp/tools/annotation/parse_vcf_variant.md) |
 | `pearson_correlation` | Annotation | `TranscriptomeAnalyzer.CalculatePearsonCorrelation` | [doc](../../../../docs/mcp/tools/annotation/pearson_correlation.md) |
 | `perform_pca` | Annotation | `TranscriptomeAnalyzer.PerformPCA` | [doc](../../../../docs/mcp/tools/annotation/perform_pca.md) |
+| `pooled_rscu` | Annotation | `GenomeAnnotator.GetCodonUsage` | [doc](../../../../docs/mcp/tools/annotation/pooled_rscu.md) |
 | `predict_chromatin_state` | Annotation | `EpigeneticsAnalyzer.PredictChromatinState` | [doc](../../../../docs/mcp/tools/annotation/predict_chromatin_state.md) |
+| `predict_drosha_dicer_cleavage` | Annotation | `MiRnaAnalyzer.PredictDroshaDicerCleavage` | [doc](../../../../docs/mcp/tools/annotation/predict_drosha_dicer_cleavage.md) |
 | `predict_gene_structure` | Annotation | `SpliceSitePredictor.PredictGeneStructure` | [doc](../../../../docs/mcp/tools/annotation/predict_gene_structure.md) |
 | `predict_genes` | Annotation | `GenomeAnnotator.PredictGenes` | [doc](../../../../docs/mcp/tools/annotation/predict_genes.md) |
 | `predict_imprinted_genes` | Annotation | `EpigeneticsAnalyzer.PredictImprintedGenes` | [doc](../../../../docs/mcp/tools/annotation/predict_imprinted_genes.md) |
@@ -223,6 +238,9 @@
 | `quantile_normalize` | Annotation | `TranscriptomeAnalyzer.QuantileNormalize` | [doc](../../../../docs/mcp/tools/annotation/quantile_normalize.md) |
 | `rna_reverse_complement` | Annotation | `MiRnaAnalyzer.GetReverseComplement` | [doc](../../../../docs/mcp/tools/annotation/rna_reverse_complement.md) |
 | `rnaseq_quality_metrics` | Annotation | `TranscriptomeAnalyzer.CalculateQualityMetrics` | [doc](../../../../docs/mcp/tools/annotation/rnaseq_quality_metrics.md) |
+| `score_target_site_context_plus_plus` | Annotation | `MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus` | [doc](../../../../docs/mcp/tools/annotation/score_target_site_context_plus_plus.md) |
+| `score_target_site_grimson` | Annotation | `MiRnaAnalyzer.ScoreTargetSiteGrimson` | [doc](../../../../docs/mcp/tools/annotation/score_target_site_grimson.md) |
+| `score_targetscan_conservation` | Annotation | `MiRnaAnalyzer.ScoreTargetScanConservation` | [doc](../../../../docs/mcp/tools/annotation/score_targetscan_conservation.md) |
 | `segment_copy_number` | Annotation | `StructuralVariantAnalyzer.SegmentCopyNumber` | [doc](../../../../docs/mcp/tools/annotation/segment_copy_number.md) |
 | `simulate_bisulfite_conversion` | Annotation | `EpigeneticsAnalyzer.SimulateBisulfiteConversion` | [doc](../../../../docs/mcp/tools/annotation/simulate_bisulfite_conversion.md) |
 | `site_accessibility` | Annotation | `MiRnaAnalyzer.CalculateSiteAccessibility` | [doc](../../../../docs/mcp/tools/annotation/site_accessibility.md) |

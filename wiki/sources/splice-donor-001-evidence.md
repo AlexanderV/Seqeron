@@ -13,6 +13,9 @@ updated: 2026-07-10
 
 # Evidence: SPLICE-DONOR-001
 
+> **Superseded in part by B11 (2026-11-25), F19, F23–F26: Shapiro & Senapathy 1987 default score, U12 /RTATCCTY, full windows only, MaxEntScan score5 mode.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The validation-evidence artifact for test unit **SPLICE-DONOR-001** — **Donor (5') Splice
 Site Detection**. The **donor member of the splicing family** (sibling of
 SPLICE-ACCEPTOR-001) and one instance of the templated per-algorithm

@@ -21,7 +21,7 @@ a representative position, and a human-readable description.
 
 ## Core Documentation Reference
 
-- Source: [SpliceSitePredictor.cs#L864](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L864)
+- Source: [SpliceSitePredictor.cs#L1487](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L1487)
 
 ## Input Schema
 

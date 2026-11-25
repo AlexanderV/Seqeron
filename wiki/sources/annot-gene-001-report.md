@@ -13,6 +13,9 @@ updated: 2026-07-10
 
 # Validation report: ANNOT-GENE-001
 
+> **Superseded in part by B11 (2026-11-25), F4–F6, F44: GGAG sub-motif, one SD hit per site, one gene per stop, opt-in Prodigal model.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The two-stage **validation write-up** for test unit **ANNOT-GENE-001** (ORF-based prokaryotic
 gene prediction + Shine-Dalgarno ribosome-binding-site detection on both strands), validated
 2026-06-24. This is the *report* artifact that feeds one row of the [[validation-ledger]]; it

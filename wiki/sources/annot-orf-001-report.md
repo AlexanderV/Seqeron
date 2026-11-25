@@ -13,6 +13,9 @@ updated: 2026-07-10
 
 # Validation report: ANNOT-ORF-001
 
+> **Superseded in part by B11 (2026-11-25), F1–F3, F41: alternative initiators, stop-to-stop regions, no duplicate sub-ORFs, ORF engine now `Translator`.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The two-stage **validation write-up** for test unit **ANNOT-ORF-001** (annotation-layer
 open-reading-frame detection), validated 2026-06-24. This is the *report* artifact that feeds
 one row of the [[validation-ledger]]; it records the validator's **verdict** on both the

@@ -13,6 +13,9 @@ updated: 2026-07-10
 
 # Validation report: ANNOT-PROM-001
 
+> **Superseded in part by B11 (2026-11-25), F7: `FindPromoterMotifs` now delegates to the paired σ70 scan; the verdict and variant library recorded here describe the pre-B11 code.** See `docs/Validation/review-2026-09/B11.md`.
+
+
 The two-stage **validation write-up** for test unit **ANNOT-PROM-001** (prokaryotic
 promoter motif detection — the −10 / −35 box scan), validated 2026-06-24. This is the
 *report* artifact that feeds one row of the [[validation-ledger]]; it records the

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomeAnnotator.FindOrfs",
-  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L104",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L122",
   "description": "Find all open reading frames (ORFs) in a DNA sequence across forward and reverse strands.",
   "inputSchema": {
     "type": "object",

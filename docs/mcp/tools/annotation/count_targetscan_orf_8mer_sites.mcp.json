@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "count_targetscan_orf_8mer_sites",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.CountTargetScanOrf8merSites",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2049",
+  "description": "ORF8m: 8mer sites of a seed region in an ORF as counted by targetscan_count_8mers.pl.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "orfSequence": {
+        "type": "string",
+        "description": "ORF sequence, RNA or DNA, any case, gaps allowed"
+      },
+      "seedRegion": {
+        "type": "string",
+        "description": "7-nt seed region"
+      }
+    },
+    "required": [
+      "orfSequence",
+      "seedRegion"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "count": {
+        "type": "integer",
+        "description": "Number of 8mer sites"
+      }
+    },
+    "required": [
+      "count"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "orfSequence cannot be null"
+    },
+    {
+      "code": 1001,
+      "message": "seedRegion must be 7 nt (miRNA nt 2-8)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Example 1",
+      "input": {
+        "orfSequence": "GGAUUUUUUAUUUUUUAccauuuuuuaATTTTTTAG",
+        "seedRegion": "AAAAAAU"
+      },
+      "output": {
+        "count": 3
+      }
+    }
+  ]
+}
