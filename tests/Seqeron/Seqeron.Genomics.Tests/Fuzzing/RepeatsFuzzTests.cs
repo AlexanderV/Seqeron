@@ -169,12 +169,12 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// lines 281–286, 297–302):
 ///   • sequence == null      → the typed overload throws ArgumentNullException
 ///     (ThrowIfNull); the raw-string overload treats null/empty as the empty result.
-///   • minArmLength &lt; 2    → ArgumentOutOfRangeException. This is THE boundary the
+///   • minArmLength &lt; 1    → ArgumentOutOfRangeException. This is THE boundary the
 ///     checklist row probes: a literal minArmLength = 0 means a zero-length arm
 ///     (`Substring(i, 0) = ""`), whose reverse complement is also "", so EVERY
 ///     downstream gap position would "match" the empty arm and the detector would emit
-///     a blow-up of nonsense zero-length-arm "repeats". The contract REJECTS &lt; 2 so a
-///     repeat must have at least a 2-bp stem to be reported.
+///     a blow-up of nonsense zero-length-arm "repeats". The contract REJECTS &lt; 1 so a
+///     repeat must have at least one paired base to be reported (EMBOSS minpallen minimum 1).
 ///   • minLoopLength &lt; 0   → ArgumentOutOfRangeException.
 /// BEFORE this unit's work the raw-string overload did NOT replicate the numeric
 /// validation of the typed overload (recorded as accepted Deviation #1,
@@ -184,7 +184,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// of being rejected. Fuzzing this row PROVED that asymmetry was an undisciplined failure
 /// (nonsense output on a degenerate parameter, ADVANCED §8). It was fixed at the source
 /// by mirroring the typed overload's two guards onto the raw-string overload
-/// (`minArmLength < 2` and `minLoopLength < 0` now both throw on BOTH surfaces). The
+/// (`minArmLength < 1` and `minLoopLength < 0` now both throw on BOTH surfaces). The
 /// tests below PIN these floors on both surfaces so they cannot silently drift.
 ///
 /// The minLen &gt; seqLen/2 boundary: two arms of length minArmLength plus the minimum
@@ -827,8 +827,8 @@ public class RepeatsFuzzTests
     /// A literal 0 means a zero-length arm — `leftArm = Substring(i, 0) = ""`, whose
     /// reverse complement is also "" — so EVERY downstream gap position would "match"
     /// the empty arm and the detector would blow up the result set with spurious
-    /// zero-length-arm "repeats". A tandem stem needs ≥ 2 paired bases, so the contract
-    /// REJECTS minArmLength &lt; 2 with ArgumentOutOfRangeException
+    /// zero-length-arm "repeats". A stem needs ≥ 1 paired base (palindrome -minpallen minimum 1), so the contract
+    /// REJECTS minArmLength &lt; 1 with ArgumentOutOfRangeException
     /// (RepeatFinder.cs line 282/300; Inverted_Repeat_Detection.md §3.3) — and, after
     /// this unit's fix, on BOTH the typed and the raw-string surface (the raw-string
     /// overload previously skipped this guard, Deviation #1). The string overload's
@@ -842,33 +842,34 @@ public class RepeatsFuzzTests
         var raw = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: 0).ToList();
 
         typed.Should().Throw<ArgumentOutOfRangeException>(
-                "minArmLength = 0 is below the documented floor of 2; a 0-length arm matches every gap as a spurious empty repeat")
+                "minArmLength = 0 is below the documented floor of 1; a 0-length arm matches every gap as a spurious empty repeat")
             .Which.ParamName.Should().Be("minArmLength");
         raw.Should().Throw<ArgumentOutOfRangeException>(
-                "the raw-string overload now enforces the same minArmLength >= 2 floor, never emitting nonsense empty-arm results")
+                "the raw-string overload now enforces the same minArmLength >= 1 floor, never emitting nonsense empty-arm results")
             .Which.ParamName.Should().Be("minArmLength");
     }
 
     /// <summary>
-    /// BE: minArmLength = 1 is the trivial single-base-arm boundary, still below the
-    /// stem floor of 2 (a 1-bp "arm" is a single complementary base, not a stem). Both
-    /// surfaces reject it with ArgumentOutOfRangeException, pinning that the rejection
-    /// boundary is exactly &lt; 2 — and that minLoopLength &lt; 0 is rejected too.
+    /// BE: minArmLength = 1 is the accepted floor (EMBOSS palindrome.acd: minpallen minimum 1,
+    /// one base pair is a stem); the rejection boundary is exactly &lt; 1 — and minLoopLength &lt; 0
+    /// is rejected too.
     /// </summary>
     [Test]
     public void FindInvertedRepeats_DegenerateParameters_RejectedOnBothSurfaces()
     {
-        var typedArm1 = () => RepeatFinder.FindInvertedRepeats(new DnaSequence("GCGCAAAAGCGC"), minArmLength: 1).ToList();
-        var rawArm1 = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: 1).ToList();
+        var typedArm1 = () => RepeatFinder.FindInvertedRepeats(new DnaSequence("GCGCAAAAGCGC"), minArmLength: -1).ToList();
+        var rawArm1 = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: -1).ToList();
         var typedLoopNeg = () => RepeatFinder.FindInvertedRepeats(new DnaSequence("GCGCAAAAGCGC"), minArmLength: 4, minLoopLength: -1).ToList();
         var rawLoopNeg = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: 4, minLoopLength: -1).ToList();
 
-        typedArm1.Should().Throw<ArgumentOutOfRangeException>("a 1-bp arm is below the documented stem floor of 2");
-        rawArm1.Should().Throw<ArgumentOutOfRangeException>("the raw-string overload enforces the same minArmLength >= 2 floor");
+        typedArm1.Should().Throw<ArgumentOutOfRangeException>("a negative arm is below the documented floor of 1");
+        rawArm1.Should().Throw<ArgumentOutOfRangeException>("the raw-string overload enforces the same minArmLength >= 1 floor");
         typedLoopNeg.Should().Throw<ArgumentOutOfRangeException>("a negative minLoopLength is nonsensical and rejected");
         rawLoopNeg.Should().Throw<ArgumentOutOfRangeException>("the raw-string overload now rejects a negative minLoopLength too");
 
-        // The accepted floor minArmLength = 2 must NOT throw — pinning the boundary is at < 2, not ≤ 2.
+        // The accepted floor minArmLength = 1 must NOT throw — pinning the boundary is at < 1, not ≤ 1.
+        var arm1 = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: 1).ToList();
+        arm1.Should().NotThrow("minArmLength = 1 is the accepted floor (palindrome -minpallen minimum)");
         var arm2 = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: 2).ToList();
         arm2.Should().NotThrow("minArmLength = 2 is the accepted stem floor, not below it");
     }

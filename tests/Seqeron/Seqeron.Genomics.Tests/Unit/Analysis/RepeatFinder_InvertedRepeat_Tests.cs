@@ -667,7 +667,7 @@ public class RepeatFinder_InvertedRepeat_Tests
     {
         Assert.Multiple(() =>
         {
-            Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", 1, 10, 3));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", 0, 10, 3));
             Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", 4, 10, -1));
             Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", 4, 2, 3));
             Assert.Throws<System.ArgumentOutOfRangeException>(() => RepeatFinder.FindInvertedRepeats("", 4, 2, 3));
@@ -689,7 +689,7 @@ public class RepeatFinder_InvertedRepeat_Tests
     }
 
     /// <summary>
-    /// MinArmLength less than 2 should throw.
+    /// MinArmLength less than 1 should throw (EMBOSS palindrome.acd: minpallen minimum 1).
     /// </summary>
     [Test]
     public void FindInvertedRepeats_MinArmLengthTooSmall_ThrowsArgumentOutOfRangeException()
@@ -697,7 +697,36 @@ public class RepeatFinder_InvertedRepeat_Tests
         var sequence = new DnaSequence("GCGCAAAAGCGC");
 
         Assert.Throws<System.ArgumentOutOfRangeException>(() =>
-            RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 1, maxLoopLength: 10, minLoopLength: 3).ToList());
+            RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 0, maxLoopLength: 10, minLoopLength: 3).ToList());
+    }
+
+    /// <summary>
+    /// A single base pair is a valid stem (palindrome -minpallen 1): "TCA" -> T..A, arm 1, loop 1.
+    /// Oracle: EMBOSS 6.6.0 palindrome -minpallen 1 -maxpallen 100 -gaplimit 100 -nummismatches 0 -overlap Y
+    /// (reports 1 t 1 / 3 a 3). EMBOSS never examines an adjacent pair (loop 0) at -minpallen 1
+    /// (palindrome.c: for(rev = iend; rev &gt; current + minLen; rev--)), so loop-0 arm-1 stems are excluded
+    /// from the oracle comparison only.
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_MinArmLengthOne_ReportsSingleBasePairStem()
+    {
+        var r = RepeatFinder.FindInvertedRepeats("TCA", minArmLength: 1, maxLoopLength: 100, minLoopLength: 0).ToList();
+        Assert.That(r.Select(x => (x.LeftArmStart, x.RightArmStart, x.ArmLength)), Is.EqualTo(new[] { (0, 2, 1) }));
+        Assert.That(RepeatFinder.FindInvertedRepeats("TCA", minArmLength: 2, maxLoopLength: 100, minLoopLength: 0), Is.Empty);
+    }
+
+    /// <summary>
+    /// minArmLength 1 equals EMBOSS 6.6.0 palindrome -minpallen 1 on random sequences. Expected values are the
+    /// binary's output for these fixed sequences (full 600-case differential: 80,052 stems, 0 differences,
+    /// see REP-INV-001 evidence); GGATCCTT -> GGA..TCC (0,3,3), A..T (2,7,1), A..T (2,6,1).
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_MinArmLengthOne_MatchesEmbossPalindromeFixture()
+    {
+        var r = RepeatFinder.FindInvertedRepeats("GGATCCTT", minArmLength: 1, maxLoopLength: 100, minLoopLength: 0)
+            .Where(x => !(x.ArmLength == 1 && x.RightArmStart == x.LeftArmStart + 1))
+            .Select(x => (x.LeftArmStart, x.RightArmStart, x.ArmLength)).OrderBy(x => x).ToList();
+        Assert.That(r, Is.EqualTo(new[] { (0, 3, 3), (2, 6, 1), (2, 7, 1) }));
     }
 
     /// <summary>

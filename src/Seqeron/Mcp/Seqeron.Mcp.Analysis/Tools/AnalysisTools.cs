@@ -842,7 +842,7 @@ public class AnalysisTools
     [Description("Sequences whose two arms are reverse-complement of each other (hairpin candidates). Maximal stems (EMBOSS palindrome); optional mismatches (palindrome -nummismatches), maximum arm length (-maxpallen) and G-U wobble pairs.")]
     public static FindInvertedRepeatsResult FindInvertedRepeats(
         [Description("DNA sequence.")] string sequence,
-        [Description("Minimum arm length (default 4).")] int minArmLength = 4,
+        [Description("Minimum arm length (default 4, >= 1).")] int minArmLength = 4,
         [Description("Maximum loop length (default 50).")] int maxLoopLength = 50,
         [Description("Minimum loop length (default 3).")] int minLoopLength = 3,
         [Description("Maximum mismatched pairs inside a stem (default 0 = exact; EMBOSS palindrome -nummismatches).")] int maxMismatches = 0,
@@ -3336,7 +3336,7 @@ public class AnalysisTools
     [Description("Finds maximal antiparallel complementary regions (potential RNA hairpin stems; A·U, G·C and G·U wobble by default, optional interior mismatches). Same stem model as DNA find_inverted_repeats (shared engine); coordinates 0-based inclusive.")]
     public static FindRnaInvertedRepeatsResult FindRnaInvertedRepeats(
         [Description("RNA sequence.")] string sequence,
-        [Description("Minimum arm length (default 4).")] int minLength = 4,
+        [Description("Minimum arm length (default 4, >= 1).")] int minLength = 4,
         [Description("Minimum spacing between arms (default 3).")] int minSpacing = 3,
         [Description("Maximum spacing between arms (default 100).")] int maxSpacing = 100,
         [Description("Maximum interior mismatches per stem (default 0 = perfect stems).")] int maxMismatches = 0,

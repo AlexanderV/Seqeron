@@ -1641,9 +1641,6 @@ public static class GenomeAnnotator
     // (palindrome.acd) and IUPACpal -g max_gap default (README) are both 100; |G| >= 0 (WGW^R, Hampson 2021).
     private const int DefaultMaxInvertedGap = 100;
 
-    // Shortest stem RepeatFinder.FindInvertedRepeats accepts (minArmLength >= 2).
-    private const int MinInvertedArmLength = 2;
-
     /// <summary>
     /// Finds repetitive elements in a DNA sequence: exact tandem repeats (head-to-tail
     /// consecutive copies of a primitive motif) and exact inverted repeats (a sequence
@@ -1661,7 +1658,7 @@ public static class GenomeAnnotator
     /// <para>
     /// <b>Inverted repeats</b> are the maximal exact stems of
     /// <see cref="Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(string,int,int,int,int,int,bool)"/>
-    /// with arm ≥ max(<paramref name="minRepeatLength"/>, 2), arm ≤ max(100, that minimum), loop 0..100 — the result
+    /// with arm ≥ <paramref name="minRepeatLength"/>, arm ≤ max(100, that minimum), loop 0..100 — the result
     /// set of EMBOSS <c>palindrome -minpallen m -maxpallen 100 -gaplimit 100 -nummismatches 0 -overlap Y</c>
     /// (the EMBOSS and IUPACpal default limits). Only A/C/G/T pair (A·T, C·G); sub-stems inside a longer stem are not
     /// reported. For inverted repeats <paramref name="minRepeatLength"/> is the minimum <b>arm</b> length.
@@ -1711,10 +1708,9 @@ public static class GenomeAnnotator
                 sequence.Substring(run.Position, run.TotalLength));
         }
 
-        int minArm = Math.Max(minRepeatLength, MinInvertedArmLength);
         foreach (var stem in Seqeron.Genomics.Analysis.RepeatFinder.FindInvertedRepeats(
-                     sequence, minArm, DefaultMaxInvertedGap, minLoopLength: 0,
-                     maxArmLength: Math.Max(MaxInvertedArmLength, minArm)))
+                     sequence, minRepeatLength, DefaultMaxInvertedGap, minLoopLength: 0,
+                     maxArmLength: Math.Max(MaxInvertedArmLength, minRepeatLength)))
         {
             string composite = stem.LoopLength == 0
                 ? stem.LeftArm + stem.RightArm

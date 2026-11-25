@@ -86,7 +86,7 @@ A stem is a triple $(i, j, A)$ with $s_{i+k}$ Watson–Crick-complementary to $s
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `DnaSequence` or `string` | required | DNA sequence to search. | The `DnaSequence` overload throws on `null`; the raw-string overload yields no results for `null` or empty input. |
-| `minArmLength` | `int` | `4` | Minimum length of each repeat arm. | Both overloads reject values below `2` with `ArgumentOutOfRangeException`. |
+| `minArmLength` | `int` | `4` | Minimum length of each repeat arm. | Both overloads reject values below `1` (EMBOSS `palindrome.acd` minpallen minimum) with `ArgumentOutOfRangeException`. |
 | `maxLoopLength` | `int` | `50` | Maximum loop length between arms. | Must be ≥ `minLoopLength` (`ArgumentOutOfRangeException`); values beyond the sequence length are capped. |
 | `minLoopLength` | `int` | `3` | Minimum loop length between arms. | Both overloads reject negative values with `ArgumentOutOfRangeException`. |
 | `maxMismatches` | `int` | `0` | Maximum mismatched pairs inside a stem (`palindrome -nummismatches`). | ≥ 0. |
@@ -111,7 +111,7 @@ A stem is a triple $(i, j, A)$ with $s_{i+k}$ Watson–Crick-complementary to $s
 
 ### 3.3 Preconditions and Validation
 
-`FindInvertedRepeats(DnaSequence, ...)` throws `ArgumentNullException` when `sequence` is `null`. Both overloads throw `ArgumentOutOfRangeException` **eagerly (at the call, not on enumeration)** when `minArmLength < 2`, `minLoopLength < 0`, `maxLoopLength < minLoopLength`, `maxMismatches < 0` or `maxArmLength < minArmLength`. The raw-string overload uppercases non-empty input and yields no results for `null` or empty strings; characters other than A/C/G/T (N, IUPAC codes, U) never pair. Coordinates are 0-based; results are ordered by `LeftArmStart`, then `RightArmStart`.
+`FindInvertedRepeats(DnaSequence, ...)` throws `ArgumentNullException` when `sequence` is `null`. Both overloads throw `ArgumentOutOfRangeException` **eagerly (at the call, not on enumeration)** when `minArmLength < 1`, `minLoopLength < 0`, `maxLoopLength < minLoopLength`, `maxMismatches < 0` or `maxArmLength < minArmLength`. The raw-string overload uppercases non-empty input and yields no results for `null` or empty strings; characters other than A/C/G/T (N, IUPAC codes, U) never pair. Coordinates are 0-based; results are ordered by `LeftArmStart`, then `RightArmStart`.
 
 ## 4. Algorithm
 
