@@ -43,29 +43,27 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// The 5' splice donor site marks the START of an intron. The canonical intronic
 /// dinucleotide is GU (GT in DNA); the extended consensus is MAG|GURAGU scored over
-/// the offsets −3..+5 around the GU (Shapiro &amp; Senapathy 1987; Burge et al. 1999).
-/// The repository scores each candidate with a BINARY consensus table: every offset
-/// contributes 1.0 for a consensus match and 0.0 otherwise, normalised by the number
-/// of offsets that actually fall inside the sequence — so the score is always in
-/// [0, 1]. — docs/algorithms/Splicing/Donor_Site_Detection.md §2.1–2.2, §2.4.
+/// the positions −3..+6 around the exon|intron boundary (Shapiro &amp; Senapathy 1987).
+/// Each candidate is scored with the Shapiro &amp; Senapathy (1987) formula
+/// (t − mint)/(maxt − mint) over the 8-nt subsequence −2..+6 (Table 1 percentages),
+/// so the score is always in [0, 1]; a candidate whose window runs off the sequence or
+/// holds a non-ACGU character is not scored. — docs/algorithms/Splicing/Donor_Site_Detection.md.
 ///
 /// Method under test (src/.../Seqeron.Genomics.Annotation/SpliceSitePredictor.cs):
 ///   FindDonorSites(string sequence, double minScore = 0.5, bool includeNonCanonical = false)
 ///     → IEnumerable&lt;SpliceSite&gt; { Position, Type, Motif, Score, Confidence }.
-///   The scan uppercases the input, maps T→U, then for i in 0..Length−6 inspects the
-///   dinucleotide at (i, i+1): canonical GU is always scored; GC and U12-style AU are
-///   scored only when includeNonCanonical is set. A site is emitted iff its score ≥
-///   minScore. — Donor_Site_Detection.md §3, §4.
+///   The scan uppercases the input, maps T→U, then inspects every dinucleotide (i, i+1):
+///   canonical GU is always scored; GC and U12-type /RU (AU or GU) candidates only when
+///   includeNonCanonical is set. A site is emitted iff its window is scorable and its
+///   score ≥ minScore. — Donor_Site_Detection.md §3, §4.
 ///
 /// Documented input handling (Donor_Site_Detection.md §3.1, §3.3, §6.1):
-///   • null / "" / length &lt; 6 → no donor sites (guard clause) — never an exception.
+///   • null / "" / length &lt; 8 (shorter than the −2..+6 window) → no donor sites — never an exception.
 ///   • DNA T behaves exactly like RNA U (T is converted to U before scanning).
 ///   • lowercase behaves exactly like uppercase (the sequence is uppercased first).
 ///   • No GU/GT candidate in canonical mode → no donor sites (nothing to score).
-///   • A GU within the last 5 positions is OUTSIDE the i ≤ Length−6 scan range, so it
-///     is simply not emitted — never an IndexOutOfRange off the window extraction.
-///     The internal scorer and GetMotifContext additionally clamp every offset/Substring
-///     to the string bounds, so even an in-range GU near an edge is window-safe.
+///   • A GU whose −2..+6 window runs off either end (index &lt; 2 or within the last 5
+///     positions) is not scored and not emitted — never an IndexOutOfRange.
 ///
 /// Theory-correct invariants asserted (Donor_Site_Detection.md §2.4):
 ///   • INV-01 — every reported Score is in [0, 1].
@@ -243,13 +241,14 @@ public class SplicingFuzzTests
         site.Position.Should().BeInRange(0, normalized.Length - 2,
             "a donor dinucleotide occupies Position and Position+1, both inside the sequence");
 
-        // [donor-anchored] every canonical / GC donor starts on a G; U12 donors start on A.
+        // [donor-anchored] every canonical / GC donor starts on G·U / G·C; U12 donors start on
+        // /RU (A·U for AT-AC or G·U for GT-AG U12 introns; Dietrich et al. 1997).
         char first = normalized[site.Position];
         char second = normalized[site.Position + 1];
         if (site.Type == SpliceSiteType.U12Donor)
         {
-            (first == 'A' && second == 'U').Should().BeTrue(
-                $"a U12 donor must sit on an AU dinucleotide, found '{first}{second}' at {site.Position}");
+            ((first == 'A' || first == 'G') && second == 'U').Should().BeTrue(
+                $"a U12 donor must sit on an AU or GU dinucleotide, found '{first}{second}' at {site.Position}");
         }
         else
         {
@@ -402,13 +401,13 @@ public class SplicingFuzzTests
 
     /// <summary>
     /// Target "seq &lt; window" (KEY boundary). Two sub-cases, both of which must avoid
-    /// IndexOutOfRange when the −3..+5 window cannot be fully extracted:
-    ///   (a) length &lt; 6 — the documented guard. Lengths 0..5, including strings that
+    /// IndexOutOfRange when the −2..+6 window cannot be fully extracted:
+    ///   (a) short inputs. Lengths 0..5, including strings that
     ///       DO contain a GU ("GU", "GUAA"), must return no donor sites and never throw
-    ///       (Donor_Site_Detection.md §3.1, §6.1 "Sequence shorter than 6 nt").
+    ///       (Donor_Site_Detection.md §3.1, §6.1: shorter than the 8-nt −2..+6 window).
     ///   (b) a canonical GU shoved against the 3' edge of a ≥ 6-nt sequence, so the GU
-    ///       sits inside the last 5 positions and falls OUTSIDE the i ≤ Length−6 scan
-    ///       window. The edge GU is simply not emitted, and — critically — the scan
+    ///       sits inside the last 5 positions and its −2..+6 window runs off the end
+    ///       (i > Length−6). The edge GU is simply not emitted, and — critically — the scan
     ///       extracts no out-of-range window: no IndexOutOfRange leaks.
     /// </summary>
     [Test]
@@ -420,7 +419,7 @@ public class SplicingFuzzTests
             var act = () => FindDonorSites(tooShort, minScore: 0.0).ToList();
             act.Should().NotThrow($"a sub-window sequence ('{tooShort}', len {tooShort.Length}) must not crash")
                .Subject.Should().BeEmpty(
-                   $"length {tooShort.Length} < 6 is below the donor window guard — no site, no IndexOutOfRange");
+                   $"length {tooShort.Length} is shorter than the 8-nt −2..+6 window — no site, no IndexOutOfRange");
         }
 
         // (b) A canonical GU flush against the 3' edge: positions Length-2..Length-1.
@@ -437,7 +436,7 @@ public class SplicingFuzzTests
 
             // The edge GU (index Length-2 > Length-6) is outside the scan range → not emitted.
             sites.Should().NotContain(s => s.Position == guIndex,
-                "a GU within the last 5 positions is outside the i ≤ Length-6 scan window and is not reported");
+                "a GU within the last 5 positions has no full −2..+6 window and is not reported");
 
             // Whatever IS reported still satisfies the full donor contract (window-safe).
             foreach (var s in sites)
@@ -518,14 +517,14 @@ public class SplicingFuzzTests
             dnaSites.Select(s => s.Position).Should().Equal(rnaSites.Select(s => s.Position),
                 "'GT…' and 'GU…' normalise to the same sequence and must yield the same donor positions");
 
-            // Every candidate GU sits at an EVEN index; only those with i ≤ Length-6 are scanned.
+            // Every candidate GU sits at an EVEN index; only those whose −2..+6 window fits (2 ≤ i ≤ Length-6) are scored.
             int maxStart = dna.Length - 6; // inclusive upper bound of the scan
             foreach (var s in dnaSites)
             {
                 AssertWellFormedDonor(s, dna);
                 (s.Position % 2).Should().Be(0, "every GU in 'GUGU…' begins at an even index");
                 s.Position.Should().BeLessThanOrEqualTo(maxStart,
-                    "the scan never reports a candidate beyond i = Length-6");
+                    "a candidate beyond i = Length-6 has no full −2..+6 window");
             }
 
             // The number of scored candidates is bounded by the in-range even starts.

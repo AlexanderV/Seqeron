@@ -1362,17 +1362,33 @@ public class AnnotationTools
 
     /// <summary>Find candidate 5' (donor) splice sites.</summary>
     [McpServerTool(Name = "find_donor_sites", Title = "Splice — Find Donor Sites", ReadOnly = true)]
-    [Description("Find candidate 5' (donor) splice sites (canonical GT/GU, optional GC and U12 AT/AU).")]
+    [Description("Find candidate 5' (donor) splice sites: GU/GT (optional GC) scored with the Shapiro & Senapathy (1987) 5' ss score over positions -2..+6 (published 0-100 score / 100) or with MaxEntScan score5 (bits); optional U12-type /RTATCCTY donors. Position = index of the G of GT (first intron nt).")]
     public static FindDonorSitesResult FindDonorSites(
         [Description("RNA/DNA sequence to scan")] string sequence,
-        [Description("Minimum PWM score [0,1] for a site to be reported")] double minScore = 0.5,
-        [Description("Whether to include non-canonical (GC, U12 AT/AU) donor motifs")] bool includeNonCanonical = false)
+        [Description("Minimum score for a site to be reported: [0,1] for shapiro-senapathy (and U12 match fraction), bits for maxent")] double minScore = 0.5,
+        [Description("Also report GC donors and U12-type (/RTATCCTY: AT-AC or GT-AG) donors")] bool includeNonCanonical = false,
+        [Description("Scoring model for GT/GC donors: 'shapiro-senapathy' (default) or 'maxent' (MaxEntScan score5, 9-nt window -3..+6)")] string model = "shapiro-senapathy",
+        [Description("Shapiro & Senapathy (1987) Table 1 subtable: primate (default), total, rodent, othermammal, othervertebrate, invertebrate, plant, viral")] string category = "primate")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
+        var scoringModel = (model ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "shapiro-senapathy" or "shapirosenapathy" or "ss" => SpliceSitePredictor.DonorScoringModel.ShapiroSenapathy,
+            "maxent" or "maxentscan" => SpliceSitePredictor.DonorScoringModel.MaxEntScan,
+            _ => throw new ArgumentException(
+                $"Unknown model '{model}'; expected 'shapiro-senapathy' or 'maxent'.", nameof(model))
+        };
+
+        if (string.IsNullOrWhiteSpace(category) || category.Trim().Any(char.IsDigit) ||
+            !Enum.TryParse<SpliceSitePredictor.ShapiroSenapathyCategory>(category.Trim(), ignoreCase: true, out var table))
+            throw new ArgumentException(
+                $"Unknown category '{category}'; expected primate, total, rodent, othermammal, othervertebrate, invertebrate, plant or viral.",
+                nameof(category));
+
         var sites = SpliceSitePredictor
-            .FindDonorSites(sequence, minScore, includeNonCanonical)
+            .FindDonorSites(sequence, minScore, includeNonCanonical, scoringModel, table)
             .Select(ToDto)
             .ToList();
         return new FindDonorSitesResult(sites);

@@ -5,16 +5,54 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SpliceSitePredictor.FindDonorSites",
-  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L204",
-  "description": "Find candidate 5' (donor) splice sites (canonical GT/GU, optional GC and U12 AT/AU).",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L348",
+  "description": "Find candidate 5' (donor) splice sites: GT/GU (optional GC) scored with the Shapiro & Senapathy (1987) 5' ss score over -2..+6 (score/100) or MaxEntScan score5 (bits); optional U12-type /RTATCCTY donors.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "RNA/DNA sequence to scan", "minLength": 1 },
-      "minScore": { "type": "number", "description": "Minimum PWM score [0,1]", "default": 0.5 },
-      "includeNonCanonical": { "type": "boolean", "description": "Include GC / U12 AT/AU donor motifs", "default": false }
+      "sequence": {
+        "type": "string",
+        "description": "RNA/DNA sequence to scan",
+        "minLength": 1
+      },
+      "minScore": {
+        "type": "number",
+        "description": "Minimum score: [0,1] for shapiro-senapathy / U12, bits for maxent",
+        "default": 0.5
+      },
+      "includeNonCanonical": {
+        "type": "boolean",
+        "description": "Include GC donors and U12-type (/RTATCCTY, AT or GT start) donors",
+        "default": false
+      },
+      "model": {
+        "type": "string",
+        "enum": [
+          "shapiro-senapathy",
+          "maxent"
+        ],
+        "default": "shapiro-senapathy",
+        "description": "Scoring model for GT/GC donors"
+      },
+      "category": {
+        "type": "string",
+        "enum": [
+          "primate",
+          "total",
+          "rodent",
+          "othermammal",
+          "othervertebrate",
+          "invertebrate",
+          "plant",
+          "viral"
+        ],
+        "default": "primate",
+        "description": "Shapiro & Senapathy (1987) Table 1 subtable"
+      }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -24,31 +62,114 @@
         "items": {
           "type": "object",
           "properties": {
-            "position": { "type": "integer", "description": "0-based index of the GU/GT dinucleotide" },
-            "type": { "type": "string", "description": "Donor" },
-            "motif": { "type": "string" },
-            "score": { "type": "number", "description": "PWM match score [0,1]" },
-            "confidence": { "type": "number" }
+            "position": {
+              "type": "integer",
+              "description": "0-based index of the G of GT/GC (first intron nucleotide)"
+            },
+            "type": {
+              "type": "string",
+              "description": "Donor or U12Donor"
+            },
+            "motif": {
+              "type": "string"
+            },
+            "score": {
+              "type": "number",
+              "description": "S&S score [0,1], U12 match fraction, or MaxEntScan bits"
+            },
+            "confidence": {
+              "type": "number"
+            }
           },
-          "required": ["position", "type", "motif", "score", "confidence"]
+          "required": [
+            "position",
+            "type",
+            "motif",
+            "score",
+            "confidence"
+          ]
         }
       }
     },
-    "required": ["sites"]
+    "required": [
+      "sites"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Unknown model / Unknown category"
+    }
   ],
   "examples": [
     {
-      "name": "Perfect GU consensus",
-      "input": { "sequence": "CAGGUAAGU", "minScore": 0.3 },
-      "output": { "sites": [ { "position": 3, "type": "Donor", "score": 1.0, "confidence": 1.0 } ] }
+      "name": "Perfect consensus",
+      "input": {
+        "sequence": "CAGGUAAGU",
+        "minScore": 0.3
+      },
+      "output": {
+        "sites": [
+          {
+            "position": 3,
+            "type": "Donor",
+            "motif": "CAGGUAAGU",
+            "score": 1.0,
+            "confidence": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "name": "Shapiro & Senapathy worked example (84.3)",
+      "input": {
+        "sequence": "AAGTGAGT",
+        "minScore": 0.0
+      },
+      "output": {
+        "sites": [
+          {
+            "position": 2,
+            "type": "Donor",
+            "motif": "AAGUGAGU",
+            "score": 0.843065693430657,
+            "confidence": 0.6861313868613139
+          }
+        ]
+      }
+    },
+    {
+      "name": "MaxEntScan model",
+      "input": {
+        "sequence": "CAGGTAAGT",
+        "minScore": 0.0,
+        "model": "maxent"
+      },
+      "output": {
+        "sites": [
+          {
+            "position": 3,
+            "type": "Donor",
+            "motif": "CAGGUAAGU",
+            "score": 10.858313101356437,
+            "confidence": 0.9994616209198077
+          }
+        ]
+      }
     },
     {
       "name": "No GU dinucleotide",
-      "input": { "sequence": "AAAAAAAAA", "minScore": 0.3 },
-      "output": { "sites": [] }
+      "input": {
+        "sequence": "AAAAAAAAA",
+        "minScore": 0.3
+      },
+      "output": {
+        "sites": []
+      }
     }
   ]
 }

@@ -2,7 +2,7 @@
   ExonCount: 2,
   IntronCount: 1,
   SplicedSequenceLength: 42,
-  OverallScore: 0.8085224624689347,
+  OverallScore: 0.8785751794194618,
   Exons: [
     {
       End: 20,

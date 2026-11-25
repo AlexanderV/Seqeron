@@ -192,6 +192,28 @@ original score5.pl undefined-hash `log(0)` error, C# `ArgumentException`; U acce
 `CalculateMaxEntScore(motif, Donor)` (MCP `maxent_score`) previously returned a 9-column PWM
 log-weight sum (`CAGGUAAGU` → 0.1292 = 9·log2(1.01)), now delegates to `ScoreDonorMaxEnt` (F19).
 
+### Dataset 5: Shapiro & Senapathy (1987) score — B11 review oracle (2026-11-25)
+
+**Opened this session:** the scanned paper, Shapiro MB, Senapathy P (1987) NAR 15(17):7155-7174, retrieved as
+PDF via WebFetch of `europepmc.org/api/getPdf?pmcid=PMC306199` (curl to europepmc/PMC/OUP blocked or captcha),
+pages rendered with `pdftoppm` and read visually: Methods (p. 7157-7158: "every subsequence of length 8",
+`score = 100 (t-mint)/(maxt-mint)`, worked example primate AAGTGAGT t = 509, mint = 47, maxt = 595 → 84.3),
+Table 1 (p. 7159: 5' ss percentages −3..+6, all eight subtables, transcribed into
+`SpliceSitePredictor.ShapiroSenapathyDonorTables`), Table 4 (AAV) and Table 5 (p. 7168: published scores of
+real 5' ss of six genes). WebSearch snippets for the U12 consensus (/RTATCCTY, (G/A)TATCCTTT; Hall & Padgett 1994
+ATATCCTT +1..+8; Dietrich et al. 1997: terminal dinucleotides do not decide U2 vs U12). intronIC
+(`raw.githubusercontent.com/glarue/intronIC/master/LICENSE`) = GPL-3 → its U12 PWMs are not bundleable.
+
+Primate Table 1 (A C G T): −3 32 37 19 12; −2 58 13 15 15; −1 10 4 78 8; +1 0 0 100 0; +2 0 0 0 100;
++3 57 2 39 2; +4 71 8 12 9; +5 5 6 84 5; +6 16 15 22 47 (mint 47, maxt 595 over −2..+6).
+
+| check | result |
+|---|---|
+| Table 5 published scores (42 sites: primate 6 + Methods example, rodent 6, other mammal 6, other vertebrate 6, invertebrate 8, plant 9) | 39/42 identical at 1 dp; primate GC/GTGAGT 75.4 vs 75.1 and CG/GTGAGT 88.5 vs 88.4 (Table 1 percentages are rounded); rodent TG/GTACAG 60.9 vs 68.3 (misprint: its rank >100 is below intron 4's 67.2 at rank 71) |
+| Table 4 (AAV, viral) | not reproduced by any subtable (e.g. AAGTCTGT 70.7: viral 70.7, but GAGTCAGT 70.7: viral 74.4, ACGTGAGT 78.7: viral 80.3); the AAV scan evidently used a different table — not used as oracle |
+| Independent Python oracle (S&S all 8 subtables, U12 /RTATCCTY fraction, maxentpy score5 for MaxEnt mode, confidence formulas, motif, windows, N/IUPAC/`-`, case, U) vs C# `FindDonorSites` | 6,016 inputs (6,000 random 0-40 nt incl. lowercase/U/N/R/`-`, planted consensus motifs, random thresholds, both overloads; + HBB, HBA1, TP53, CFTR genomic (Ensembl REST, GRCh38) × {primate, total, plant, maxent}): 357,078 sites (165,352 Donor, 191,726 U12Donor), 0 mismatching inputs, Position/Type/Motif equal, Score and Confidence bit-identical |
+| Real human donors (Ensembl canonical transcripts, 40 donors) | primate S&S 0.684-0.967 (mean 0.84); fraction of all GT with S&S ≥ 0.5: 0.67-0.73 |
+
 ---
 
 ## Assumptions
@@ -236,6 +258,10 @@ All previous assumptions have been eliminated:
 ---
 
 ## Change History
+
+- **2026-11-25 (B11 review, F23-F26)**: default scorer = Shapiro & Senapathy (1987) score (Table 1, all eight
+  subtables; primate default) replacing the binary consensus fraction; full-window-only scoring; U12 donors =
+  /RTATCCTY over +1..+8 with AT and GT starts; `FindDonorSites` MaxEntScan mode; Dataset 5 oracle.
 
 - **2026-02-12**: Initial documentation.
 - **2026-06-25 (MaxEntScan score5)**: IMPLEMENTED the Yeo & Burge (2004) MaxEntScan score5ss

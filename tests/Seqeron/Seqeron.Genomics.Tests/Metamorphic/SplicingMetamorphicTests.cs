@@ -49,19 +49,20 @@ public class SplicingMetamorphicTests
     #region SPLICE-DONOR-001 MON — closer to the consensus raises the score
 
     [Test]
-    [Description("MON: with the invariant GU fixed at one locus, restoring consensus positions monotonically raises the donor score up to the perfect-consensus 1.0.")]
+    [Description("MON: with the invariant GU fixed at one locus, replacing the observed base at a scored position (-2..+6) by a lower-percentage base (Shapiro & Senapathy 1987 Table 1, primate) monotonically lowers the donor score from the perfect 1.0.")]
     public void FindDonorSites_CloserToConsensus_HigherScore()
     {
-        // Donor anchored at index 3 (G of GU). Consensus −3..+5 = MAG|GURAGU → "CAGGUAAGU" scores 1.0.
-        // Each variant restores one more consensus position while keeping GU (indices 3,4) intact.
-        double perfect = DonorScoreAt("CAGGUAAGU", 3); // all 9 positions match consensus
-        double oneOff  = DonorScoreAt("CAGGUACGU", 3); // +3 A→C (one mismatch)
-        double twoOff  = DonorScoreAt("CAGGUACGC", 3); // +3 A→C, +5 U→C (two mismatches)
-        double threeOff = DonorScoreAt("GAGGUACGC", 3); // −3 also broken (three mismatches)
+        // Donor anchored at index 3 (G of GU). "CAGGUAAGU" carries the highest primate percentage
+        // at every scored position -2..+6 ⇒ 1.0. Each variant swaps one more position for a
+        // lower-percentage base while keeping GU (indices 3,4) intact.
+        double perfect = DonorScoreAt("CAGGUAAGU", 3); // all 8 scored positions at their maximum
+        double oneOff  = DonorScoreAt("CAGGUACGU", 3); // +4 A→C (71 → 8)
+        double twoOff  = DonorScoreAt("CAGGUACGC", 3); // + +6 U→C (47 → 15)
+        double threeOff = DonorScoreAt("CCGGUACGC", 3); // + -2 A→C (58 → 13)
 
-        perfect.Should().Be(1.0, because: "every PWM position matches the consensus MAG|GURAGU");
-        perfect.Should().BeGreaterThan(oneOff, because: "breaking a consensus position lowers the averaged PWM score");
-        oneOff.Should().BeGreaterThan(twoOff, because: "a second consensus mismatch lowers the score further");
+        perfect.Should().Be(1.0, because: "every scored position carries its highest Table 1 percentage");
+        perfect.Should().BeGreaterThan(oneOff, because: "a lower-percentage base lowers t and hence the score");
+        oneOff.Should().BeGreaterThan(twoOff, because: "a second lower-percentage base lowers the score further");
         twoOff.Should().BeGreaterThan(threeOff, because: "a third consensus mismatch lowers the score further");
     }
 
