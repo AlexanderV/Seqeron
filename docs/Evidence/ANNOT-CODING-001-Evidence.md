@@ -138,7 +138,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: Empty-table / no-scorable-hexamer return value.** The reference `kmer_ratio` returns -1 when `frame0_count == 0` (a caught `ZeroDivisionError`), but only after the loop runs; this -1 is a degenerate signal, not a true score. The C# port returns **0** in this case, consistent with the documented `len(seq) < word_size → 0` branch (both mean "no hexamer information available"). Changing -1↔0 only affects inputs with zero scorable hexamers, where the score is meaningless either way. Recorded as an assumption because the two reference branches disagree on the sentinel; behavior is otherwise verbatim.
+1. **(Resolved 2026-11-25, F11 — now returns −1 as the reference.) ASSUMPTION: Empty-table / no-scorable-hexamer return value.** The reference `kmer_ratio` returns -1 when `frame0_count == 0` (a caught `ZeroDivisionError`), but only after the loop runs; this -1 is a degenerate signal, not a true score. The C# port returns **0** in this case, consistent with the documented `len(seq) < word_size → 0` branch (both mean "no hexamer information available"). Changing -1↔0 only affects inputs with zero scorable hexamers, where the score is meaningless either way. Recorded as an assumption because the two reference branches disagree on the sentinel; behavior is otherwise verbatim.
 2. **ASSUMPTION: Table units (counts vs proportions).** `kmer_freq_file` stores raw counts; CPAT's distributed prebuilt tables are normalized proportions. `kmer_ratio` divides the stored values directly, so the implementation is agnostic to units as long as both tables use the **same** units (the difference is an additive constant `ln(Σcoding/Σnoncoding)` on the score). The contract documents this; tests use small explicit tables so the expected value is exact regardless.
 
 ---
@@ -168,3 +168,66 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-11-25**: B11 review — kmer_ratio −1 sentinel (F11), Fickett TESTCODE (F12), CPAT end-to-end probability (F13); oracle numbers above.
+
+---
+
+## B11 review (2026-11-25) — Stage A/B sources and oracle numbers
+
+### Sources actually opened
+
+| Source | How | Used for |
+|---|---|---|
+| CPAT 3.0.5 wheel (PyPI `CPAT-3.0.5-py3-none-any.whl`) and the canonical repo `liguowang/cpat` @ `ea5aca3` (git clone) | read `src/cpmodule/FrameKmer.py`, `fickett.py`, `find_orfs.py`, `__init__.py` (`cpat`, `make_logitModel`), `utils.py` (`make_logit`, `coding_prediction`), `docs/index.rst` ("How to choose cutoff"), `prebuilt_models/*`, `test_files/*`, `LICENSE.txt` | numeric oracle (modules imported and the `cpat` CLI run with R) |
+| CPAT `prebuilt_models/{Human,Mouse,Fly,Zebrafish}_logitModel.RData` | `Rscript -e 'load(..); coef(mylogit)'` (R 4.x, Ubuntu `r-base-core`) | logistic coefficients (below) |
+| EMBOSS `tcode.c`, `acd/tcode.acd`, `data/Etcode.dat` (raw.githubusercontent.com/kimrutherford/EMBOSS) and the EMBOSS 6.6.0 `tcode` binary (Ubuntu `emboss`) | read + run | Fickett (1982) tables, window semantics, decision limits; oracle |
+| Fickett JW (1982) NAR 10(17):5303 | via Etcode.dat header ("Fickett TESTCODE data, NAR 10(17) 5303-5318") and EMBOSS docs | the published tables |
+
+### Findings
+
+1. **kmer_ratio no-scorable sentinel (F11).** `kmer_ratio` ends with `try: return sum/frame0_count  except: return -1`; the
+   port returned 0 (former ASSUMPTION-1). CPAT feeds that −1 into its logit model (`cpat` → `Hexamer` column), so 0 changes
+   the CPAT probability. Fixed to −1; `len(seq) < word_size → 0` is unchanged.
+2. **Fickett TESTCODE (F12).** Etcode.dat (= Fickett 1982) has **10** content thresholds `0.33 … 0.21, 0.19, 0.17, 0.00`;
+   CPAT `fickett.py` `content_para` has **9** (`0.19` missing), so every base fraction below 0.19 is read one bin early, and
+   CPAT divides base counts by `len(dna)` (N included) while EMBOSS divides by the A/C/G/T total. Probabilities and weights are
+   identical in both. On 9 961 pure-ACGT oracle sequences the two table sets give different TESTCODE for 3 773 (37.9 %).
+   Both are implemented: `FickettTableSet.Fickett1982` (default, published) and `FickettTableSet.Cpat` (CPAT's feature, used by
+   the CPAT pipeline because the prebuilt models were trained on it).
+3. **CPAT end-to-end (F13).** `cpat` = ORFFinder (start ATG, stops TAG/TAA/TGA, ORF length in nt incl. stop must be > 75,
+   unterminated ORFs run to the last complete codon, non-overlapping per frame, stable sort by length, top 5, optional
+   antisense) → `fickett_value(orf)`, `kmer_ratio(orf, 6, 3)` → R `predict(glm, type="response")` of
+   `Label ~ mRNA + ORF + Fickett + Hexamer`; best ORF = highest probability (`--best-orf p`) or longest (`l`), first wins ties;
+   coding when probability ≥ cutoff (docs "How to choose cutoff": Human ≥ 0.364).
+
+### CPAT prebuilt model coefficients (`coef(mylogit)`) and cutoffs (`*_cutoff.txt`)
+
+| Model | Intercept | mRNA | ORF | Fickett | Hexamer | Cutoff |
+|---|---|---|---|---|---|---|
+| Human | −7.8284881840360567 | −5.4831277888113823e-05 | 1.1187815405519514e-02 | 3.4471695641643225 | 6.0682759241106110 | 0.364 |
+| Mouse | −5.2432067204548787 | −2.3364701142531914e-05 | 7.2163307348391088e-03 | 1.8597333432994831 | 4.0885097023244521 | 0.44 |
+| Fly | −5.9047648492036187 | −1.3499338620287299e-03 | 8.8484442529405058e-03 | 3.0842028897473273 | 2.3996656509599643 | 0.39 |
+| Zebrafish | −9.9669844170330464 | −8.6705713283774381e-04 | 3.3641587583665006e-02 | −0.94240142994620379 | 8.3110800873605637 | 0.381 |
+
+(Cutoff files pair Human 0.364, Mouse 0.44, fly 0.39, zebrafish 0.381.) The prebuilt hexamer tables are **not bundled**: CPAT's
+`LICENSE.txt` is GNU GPL v2+ (the `pyproject.toml` classifier says MIT — conflicting; the licence file governs), and this library
+is MIT — the same reason B04 does not ship TRF's AGPL table. Users load them with `CpatModel.ParseHexamerTable`.
+
+### Oracle cross-check (Stage B)
+
+Inputs: 3 000 seeded random sequences (length 0–3 000; alphabets ACGT, ACGTN, skewed, IUPAC) + CPAT's 8 000 real test
+transcripts (`Human_test_coding_mRNA.fa.gz` 4 000, `Human_test_noncoding_RNA.fa.gz` 4 000) = 11 000 sequences.
+
+| Quantity | Oracle | Result |
+|---|---|---|
+| `CalculateCodingPotential` (Human hexamer table) | CPAT `FrameKmer.kmer_ratio` | **11 000 / 11 000 bit-identical** (59 hit the −1 branch) |
+| `CalculateFickettScore(…, Cpat)` | CPAT `fickett.fickett_value` | **11 000 / 11 000 bit-identical** (after matching CPAT's summation order) |
+| `CalculateFickettScore` (Fickett1982) | exact rational TESTCODE (Python `fractions`) of the Etcode tables | **11 000 / 11 000** equal to the double nearest the exact value |
+| `ScanFickettScore` (300 sequences; window/step 200/3, 250/1, 300/7, 201/50 → 162 971 + 473 841 + 65 747 + 9 908 windows) | EMBOSS 6.6.0 `tcode` binary | coordinates 100 %; every score within EMBOSS's 3-decimal print; calls differ only at the exact limits (200/3: 20 windows exactly 0.95, 5 exactly 0.74). A float32 emulation of `tcode_slide` reproduces the EMBOSS report **byte-identically**, proving those rows are float32 rounding (exact 0.95 summed in float is < 0.95); the published rule (≥ 0.95 coding, < 0.74 non-coding) is applied to the exact value |
+| `PredictCodingProbability` (Human hexamer table + Human_logitModel.RData) | `cpat` CLI 3.0.5 + R, `ORF_prob.tsv` / `ORF_prob.best.tsv` | real set sense: 27 966 / 27 966 ORF rows identical (strand, frame, start, end, length), Fickett rel. diff ≤ 4.1e-16, Hexamer ≤ 4.9e-15, probability ≤ 9.3e-14 (R prints 15 digits); best ORF 7 555 / 7 555; antisense: 34 417 rows, best 7 864 / 7 864; random set: 7 636 + 9 360 rows, best 1 972 + 2 067 — all identical; no-ORF transcripts agree |
+| Classification on CPAT's test set (Human, cutoff 0.364, best-ORF probability) | — | sensitivity 0.977, specificity 0.947 (CPAT reports 0.966 at the TG-ROC optimum on its own 10-fold data) |
+
+Test fixtures (locked in `GenomeAnnotator_CpatCodingProbability_Tests.cs`): five seeded transcripts and a synthetic 4 096-row
+hexamer table (index i in lexicographic order → coding (i mod 7)/1000, non-coding (i mod 5)/1000) run through the real `cpat`
+CLI with `Human_logitModel.RData` (default, `--antisense`, `--best-orf l`, `--start ATG,GTG,TTG --stop TAA,TAG --top-orf 2`) and
+`ORFFinder.orf_candidates(start_coden=[])`; EMBOSS `tcode` rows for transcript t1 (63 windows).

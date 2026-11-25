@@ -86,6 +86,22 @@ public record FindPromoterMotifsResult(IReadOnlyList<PromoterMotif> Motifs);
 /// <summary>Result of coding_potential.</summary>
 public record CodingPotentialResult(double Score);
 
+/// <summary>Result of fickett_score.</summary>
+public record FickettScoreResult(double Score, string Call);
+
+/// <summary>One fickett_scan window (0-based half-open).</summary>
+public record FickettWindowDto(int Start, int End, double Score, string Call);
+
+/// <summary>Result of fickett_scan.</summary>
+public record FickettScanResult(IReadOnlyList<FickettWindowDto> Windows);
+
+/// <summary>One scored CPAT ORF candidate (CPAT 1-based coordinates; '-' ORFs have Start &gt; End).</summary>
+public record CpatOrfDto(string Strand, int Frame, int Start, int End, int OrfLength, string OrfSequence,
+    int MrnaLength, double FickettScore, double HexamerScore, double CodingProbability, bool IsCoding);
+
+/// <summary>Result of cpat_coding_probability: candidates in CPAT order and the index of the best one (-1 if none).</summary>
+public record CpatCodingProbabilityResult(IReadOnlyList<CpatOrfDto> Candidates, int BestIndex);
+
 /// <summary>Result of find_repetitive_elements.</summary>
 public record FindRepetitiveElementsResult(IReadOnlyList<RepetitiveElement> Repeats);
 

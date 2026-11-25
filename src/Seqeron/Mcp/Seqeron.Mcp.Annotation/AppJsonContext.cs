@@ -31,6 +31,11 @@ namespace Seqeron.Mcp.Annotation.Json;
 [JsonSerializable(typeof(ToGff3Result))]
 [JsonSerializable(typeof(FindPromoterMotifsResult))]
 [JsonSerializable(typeof(CodingPotentialResult))]
+[JsonSerializable(typeof(FickettScoreResult))]
+[JsonSerializable(typeof(FickettWindowDto))]
+[JsonSerializable(typeof(FickettScanResult))]
+[JsonSerializable(typeof(CpatOrfDto))]
+[JsonSerializable(typeof(CpatCodingProbabilityResult))]
 [JsonSerializable(typeof(FindRepetitiveElementsResult))]
 [JsonSerializable(typeof(CodonUsageResult))]
 // VariantCaller — shared DTOs

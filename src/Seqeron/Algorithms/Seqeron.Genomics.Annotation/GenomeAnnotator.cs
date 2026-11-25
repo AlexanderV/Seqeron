@@ -1029,6 +1029,13 @@ public static class GenomeAnnotator
     private const int HexamerStepSize = 3;
 
     /// <summary>
+    /// Hexamer score returned when no in-frame hexamer is scorable: CPAT
+    /// <c>FrameKmer.kmer_ratio</c> catches the division by a zero count and
+    /// returns −1 (CPAT 3.0.5, liguowang/cpat <c>src/cpmodule/FrameKmer.py</c>).
+    /// </summary>
+    private const double NoScorableHexamerScore = -1.0;
+
+    /// <summary>
     /// Calculates the coding potential of a DNA sequence using the CPAT hexamer
     /// usage-bias log-likelihood score (Wang et al. 2013).
     /// </summary>
@@ -1047,8 +1054,10 @@ public static class GenomeAnnotator
     /// <returns>
     /// The mean per-hexamer log-likelihood ratio. Positive values indicate a
     /// coding sequence, negative values a non-coding sequence. Returns 0 when the
-    /// sequence is shorter than <paramref name="wordSize"/> or when no scorable
-    /// hexamer is found.
+    /// sequence is shorter than <paramref name="wordSize"/>, and −1 when the
+    /// sequence is long enough but no in-frame hexamer is scorable (every word is
+    /// missing from a table or has both frequencies 0) — both exactly as the CPAT
+    /// reference <c>kmer_ratio</c>.
     /// </returns>
     /// <remarks>
     /// Implements <c>FrameKmer.kmer_ratio</c> (frame 0) from the CPAT reference
@@ -1106,10 +1115,517 @@ public static class GenomeAnnotator
             scoredHexamers++;
         }
 
-        if (scoredHexamers == 0) return 0;
+        // kmer_ratio: `try: return sum/frame0_count  except: return -1` — when no hexamer
+        // was scored (ZeroDivisionError) the reference returns -1, and CPAT feeds that -1
+        // into its logistic model as the Hexamer feature (CPAT 3.0.5 cpmodule/FrameKmer.py).
+        if (scoredHexamers == 0) return NoScorableHexamerScore;
 
         return sumOfLogRatio / scoredHexamers;
     }
+
+    #region Fickett TESTCODE (Fickett 1982)
+
+    /// <summary>
+    /// Which Fickett TESTCODE look-up tables (and composition convention) to use.
+    /// </summary>
+    public enum FickettTableSet
+    {
+        /// <summary>
+        /// The published Fickett (1982) tables as distributed with EMBOSS <c>tcode</c>
+        /// (<c>Etcode.dat</c>, "Fickett TESTCODE data, NAR 10(17) 5303-5318"): ten position
+        /// thresholds 1.9…1.1, 0.0 and ten content thresholds 0.33…0.19, 0.17, 0.00. Base
+        /// composition is counted over A/C/G/T only, as <c>tcode_slide</c> does.
+        /// </summary>
+        Fickett1982,
+
+        /// <summary>
+        /// The table set of CPAT 3.0.5 <c>cpmodule/fickett.py</c> (<c>fickett_value</c>): identical
+        /// probabilities and weights, but the content thresholds omit 0.19
+        /// (0.33…0.21, 0.17, 0), base fractions are divided by the full sequence length, and
+        /// sequences shorter than 2 nt score 0. CPAT's prebuilt logistic models were trained on
+        /// this feature, so <see cref="PredictCodingProbability"/> uses it.
+        /// </summary>
+        Cpat,
+    }
+
+    /// <summary>Fickett (1982) three-way call for a TESTCODE value.</summary>
+    public enum FickettCodingCall
+    {
+        /// <summary>TESTCODE &lt; 0.74 — predicted non-coding.</summary>
+        NonCoding,
+
+        /// <summary>0.74 ≤ TESTCODE &lt; 0.95 — no opinion.</summary>
+        NoOpinion,
+
+        /// <summary>TESTCODE ≥ 0.95 — predicted coding.</summary>
+        Coding,
+    }
+
+    /// <summary>One EMBOSS <c>tcode</c> window: half-open 0-based [Start, End), its TESTCODE and call.</summary>
+    public readonly record struct FickettWindow(int Start, int End, double Score, FickettCodingCall Call);
+
+    // Fickett (1982) position-parameter thresholds (max/(min+1) of the per-phase counts),
+    // highest first; identical in EMBOSS Etcode.dat and CPAT fickett.py `position_para`.
+    private static readonly double[] FickettPositionThresholds =
+        { 1.9, 1.8, 1.7, 1.6, 1.5, 1.4, 1.3, 1.2, 1.1, 0.0 };
+
+    // Fickett (1982) composition-parameter thresholds (EMBOSS Etcode.dat "Content parameter values").
+    private static readonly double[] FickettContentThresholds1982 =
+        { 0.33, 0.31, 0.29, 0.27, 0.25, 0.23, 0.21, 0.19, 0.17, 0.0 };
+
+    // CPAT 3.0.5 fickett.py `content_para`: the 1982 list without 0.19 (9 entries).
+    private static readonly double[] FickettContentThresholdsCpat =
+        { 0.33, 0.31, 0.29, 0.27, 0.25, 0.23, 0.21, 0.17, 0.0 };
+
+    // Probability that a region whose parameter falls in each threshold bin is coding,
+    // indexed [base A,C,G,T][bin] (Etcode.dat ≡ CPAT position_prob / content_prob).
+    private static readonly double[][] FickettPositionProbabilities =
+    {
+        new[] { 0.94, 0.68, 0.84, 0.93, 0.58, 0.68, 0.45, 0.34, 0.20, 0.22 },
+        new[] { 0.80, 0.70, 0.70, 0.81, 0.66, 0.48, 0.51, 0.33, 0.30, 0.23 },
+        new[] { 0.90, 0.88, 0.74, 0.64, 0.53, 0.48, 0.27, 0.16, 0.08, 0.08 },
+        new[] { 0.97, 0.97, 0.91, 0.68, 0.69, 0.44, 0.54, 0.20, 0.09, 0.09 },
+    };
+
+    private static readonly double[][] FickettContentProbabilities =
+    {
+        new[] { 0.28, 0.49, 0.44, 0.55, 0.62, 0.49, 0.67, 0.65, 0.81, 0.21 },
+        new[] { 0.82, 0.64, 0.51, 0.64, 0.59, 0.59, 0.43, 0.44, 0.39, 0.31 },
+        new[] { 0.40, 0.54, 0.47, 0.64, 0.64, 0.73, 0.41, 0.41, 0.33, 0.29 },
+        new[] { 0.28, 0.24, 0.39, 0.40, 0.55, 0.75, 0.56, 0.69, 0.51, 0.58 },
+    };
+
+    // Per-base weights (A,C,G,T) for the position and composition terms.
+    private static readonly double[] FickettPositionWeights = { 0.26, 0.18, 0.31, 0.33 };
+    private static readonly double[] FickettContentWeights = { 0.11, 0.12, 0.15, 0.14 };
+
+    // Fickett (1982) decision limits, as applied by EMBOSS tcode_report.
+    private const double FickettNonCodingLimit = 0.74;
+    private const double FickettCodingLimit = 0.95;
+
+    // EMBOSS tcode.acd: window default 200 (minimum 200), step default 3 (minimum 1).
+    private const int FickettMinimumWindow = 200;
+    private const int FickettDefaultStep = 3;
+
+    // CPAT fickett_value: `if len(dna) < 2: return 0`.
+    private const int CpatFickettMinimumLength = 2;
+
+    private const string FickettBases = "ACGT";
+
+    // Probabilities × weights are products of two-decimal values: exact to 4 decimals.
+    private const int FickettScoreDecimals = 4;
+
+    /// <summary>
+    /// Computes the Fickett (1982) TESTCODE statistic of a whole sequence with the published
+    /// tables (<see cref="FickettTableSet.Fickett1982"/>).
+    /// </summary>
+    /// <param name="sequence">DNA sequence (case-insensitive).</param>
+    /// <returns>The TESTCODE value (≥ 0.95 coding, &lt; 0.74 non-coding; see <see cref="ClassifyFickettScore"/>).</returns>
+    public static double CalculateFickettScore(string sequence)
+        => CalculateFickettScore(sequence, FickettTableSet.Fickett1982);
+
+    /// <summary>
+    /// Computes the Fickett TESTCODE statistic of a whole sequence.
+    /// </summary>
+    /// <remarks>
+    /// For each base b the position parameter is <c>max(b₁,b₂,b₃)/(min(b₁,b₂,b₃)+1)</c> over the
+    /// counts of b in codon phases 1–3, and the content parameter is the fraction of b. Each
+    /// parameter is mapped to the first threshold bin it reaches (value ≥ threshold), the bin's
+    /// coding probability is multiplied by the base's weight, and the eight products are summed
+    /// (Fickett 1982, NAR 10(17):5303; EMBOSS <c>tcode_slide</c>; CPAT <c>fickett_value</c>).
+    /// <see cref="FickettTableSet.Fickett1982"/> counts composition over A/C/G/T (EMBOSS) and
+    /// returns 0 for a sequence with no A/C/G/T (no composition information).
+    /// <see cref="FickettTableSet.Cpat"/> reproduces CPAT verbatim (see the enum member).
+    /// </remarks>
+    /// <param name="sequence">DNA sequence (case-insensitive).</param>
+    /// <param name="tables">Table set / convention.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tables"/> is not a defined value.</exception>
+    public static double CalculateFickettScore(string sequence, FickettTableSet tables)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return tables switch
+        {
+            FickettTableSet.Fickett1982 => FickettScore(sequence.AsSpan(), FickettContentThresholds1982, cpatConvention: false),
+            FickettTableSet.Cpat => FickettScore(sequence.AsSpan(), FickettContentThresholdsCpat, cpatConvention: true),
+            _ => throw new ArgumentOutOfRangeException(nameof(tables), tables, "Unknown Fickett table set."),
+        };
+    }
+
+    /// <summary>
+    /// Fickett (1982) decision for a TESTCODE value: &lt; 0.74 non-coding, ≥ 0.95 coding,
+    /// otherwise no opinion (EMBOSS <c>tcode_report</c>).
+    /// </summary>
+    public static FickettCodingCall ClassifyFickettScore(double score)
+    {
+        if (score < FickettNonCodingLimit) return FickettCodingCall.NonCoding;
+        if (score >= FickettCodingLimit) return FickettCodingCall.Coding;
+        return FickettCodingCall.NoOpinion;
+    }
+
+    /// <summary>
+    /// Slides a window along the sequence and reports the Fickett (1982) TESTCODE of each
+    /// window, as EMBOSS <c>tcode</c>: windows start at 0, 0+step, … while
+    /// <c>start + window &lt; length</c> (EMBOSS's strict loop bound, so the window that would end
+    /// exactly at the sequence end is not scored), using the <see cref="FickettTableSet.Fickett1982"/> tables.
+    /// </summary>
+    /// <param name="sequence">DNA sequence (case-insensitive).</param>
+    /// <param name="windowSize">Window length; at least 200 (EMBOSS / Fickett minimum).</param>
+    /// <param name="stepSize">Window step (default 3, minimum 1).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">window &lt; 200 or step &lt; 1.</exception>
+    public static IReadOnlyList<FickettWindow> ScanFickettScore(
+        string sequence,
+        int windowSize = FickettMinimumWindow,
+        int stepSize = FickettDefaultStep)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, FickettMinimumWindow);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stepSize);
+
+        var windows = new List<FickettWindow>();
+        for (int pos = 0; pos + windowSize < sequence.Length; pos += stepSize)
+        {
+            double score = FickettScore(sequence.AsSpan(pos, windowSize), FickettContentThresholds1982, cpatConvention: false);
+            windows.Add(new FickettWindow(pos, pos + windowSize, score, ClassifyFickettScore(score)));
+        }
+
+        return windows;
+    }
+
+    private static double FickettScore(ReadOnlySpan<char> sequence, double[] contentThresholds, bool cpatConvention)
+    {
+        if (cpatConvention && sequence.Length < CpatFickettMinimumLength) return 0;
+
+        // counts[phase, base]
+        Span<int> counts = stackalloc int[3 * 4];
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            int b = FickettBases.IndexOf(char.ToUpperInvariant(sequence[i]));
+            if (b >= 0) counts[(i % 3) * 4 + b]++;
+        }
+
+        int acgt = 0;
+        for (int k = 0; k < counts.Length; k++) acgt += counts[k];
+        if (!cpatConvention && acgt == 0) return 0;
+
+        // CPAT divides by len(dna) (all characters); EMBOSS by the A/C/G/T total.
+        double denominator = cpatConvention ? sequence.Length : acgt;
+
+        Span<double> contentTerms = stackalloc double[4];
+        Span<double> positionTerms = stackalloc double[4];
+        for (int b = 0; b < 4; b++)
+        {
+            int c0 = counts[b], c1 = counts[4 + b], c2 = counts[8 + b];
+            double content = (c0 + c1 + c2) / denominator;
+            double position = Math.Max(c0, Math.Max(c1, c2)) / (Math.Min(c0, Math.Min(c1, c2)) + 1.0);
+
+            contentTerms[b] = FickettContentProbabilities[b][FickettBin(content, contentThresholds)] * FickettContentWeights[b];
+            positionTerms[b] = FickettPositionProbabilities[b][FickettBin(position, FickettPositionThresholds)] * FickettPositionWeights[b];
+        }
+
+        // Summation order of the references (bit-exact): EMBOSS testcode = p1..p4 (position)
+        // + p5..p8 (content); CPAT adds the four content terms first, then the position terms.
+        Span<double> first = cpatConvention ? contentTerms : positionTerms;
+        Span<double> second = cpatConvention ? positionTerms : contentTerms;
+        double score = 0;
+        for (int b = 0; b < 4; b++) score += first[b];
+        for (int b = 0; b < 4; b++) score += second[b];
+
+        // Every probability and weight has two decimals, so the exact TESTCODE is a multiple of
+        // 1e-4. The published statistic is returned as that exact value (nearest double), so the
+        // 0.74 / 0.95 decision limits are applied without floating-point summation noise. The CPAT
+        // feature keeps CPAT's raw float sum (bit-exact with fickett_value).
+        return cpatConvention ? score : Math.Round(score, FickettScoreDecimals);
+    }
+
+    // First bin whose threshold the value reaches (EMBOSS tcode_index / CPAT look_up_*_prob).
+    private static int FickettBin(double value, double[] thresholds)
+    {
+        for (int i = 0; i < thresholds.Length; i++)
+            if (value >= thresholds[i]) return i;
+        return thresholds.Length - 1; // unreachable for value ≥ 0 (last threshold is 0)
+    }
+
+    #endregion
+
+    #region CPAT coding probability (Wang et al. 2013)
+
+    /// <summary>
+    /// A CPAT model: in-frame hexamer frequency tables plus the logistic-regression
+    /// coefficients of <c>Label ~ mRNA + ORF + Fickett + Hexamer</c> (CPAT <c>make_logitModel</c>)
+    /// and the coding-probability cutoff.
+    /// </summary>
+    /// <remarks>
+    /// CPAT's prebuilt Human/Mouse/Fly/Zebrafish tables and models are distributed under the GNU
+    /// GPL (CPAT <c>LICENSE.txt</c>) and are therefore not bundled with this MIT library; load
+    /// them with <see cref="ParseHexamerTable"/> and the coefficients printed by
+    /// <c>coef(mylogit)</c> (the Human values are listed in the ANNOT-CODING-001 Evidence).
+    /// </remarks>
+    public sealed class CpatModel
+    {
+        /// <summary>Creates a model.</summary>
+        /// <exception cref="ArgumentNullException">A table is null.</exception>
+        /// <exception cref="ArgumentException">A coefficient or the cutoff is not finite, or the cutoff is outside [0, 1].</exception>
+        public CpatModel(
+            IReadOnlyDictionary<string, double> codingHexamerFrequencies,
+            IReadOnlyDictionary<string, double> noncodingHexamerFrequencies,
+            double intercept,
+            double mrnaLengthCoefficient,
+            double orfLengthCoefficient,
+            double fickettCoefficient,
+            double hexamerCoefficient,
+            double codingProbabilityCutoff)
+        {
+            ArgumentNullException.ThrowIfNull(codingHexamerFrequencies);
+            ArgumentNullException.ThrowIfNull(noncodingHexamerFrequencies);
+            foreach (double v in new[] { intercept, mrnaLengthCoefficient, orfLengthCoefficient, fickettCoefficient, hexamerCoefficient })
+                if (!double.IsFinite(v)) throw new ArgumentException("Logistic coefficients must be finite.");
+            if (!double.IsFinite(codingProbabilityCutoff) || codingProbabilityCutoff < 0 || codingProbabilityCutoff > 1)
+                throw new ArgumentException("Coding-probability cutoff must lie in [0, 1].", nameof(codingProbabilityCutoff));
+
+            CodingHexamerFrequencies = codingHexamerFrequencies;
+            NoncodingHexamerFrequencies = noncodingHexamerFrequencies;
+            Intercept = intercept;
+            MrnaLengthCoefficient = mrnaLengthCoefficient;
+            OrfLengthCoefficient = orfLengthCoefficient;
+            FickettCoefficient = fickettCoefficient;
+            HexamerCoefficient = hexamerCoefficient;
+            CodingProbabilityCutoff = codingProbabilityCutoff;
+        }
+
+        /// <summary>In-frame hexamer frequencies of the coding training set.</summary>
+        public IReadOnlyDictionary<string, double> CodingHexamerFrequencies { get; }
+
+        /// <summary>In-frame hexamer frequencies of the non-coding training set.</summary>
+        public IReadOnlyDictionary<string, double> NoncodingHexamerFrequencies { get; }
+
+        /// <summary>Logistic intercept.</summary>
+        public double Intercept { get; }
+
+        /// <summary>Coefficient of the transcript (mRNA) length.</summary>
+        public double MrnaLengthCoefficient { get; }
+
+        /// <summary>Coefficient of the ORF length (nt, stop codon included).</summary>
+        public double OrfLengthCoefficient { get; }
+
+        /// <summary>Coefficient of the Fickett TESTCODE (CPAT table set).</summary>
+        public double FickettCoefficient { get; }
+
+        /// <summary>Coefficient of the hexamer score.</summary>
+        public double HexamerCoefficient { get; }
+
+        /// <summary>Coding probability at or above which a transcript is called coding (CPAT TG-ROC cutoff).</summary>
+        public double CodingProbabilityCutoff { get; }
+
+        /// <summary>
+        /// Logistic response <c>1/(1+e^−η)</c>, η = intercept + Σ coefficient·feature — R
+        /// <c>predict(mylogit, newdata, type="response")</c> as called by CPAT <c>coding_prediction</c>.
+        /// </summary>
+        public double PredictProbability(int mrnaLength, int orfLength, double fickettScore, double hexamerScore)
+        {
+            double eta = Intercept
+                + MrnaLengthCoefficient * mrnaLength
+                + OrfLengthCoefficient * orfLength
+                + FickettCoefficient * fickettScore
+                + HexamerCoefficient * hexamerScore;
+            return 1.0 / (1.0 + Math.Exp(-eta));
+        }
+
+        /// <summary>
+        /// Parses a CPAT hexamer table (<c>make_hexamer_tab</c> output / <c>*_Hexamer.tsv</c>):
+        /// whitespace-separated <c>hexamer coding noncoding</c> rows, the header row whose first
+        /// field is <c>hexamer</c> skipped, as CPAT's reader. Blank lines are skipped.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="lines"/> is null.</exception>
+        /// <exception cref="FormatException">A row has fewer than three fields or a non-numeric frequency.</exception>
+        public static (IReadOnlyDictionary<string, double> Coding, IReadOnlyDictionary<string, double> Noncoding)
+            ParseHexamerTable(IEnumerable<string> lines)
+        {
+            ArgumentNullException.ThrowIfNull(lines);
+            var coding = new Dictionary<string, double>(StringComparer.Ordinal);
+            var noncoding = new Dictionary<string, double>(StringComparer.Ordinal);
+            foreach (string raw in lines)
+            {
+                string[] fields = raw.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (fields.Length == 0 || fields[0] == "hexamer") continue;
+                if (fields.Length < 3)
+                    throw new FormatException($"CPAT hexamer row needs 'hexamer coding noncoding': '{raw}'.");
+                coding[fields[0]] = double.Parse(fields[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
+                noncoding[fields[0]] = double.Parse(fields[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            return (coding, noncoding);
+        }
+    }
+
+    /// <summary>CPAT ORF-search options (defaults = CPAT 3.0.5 command-line defaults).</summary>
+    public sealed record CpatOptions
+    {
+        /// <summary>Start codons (<c>--start</c>, default ATG). Empty: any non-stop codon opens an ORF.</summary>
+        public IReadOnlyList<string> StartCodons { get; init; } = new[] { "ATG" };
+
+        /// <summary>Stop codons (<c>--stop</c>, default TAG, TAA, TGA).</summary>
+        public IReadOnlyList<string> StopCodons { get; init; } = new[] { "TAG", "TAA", "TGA" };
+
+        /// <summary>An ORF is kept when its length in nt (stop included) is strictly greater than this (<c>--min-orf</c>, default 75).</summary>
+        public int MinOrfLength { get; init; } = 75;
+
+        /// <summary>Number of longest ORF candidates scored (<c>--top-orf</c>, default 5).</summary>
+        public int TopOrfCount { get; init; } = 5;
+
+        /// <summary>Also search the reverse complement (<c>--antisense</c>, default false).</summary>
+        public bool SearchAntisense { get; init; }
+    }
+
+    /// <summary>
+    /// One scored CPAT ORF candidate. Coordinates follow CPAT's <c>ORF_info</c> output: 1-based on the
+    /// input transcript; for '+' <c>Start</c> ≤ <c>End</c>, for '−' <c>Start</c> &gt; <c>End</c>
+    /// (CPAT reports the antisense ORF from its 5' end). <c>Frame</c> is 1–3 on the searched strand.
+    /// </summary>
+    public sealed record CpatOrfPrediction(
+        char Strand,
+        int Frame,
+        int Start,
+        int End,
+        int OrfLength,
+        string OrfSequence,
+        int MrnaLength,
+        double FickettScore,
+        double HexamerScore,
+        double CodingProbability,
+        bool IsCoding);
+
+    /// <summary>
+    /// CPAT (Wang et al. 2013, CPAT 3.0.5): finds ORF candidates, scores each with ORF length,
+    /// transcript length, Fickett TESTCODE (<see cref="FickettTableSet.Cpat"/>) and the hexamer
+    /// score (<see cref="CalculateCodingPotential"/>), and returns their logistic coding probabilities.
+    /// </summary>
+    /// <remarks>
+    /// ORF search is CPAT <c>ORFFinder</c>: per frame (0,1,2 of the sense strand, then of the reverse
+    /// complement when <see cref="CpatOptions.SearchAntisense"/>), codons are read left to right; a start
+    /// codon opens an ORF that runs to and includes the next in-frame stop codon, or to the last complete
+    /// codon when none follows; scanning resumes after it, so nested starts are not separate ORFs. ORFs
+    /// longer than <see cref="CpatOptions.MinOrfLength"/> nt are ranked by length (stable, sense frames
+    /// first) and the top <see cref="CpatOptions.TopOrfCount"/> are scored. This differs from
+    /// <see cref="FindOrfs"/> (every nested ATG/GTG/TTG start, stop-terminated ORFs only), so it is a
+    /// separate scanner. CPAT: Wang L et al. (2013) NAR 41(6):e74, https://doi.org/10.1093/nar/gkt006.
+    /// </remarks>
+    /// <param name="transcript">Transcript DNA sequence (case-insensitive; use T, not U).</param>
+    /// <param name="model">Hexamer tables + logistic model.</param>
+    /// <param name="options">ORF-search options (CPAT defaults when null).</param>
+    /// <returns>The scored candidates in CPAT order (longest first); empty when no ORF qualifies.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="transcript"/> or <paramref name="model"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">MinOrfLength &lt; 0 or TopOrfCount &lt; 1.</exception>
+    public static IReadOnlyList<CpatOrfPrediction> PredictCodingProbability(
+        string transcript,
+        CpatModel model,
+        CpatOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+        ArgumentNullException.ThrowIfNull(model);
+        options ??= new CpatOptions();
+        ArgumentNullException.ThrowIfNull(options.StartCodons);
+        ArgumentNullException.ThrowIfNull(options.StopCodons);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.MinOrfLength);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.TopOrfCount);
+
+        string seq = transcript.ToUpperInvariant();
+        var starts = new HashSet<string>(options.StartCodons.Select(c => c.ToUpperInvariant()), StringComparer.Ordinal);
+        var stops = new HashSet<string>(options.StopCodons.Select(c => c.ToUpperInvariant()), StringComparer.Ordinal);
+
+        var candidates = new List<(char Strand, int Frame, int Start, int End, string Sequence)>();
+        for (int frame = 0; frame < 3; frame++)
+            FindCpatOrfsInFrame(seq, frame, '+', starts, stops, options.MinOrfLength, candidates);
+        if (options.SearchAntisense)
+        {
+            string reverse = DnaSequence.GetReverseComplementString(seq);
+            for (int frame = 0; frame < 3; frame++)
+                FindCpatOrfsInFrame(reverse, frame, '-', starts, stops, options.MinOrfLength, candidates);
+        }
+
+        int mrnaLength = seq.Length;
+        var predictions = new List<CpatOrfPrediction>();
+        // Python sorted(..., key=length, reverse=True) is stable: OrderByDescending is too.
+        foreach (var orf in candidates.OrderByDescending(o => o.Sequence.Length).Take(options.TopOrfCount))
+        {
+            double fickett = CalculateFickettScore(orf.Sequence, FickettTableSet.Cpat);
+            double hexamer = CalculateCodingPotential(orf.Sequence, model.CodingHexamerFrequencies, model.NoncodingHexamerFrequencies);
+            int orfLength = orf.Sequence.Length;
+            double probability = model.PredictProbability(mrnaLength, orfLength, fickett, hexamer);
+
+            // CPAT reports 1-based coordinates: '+' → (start+1, end); '−' → (L − start, L − end + 1).
+            (int start, int end) = orf.Strand == '+'
+                ? (orf.Start + 1, orf.End)
+                : (mrnaLength - orf.Start, mrnaLength - orf.End + 1);
+
+            predictions.Add(new CpatOrfPrediction(
+                orf.Strand, orf.Frame, start, end, orfLength, orf.Sequence, mrnaLength,
+                fickett, hexamer, probability, probability >= model.CodingProbabilityCutoff));
+        }
+
+        return predictions;
+    }
+
+    /// <summary>
+    /// CPAT best ORF of a transcript (<c>ORF_prob.best.tsv</c>): among the scored candidates the
+    /// one with the highest coding probability (CPAT <c>--best-orf p</c>, default) or the longest
+    /// (<c>--best-orf l</c>); ties keep the earlier candidate. Null when no ORF qualifies.
+    /// </summary>
+    public static CpatOrfPrediction? PredictBestCodingOrf(
+        string transcript,
+        CpatModel model,
+        CpatOptions? options = null,
+        bool selectByLength = false)
+    {
+        CpatOrfPrediction? best = null;
+        foreach (var candidate in PredictCodingProbability(transcript, model, options))
+        {
+            if (best is null
+                || (selectByLength ? candidate.OrfLength > best.OrfLength : candidate.CodingProbability > best.CodingProbability))
+                best = candidate;
+        }
+
+        return best;
+    }
+
+    // CPAT find_orfs.ORFFinder.run_one for one frame of one strand.
+    private static void FindCpatOrfsInFrame(
+        string seq,
+        int frame,
+        char strand,
+        HashSet<string> starts,
+        HashSet<string> stops,
+        int minOrfLength,
+        List<(char Strand, int Frame, int Start, int End, string Sequence)> result)
+    {
+        int i = frame;
+        while (i + CodonLength <= seq.Length)
+        {
+            string codon = seq.Substring(i, CodonLength);
+            int orfStart = i;
+            i += CodonLength;
+
+            bool opens = starts.Count > 0 ? starts.Contains(codon) : !stops.Contains(codon);
+            if (!opens) continue;
+
+            // Read to the next stop (inclusive) or to the last complete codon.
+            int lastCodon = orfStart;
+            while (i + CodonLength <= seq.Length)
+            {
+                lastCodon = i;
+                bool isStop = stops.Contains(seq.Substring(i, CodonLength));
+                i += CodonLength;
+                if (isStop) break;
+            }
+
+            int orfEnd = lastCodon + CodonLength;
+            if (orfEnd - orfStart > minOrfLength)
+                result.Add((strand, frame + 1, orfStart, orfEnd, seq.Substring(orfStart, orfEnd - orfStart)));
+        }
+    }
+
+    #endregion
 
     // Tandem-repeat unit upper bound. Microsatellite (STR) motifs are 1-6 bp and
     // minisatellite (VNTR) motifs 10-60 bp per Wikipedia "Tandem repeat" (cites
