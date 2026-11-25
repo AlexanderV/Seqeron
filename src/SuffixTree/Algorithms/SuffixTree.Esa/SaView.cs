@@ -119,10 +119,14 @@ internal readonly unsafe struct SaView
         if (start < 0 || destination.Length > _count - start) ThrowOutside(start);
         if (_array is not null) _array.AsSpan((int)start, destination.Length).CopyTo(destination);
         else if ((_flags & Bridged) == 0) new ReadOnlySpan<int>(_pointer + start, destination.Length).CopyTo(destination);
-        else
-        {
-            for (int i = 0; i < destination.Length; i++) destination[i] = IntBridge.Value(ReadUnchecked(start + i), "a suffix array entry");
-        }
+        else CopyBridged(start, destination);
+    }
+
+    /// <summary>The bulk copy of a bridged section (out of line, so that the copy of an array and of a 4-byte section stays the small code of S1: the locate of a short pattern ends in it).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void CopyBridged(long start, Span<int> destination)
+    {
+        for (int i = 0; i < destination.Length; i++) destination[i] = IntBridge.Value(ReadUnchecked(start + i), "a suffix array entry");
     }
 
     /// <summary>Copies <c>destination.Length</c> entries that start at the 64-bit rank <paramref name="start"/>; the range is always checked.</summary>
@@ -137,7 +141,7 @@ internal readonly unsafe struct SaView
     internal int[] ToArray(long start, int count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        var result = new int[count];
+        int[] result = GC.AllocateUninitializedArray<int>(count); // every entry is written by the copy below (a failed copy drops the array): no zeroing of the 6 KB that the locate of 1,500 hits returns
         CopyTo(start, result);
         return result;
     }
