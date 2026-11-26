@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "mafft_command_last",
+  "serverName": "Last",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "Seqeron.Genomics.Alignment.MafftProgram.Run",
+  "docRef": "Seqeron.Genomics.Alignment/MafftProgram.cs#L55",
+  "description": "The script mafft of MAFFT 7.505 as a function of its command line and the text of the files it names (MafftProgram.Run), with the programs lastdb and lastal of LAST 1256 (ported, GPL) installed: --lastpair aligns every pair of nucleotide sequences with lastal (Last-INS-1). pairlocalalign -R of MAFFT 7.505 overflows its heap when three or more sequences are related (valgrind: invalid writes behind the rows of its table of local homologies; the run then crashes): such runs are refused with an error, the runs with two sequences and the runs without hits are answered. --lastmultipair stops with the messages of the script (it needs --addfragments, and dndpre does not know -Q).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "arguments": {
+        "type": "array",
+        "description": "The command-line arguments of mafft, one per element, the input file LAST (for example [\"--lastpair\", \"--clustalout\", \"in.fa\"]).",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      },
+      "files": {
+        "type": "object",
+        "description": "The text of the files the arguments name: file name -> content (the input FASTA, --addfragments / --add / --merge / --seed files ...)."
+      },
+      "stdin": {
+        "type": "string",
+        "description": "Text of standard input (read when the input file is '-')."
+      }
+    },
+    "required": [
+      "arguments"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "exitCode": {
+        "type": "integer",
+        "description": "Exit status of the script"
+      },
+      "stdout": {
+        "type": "string",
+        "description": "Standard output (the alignment)"
+      },
+      "stderr": {
+        "type": "string",
+        "description": "Standard error (the messages of the programs and of the script)"
+      },
+      "files": {
+        "type": "object",
+        "description": "The files the run wrote (tree and distance files ...)"
+      }
+    },
+    "required": [
+      "exitCode",
+      "stdout",
+      "stderr",
+      "files"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "arguments must contain the command-line arguments of mafft (the input file last)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Two related sequences",
+      "input": {
+        "arguments": [
+          "--lastpair",
+          "in.fa"
+        ],
+        "files": {
+          "in.fa": ">a\nACGTTGCATGCATTAGCATCGATCGGATCGATTGCATCGATCGGATTAGCATCGAGGATCGATTAGGCTAGCTAGCTAGGATCGATC\n>b\nACGTTGCATGCATTAGCATCGATCGGATCGATTGCATCGATCGGATTAGCATCGAGGATCGATTAGGCTAGCTAGCTAGGATCGATC\n"
+        }
+      },
+      "output": {
+        "exitCode": 0,
+        "stdout": ">a\nacgttgcatgcattagcatcgatcggatcgattgcatcgatcggattagcatcgaggatcgattaggctagctagctaggatcgatc\n>b\nacgttgcatgcattagcatcgatcggatcgattgcatcgatcggattagcatcgaggatcgattaggctagctagctaggatcgatc\n",
+        "stderr": "(the messages of pairlocalalign, lastal and tbfast; ends with 'Pairwise alignments were computed by LAST')"
+      }
+    }
+  ]
+}

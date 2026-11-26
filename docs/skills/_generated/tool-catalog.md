@@ -514,6 +514,12 @@
 | `write_alignment` | `EmbossAlignmentWriter.Format` | [doc](../../mcp/tools/embosssequenceformats/write_alignment.md) |
 | `yank` | `EmbossProgramRunner.Run` | [doc](../../mcp/tools/embosssequenceformats/yank.md) |
 
+## Last (1 tools)
+
+| tool | Method ID | doc |
+|------|-----------|-----|
+| `mafft_command_last` | `Seqeron.Genomics.Alignment.MafftProgram.Run` | [doc](../../mcp/tools/last/mafft_command_last.md) |
+
 ## Metagenomics (19 tools)
 
 | tool | Method ID | doc |

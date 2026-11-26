@@ -248,7 +248,7 @@ public static partial class SequenceAligner
             _ = _sw;
 
             // ---- the programs that must be installed (mafft.tmpl 1640 - 1740): fasta34 is part of the port (the installation of the oracle has it)
-            if (_distance is "last" or "lastmulti")
+            if (_distance is "last" or "lastmulti" && _installation.Last is null)
             {
                 Err("\n== Install LAST ============================================================\nLAST (Kielbasa, Wan, Sato, Horton, Frith 2011 Genome Res. 21:487) is required.\nhttp://last.cbrc.jp/\nhttp://mafft.cbrc.jp/alignment/software/xxxxxxx.html \n============================================================================\n\n");
                 Exit(1);
@@ -517,8 +517,8 @@ public static partial class SequenceAligner
                     }
                 }
                 _nadd = nadd;
-                if (_fragment != 0 && _distance is not ("ktuples" or "ktuplesmulti" or "multi" or "hybrid" or "local"))
-                    NeedPort("--addfragments / --addfull / --addlong / --addtotop with --lastpair / --lastmultipair (needs the program lastal)");
+                if (_fragment != 0 && _distance is not ("ktuples" or "ktuplesmulti" or "multi" or "hybrid" or "local" or "last" or "lastmulti"))
+                    NeedPort("--addfragments / --addfull / --addlong / --addtotop with this pair option");
             }
             else if (_add2ndhalfarg != " ")
             {

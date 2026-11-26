@@ -403,7 +403,7 @@ public static partial class SequenceAligner
                 cycle = 1;
             if (cycle > 3)
                 cycle = 3;
-            string distance = o.PartTree != MafftPartTree.None ? "parttree" : o.PairLibrary switch { MafftPairLibrary.Global => "global", MafftPairLibrary.Local => "local", MafftPairLibrary.Genaf => "localgenaf", MafftPairLibrary.Fasta or MafftPairLibrary.FastaSmithWaterman => "fasta", MafftPairLibrary.Hybrid => "hybrid", _ => "ktuples" };
+            string distance = o.PartTree != MafftPartTree.None ? "parttree" : o.PairLibrary switch { MafftPairLibrary.Global => "global", MafftPairLibrary.Local => "local", MafftPairLibrary.Genaf => "localgenaf", MafftPairLibrary.Fasta or MafftPairLibrary.FastaSmithWaterman => "fasta", MafftPairLibrary.Hybrid => "hybrid", MafftPairLibrary.Last => "last", _ => "ktuples" };
             string partdist = o.PartTree switch { MafftPartTree.Fasta => "fasta", MafftPartTree.DynamicProgramming => "localalign", _ => "ktuples" };
             if (o.PartTree != MafftPartTree.None)
                 cycle = PartTreeCycle(o, nseq).Cycle;
@@ -419,8 +419,12 @@ public static partial class SequenceAligner
         {
             var (strategy, explanation, performance) = Strategy(o, nseq);
             string before = o.PartTree == MafftPartTree.Fasta || o.PairLibrary is MafftPairLibrary.Fasta or MafftPairLibrary.FastaSmithWaterman ? FastaNote : "";
+            if (o.PairLibrary == MafftPairLibrary.Last || o.FragmentPairs is MafftFragmentPairs.LastPair or MafftFragmentPairs.LastMultiPair && o.Fragment != 0)
+                before = LastNote;
             return EpilogueText(strategy, explanation, performance, before, GenafNote(o));
         }
+
+        internal const string LastNote = "Pairwise alignments were computed by LAST\nhttp://last.cbrc.jp/\nKielbasa, Wan, Sato, Horton, Frith 2011 Genome Res. 21:487\n";
 
         internal const string FastaNote = "Pairwise alignments were computed by FASTA\n(Pearson & Lipman, 1988, PNAS 85:2444-2448)\n";
 
@@ -471,7 +475,8 @@ public static partial class SequenceAligner
             pair.AddRange(ModelArguments(o));
             bool hybrid = o.PairLibrary == MafftPairLibrary.Hybrid;
             bool fasta = o.PairLibrary is MafftPairLibrary.Fasta or MafftPairLibrary.FastaSmithWaterman;
-            bool external = fasta || hybrid;
+            bool last = o.PairLibrary == MafftPairLibrary.Last;
+            bool external = fasta || hybrid || last;
             if (external)
                 pair.Clear(); // dndfast7 / pairlocalalign -Y + disttbfast -T -y make the pair library and the distances: the progressive stage has no pair arguments
             switch (o.PairLibrary)
@@ -479,6 +484,7 @@ public static partial class SequenceAligner
                 case MafftPairLibrary.Fasta:
                 case MafftPairLibrary.FastaSmithWaterman:
                 case MafftPairLibrary.Hybrid:
+                case MafftPairLibrary.Last:
                     break;
                 case MafftPairLibrary.Global:
                     pair.AddRange(new[] { "-g", Text(o.GlobalPairExtension), "-f", Text(o.GlobalPairOpen), "-Q", Text(o.ShiftPenalty), "-h", AwkPrint(0.0 + 0.0 + o.GlobalPairOffset), "-A" });
@@ -730,6 +736,40 @@ public static partial class SequenceAligner
             args.Add(o.FragmentPairs == MafftFragmentPairs.LocalPair ? "-L" : "-Y");
             if (o.NaivePairScore && o.FragmentPairs != MafftFragmentPairs.HybridPair && o.PairLibrary != MafftPairLibrary.Hybrid)
                 args.Add("-Z");
+            return args;
+        }
+
+        /// <summary><c>dndpre $model -M 2 $addarg -C $numthreads $seqtype $model -g $lexp -f $lgop -Q $spfactor -h $laof</c> (the first call of <c>--lastmultipair</c>: <c>dndpre</c> does not know <c>-Q</c> and stops).</summary>
+        internal static List<string> DndpreLastArguments(MafftOptions o)
+        {
+            var args = new List<string>();
+            args.AddRange(ModelArguments(o));
+            args.AddRange(new[] { "-M", "2" });
+            args.AddRange(FragmentAddArguments(o));
+            args.Add("-C");
+            args.Add((o.Threads < 0 ? Environment.ProcessorCount : o.Threads).ToString(CultureInfo.InvariantCulture));
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.AddRange(new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-Q", Text(o.ShiftPenalty), "-h", Text(o.LocalPairOffset) });
+            return args;
+        }
+
+        /// <summary><c>pairlocalalign $addarg -C $numthreads $seqtype $model -g $lexp -f $lgop -Q $spfactor -h $laof</c> (the options of <c>--lastpair</c> that <c>pairlocalalign</c> shares with the other pair programs; <c>-e -w -R -S -U -d</c> are given to the program separately).</summary>
+        internal static List<string> PairlocalalignLastArguments(MafftOptions o)
+        {
+            var args = new List<string>();
+            args.AddRange(AddArgOnly(o));
+            args.Add("-C");
+            args.Add((o.Threads < 0 ? Environment.ProcessorCount : o.Threads).ToString(CultureInfo.InvariantCulture));
+            if (o.SequenceType == MafftSequenceType.Nucleotide)
+                args.Add("-D");
+            else if (o.SequenceType == MafftSequenceType.Amino)
+                args.Add("-P");
+            args.AddRange(ModelArguments(o));
+            args.AddRange(new[] { "-g", Text(o.LocalPairExtension), "-f", Text(o.LocalPairOpen), "-Q", Text(o.ShiftPenalty), "-h", Text(o.LocalPairOffset) });
             return args;
         }
 

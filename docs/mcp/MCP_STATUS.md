@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 663 MCP tools across 21 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 664 MCP tools across 22 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 663 | 663 |
-| Schema+Binding tests | 663 | 663 |
-| Docs (.md + .mcp.json) | 663 | 663 |
+| Gold-standard binding | 664 | 664 |
+| Schema+Binding tests | 664 | 664 |
+| Docs (.md + .mcp.json) | 664 | 664 |
 
 ## Per-server summary
 
@@ -37,6 +37,7 @@
 | EmbossFeatureTools | Seqeron.Mcp.EmbossFeatureTools | 9 | 9/9 | 9/9 | 9/9 | ✅ done |
 | EmbossSequenceFormats | Seqeron.Mcp.EmbossSequenceFormats | 42 | 42/42 | 42/42 | 42/42 | ✅ done |
 | AlignmentConsensus | Seqeron.Mcp.AlignmentConsensus | 1 | 1/1 | 1/1 | 1/1 | ✅ done |
+| Last | Seqeron.Mcp.Last | 1 | 1/1 | 1/1 | 1/1 | ✅ done |
 | MultipleAlignment | Seqeron.Mcp.MultipleAlignment | 25 | 25/25 | 25/25 | 25/25 | ✅ done |
 
 ## Per-tool ledger
@@ -359,6 +360,12 @@
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
 | 1 | `generate_decipher_consensus` | ☑ | ☑ | ☑ |
+
+### Last (Seqeron.Mcp.Last) — 1 tools
+
+| # | tool | B | T | D |
+|---:|---|:--:|:--:|:--:|
+| 1 | `mafft_command_last` | ☑ | ☑ | ☑ |
 
 ### MultipleAlignment (Seqeron.Mcp.MultipleAlignment) — 25 tools
 

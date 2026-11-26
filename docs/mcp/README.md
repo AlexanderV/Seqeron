@@ -25,14 +25,14 @@ guessing a number. Same math as the C# API; the tool call is just a different fr
 - **Auditable** — each answer comes with the exact tools called, in order (see the worked workflows).
 
 > **New here?** If you use Claude Code or Copilot, you usually don't touch MCP directly — the
-> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 663 tool
+> [Agent Skills](../../.claude/skills) attach the right server *on demand* and keep the 664 tool
 > schemas out of the model's context. This guide is for wiring the servers into any MCP client
 > yourself, or understanding what runs underneath.
 
 ## The servers
 
 Tools are split into focused, per-domain servers so you attach only what a task needs — a smaller
-tool surface loads faster and is easier for the model to reason about. **663 tools across 21 servers:**
+tool surface loads faster and is easier for the model to reason about. **664 tools across 22 servers:**
 
 | Server | What it's for | Tools |
 |--------|---------------|------:|
@@ -48,6 +48,7 @@ tool surface loads faster and is easier for the model to reason about. **663 too
 | [`Seqeron.Mcp.EmbossFeatureTools`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossFeatureTools) | EMBOSS feature programs (showfeat, extractfeat, twofeat, featcopy, ...) - separately licensed (GPL-2.0-or-later) | 9 |
 | [`Seqeron.Mcp.EmbossSequenceFormats`](../../src/Seqeron/Mcp/Seqeron.Mcp.EmbossSequenceFormats) | EMBOSS sequence, format-conversion and sequence-database programs (seqret, union, revseq, transeq, infoseq, ...) - separately licensed (GPL-2.0-or-later) | 42 |
 | [`Seqeron.Mcp.AlignmentConsensus`](../../src/Seqeron/Mcp/Seqeron.Mcp.AlignmentConsensus) | Alignment consensus (DECIPHER ConsensusSequence port) - separately licensed (GPL-3.0-only) | 1 |
+| [`Seqeron.Mcp.Last`](../../src/Seqeron/Mcp/Seqeron.Mcp.Last) | The script mafft with the LAST 1256 programs (`--lastpair`) - separately licensed (GPL-3.0-or-later) | 1 |
 | [`Seqeron.Mcp.MultipleAlignment`](../../src/Seqeron/Mcp/Seqeron.Mcp.MultipleAlignment) | Multiple sequence alignment programs (Kalign, POA, ClustalW, T-Coffee, ProbCons) - separately licensed (GPL / LGPL) | 25 |
 | [`Seqeron.Mcp.Analysis`](../../src/Seqeron/Mcp/Seqeron.Mcp.Analysis) | K-mer, motif, repeat, complexity, comparative & structural genomics | 127 |
 | [`Seqeron.Mcp.Annotation`](../../src/Seqeron/Mcp/Seqeron.Mcp.Annotation) | Genes/ORFs/promoters, variants, epigenetics, miRNA, splicing, SVs, transcriptomics | 97 |
@@ -169,7 +170,7 @@ tm_diff_c = 4.1
 
 ## Tool catalog & schemas
 
-Every one of the 663 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
+Every one of the 664 tools ships a per-tool doc (`{tool}.md`) and machine-readable schema
 (`{tool}.mcp.json`) under [`tools/<server>/`](tools), and each server's own `README.md` lists its
 full tool table.
 

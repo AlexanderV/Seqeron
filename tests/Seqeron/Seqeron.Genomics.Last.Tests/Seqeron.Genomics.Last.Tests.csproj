@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests (and oracle data) of the copyleft assembly Seqeron.Genomics.Last (LAST 1256). The tests ship under the licence of that assembly (see its LICENSE). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- same root namespace as Seqeron.Genomics.Tests: the embedded resource names (Seqeron.Genomics.Tests.TestData.*) and the test namespaces stay unchanged -->
+    <RootNamespace>Seqeron.Genomics.Tests</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Last.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Seqeron.Genomics.Tests\TestDataResource.cs" Link="TestDataResource.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\_LimitationPolicyTestBootstrap.cs" Link="_LimitationPolicyTestBootstrap.cs" />
+    <Compile Include="..\Seqeron.Genomics.Tests\Helpers\OracleEscapes.cs" Link="OracleEscapes.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Last" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ALIGN-MULTI-001 (audit A2-19c-last, B09 F376): every call of lastdb / lastal of the user-run Docker package (LAST 1256, run 2): the arguments, the files the call names and the raw standard output / error / status;
+         scripts/alignment/convert_last_returned.py. -->
+    <EmbeddedResource Include="TestData\Alignment\last_calls_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-last, B09 F376): the 204 runs of mafft 7.505-1 (options lastpair and lastmultipair) with that LAST behind it (rc, stdout, stderr, files); scripts/alignment/convert_last_returned.py. -->
+    <EmbeddedResource Include="TestData\Alignment\mafft_last_oracle.tsv.gz" />
+    <!-- ALIGN-MULTI-001 (audit A2-19c-last, B09 F376): valgrind (memcheck) on the installed pairlocalalign for every one of the 204 sets with the recorded output of LAST: the invalid writes counted; scripts/alignment/generate_last_valgrind_oracle.py. -->
+    <EmbeddedResource Include="TestData\Alignment\last_valgrind_oracle.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Last\Seqeron.Genomics.Last.csproj" />
+  </ItemGroup>
+
+</Project>

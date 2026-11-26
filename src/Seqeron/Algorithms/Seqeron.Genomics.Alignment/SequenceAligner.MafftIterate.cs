@@ -56,7 +56,10 @@ public static partial class SequenceAligner
                         case 'm': g.PamN = CAtoi(Next()); g.Scoremtx = 0; g.Tm = true; rest = true; break;
                         case 'M': g.MaxDist = CAtoi(Next()); rest = true; break;
                         case 'C': g.Nthread = CAtoi(Next()); rest = true; break;
-                        default: break;
+                        case 'i': Next(); rest = true; break;
+                        default:
+                            // dndpre.c: "options: Check source file !" and exit( 1 ) for a letter the program does not know (the script passes -Q to it for --lastmultipair)
+                            throw new MafftProgramFailureException(g.Log.ToString() + "options: Check source file !\n");
                     }
                 }
             }

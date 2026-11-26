@@ -52,6 +52,8 @@ public enum MafftPairLibrary
     FastaSmithWaterman = 5,
     /// <summary><c>--hybridpair</c> (no fragment option): <c>pairlocalalign -Y</c> (the local alignments of the pairs: <c>hat3</c>), <c>disttbfast -E 1 -T -y</c> (the 6-mer distances: <c>hat2</c>) and <c>tbfast</c> that reads both files (Hybrid-INS-1).</summary>
     Hybrid = 6,
+    /// <summary><c>--lastpair</c> (no fragment option): <c>pairlocalalign -R</c> (the alignments of the program <c>lastal</c> of LAST for every pair: <c>hat2</c>, <c>hat3</c>; see <see cref="MafftOptions.LastPrograms"/>) and <c>tbfast</c> that loads both files (Last-INS-1).</summary>
+    Last = 7,
 }
 
 /// <summary>How the distances between the new and the old sequences are made when fragments are added (<c>--addfragments</c> and the other options of the program <c>addsingle</c>; <c>--6merpair</c> ... <c>--hybridpair</c>).</summary>
@@ -67,6 +69,10 @@ public enum MafftFragmentPairs
     HybridPair = 3,
     /// <summary><c>--localpair</c> with fragments: <c>pairlocalalign</c> of every pair (the local alignments are kept in <c>hat3</c>).</summary>
     LocalPair = 4,
+    /// <summary><c>--lastpair</c> with fragments: <c>pairlocalalign -R</c> (LAST), then <c>addsingle</c>.</summary>
+    LastPair = 5,
+    /// <summary><c>--lastmultipair</c> with fragments: <c>dndpre -M 2 ... -Q</c> (which stops: the option <c>-Q</c> is not known to <c>dndpre</c>), then <c>pairlocalalign -r</c> and <c>addsingle -d</c>.</summary>
+    LastMultiPair = 6,
 }
 
 /// <summary>The tree-splitting methods of MAFFT for very many sequences (<c>splittbfast</c>): the sequences are classified by their distance to a few representatives, recursively.</summary>
@@ -306,6 +312,30 @@ public sealed record MafftOptions
 
     /// <summary>How the distances for <see cref="Fragment"/> are made.</summary>
     public MafftFragmentPairs FragmentPairs { get; init; }
+
+    /// <summary>
+    /// The programs <c>lastdb</c> / <c>lastal</c> of LAST that <c>--lastpair</c> / <c>--lastmultipair</c> start (the GPL-licensed port lives in a separate assembly; this assembly only knows the interface). <c>null</c>: LAST is not installed and the script
+    /// stops with its "Install LAST" message.
+    /// </summary>
+    public ILastPrograms? LastPrograms { get; init; }
+
+    /// <summary>The directory of the LAST programs (the path that <c>lastal</c> writes in front of its messages).</summary>
+    public string LastDirectory { get; init; } = "/opt/last/bin";
+
+    /// <summary>The library directory of MAFFT that <c>pairlocalalign</c> prints as <c>whereispairalign</c> (the Debian installation).</summary>
+    public string LibraryDirectory { get; init; } = "/usr/lib/mafft/lib/mafft";
+
+    /// <summary><c>--last_e</c>: the minimum score of the alignments of <c>lastal -e</c> (default 5000).</summary>
+    public int LastE { get; init; } = 5000;
+
+    /// <summary><c>--last_m</c>: the multiplier of <c>lastal -m</c> (default 3).</summary>
+    public int LastM { get; init; } = 3;
+
+    /// <summary><c>--last_subopt</c>: keep the suboptimal alignments of a pair too (<c>pairlocalalign -S</c>).</summary>
+    public bool LastSubOptimal { get; init; }
+
+    /// <summary><c>--last_once</c>: one call of <c>lastal</c> for all the sequences (<c>pairlocalalign -U</c>).</summary>
+    public bool LastOnce { get; init; }
 
     /// <summary><c>--adjustdirection</c> (1) / <c>--adjustdirectionaccurately</c> (2): <c>makedirectionlist</c> decides for every (new) nucleotide sequence whether it is closer to the others reverse complemented, <c>setdirection</c> reverse complements it and puts _R_ in front of its title.</summary>
     public int AdjustDirection { get; init; }
@@ -660,6 +690,36 @@ public static partial class SequenceAligner
 
                 pairHat2 = MafftRun.ReadHat2Full(d7.Hat2, list.Count);
             }
+            else if (o.PairLibrary == MafftPairLibrary.Last)
+            {
+                // --lastpair without a fragment option (mafft.tmpl 2575 - 2588): pairlocalalign -R (the alignments of LAST for every pair: hat2, hat3), hat3.seed in front of hat3, tbfast that loads both files
+                if (o.LastPrograms is null)
+                    throw new NotSupportedException("--lastpair needs the programs lastdb and lastal of LAST: supply an implementation of ILastPrograms in MafftOptions.LastPrograms or MafftInstallation.Last.");
+                var pg = MafftGlobals.ParsePairlocalalign(MafftScript.PairlocalalignLastArguments(o));
+                pg.Alg = 'R';
+                if (pg.Dorp == '\0')
+                    pg.Dorp = nuc ? 'd' : 'p';
+                var prun = new MafftRun(pg);
+                var pairs = GuardRun(prun, log, () => prun.PairlocalalignLastProgram(replaced, programNames, o.LastPrograms, o.LastDirectory, o.LibraryDirectory, o.LastE, o.LastM, o.LastSubOptimal));
+                log.Append(prun.Log);
+                string hat3Text = (o.SeedTable ?? "") + pairs.Hat3;
+                var (_, lastTbArgs) = MafftScript.TbfastArguments(o, list.Count);
+                var tg = MafftGlobals.ParseTbfast(lastTbArgs);
+                if (tg.Dorp == '\0')
+                    tg.Dorp = nuc ? 'd' : 'p';
+                var trun = new MafftRun(tg) { GuideTreeText = MafftScript.GuideTreeFile(o) };
+                result = GuardRun(trun, log, () => trun.Tbfast(replaced, null, programNames, null, hat3Text, pairs.Hat2));
+                log.Append(trun.Log);
+                treeFile = trun.TreeFile;
+                distFile = trun.DistFile ?? pairs.Hat2;
+                if (o.WeightI >= 0.0001 && result.Rows.Length > 0)
+                {
+                    seedKozo = new bool[list.Count];
+                    pairHat3 = MafftRun.ReadLocalHomTable2Half(hat3Text, list.Count, seedKozo);
+                }
+
+                pairHat2 = MafftRun.ReadHat2Full(pairs.Hat2, list.Count);
+            }
             else if (o.PairLibrary == MafftPairLibrary.Hybrid)
             {
                 // --hybridpair without a fragment option (mafft.tmpl 2615 - 2624): pairlocalalign -Y (the blocks of the old sequences against the new ones: hat3; nothing without --add), hat3.seed in front of hat3,
@@ -742,7 +802,36 @@ public static partial class SequenceAligner
                     string? codonScore = o.CodonScores == null ? null : MafftScript.NormalizeScriptFile(o.CodonScores);
                     files = new MafftRun.AddSingleFiles(CodonPos: codonPos, CodonScore: codonScore);
                 }
-                if (o.FragmentPairs is MafftFragmentPairs.MultiPair or MafftFragmentPairs.HybridPair or MafftFragmentPairs.LocalPair)
+                if (o.FragmentPairs is MafftFragmentPairs.LastPair or MafftFragmentPairs.LastMultiPair)
+                {
+                    if (o.LastPrograms is null)
+                        throw new NotSupportedException("--lastpair / --lastmultipair need the programs lastdb and lastal of LAST: supply an implementation of ILastPrograms in MafftInstallation.Last.");
+                    if (o.FragmentPairs == MafftFragmentPairs.LastMultiPair)
+                    {
+                        // dndpre $model -M 2 $addarg ... -Q $spfactor ...: the program does not know -Q ("options: Check source file !"), the script stops
+                        try
+                        {
+                            MafftGlobals.ParseDndpre(MafftScript.DndpreLastArguments(o));
+                        }
+                        catch (MafftProgramFailureException e)
+                        {
+                            throw new MafftProgramFailureException(log + e.Text, e.ExitCode);
+                        }
+
+                        throw new NotSupportedException("dndpre accepted -Q: the chain of --lastmultipair (pairlocalalign -r, addsingle -d) is not ported.");
+                    }
+
+                    var lg = MafftGlobals.ParsePairlocalalign(MafftScript.PairlocalalignLastArguments(o));
+                    lg.Alg = 'R';
+                    lg.Nadd = o.AddCount;
+                    if (lg.Dorp == '\0')
+                        lg.Dorp = nuc ? 'd' : 'p';
+                    var lrun = new MafftRun(lg);
+                    var lastPairs = GuardRun(lrun, log, () => lrun.PairlocalalignLastProgram(replaced, programNames, o.LastPrograms, o.LastDirectory, o.LibraryDirectory, o.LastE, o.LastM, o.LastSubOptimal));
+                    log.Append(lrun.Log);
+                    files = (files ?? new MafftRun.AddSingleFiles()) with { Hat2 = lastPairs.Hat2, Hat3 = lastPairs.Hat3 };
+                }
+                else if (o.FragmentPairs is MafftFragmentPairs.MultiPair or MafftFragmentPairs.HybridPair or MafftFragmentPairs.LocalPair)
                 {
                     string? hat2i = null;
                     if (o.FragmentPairs == MafftFragmentPairs.MultiPair)

@@ -74,6 +74,7 @@ EXPECTED_COUNTS = {
     "alignment": 59,
     "multiplealignment": 25,
     "alignmentconsensus": 1,
+    "last": 1,
     "embossfeaturetools": 9,
     "embossmotifs": 12,
     "embossopenreadingframes": 4,
@@ -90,7 +91,7 @@ EXPECTED_COUNTS = {
     "phylogenetics": 13,
     "population": 18,
 }
-EXPECTED_TOTAL = 663
+EXPECTED_TOTAL = 664
 
 BEGIN_MARK = "<!-- BEGIN generated: do not edit by hand -->"
 END_MARK = "<!-- END generated -->"

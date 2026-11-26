@@ -3150,6 +3150,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Emboss.SequenceFormats/EmbossSequencePrograms.cs"
   },
   {
+    "tool": "mafft_command_last",
+    "server": "Last",
+    "methodId": "Seqeron.Genomics.Alignment.MafftProgram.Run",
+    "docPath": "docs/mcp/tools/last/mafft_command_last.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/MafftProgram.cs#L55"
+  },
+  {
     "tool": "accessory_genes",
     "server": "Metagenomics",
     "methodId": "PanGenomeAnalyzer.AnalyzeAccessoryGenes",

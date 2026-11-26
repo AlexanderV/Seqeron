@@ -24,6 +24,12 @@ public sealed record MafftProgramResult(int ExitCode, string Stdout, string Stde
 /// <param name="Contrafold">The program <c>contrafold</c> is installed (<c>--contrafold</c>).</param>
 public sealed record MafftInstallation(string LibraryDirectory, bool Mxscarna, bool Dafs, bool Contrafold)
 {
+    /// <summary>The programs <c>lastdb</c> and <c>lastal</c> of LAST (<c>--lastpair</c>, <c>--lastmultipair</c>); <c>null</c> = not installed (the script prints its "Install LAST" text).</summary>
+    public ILastPrograms? Last { get; init; }
+
+    /// <summary>The directory of the LAST programs (the Docker package of the oracle installed LAST 1256 into <c>/opt/last</c>; the programs write this path in front of their messages).</summary>
+    public string LastDirectory { get; init; } = "/opt/last/bin";
+
     /// <summary>The Debian binary package 7.505-1 (the reference installation of the other oracles): no extensions, no DAFS, no CONTRAfold.</summary>
     public static MafftInstallation Debian { get; } = new("/usr/lib/mafft/lib/mafft", false, false, false);
 

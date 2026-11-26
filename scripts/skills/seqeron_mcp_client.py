@@ -75,6 +75,7 @@ SERVER_PROJECT: Dict[str, str] = {
     # separately licensed servers (GPL / LGPL ports): docs/Validation/review-2026-09/LICENSES.md
     "MultipleAlignment": "src/Seqeron/Mcp/Seqeron.Mcp.MultipleAlignment",
     "AlignmentConsensus": "src/Seqeron/Mcp/Seqeron.Mcp.AlignmentConsensus",
+    "Last": "src/Seqeron/Mcp/Seqeron.Mcp.Last",
     "EmbossSequenceFormats": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossSequenceFormats",
     "EmbossFeatureTools": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossFeatureTools",
     "EmbossRepeats": "src/Seqeron/Mcp/Seqeron.Mcp.EmbossRepeats",
