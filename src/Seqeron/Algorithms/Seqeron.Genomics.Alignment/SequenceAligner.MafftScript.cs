@@ -284,13 +284,15 @@ public static partial class SequenceAligner
         /// <summary>
         /// The name of the strategy and its description that the script prints at the end of the run (<c>strategy</c>, <c>explanation</c>, <c>performance</c> of <c>mafft.tmpl</c>), from the variables of the script.
         /// </summary>
-        internal static string StrategyName(string treeext, string distance, bool sw, bool fft, string weighti, bool memsavetree, int iterate, string partdist, int fragment, int cycle, out string explanation, out string performance)
+        internal static string StrategyName(string treeext, string distance, bool sw, bool fft, string weighti, bool memsavetree, int iterate, string partdist, int fragment, int cycle, out string explanation, out string performance, bool rna = false)
         {
             string strategy;
             if (treeext == "pileup")
                 strategy = "Pileup-";
             else if (treeext == "randomchain")
                 strategy = "Randomchain-";
+            else if (rna)
+                strategy = distance is "scarna" or "dafs" or "lara" or "slara" or "foldalignlocal" or "foldalignglobal" ? "X-" : "Q-"; // the last test of the script ( -o "globalgenaf" without a comparison ) is always true
             else if (distance == "fasta" && !sw)
                 strategy = "F-";
             else if (distance == "fasta" && sw)
@@ -410,7 +412,7 @@ public static partial class SequenceAligner
             else if (o.PairLibrary != MafftPairLibrary.None)
                 cycle = 1; // the script sets the number of tree builds to 1 when a pair library is used
             string weighti = o.PairLibrary != MafftPairLibrary.None ? Text(o.WeightI) : "0.0";
-            string strategy = StrategyName("none", distance, o.PairLibrary == MafftPairLibrary.FastaSmithWaterman, o.Fft, weighti, false, Iterations(o), partdist, 0, cycle, out string explanation, out string performance);
+            string strategy = StrategyName("none", distance, o.PairLibrary == MafftPairLibrary.FastaSmithWaterman, o.Fft, weighti, false, Iterations(o), partdist, 0, cycle, out string explanation, out string performance, rna: o.RnaPairing != null);
             return (strategy, explanation, performance);
         }
 
@@ -425,6 +427,10 @@ public static partial class SequenceAligner
         }
 
         internal const string LastNote = "Pairwise alignments were computed by LAST\nhttp://last.cbrc.jp/\nKielbasa, Wan, Sato, Horton, Frith 2011 Genome Res. 21:487\n";
+
+        internal const string McCaskillNote = "RNA base pairing probaility was calculated by the McCaskill algorithm (1)\nimplemented in Vienna RNA package (2) and MXSCARNA (3), and then\nincorporated in the iterative alignment process (4).\n(1) McCaskill, 1990, Biopolymers 29:1105-1119\n(2) Hofacker et al., 2002, J. Mol. Biol. 319:3724-3732\n(3) Tabei et al., 2008, BMC Bioinformatics 9:33\n(4) Katoh and Toh, 2008, BMC Bioinformatics 9:212\n\n";
+
+        internal const string ContrafoldNote = "RNA base pairing probaility was calculated by the CONTRAfold algorithm (1)\nand then incorporated in the iterative alignment process (4).\n(1) Do et al., 2006, Bioinformatics 22:e90-98\n(2) Katoh and Toh, 2008, BMC Bioinformatics 9:212\n\n";
 
         internal const string FastaNote = "Pairwise alignments were computed by FASTA\n(Pearson & Lipman, 1988, PNAS 85:2444-2448)\n";
 
@@ -513,6 +519,8 @@ public static partial class SequenceAligner
             tb.AddRange(MergeArguments(o));
             tb.Add("-C");
             tb.Add((o.ThreadsProgressive ?? threadsTb).ToString(CultureInfo.InvariantCulture));
+            if (o.RnaPairing is { } rna)
+                tb.AddRange(new[] { "-o", rna.GapOpen, "-c", rna.ConsistencyWeight, "-r", rna.StructureWeight });
             if (o.Unweight)
                 tb.Add("-u");
             if (o.GuideTree != MafftGuideTree.Default)

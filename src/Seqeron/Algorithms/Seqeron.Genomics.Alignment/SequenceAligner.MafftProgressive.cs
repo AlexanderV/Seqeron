@@ -1240,6 +1240,8 @@ public static partial class SequenceAligner
                         throw new MafftProgramFailureException("\n\nMemory saving mode is not supported.\n\n");
                     var shrink = nodePair != null ? NodeShrink(nodePair, l, clus1, clus2) : ShrinkLocalHom(localmem0, localmem1, localhom!);
                     var imp = FillImp(clus1, clus2, mseq1[0].Length, mseq2[0].Length, mseq1, mseq2, effarr1, effarr2, shrink, localmem0, localmem1, false, effarr1Kozo, effarr2Kozo, seedShrink, seedIn1, seedIn2, G.Alg == 'd');
+                    if (G.RnaKozo)
+                        ImpRna(clus1, clus2, mseq1, mseq2, effarr1, effarr2, localmem0, localmem1, imp);
                     if (G.Alg == 'd')
                         DAlign(dynamicmtx, mseq1, mseq2, effarr1, effarr2, clus1, clus2, alloclen, imp, ref dumdb, G.Outgap, G.Outgap);
                     else

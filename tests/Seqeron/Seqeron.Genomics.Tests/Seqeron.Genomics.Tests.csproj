@@ -226,6 +226,7 @@
     <EmbeddedResource Include="TestData\Alignment\mafft_wp78_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-19c-rna, B09 WP83, F374): the RNA options of mafft (mccaskill, rnaalifold, scarnapair, dafs, contrafold) of the extended MAFFT 7.505 build + ViennaRNA 2.5.1: handoff/A2-19c-rna run 2, scripts/alignment/convert_rna_returned.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_rna_oracle.tsv.gz" />
+    <EmbeddedResource Include="TestData\Alignment\mafft_contrafold_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (audit A2-19c-rnaalifold, B09 WP83, F374): mafft rnaalifold, produced in the sandbox with the installed mafft 7.505 and RNAalifold 2.5.1 (the versions of the archive above), scripts/alignment/generate_mafft_rnaalifold_oracle.py. -->
     <EmbeddedResource Include="TestData\Alignment\mafft_rnaalifold_oracle.tsv.gz" />
     <!-- ALIGN-MULTI-001 (B09 WP78, R14-16, F362): alignments of the guide-tree multiple aligners written by the code before the exact speed-ups (commit 12059b65a), scripts/benchmarks/wp78 (golden write). -->

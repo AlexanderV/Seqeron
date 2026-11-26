@@ -322,7 +322,22 @@ public static partial class SequenceAligner
             }
             if (RnaExtensionStop(MafftProgramIo.Records(infile), nseq) is { } rnaStop)
                 return rnaStop;
-            if (_rnaalifold || _mccaskill || _dafs || _contrafold)
+            MafftRnaPairing? rnaPairing = null;
+            if (_contrafold && ContrafoldSupported())
+            {
+                var wrapped = ContrafoldWrap(MafftProgramIo.Records(infile));
+                if (wrapped.Pairing == null)
+                    return 1;
+                rnaPairing = wrapped.Pairing;
+            }
+            if (_mccaskill && McCaskillSupported())
+            {
+                var wrapped = McCaskillWrap(MafftProgramIo.Records(infile));
+                if (wrapped.Pairing == null)
+                    return 1;
+                rnaPairing = wrapped.Pairing;
+            }
+            if (rnaPairing == null && (_rnaalifold || _mccaskill || _dafs || _contrafold))
                 throw new NotSupportedException("The option RNA secondary structure options (--rnaalifold, --mccaskill, --dafs, --contrafold) of the script mafft is not ported yet.");
             bool seedRun = _seed != "x" || _seedtable != "x";
             bool engine = (_fragment == 0 ? _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree" or "fasta" or "hybrid" or "last" : _distance is "ktuples" or "ktuplesmulti" or "multi" or "hybrid" or "local" or "last" or "lastmulti") && !_newdash;
@@ -356,6 +371,8 @@ public static partial class SequenceAligner
                 for (int i = 0; i < seedTitles.Count; i++)
                     shown[i] = seedTitles[i];
             var o = BuildOptions(shown, false);
+            if (rnaPairing != null)
+                o = o with { RnaPairing = rnaPairing with { GapOpen = _rgop, ConsistencyWeight = _weightm, StructureWeight = _weightr } };
             if (seedHat3 != null)
                 o = o with { SeedTable = seedHat3, SeedCycle = cycletbfast, ReplaceuLogOverride = seedReplaceuLog };
             MafftRunResult res;
@@ -405,6 +422,10 @@ public static partial class SequenceAligner
             string before = _partdist == "fasta" && _distance == "parttree" || _distance == "fasta" ? "Pairwise alignments were computed by FASTA\n(Pearson & Lipman, 1988, PNAS 85:2444-2448)\n" : "";
             if (_distance is "last" or "lastmulti")
                 before = MafftScript.LastNote;
+            if (_mccaskill)
+                before = MafftScript.McCaskillNote + before;
+            else if (_contrafold)
+                before = MafftScript.ContrafoldNote + before;
             Prog(MafftScript.EpilogueText(strategy, explanation, performance, before, MafftScript.GenafNoteText(_distance is "localgenaf" or "globalgenaf", _oldgenafparam)));
 
             // the output (the file pre, then f2cl for the other formats)

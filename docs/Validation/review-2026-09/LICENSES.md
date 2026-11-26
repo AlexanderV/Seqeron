@@ -72,6 +72,7 @@ The MIT assemblies are listed in the root `LICENSE` file context: every other pr
 | Program | Version | Licence | Class | Where | Licence text taken from |
 |---|---|---|---|---|---|
 | MAFFT | 7.505 | MAFFT licence (BSD-style: retain the notice, reproduce it in binary distributions, no endorsement) | permissive | NOTICE (THIRD-PARTY-NOTICES.md) | /usr/share/doc/mafft/copyright |
+| CONTRAfold (inference: inside / outside, posterior base-pairing probabilities, default parameters) | 2.02 | BSD 3-clause ("Copyright (c) 2006, Chuong Do"; manual.tex of contrafold_v2_02.tar.gz, section "License (BSD)"; contra.stanford.edu) | permissive | `Seqeron.Genomics.Alignment` (`ContrafoldProgram.cs`; WP86, F377), NOTICE | manual.tex of contrafold_v2_02.tar.gz (sha256 9e265726...) |
 | MUSCLE | 3.8.1551 | Public domain dedication ('MUSCLE is public domain software') | public domain | NOTICE | /usr/share/doc/muscle3/copyright |
 | SPOA | 4.0.8 | MIT | permissive | NOTICE | upstream LICENSE (Robert Vaser) |
 | minimap2 / ksw2 | 2.26 | MIT | permissive | NOTICE | upstream LICENSE.txt (Heng Li, Dana-Farber, Broad Institute) |
@@ -142,6 +143,7 @@ These programs were executed (installed Debian / Ubuntu packages, or user-run Do
 | fasta3 / fasta36 36.3.8i | fasta3 36.3.8i.14-Nov-2020-1 |
 | NCBI BLAST+ 2.12.0, ORFfinder | ncbi-blast+ 2.12.0+ds-4build2 |
 | LAST (Docker package handoff/A2-19c-last; MAFFT --lastpair; run 2 builds 1256 / 1250 / 1282 / 1411 / 1542 from gitlab.com/mcfrith/last and selects the first fast one, named in the returned out/versions.txt; the audit machine has 1542) | last-align 1542-1 |
+| CONTRAfold 2.02 (built in the user Docker package handoff/A2-19c-rna, `-O3 -DNDEBUG`) and DAFS 0.0.3 (built from the public release; run as a black box: `mafft --contrafold` / `--dafs` runs and probes recorded; the CONTRAfold inference is ported, see 3.2) | contrafold_v2_02.tar.gz (contra.stanford.edu); satoken/dafs v0.0.3 (github.com) |
 | TM-align 20190822, MUSTANG 3.2.4, SAP 1.1.3, DaliLite v3 / v5 (T-Coffee structure methods; run in user Docker packages, output parsed by the T-Coffee glue port) | tm-align 20190822+dfsg-2build1; mustang 3.2.4-1; SAP 1.1.3 (github.com/mathbio-nimr-mrc-ac-uk/SAP); DaliLite (ekhidna2.biocenter.helsinki.fi) |
 | exonerate 2.4.0, hhsuite 3.3.0, DIALIGN / DIALIGN-TX, PRANK, Clustal Omega, FSA, AMAP, ProDA (installed; formats / comparison only, nothing ported) | see /usr/share/doc |
 | Biopython 1.88, parasail 1.3.4, scipy, numpy (Python reference implementations) | pip |

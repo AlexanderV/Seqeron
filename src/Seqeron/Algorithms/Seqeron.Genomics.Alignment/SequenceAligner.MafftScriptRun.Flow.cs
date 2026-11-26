@@ -572,7 +572,7 @@ public static partial class SequenceAligner
             }
 
             // ---- the strategy (mafft.tmpl 2080 - 2200)
-            string strategy = MafftScript.StrategyName(_treeext, _distance, _sw, _fft, _weighti, memsavetree, _iterate, _partdist, _fragment, _cycle, out string explanation, out string performance);
+            string strategy = MafftScript.StrategyName(_treeext, _distance, _sw, _fft, _weighti, memsavetree, _iterate, _partdist, _fragment, _cycle, out string explanation, out string performance, rna: _mccaskill || _dafs || _rnaalifold || _contrafold);
             if (_outorder == "aligned" && _outputformat == "pir")
                 _ = 0;
 

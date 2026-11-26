@@ -53,3 +53,34 @@ with open('inputs/sets.tsv', 'w') as f:
         f.write('prot%03d\t%s\t%s\n' % (k, opts, '|'.join(prot)))
         k += 1
 print('sets', k)
+
+# run 4 (B09 WP86): sequences for the direct probes of the two programs whose output the port has to equal exactly: CONTRAfold 2.02 (`contrafold predict IN --posteriors 0.01 OUT`) and MXSCARNA (`mxscarnamod -m -writebpp IN`):
+# edge lengths 1 - 12, random RNA of 15 - 330 letters with planted stems, a few with N, DNA letters. A separate random generator (seed 86) so that inputs/sets.tsv above stays the one of runs 2 and 3.
+prng = random.Random(86)
+PAIRS = {'A': 'U', 'U': 'A', 'G': 'C', 'C': 'G'}
+def probe_seq(n, nstem):
+    s = [prng.choice('ACGU') for _ in range(n)]
+    for _ in range(nstem):
+        k = prng.randint(3, 8)
+        if n < 2 * k + 6:
+            continue
+        a = prng.randint(0, n - 2 * k - 5)
+        b = prng.randint(a + k + 3, n - k)
+        for t in range(k):
+            s[a + t] = prng.choice('ACGU')
+            s[b + k - 1 - t] = PAIRS[s[a + t]]
+    return ''.join(s)
+probes = [probe_seq(n, 0) for n in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)]
+for n in [15, 20, 25, 30, 40, 50, 60, 75, 90, 110, 130, 160, 200, 250, 330]:
+    for rep in range(6):
+        probes.append(probe_seq(n + prng.randint(0, 9), prng.randint(1, 4)))
+for _ in range(8):
+    s = list(probe_seq(prng.randint(30, 120), 2))
+    for _ in range(prng.randint(1, 4)):
+        s[prng.randrange(len(s))] = 'N'
+    probes.append(''.join(s))
+probes.append(probe_seq(60, 2).replace('U', 'T'))
+with open('inputs/probe_seqs.tsv', 'w') as f:
+    for i, s in enumerate(probes):
+        f.write('p%03d\t%s\n' % (i, s))
+print('probes', len(probes))

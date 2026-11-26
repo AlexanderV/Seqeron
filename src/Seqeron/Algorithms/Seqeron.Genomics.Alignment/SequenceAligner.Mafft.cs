@@ -112,6 +112,14 @@ public enum MafftGuideTree
     YoungestLinkage = 7,
 }
 
+/// <summary>The structure information of <c>mafft --contrafold</c> / <c>--mccaskill</c>: the text of <c>hat4</c> and the options <c>--rop</c> (gap opening of the structure alignment), <c>--weightm</c>, <c>--weightr</c> that the script gives to <c>tbfast</c> as <c>-o</c>, <c>-c</c>, <c>-r</c>.</summary>
+/// <param name="Hat4">The file <c>hat4</c>: for every sequence a line "&gt;i" and the lines "i j p" (pairs of positions of the ungapped sequence, i &lt; j, probability p, six decimals).</param>
+/// <param name="GapOpen"><c>--rop</c> (default -1.530), the argument of <c>-o</c>.</param>
+/// <param name="ConsistencyWeight"><c>--weightm</c> (default 1.0), the argument of <c>-c</c>.</param>
+/// <param name="StructureWeight"><c>--weightr</c> (default 0.0), the argument of <c>-r</c>.</param>
+/// <param name="Messages">The messages that the program writing <c>hat4</c> printed to the progress stream (they come before those of <c>tbfast</c>).</param>
+public sealed record MafftRnaPairing(string Hat4, string GapOpen = "-1.530", string ConsistencyWeight = "1.0", string StructureWeight = "0.0", string Messages = "");
+
 /// <summary>
 /// Options of the MAFFT 7.505 command <c>mafft [--anysymbol] [--nuc | --amino] [--op x] [--ep y] [--bl n | --jtt n | --tm n] [--retree n] [--fft | --nofft] [--6merpair | --10merpair] ... input</c>: the plain progressive
 /// methods (FFT-NS-1, FFT-NS-2, NW-NS-1, NW-NS-2) for any number of sequences. The options that need the later stages of the port (<c>--maxiterate</c>, <c>--localpair</c>, <c>--globalpair</c>,
@@ -121,6 +129,12 @@ public sealed record MafftOptions
 {
     /// <summary><c>--nuc</c> / <c>--amino</c>.</summary>
     public MafftSequenceType SequenceType { get; init; } = MafftSequenceType.Auto;
+
+    /// <summary>
+    /// <c>--contrafold</c> / <c>--mccaskill</c>: the base-pairing probabilities of every sequence (the file <c>hat4</c> of <c>contrafoldwrap</c> / <c>mccaskillwrap</c>) that <c>tbfast</c> reads (<c>-r</c>, <c>-c</c>, <c>-o</c>): the structure term
+    /// of the importance of the columns in every step of the progressive alignment. Needs a pair library (<see cref="PairLibrary"/> global or local) and no iterative refinement.
+    /// </summary>
+    public MafftRnaPairing? RnaPairing { get; init; }
 
     /// <summary><c>--op</c>: gap opening penalty (default 1.53; the program passes <c>-f -op</c>, scaled by 0.6, or by 1.8 for nucleotides).</summary>
     public double GapOpen { get; init; } = 1.53;
@@ -758,6 +772,8 @@ public static partial class SequenceAligner
             else if (o.PairLibrary != MafftPairLibrary.None)
             {
                 var (pairArgs, tbArgs) = MafftScript.TbfastArguments(o, list.Count);
+                if (o.RnaPairing is { } rnaPairing)
+                    log.Append(rnaPairing.Messages);
                 NodePairData? nodePair = null;
                 string tbGuideTree = MafftScript.GuideTreeFile(o);
                 if (o.GuideTree is MafftGuideTree.MemSaveTree or MafftGuideTree.StepAdd)
@@ -783,7 +799,9 @@ public static partial class SequenceAligner
                 var tg = MafftGlobals.ParseTbfast(tbArgs);
                 if (tg.Dorp == '\0')
                     tg.Dorp = nuc ? 'd' : 'p';
-                var trun = new MafftRun(tg) { GuideTreeText = tbGuideTree };
+                if (o.RnaPairing != null && MafftScript.Iterations(o) > 0)
+                    throw new NotSupportedException("--contrafold / --mccaskill with --maxiterate: the iterative refinement (dvtditr -F with the RNA step of tditeration.c) is not ported yet.");
+                var trun = new MafftRun(tg) { GuideTreeText = tbGuideTree, Hat4Text = o.RnaPairing?.Hat4 };
                 result = GuardRun(trun, log, () => trun.Tbfast(replaced, MafftGlobals.ParsePairlocalalign(pairArgs), programNames, nodePair, o.SeedTable));
                 log.Append(trun.Log);
                 pairHat2 = trun.Hat2Table;

@@ -62,4 +62,18 @@ for P in \
   rm -rf "$2" && mkdir -p "$2" && curl -fsSL -A "$UA" --retry 3 -o "$2.tgz" "$1" && sha256sum "$2.tgz" && tar xzf "$2.tgz" -C "$2" --strip-components=1 && dafs_build "/opt/rsrc/$2" || echo "failed: $1"
 done
 if [ -x "$LIBEXEC/dafs" ]; then chmod 755 "$LIBEXEC/dafs"; ls -l "$LIBEXEC/dafs"; "$LIBEXEC/dafs" --help 2>&1 | head -5; else echo "DAFS: NOT AVAILABLE"; fi
+
+echo "######## DAFS PROBE (A2-19c-rna run 3 analysis, WP86): does this DAFS know the options that mccaskillwrap / pairlocalalign give it?"
+# mccaskillwrap.c runs   dafs --mafft-out _mccaskillout _mccaskillin     and pairlocalalign.c runs   dafs --mafft-in _bpp _dafsin ;  the sets of run 3 stop with "ERROR IN mccaskill_mea" (the call fails)
+if [ -x "$LIBEXEC/dafs" ]; then
+  mkdir -p /tmp/dafsprobe && cd /tmp/dafsprobe && printf '>in\nGGGAAAGCCCUUUGGGAAACCC\n' > one.fa && printf '>a\nGGGAAAGCCCUUUGGGAAACCC\n>b\nGGGAAAGCCCUUUGGGAAAGCC\n' > two.fa
+  echo "-- dafs --help (whole)"; "$LIBEXEC/dafs" --help 2>&1
+  echo "-- dafs --mafft-out o one.fa"; "$LIBEXEC/dafs" --mafft-out o one.fa > d1 2> d2; echo "rc=$?"; echo "stdout:"; cat d1; echo "stderr:"; cat d2; ls
+  echo "-- dafs --mafft-in b two.fa"; "$LIBEXEC/dafs" --mafft-in b two.fa > d1 2> d2; echo "rc=$?"; echo "stdout:"; cat d1; echo "stderr:"; cat d2
+  echo "-- dafs one.fa (one sequence, no mafft option)"; "$LIBEXEC/dafs" one.fa > d1 2> d2; echo "rc=$?"; echo "stdout:"; cat d1; echo "stderr:"; cat d2
+  echo "-- dafs two.fa"; "$LIBEXEC/dafs" two.fa > d1 2> d2; echo "rc=$?"; echo "stdout:"; cat d1; echo "stderr:"; cat d2
+  echo "-- strings dafs | grep -i mafft"; strings "$LIBEXEC/dafs" | grep -i mafft | head
+  echo "-- source tree: grep -i mafft"; grep -rIn -i mafft /opt/rsrc/dafs-*/src 2>/dev/null | head
+  cd /opt/rsrc
+fi
 exit 0

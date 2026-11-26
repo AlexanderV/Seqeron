@@ -27,14 +27,47 @@ public sealed record MafftInstallation(string LibraryDirectory, bool Mxscarna, b
     /// <summary>The programs <c>lastdb</c> and <c>lastal</c> of LAST (<c>--lastpair</c>, <c>--lastmultipair</c>); <c>null</c> = not installed (the script prints its "Install LAST" text).</summary>
     public ILastPrograms? Last { get; init; }
 
+    /// <summary>
+    /// The program <c>contrafold</c> (<c>contrafold predict FILE --posteriors CUTOFF OUT</c>) that <c>contrafoldwrap</c> runs for every sequence: the text of the output file for one sequence (the nucleotides of the sequence without gaps, A, C, G, U or N) and the cutoff. <c>null</c> = CONTRAfold 2.02 as
+    /// ported in <see cref="ContrafoldProgram.PredictPosteriors"/>. The function may throw <see cref="ArgumentException"/> where the program fails (a zero-length sequence).
+    /// </summary>
+    public Func<string, double, string>? ContrafoldPredictor { get; init; }
+
+    /// <summary>
+    /// The program <c>mxscarnamod -m -writebpp _mccaskillin</c> that <c>mccaskillwrap</c> runs for every sequence (<c>--mccaskill</c>): the text it writes to standard output for the sequence (the ungapped sequence, lower case letters as <c>mccaskillwrap</c> writes them; lines "left right probability" with zero-based positions,
+    /// lines starting with '&gt;' are skipped). <c>null</c> = MXSCARNA is not ported yet (<c>--mccaskill</c> is refused with <see cref="NotSupportedException"/>). The function may throw <see cref="ArgumentException"/> where the program fails (<c>mccaskillwrap</c> then stops with "ERROR IN mccaskill_mea").
+    /// </summary>
+    public Func<string, string>? MxscarnaPredictor { get; init; }
+
     /// <summary>The directory of the LAST programs (the Docker package of the oracle installed LAST 1256 into <c>/opt/last</c>; the programs write this path in front of their messages).</summary>
     public string LastDirectory { get; init; } = "/opt/last/bin";
 
     /// <summary>The Debian binary package 7.505-1 (the reference installation of the other oracles): no extensions, no DAFS, no CONTRAfold.</summary>
     public static MafftInstallation Debian { get; } = new("/usr/lib/mafft/lib/mafft", false, false, false);
 
-    /// <summary>The source package built with <c>make</c> in <c>extensions</c> and installed into <c>/opt/mafft-ext</c> (the Docker package A2-19c-rna): MXSCARNA and the wrappers, but neither DAFS nor CONTRAfold (they are not part of the archive).</summary>
-    public static MafftInstallation WithExtensions { get; } = new("/opt/mafft-ext/libexec/mafft", true, false, false);
+    /// <summary>
+    /// The Debian binary package 7.505-1 with CONTRAfold 2.02 installed in its library directory (the program <c>contrafold</c> beside <c>contrafoldwrap</c>, which the Debian package ships): <c>--contrafold</c> runs
+    /// (<see cref="ContrafoldProgram"/>); the options that need MXSCARNA or DAFS stop with the script's "Install ..." text as in <see cref="Debian"/>.
+    /// </summary>
+    public static MafftInstallation DebianWithContrafold { get; } = new("/usr/lib/mafft/lib/mafft", false, false, true);
+
+    /// <summary>
+    /// The source package built with <c>make</c> in <c>extensions</c> and installed into <c>/opt/mafft-ext</c> together with CONTRAfold 2.02 and the public release 0.0.3 of DAFS (the Docker package A2-19c-rna, run 3):
+    /// MXSCARNA and the wrappers, <c>contrafold</c> and <c>dafs</c>. The public DAFS has no <c>--mafft-out</c> / <c>--mafft-in</c> options (see <see cref="DafsMafftInterface"/>).
+    /// </summary>
+    public static MafftInstallation WithExtensions { get; } = new("/opt/mafft-ext/libexec/mafft", true, true, true);
+
+    /// <summary>
+    /// The installation of run 2 of the Docker package: the extensions only, neither DAFS nor CONTRAfold (the script stops with its "Install DAFS" / "Install CONTRAfold" text).
+    /// </summary>
+    public static MafftInstallation WithExtensionsOnly { get; } = new("/opt/mafft-ext/libexec/mafft", true, false, false);
+
+    /// <summary>
+    /// <c>true</c> when the installed <c>dafs</c> understands <c>--mafft-out</c> (<c>mccaskillwrap -G</c>) and <c>--mafft-in</c> (<c>pairlocalalign -G</c>), the interface that <c>mafft.tmpl</c>'s <c>--dafs</c> / <c>--dafspair</c> are written for. The public releases
+    /// of DAFS (v0.0.1, v0.0.2, v0.0.3, master of github.com/satoken/dafs: the sources of <c>dafs.cpp</c> and <c>dafs.ggo</c> were read) have no such option, so <c>dafs</c> rejects the command line and <c>mccaskillwrap</c> stops with "ERROR IN mccaskill_mea"
+    /// (the 8 <c>--dafs</c> sets of the oracle); no program that implements the interface is known. Only the default (<c>false</c>) is ported.
+    /// </summary>
+    public bool DafsMafftInterface { get; init; }
 }
 
 public static class MafftProgram

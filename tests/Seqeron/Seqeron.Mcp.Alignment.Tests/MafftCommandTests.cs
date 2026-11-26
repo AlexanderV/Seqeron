@@ -105,4 +105,21 @@ public class MafftCommandTests
             Assert.Throws<ArgumentNullException>(() => AlignmentTools.MafftCommand(["in.fa", null!]));
         });
     }
+
+    /// <summary>F377 (WP86): the parameter <c>contrafold</c> runs <c>--contrafold</c> (contrafoldwrap + the ported CONTRAfold 2.02 + the RNA step of tbfast); without it the plain Debian installation answers with the script's "Install CONTRAfold" text.</summary>
+    [Test]
+    public void MafftCommand_Contrafold_RunsOnlyWithTheParameter()
+    {
+        var rna = new Dictionary<string, string> { ["in.fa"] = ">s0\nGGGAAAGCCCUUUGGGAAACCCUU\n>s1\nGGGAAGCCCUUUGGGAAAGCCCU\n>s2\nGGGAAAGCCUUUGGGAAAACCCUU\n" };
+        var plain = AlignmentTools.MafftCommand(["--contrafold", "--globalpair", "in.fa"], rna);
+        var withProgram = AlignmentTools.MafftCommand(["--contrafold", "--globalpair", "--weightr", "8.0", "--weightm", "2.0", "in.fa"], rna, contrafold: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(plain.ExitCode, Is.EqualTo(1));
+            Assert.That(plain.Stderr, Does.Contain("== Install CONTRAfold"));
+            Assert.That(withProgram.ExitCode, Is.EqualTo(0));
+            Assert.That(withProgram.Stderr, Does.Contain("running contrafold").And.Contain("Loading 'hat4'").And.Contain("Q-INS-1"));
+            Assert.That(withProgram.Stdout.Split('>', StringSplitOptions.RemoveEmptyEntries), Has.Length.EqualTo(3));
+        });
+    }
 }

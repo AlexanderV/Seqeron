@@ -144,6 +144,10 @@ public static partial class SequenceAligner
                         case 'W': g.MinimumWeight = CAtof(Next()); rest = true; break;
                         case ':': g.NWildcard = 1; break;
                         case '@': g.Alg = 'd'; break;
+                        case 'r': g.ConsweightRna = CAtof(Next()); g.RnaKozo = true; rest = true; break;
+                        case 'c': g.ConsweightMulti = CAtof(Next()); rest = true; break;
+                        case 'o': g.RnaPpenalty = (int)(CAtof(Next()) * 1000 - 0.5); rest = true; break;
+                        case 'e': g.RnaPthr = (int)(CAtof(Next()) * 1000 - 0.5); rest = true; break;
                         case '+': g.OutputHat23 = CAtoi(Next()); g.Report("outputhat23=" + g.OutputHat23.ToString(CultureInfo.InvariantCulture) + "\n"); rest = true; break;
                         default: throw new NotSupportedException($"The MAFFT option -{c} of tbfast is not available in this port.");
                     }
@@ -228,7 +232,16 @@ public static partial class SequenceAligner
             for (int i = 0; i < njob - 1; i++)
             {
                 AlignmentCancellation.ThrowIfRequested();
-                Report(MafftGlobals.D5(i) + " / " + njob + "\r");
+                if (G.Nthread == 1)
+                {
+                    // the one thread of the threaded pair stage reports the pair (i, i + 1) of every tenth row ("% 5d / %d (by thread %3d) \r"); with more threads the number of the thread is a race: not ported (unchanged here)
+                    if (i % 10 == 0)
+                        Report(MafftGlobals.D5(i) + " / " + njob + " (by thread " + 0.ToString(CultureInfo.InvariantCulture).PadLeft(3) + ") \r");
+                }
+                else
+                {
+                    Report(MafftGlobals.D5(i) + " / " + njob + "\r");
+                }
                 for (int j = i + 1; j < njob; j++)
                 {
                     if (bseq[i].Length == 0 || bseq[j].Length == 0)
@@ -1388,6 +1401,12 @@ public static partial class SequenceAligner
                 if (G.Constraint != 2 && G.Constraint != 0)
                     throw new NotSupportedException("The progressive method of tbfast without a pair library is not available in this port.");
                 pairG.Dorp = G.Dorp;
+                // the globals of the program: the options of the progressive stage (-r, -c, -o, -e) are in force during the pair stage too (rnakozo names the model "RNA", consweight_multi scales the matrix)
+                pairG.RnaKozo = G.RnaKozo;
+                pairG.ConsweightRna = G.ConsweightRna;
+                pairG.RnaPpenalty = G.RnaPpenalty;
+                pairG.RnaPthr = G.RnaPthr;
+                pairG.ConsweightMulti = G.ConsweightMulti;
                 pairG.Common = G.Common; // one process: tbfast calls pairlocalalign itself, the trace-back matrices are shared
                 var pairRun = new MafftRun(pairG) { _njob = njob, _nlenmax = _nlenmax };
                 (double[][] Iscore, MafftLocalHom[][] LocalHom) pairResult;
@@ -1628,6 +1647,8 @@ public static partial class SequenceAligner
                 for (int i = 0; i < njob; i++)
                     bseq[i] = seq[i].Replace("-", "");
             }
+            if (G.RnaKozo)
+                LoadHat4(bseq);
             int alloclen = _nlenmax * 2 + 1;
             Report("Progressive alignment ... \n");
             // tbfast: nthreadtb = nthread (-C n) unless sueff_global < 0.0001 or compacttree == 3; with nthreadtb > 0 and no --add the steps run in treebasethread

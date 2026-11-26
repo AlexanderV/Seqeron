@@ -108,6 +108,12 @@ public static partial class SequenceAligner
         internal bool TryWarp;
         internal double ConsweightMulti = 1.0;
 
+        // ---- the RNA options of tbfast (-r, -o, -e): rnakozo, consweight_rna, RNAppenalty, RNApthr and what constants() makes of them
+        internal bool RnaKozo;
+        internal double ConsweightRna;
+        internal int RnaPpenalty = NotSpecified, RnaPpenaltyEx = NotSpecified, RnaPthr = NotSpecified;
+        internal int RnaPenalty, RnaPenaltyEx, RnaThr;
+
         /// <summary>The arguments of <c>disttbfast</c> as the script <c>mafft</c> passes them (<c>arguments()</c> of <c>disttbfast.c</c>, the options that the script can produce).</summary>
         internal static MafftGlobals Parse(IReadOnlyList<string> argv)
         {
@@ -283,6 +289,12 @@ public static partial class SequenceAligner
                 if (Poffset == NotSpecified) Poffset = -369;
                 if (PamN == NotSpecified) PamN = 200;
                 if (KimuraR == NotSpecified) KimuraR = 2;
+                if (RnaPpenalty == NotSpecified) RnaPpenalty = -1530;
+                if (RnaPpenaltyEx == NotSpecified) RnaPpenaltyEx = 0;
+                if (RnaPthr == NotSpecified) RnaPthr = 0;
+                RnaPenalty = (int)(3 * 600.0 / 1000.0 * RnaPpenalty + 0.5);
+                RnaPenaltyEx = (int)(3 * 600.0 / 1000.0 * RnaPpenaltyEx + 0.5);
+                RnaThr = (int)(3 * 600.0 / 1000.0 * RnaPthr + 0.5);
                 Penalty = (int)(3 * 600.0 / 1000.0 * Ppenalty + 0.5);
                 PenaltyDist = (int)(3 * 600.0 / 1000.0 * PpenaltyDist + 0.5);
                 PenaltyShift = (int)(PenaltyShiftFactor * Penalty);
@@ -311,7 +323,7 @@ public static partial class SequenceAligner
                 Report("generating a scoring matrix for nucleotide (dist=" + PamN.ToString(CultureInfo.InvariantCulture) + ") ... ");
                 nDis = NucleotideMatrix(freq);
                 Report("done\n");
-                ModelName = "DNA" + PamN.ToString(CultureInfo.InvariantCulture) + " (" + KimuraR.ToString(CultureInfo.InvariantCulture) + "), " + F(-(double)Ppenalty * 0.001, 4, 2) + " (" + F(-(double)Ppenalty * 0.003, 4, 2) + "), "
+                ModelName = (RnaKozo ? "RNA" : "DNA") + PamN.ToString(CultureInfo.InvariantCulture) + " (" + KimuraR.ToString(CultureInfo.InvariantCulture) + "), " + F(-(double)Ppenalty * 0.001, 4, 2) + " (" + F(-(double)Ppenalty * 0.003, 4, 2) + "), "
                     + F(-(double)Poffset * 0.001, 4, 2) + " (" + F(-(double)Poffset * 0.003, 4, 2) + "), " + (TryWarp ? F(-(double)PenaltyShift / 1800, 4, 2) + " (" + F(-(double)PenaltyShift / 600, 4, 2) + ")" : "noshift");
                 int[] grp = { 0, 1, 2, 3, 3, 0, 1, 2, 3, 3, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
                 for (int i = 0; i < 26; i++)

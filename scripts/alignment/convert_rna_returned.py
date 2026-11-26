@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""B09 WP83 (item A2-19c-rna): converts the returned archive of the Docker package docs/Validation/review-2026-09/handoff/A2-19c-rna (returned/A2-19c-rna-out.run2.zip: the sets of inputs/sets.tsv run twice through `mafft <options> in.fa`
+"""B09 WP83 (item A2-19c-rna): converts the returned archive of the Docker package docs/Validation/review-2026-09/handoff/A2-19c-rna (returned/A2-19c-rna-out.zip = run 3 of 2026-11-26, with CONTRAfold 2.02 and DAFS 0.0.3 built; run 2 stays as .run2.zip: the sets of inputs/sets.tsv run twice through `mafft <options> in.fa`
 of the EXTENDED build of MAFFT 7.505 (mccaskillwrap, mxscarnamod; installed at /opt/mafft-ext) with ViennaRNA 2.5.1, linux/amd64) into the test oracle tests/Seqeron/Seqeron.Genomics.Tests/TestData/Alignment/mafft_rna_oracle.tsv.gz
 (the format of every mafft oracle, see SequenceAligner_MafftProgram_Tests.Load: id <TAB> group <TAB> args (JSON) <TAB> input <TAB> files (JSON) <TAB> rc <TAB> stdout <TAB> sha256(stderr) <TAB> stderr (always: the texts are short enough) <TAB> outfiles (JSON); escaped: \\ \\n \\t \\r).
 Groups: mccaskill (rc 0), mccaskill-stop (rc 1: protein input, "nuc only"), rnaalifold (rc 0), rnaalifold-abort (the glibc heap check aborts tbfast on a protein input; only the process number differs between the repetitions: normalised),
-scarnapair-stop (rc 1: `tbfast _ ... -s` reads hat4, which only --mccaskill / --contrafold / --dafs write), dafs-stop and contrafold-stop (rc 1: the programs are not part of the MAFFT archive).
+scarnapair-stop (rc 1: `tbfast _ ... -s` reads hat4, which only --mccaskill / --contrafold / --dafs write), dafspair-stop (rc 1: `pairlocalalign -G` reads hat4: the same file is missing),
+dafs-error (rc 1: `mccaskillwrap -G` runs `dafs --mafft-out ...` and the DAFS of the package, the public release 0.0.3, has no such option: "ERROR IN mccaskill_mea"), contrafold (rc 0: contrafoldwrap + CONTRAfold 2.02 inference + the RNA progressive step).
 Only deterministic runs are taken (the two repetitions equal after the normalisation of the process numbers); the rest is listed in the report. The archive is untrusted data: it is parsed, never executed.
 Usage: python3 -I scripts/alignment/convert_rna_returned.py <returned.zip>"""
 import gzip, hashlib, json, os, re, sys, tempfile, zipfile
@@ -25,10 +26,12 @@ def group_of(args, run):
     err = run['stderr']
     if 'Aborted' in err:
         return 'rnaalifold-abort'
-    if '--dafs' in args or '--dafspair' in args:
-        return 'dafs-stop'
-    if '--contrafold' in args:
-        return 'contrafold-stop'
+    if '--dafspair' in args and run['rc'] != 0 and 'Cannot open hat4' in err:
+        return 'dafspair-stop'
+    if '--dafs' in args and run['rc'] != 0 and 'ERROR IN mccaskill_mea' in err:
+        return 'dafs-error'
+    if '--contrafold' in args and run['rc'] == 0:
+        return 'contrafold'
     if run['rc'] != 0 and 'Cannot open hat4' in err:
         return 'scarnapair-stop'
     if run['rc'] != 0 and 'nuc only' in err:

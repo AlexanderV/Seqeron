@@ -65,6 +65,45 @@ for k, opts, seqs in sets:
     print(k, opts, 'rc', a['rc'], 'det' if det else 'NON-DETERMINISTIC', a['seconds'], 's', flush=True)
 json.dump(index, open(os.path.join(WORK, 'out/index.json'), 'w'))
 PY
+step "probes (run 4): CONTRAfold and MXSCARNA run directly on inputs/probe_seqs.tsv; their outputs are what the port has to equal exactly"
+python3 -I - <<'PY'
+import json, os, subprocess, tempfile
+
+WORK = os.environ.get('WORK', '/work')
+LIB = '/opt/mafft-ext/libexec/mafft'
+TIMEOUT = int(os.environ.get('RUN_TIMEOUT', '300'))
+
+
+def run(argv, td):
+    try:
+        p = subprocess.run(argv, capture_output=True, cwd=td, timeout=TIMEOUT, env=dict(os.environ, PATH=LIB + ':' + os.environ.get('PATH', '')))
+        return {'rc': p.returncode, 'stdout': p.stdout.decode('latin-1'), 'stderr': p.stderr.decode('latin-1')}
+    except subprocess.TimeoutExpired:
+        return {'rc': 'timeout', 'stdout': '', 'stderr': ''}
+
+
+records = []
+probes = [l.rstrip('\n').split('\t') for l in open(os.path.join(WORK, 'inputs/probe_seqs.tsv')) if l.strip()]
+if os.environ.get('RNA_QUICK') == '1':
+    probes = probes[::12]
+for k, seq in probes:
+    rec = {'id': k, 'seq': seq}
+    with tempfile.TemporaryDirectory() as td:
+        open(os.path.join(td, 'in.fa'), 'w').write('>in\n' + seq + '\n')
+        for name, argv, outfile in (('contrafold', [LIB + '/contrafold', 'predict', 'in.fa', '--posteriors', '0.01', 'out.txt'], 'out.txt'),
+                                    ('contrafold_gamma', [LIB + '/contrafold', 'predict', 'in.fa'], None),
+                                    ('mxscarnamod', [LIB + '/mxscarnamod', '-m', '-writebpp', 'in.fa'], None)):
+            a = run(argv, td)
+            b = run(argv, td)
+            if outfile and os.path.exists(os.path.join(td, outfile)):
+                a['file'] = open(os.path.join(td, outfile), encoding='latin-1').read()
+                os.remove(os.path.join(td, outfile))
+            a['repeat_equal'] = (a['rc'], a['stdout']) == (b['rc'], b['stdout'])
+            rec[name] = a
+    records.append(rec)
+    print(k, len(seq), rec['contrafold']['rc'], rec['mxscarnamod']['rc'], flush=True)
+json.dump(records, open(os.path.join(WORK, 'out/probes.json'), 'w'))
+PY
 step "done"
 chown -R "${HOST_UID:-0}:${HOST_GID:-0}" out 2>/dev/null
 exit 0
