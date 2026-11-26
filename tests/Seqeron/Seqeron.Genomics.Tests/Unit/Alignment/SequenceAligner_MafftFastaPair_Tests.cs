@@ -41,7 +41,7 @@ public class SequenceAligner_MafftFastaPair_Tests
         }
     }
 
-    // run "" = handoff/A2-19c-fastapair (180 sets), run "2" = handoff/A2-19c-fastapair2 (253 of its 288 sets: run 2 supplies the raw calls and the direct runs of dndfast7, run 3 the complete runs of mafft; both stopped after set 253 / at set 254, sets 254 - 288 are the package's run 4)
+    // run "" = handoff/A2-19c-fastapair (180 sets), run "2" = handoff/A2-19c-fastapair2 (all 288 sets: run 2 supplies the raw calls and the direct runs of dndfast7 of sets 1 - 253, run 3 the complete runs of mafft of 1 - 253, run 4 everything of sets 254 - 288)
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<Call>> CallCache = new();
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<Set>> SetCache = new();
 
@@ -116,6 +116,36 @@ public class SequenceAligner_MafftFastaPair_Tests
 
     private static string NormaliseSegfault(string stderr) => Regex.Replace(stderr, @"(/usr/bin/mafft: line \d+:)\s+(?:\d+|<pid>) (Segmentation fault)", "$1 P $2");
 
+    /// <summary>
+    /// With <c>--thread n</c> (n &gt; 1) the steps of the progressive alignment (<c>treebasethread</c> of <c>tbfast</c>) run on n threads: the program prints "STEP k /m (thread t) " when a thread has finished a step and "Reallocating (by thread t) ..done. *alloclen = a" when the thread that took the step has to grow the buffers.
+    /// The steps are taken in their order, so the sizes of the buffers (a) and the list of the reallocations are fixed by the guide tree, but WHICH thread takes a step and in which order the threads print is up to the scheduler: ten runs of the installed <c>mafft --retree 2 --thread 2</c> on one input gave ten different
+    /// orders and thread numbers, and sets 269 and 285 of the oracle show two different assignments of the five steps of the same tree shape. Only that is removed from both sides: the thread numbers and the order of the "STEP" lines (their set of numbers k /m stays), the order of the "Reallocating" lines relative to the
+    /// "STEP" lines (their list of sizes stays); every other character of the standard error, and the rows, are compared byte for byte. With one thread (or none) nothing is normalised.
+    /// </summary>
+    private static string NormaliseThreadSchedule(string stderr)
+    {
+        var steps = new List<(int K, string Total)>();
+        var reallocs = new List<string>();
+        string rest = Regex.Replace(stderr, @"\rSTEP\s+(\d+) /(\d+) \(thread\s+\d+\) ", m =>
+        {
+            steps.Add((int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture), m.Groups[2].Value));
+            return "";
+        });
+        rest = Regex.Replace(rest, @"\nReallocating \(by thread \d+\) \.\.done\. \*alloclen = (\d+)\n", m =>
+        {
+            reallocs.Add(m.Groups[1].Value);
+            return "";
+        });
+        return rest + "\n#STEPS " + string.Join(",", steps.OrderBy(x => x.K).Select(x => $"{x.K}/{x.Total}")) + "\n#REALLOC " + string.Join(",", reallocs);
+    }
+
+    private static bool RunsOnSeveralThreads(string options)
+    {
+        var parts = options.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        int i = Array.IndexOf(parts, "--thread");
+        return i >= 0 && i + 1 < parts.Length && int.TryParse(parts[i + 1], CultureInfo.InvariantCulture, out int n) && n > 1;
+    }
+
     private static string NormaliseHat3(string hat3) => Regex.Replace(hat3, @" (\(nil\)|0x[0-9a-f]+)$", m => m.Groups[1].Value == "(nil)" ? " NIL" : " PTR", RegexOptions.Multiline);
 
     [Test]
@@ -144,20 +174,25 @@ public class SequenceAligner_MafftFastaPair_Tests
         var calls = CallsOf("2");
         Assert.Multiple(() =>
         {
-            Assert.That(sets, Has.Count.EqualTo(253), "the sets of handoff/A2-19c-fastapair2 that the stopped run finished (of 288)");
-            Assert.That(calls, Has.Count.EqualTo(551));
-            Assert.That(sets.Count(s => s.Full), Is.EqualTo(253), "run 3 recorded the complete mafft run (results row, standard error) of the same 253 sets; it stopped at set 254 (--clustalout: the script of the package aborted on output without a '>' line)");
-            Assert.That(sets.Count(s => s.Full && s.Rc == 0), Is.EqualTo(47), "complete runs that finish with exit status 0 (rows recorded)");
-            Assert.That(sets.Count(s => s.Full && s.Rc == 1), Is.EqualTo(206), "complete runs that stop with exit status 1 (the program's segmentation fault / count message is turned into exit 1 by the script)");
-            Assert.That(sets.Count(s => s.Full && s.Rows.Length > 0), Is.EqualTo(47));
-            Assert.That(sets.Count(s => s.Tree.Length > 0 || s.Hat2.Length > 0), Is.EqualTo(0), "no complete run of the 253 left a tree or hat2 file (no --treeout run finished: DNA sets stop in dndfast7, mafft removes hat2); the comparison of both files is vacuous until run 4");
-            Assert.That(sets.Count(s => s.Files.Count > 0), Is.EqualTo(9), "sets whose options name further files");
-            Assert.That(sets.Select(s => s.Options).Distinct().Count(), Is.EqualTo(38));
-            Assert.That(sets.Count(s => s.DirectRc == -11), Is.EqualTo(199), "dndfast7 stops with a segmentation fault (a null pointer from cutal, then putlocalhom2)");
+            Assert.That(sets, Has.Count.EqualTo(288), "all sets of handoff/A2-19c-fastapair2: 1 - 253 from runs 2 + 3, 254 - 288 from run 4");
+            Assert.That(calls, Has.Count.EqualTo(695), "raw fasta34 calls: 551 of run 2 + 144 of run 4 (the sets 254 - 288 whose dndfast7 reached fasta34)");
+            Assert.That(sets.Count(s => s.Full), Is.EqualTo(288), "every set has the complete mafft run (results row, standard error); no set of run 4 recorded an error (results.tsv column 10 empty in all 35 rows), none ended with 124 / 127");
+            Assert.That(sets.Count(s => s.Full && s.Rc == 0), Is.EqualTo(69), "complete runs that finish with exit status 0 (47 of run 3 + 22 of run 4)");
+            Assert.That(sets.Count(s => s.Full && s.Rc == 1), Is.EqualTo(219), "complete runs that stop with exit status 1 (the program's segmentation fault / count message is turned into exit 1 by the script)");
+            Assert.That(sets.Count(s => s.Full && s.Rows.Length > 0), Is.EqualTo(65), "69 finished runs minus the 4 CLUSTAL / PHYLIP runs (no '>' rows)");
+            Assert.That(sets.Count(s => s.Tree.Length > 0 || s.Hat2.Length > 0), Is.EqualTo(0), "no complete run left a tree or hat2 file (no --treeout / --distout set exists among 254 - 288; the DNA sets of 1 - 253 stop in dndfast7, mafft removes hat2): the comparison of both files is vacuous");
+            Assert.That(sets.Count(s => s.Files.Count > 0), Is.EqualTo(27), "sets whose options name further files");
+            Assert.That(sets.Select(s => s.Options).Distinct().Count(), Is.EqualTo(41));
+            Assert.That(sets.Count(s => s.Stdout is not null), Is.EqualTo(35), "run 4 stores the raw standard output of its 35 sets");
+            Assert.That(sets.Count(s => s.Stdout is { Length: > 0 }), Is.EqualTo(22));
+            Assert.That(sets.Count(s => s.Stdout is not null && s.Stdout.StartsWith("CLUSTAL format alignment by MAFFT", StringComparison.Ordinal)), Is.EqualTo(2), "--clustalout");
+            Assert.That(sets.Count(s => s.Stdout is not null && s.Stdout.StartsWith(" 3 ", StringComparison.Ordinal)), Is.EqualTo(2), "--phylipout (sequential PHYLIP: ' 3 150')");
+            Assert.That(sets.Count(s => s.OutFiles.Count > 0), Is.EqualTo(1), "set 261: new.fa.map of --mapout");
+            Assert.That(sets.Count(s => s.DirectRc == -11), Is.EqualTo(210), "dndfast7 stops with a segmentation fault (a null pointer from cutal, then putlocalhom2)");
             Assert.That(sets.Count(s => s.DirectRc == 1 && s.DirectStderr.Contains("count (fasta34 -z 3) =", StringComparison.Ordinal)), Is.EqualTo(6));
-            Assert.That(sets.Count(s => s.DirectRc == 0), Is.EqualTo(48));
-            Assert.That(calls.Count(c => c.Args.Split(' ').Contains("-n")), Is.EqualTo(205), "nucleotide calls of fasta34");
-            Assert.That(calls.Count(c => c.Args.Split(' ').Contains("-A")), Is.EqualTo(152), "calls with -A (--fastswpair)");
+            Assert.That(sets.Count(s => s.DirectRc == 0), Is.EqualTo(72));
+            Assert.That(calls.Count(c => c.Args.Split(' ').Contains("-n")), Is.EqualTo(219), "nucleotide calls of fasta34");
+            Assert.That(calls.Count(c => c.Args.Split(' ').Contains("-A")), Is.EqualTo(165), "calls with -A (--fastswpair)");
         });
     }
 
@@ -243,7 +278,7 @@ public class SequenceAligner_MafftFastaPair_Tests
     [TestCase("2", 0)]
     public void EveryMafftRun_ReturnCodeRowsNamesTreeHat2AndStandardError_EqualTheProgram(string run, int expectedRefused)
     {
-        // run "2": run 3 recorded the complete runs of the 253 sets (status, rows, names, tree, hat2 file and standard error are compared where the oracle has them)
+        // run "2": all 288 sets have the complete run (status, rows, names, tree, hat2 file, standard error; raw standard output and output files where run 4 stored them)
         var failures = new System.Collections.Concurrent.ConcurrentBag<string>();
         int refused = 0;
         var allSets = SetsOf(run);
@@ -267,7 +302,15 @@ public class SequenceAligner_MafftFastaPair_Tests
             var (titles, seqs) = ParseFasta(res.Stdout);
             string tree = res.Files.TryGetValue("in.fa.tree", out var t) ? t : "";
             string hat2 = res.Files.TryGetValue("in.fa.hat2", out var h) ? h : "";
+            bool threaded = RunsOnSeveralThreads(s.Options);
             string stderr = NormaliseSegfault(res.Stderr);
+            string expectedStderr = NormaliseSegfault(s.Stderr);
+            if (threaded)
+            {
+                stderr = NormaliseThreadSchedule(stderr);
+                expectedStderr = NormaliseThreadSchedule(expectedStderr);
+            }
+
             if (s.Full && res.ExitCode != s.Rc)
                 failures.Add($"{s.Id} ({s.Options}): exit status {res.ExitCode}, program {s.Rc}");
             else if (s.Full && !seqs.SequenceEqual(s.Rows))
@@ -282,8 +325,8 @@ public class SequenceAligner_MafftFastaPair_Tests
                 failures.Add($"{s.Id} ({s.Options}): standard output differs: {FirstDifference(res.Stdout, s.Stdout)}");
             else if (s.Full && s.OutFiles.FirstOrDefault(kv => !res.Files.TryGetValue(kv.Key, out var content) || content != kv.Value) is { Key: not null } bad)
                 failures.Add($"{s.Id} ({s.Options}): output file {bad.Key} differs or is missing");
-            else if (stderr != NormaliseSegfault(s.Stderr))
-                failures.Add($"{s.Id} ({s.Options}): standard error differs: {FirstDifference(stderr, NormaliseSegfault(s.Stderr))}");
+            else if (stderr != expectedStderr)
+                failures.Add($"{s.Id} ({s.Options}): standard error differs: {FirstDifference(stderr, expectedStderr)}");
         });
 
         Assert.Multiple(() =>

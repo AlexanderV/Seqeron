@@ -1630,7 +1630,9 @@ public static partial class SequenceAligner
             }
             int alloclen = _nlenmax * 2 + 1;
             Report("Progressive alignment ... \n");
-            TreeBase(bseq, tree, eff, ref alloclen, localhom, tbfast: G.Constraint == 0, add: addState, nodePair: _compactTree == 3 ? nodePair : null, effarrKozo: effKozo, seedHom: seedHom, nseed: nseed);
+            // tbfast: nthreadtb = nthread (-C n) unless sueff_global < 0.0001 or compacttree == 3; with nthreadtb > 0 and no --add the steps run in treebasethread
+            int threadsTb = G.SueffGlobal < 0.0001 || _compactTree == 3 || G.Nadd != 0 ? 0 : G.Nthread;
+            TreeBase(bseq, tree, eff, ref alloclen, localhom, tbfast: G.Constraint == 0, add: addState, nodePair: _compactTree == 3 ? nodePair : null, effarrKozo: effKozo, seedHom: seedHom, nseed: nseed, threadsTb: threadsTb);
             Report("\ndone.\n");
             var (deletedRuns, deleteMap, newNames, ndeleted) = KeepLength(njob, seq, bseq, originalGaps, addbk, fileNames);
             if (G.SpScoreOut != 0)

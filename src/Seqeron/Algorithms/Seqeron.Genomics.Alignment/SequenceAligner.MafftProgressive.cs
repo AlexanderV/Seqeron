@@ -1132,8 +1132,10 @@ public static partial class SequenceAligner
 
         // -------------------------------------------------------------------- treebase
 
-        /// <summary><c>treebase</c> (<c>disttbfast.c</c>, all groups aligned: <c>mergeoralign[l] == 'a'</c>): joins the groups in the order of the guide tree.</summary>
-        private void TreeBase(string[] aseq, GuideTree tree, double[] effarr, ref int alloclen, MafftLocalHom[][]? localhom = null, bool tbfast = false, MafftAddState? add = null, NodePairData? nodePair = null, double[]? effarrKozo = null, MafftLocalHom[][]? seedHom = null, int nseed = 0)
+        /// <summary><c>treebase</c> (<c>disttbfast.c</c>, all groups aligned: <c>mergeoralign[l] == 'a'</c>): joins the groups in the order of the guide tree. <paramref name="threadsTb"/> &gt; 0: the program runs <c>treebasethread</c> of <c>tbfast.c</c>
+        /// (<c>nthreadtb &gt; 0 &amp;&amp; nadd == 0</c>), whose standard error differs from <c>treebase</c>: "STEP k /m (thread t) " and "Reallocating (by thread t) ..", the buffer grows when <c>alloclen &lt;= len1 + len2</c> (<c>treebase</c>: <c>&lt;</c>). The threads take the steps from a queue in the order of
+        /// the steps; which thread takes which step is up to the scheduler (the port names thread <c>l % threadsTb</c>, one of the possible schedules; with one thread the program prints thread 0 every time); the alignment is the same.</summary>
+        private void TreeBase(string[] aseq, GuideTree tree, double[] effarr, ref int alloclen, MafftLocalHom[][]? localhom = null, bool tbfast = false, MafftAddState? add = null, NodePairData? nodePair = null, double[]? effarrKozo = null, MafftLocalHom[][]? seedHom = null, int nseed = 0, int threadsTb = 0)
         {
             bool constraint = localhom != null || nodePair != null && G.Constraint == 2;
             double dumdb = 0.0;
@@ -1177,9 +1179,9 @@ public static partial class SequenceAligner
                 double[][] dynamicmtx = constraint || localhom != null || tbfast ? MakeDynamicMtx(G.NDisConsweightMulti, tree.Dep[l].DistFromTip) : G.NDisConsweightMulti;
                 int len1 = aseq[m1].Length;
                 int len2 = aseq[m2].Length;
-                if (alloclen < len1 + len2)
+                if (threadsTb > 0 ? alloclen <= len1 + len2 : alloclen < len1 + len2)
                 {
-                    Report("\nReallocating..");
+                    Report(threadsTb > 0 ? "\nReallocating (by thread " + (l % threadsTb).ToString(CultureInfo.InvariantCulture) + ") .." : "\nReallocating..");
                     alloclen = len1 + len2 + 1000;
                     Report("done. *alloclen = " + alloclen + "\n");
                 }
@@ -1224,7 +1226,7 @@ public static partial class SequenceAligner
                 {
                     // tbfast, constraint == 2: the importance of the blocks of the pairwise alignments enters the match scores of A__align
                     if (l < 1000 || l % 100 == 0)
-                        Report("\rSTEP " + MafftGlobals.D5(l + 1) + " /" + (njob - 1) + " ");
+                        Report("\rSTEP " + MafftGlobals.D5(l + 1) + " /" + (njob - 1) + (threadsTb > 0 ? " (thread " + D4(l % threadsTb) + ") " : " "));
                     MafftLocalHom?[][]? seedShrink = null;
                     if (seedIn1 != null)
                     {
@@ -1250,7 +1252,7 @@ public static partial class SequenceAligner
                 if (tbfast)
                 {
                     if (l < 1000 || l % 100 == 0)
-                        Report("\rSTEP " + MafftGlobals.D5(l + 1) + " /" + (njob - 1) + " ");
+                        Report("\rSTEP " + MafftGlobals.D5(l + 1) + " /" + (njob - 1) + (threadsTb > 0 ? " (thread " + D4(l % threadsTb) + ") " : " "));
                     bool tryFft = fftlog![m1] != 0 && fftlog[m2] != 0 && _nlen[m1] > clus1 && _nlen[m2] > clus2 && clus1 < 1000 && clus2 < 1000;
                     if (G.ForceFft || (G.UseFft && tryFft))
                     {
