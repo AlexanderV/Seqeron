@@ -1,3 +1,5 @@
+**STATUS: RUN 3 RETURNED (`returned/A2-19c-rna-out.zip`: CONTRAfold 2.02 and DAFS built; --contrafold 16 sets rc=0, --dafs/--dafspair 16 sets still rc=1, rest as run 2; all deterministic); integration pending (next B09 WP). Runs 1 and 2 stay as `.run1.zip` / `.run2.zip`.**
+
 **STATUS: RUN 2 INTEGRATED (B09 WP83, F374: 150 sets; the 51 stops with return code 1 equal the port, 98 computed runs refused by the port = DOABLE port); RUN 3 NEEDED: the image now also builds CONTRAfold 2.02 and DAFS (`build_rnaprogs.sh`), so that the 32 `--contrafold` / `--dafs` / `--dafspair` sets (stopped at "Install CONTRAfold" / "Install DAFS" in run 2: neither program is part of the MAFFT archive) really run. User command (Apple Silicon: the scripts use `--platform linux/amd64`, emulated; about 10 minutes with the two extra builds):**
 ```bash
 git pull
