@@ -313,6 +313,10 @@ public static partial class SequenceAligner
                 Err("Impossible\n");
                 return 1;
             }
+            if (RnaExtensionStop(MafftProgramIo.Records(infile), nseq) is { } rnaStop)
+                return rnaStop;
+            if (_rnaalifold || _mccaskill || _dafs || _contrafold)
+                throw new NotSupportedException("The option RNA secondary structure options (--rnaalifold, --mccaskill, --dafs, --contrafold) of the script mafft is not ported yet.");
             bool seedRun = _seed != "x" || _seedtable != "x";
             bool engine = (_fragment == 0 ? _distance is "ktuples" or "global" or "local" or "localgenaf" or "parttree" or "fasta" or "hybrid" : _distance is "ktuples" or "ktuplesmulti" or "multi" or "hybrid" or "local") && !_newdash;
             if (_nadd > 0 && _distance == "parttree")

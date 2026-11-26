@@ -221,8 +221,6 @@ public static partial class SequenceAligner
             int iteratelimit = _parallelizationstrategy is "BESTFIRST" or "BAATARI0" ? 254 : 16;
             if (_iterate > iteratelimit)
                 _iterate = iteratelimit;
-            if (_rnaalifold || _mccaskill || _dafs || _contrafold)
-                NeedPort("RNA secondary structure options (--rnaalifold, --mccaskill, --dafs, --contrafold)");
             if (_sprigorous)
             {
                 _algopt = " -@ ";
@@ -257,27 +255,27 @@ public static partial class SequenceAligner
             }
             if (_distance is "lara" or "slara")
             {
-                Err("\n== Install LaRA =========================================================\nThis option requires LaRA (Bauer et al. http://www.planet-lisa.net/).\nThe executable have to be renamed to 'mafft_lara' and installed into \nthe /usr/lib/mafft/lib/mafft directory. \nA configuration file of LaRA also have to be given\nmafft-xinsi --larapair --laraparams parameter_file\nmafft-xinsi --slarapair --laraparams parameter_file\n=========================================================================\n\n");
+                Err("\n== Install LaRA =========================================================\nThis option requires LaRA (Bauer et al. http://www.planet-lisa.net/).\nThe executable have to be renamed to 'mafft_lara' and installed into \nthe " + _installation.LibraryDirectory + " directory. \nA configuration file of LaRA also have to be given\nmafft-xinsi --larapair --laraparams parameter_file\nmafft-xinsi --slarapair --laraparams parameter_file\n=========================================================================\n\n");
                 Exit(1);
             }
             if (_distance is "foldalignlocal" or "foldalignglobal")
             {
-                Err("\n== Install FOLDALIGN ====================================================\nThis option requires FOLDALIGN (Havgaard et al. http://foldalign.ku.dk/).\nThe executable have to be renamed to 'foldalign210' and installed into \nthe /usr/lib/mafft/lib/mafft directory. \n=========================================================================\n\n");
+                Err("\n== Install FOLDALIGN ====================================================\nThis option requires FOLDALIGN (Havgaard et al. http://foldalign.ku.dk/).\nThe executable have to be renamed to 'foldalign210' and installed into \nthe " + _installation.LibraryDirectory + " directory. \n=========================================================================\n\n");
                 Exit(1);
             }
-            if (_distance == "scarna" || _mccaskill)
+            if ((_distance == "scarna" || _mccaskill) && !_installation.Mxscarna)
             {
                 Err("\n== Install MXSCARNA ======================================================\nMXSCARNA (Tabei et al. BMC Bioinformatics 2008 9:33) is required.\nPlease 'make' at the 'extensions' directory of the MAFFT source package,\nwhich contains the modified version of MXSCARNA.\nhttp://mafft.cbrc.jp/alignment/software/source.html \n==========================================================================\n\n");
                 Exit(1);
             }
-            if (_distance == "dafs" || _dafs)
+            if ((_distance == "dafs" || _dafs) && !_installation.Dafs)
             {
                 Err("\n== Install DAFS===========================================================\nDAFS (Sato et al. Journal 2012 issue:page) is required.\nhttp://www.ncrna.org/ \n==========================================================================\n\n");
                 Exit(1);
             }
-            if (_contrafold)
+            if (_contrafold && !_installation.Contrafold)
             {
-                Err("\n== Install CONTRAfold ===================================================\nThis option requires CONTRAfold\n(Do et al. http://contra.stanford.edu/contrafold/).\nThe executable 'contrafold' have to be installed into \nthe /usr/lib/mafft/lib/mafft directory. \n=========================================================================\n\n");
+                Err("\n== Install CONTRAfold ===================================================\nThis option requires CONTRAfold\n(Do et al. http://contra.stanford.edu/contrafold/).\nThe executable 'contrafold' have to be installed into \nthe " + _installation.LibraryDirectory + " directory. \n=========================================================================\n\n");
                 Exit(1);
             }
 

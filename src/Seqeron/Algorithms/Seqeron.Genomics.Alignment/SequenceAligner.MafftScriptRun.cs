@@ -30,8 +30,11 @@ public static partial class SequenceAligner
             public int Code { get; } = code;
         }
 
-        internal MafftScriptRun(IReadOnlyList<string> argv, IReadOnlyDictionary<string, string> files, string? stdin)
+        private readonly MafftInstallation _installation;
+
+        internal MafftScriptRun(IReadOnlyList<string> argv, IReadOnlyDictionary<string, string> files, string? stdin, MafftInstallation? installation = null)
         {
+            _installation = installation ?? MafftInstallation.Debian;
             _argv = argv.Select(MafftProgramIo.ToBytes).ToList();
             var f = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var kv in files)

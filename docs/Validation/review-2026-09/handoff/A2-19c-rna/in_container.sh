@@ -11,13 +11,14 @@ step "versions"
   echo "date: $(date -u)"; echo "uname: $(uname -m)"
   echo "debian mafft: $(mafft --version 2>&1 | head -1)"; echo "extended mafft: $(/opt/mafft-ext/bin/mafft --version 2>&1 | head -1)"
   echo "RNAalifold: $(command -v RNAalifold) $(RNAalifold --version 2>&1 | head -1)"; echo "mafft on PATH: $(command -v mafft)"; echo "curl: $(command -v curl)"
+  echo "contrafold: $(ls -l /opt/mafft-ext/libexec/mafft/contrafold 2>&1)"; echo "dafs: $(ls -l /opt/mafft-ext/libexec/mafft/dafs 2>&1)"
   echo "--- programs of the extended build"; ls -l /opt/mafft-ext/libexec/mafft 2>&1
   echo "--- sha256 of the programs"; sha256sum /opt/mafft-ext/libexec/mafft/* 2>&1 | head -60
 } > out/versions.txt 2>&1
-cp /opt/build_ext.log /opt/build_vienna.log out/ 2>/dev/null
+cp /opt/build_ext.log /opt/build_vienna.log /opt/build_rnaprogs.log out/ 2>/dev/null
 step "the sets"
 python3 -I - <<'PY'
-import json, os, subprocess, tempfile, time, hashlib
+import json, os, re, subprocess, tempfile, time, hashlib
 
 WORK = os.environ.get('WORK', '/work')
 QUICK = os.environ.get('RNA_QUICK') == '1'
@@ -53,7 +54,11 @@ for k, opts, seqs in sets:
         open(os.path.join(td, 'in.fa'), 'w').write(text)
         a = run_once(td, argv)
         b = run_once(td, argv)
-    det = all(a[x] == b[x] for x in ('rc', 'stdout', 'stderr', 'files'))
+    def norm(t):
+        # the process number in the shell's "mafft: line N: PID Aborted / Segmentation fault" and the random names of the temporary directories are not part of the program's behaviour
+        t = re.sub(r'(mafft: line \d+:)\s+\d+ (Aborted|Segmentation fault)', r'\1 P \2', t)
+        return re.sub(r'mafft\.[A-Za-z0-9]{6,12}', 'mafft.X', t)
+    det = all((norm(a[x]) if x == 'stderr' else a[x]) == (norm(b[x]) if x == 'stderr' else b[x]) for x in ('rc', 'stdout', 'stderr', 'files'))
     rec = {'id': k, 'args': argv[1:], 'input': text, 'deterministic': det, 'run1': a, 'run2': b if not det else None}
     json.dump(rec, open(os.path.join(WORK, 'out/sets', k + '.json'), 'w'))
     index.append((k, opts, a['rc'], det, a['seconds']))

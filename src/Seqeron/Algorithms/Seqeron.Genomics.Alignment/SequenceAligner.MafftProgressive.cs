@@ -37,11 +37,14 @@ public static partial class SequenceAligner
         /// <summary>
         /// <c>setstacksize( 200 * njob )</c> (io.c): the limit of the process is raised when it is smaller than 200 bytes per sequence, and the message then shows both sizes ("8192 kb->19531 kb", truncated to kb).
         /// </summary>
-        private string StackSizeText(int njob)
+        private string StackSizeText(int njob) => StackSizeMessage(StackSizeKb, njob);
+
+        /// <summary>The text of <c>setstacksize( 200 * njob )</c> for a process whose stack limit is <paramref name="stackKb"/> kb.</summary>
+        internal static string StackSizeMessage(int stackKb, int njob)
         {
             long wanted = 200L * njob;
-            string current = StackSizeKb.ToString(CultureInfo.InvariantCulture);
-            return (long)StackSizeKb * 1024 < wanted
+            string current = stackKb.ToString(CultureInfo.InvariantCulture);
+            return (long)stackKb * 1024 < wanted
                 ? "stacksize: " + current + " kb->" + (wanted / 1024).ToString(CultureInfo.InvariantCulture) + " kb\n"
                 : "stacksize: " + current + " kb\n";
         }
