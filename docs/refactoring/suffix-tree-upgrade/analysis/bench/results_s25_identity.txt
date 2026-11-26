@@ -1,0 +1,8 @@
+# Byte identity of the containers that the S1 head (56456a72, container of /tmp/stbench/s24/cbase) and this package (9109af24, sesa build without IncludeRmq, 4 threads, the production builder) write (work package S2.5). cmp of the two files, then the size and the first 16 hex digits of the sha256.
+dna_10m   identical  132515457 bytes  21718e29fe670d49
+rep_10m   identical  142515458 bytes  924545d61c412898
+prot_1m   identical  13640257 bytes  e48fc4ce430b7e09
+dna_100m  identical  1325019393 bytes  d6717e642c1b1a1e   (the digest and the size of results_s24_identity.txt; the S1 file is not on disk any more: size and sha256 prefix compared)
+# With IncludeRmq (sesa build --rmq true): dna_10m 133,808,224 bytes (+1,292,767 = 0.129 B/char), rep_10m 143,806,560 bytes (+1,292,102), dna_100m 1,337,926,472 bytes (+12,907,079 = 0.129 B/char); the RMQ section is placed after the LCP overflow list, the other sections are the same bytes.
+# Builder RssAnon peak at dna_100m (sesa build, 4 threads, --rss true): 256.0 MB without the option, 255.9 MB with it (limit 286.3 MB of the S1 gate row); build 16.6 s.
+

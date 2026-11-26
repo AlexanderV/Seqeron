@@ -1,0 +1,213 @@
+# Summary of the abapp cells (summarize_s24_ab.py): per cell and operation the median over the processes of the per-process median of the per-block ratios B / A (a speed ratio: below 1 is slower), the quartiles and the range over the processes, and the verdict against 0.97. Sets as in results_s25_abapp_rows.txt.
+## null
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+null	dna_10m	file	1	count_present	5	1.0113	1.0030	1.0152	0.9770	1.0479	
+null	dna_10m	file	1	count_absent	5	1.0177	1.0076	1.0274	1.0041	1.0526	
+null	dna_10m	file	1	locate	5	1.0111	1.0023	1.0356	0.9513	1.0710	
+null	dna_10m	file	4	count_present	5	1.0048	0.9853	1.0096	0.9747	1.0286	
+null	dna_10m	file	4	count_absent	5	1.0109	1.0091	1.0156	1.0033	1.0340	
+null	dna_10m	file	4	locate	5	0.9938	0.9610	0.9968	0.9574	1.1043	
+null	dna_10m	fileT	1	count_present	5	0.9946	0.9844	0.9983	0.9841	1.0329	
+null	dna_10m	fileT	1	count_absent	5	1.0047	1.0043	1.0113	0.9955	1.0359	
+null	dna_10m	fileT	1	locate	5	1.0309	1.0095	1.0385	0.9985	1.0716	
+null	dna_10m	fileT	4	count_present	5	1.0040	1.0024	1.0094	0.9905	1.0334	
+null	dna_10m	fileT	4	count_absent	5	1.0061	1.0061	1.0178	1.0013	1.0476	
+null	dna_10m	fileT	4	locate	5	1.0150	0.9479	1.0154	0.9264	1.0173	
+null	dna_10m	idx	1	count_present	5	1.0045	0.9951	1.0450	0.9942	1.0746	
+null	dna_10m	idx	1	count_absent	5	1.0097	1.0069	1.0118	0.9972	1.0167	
+null	dna_10m	idx	1	locate	5	1.0018	0.9930	1.0607	0.9642	1.1567	
+null	dna_10m	idx	4	count_present	5	0.9971	0.9965	1.0235	0.9884	1.0419	
+null	dna_10m	idx	4	count_absent	5	1.0079	1.0056	1.0161	1.0008	1.0181	
+null	dna_10m	idx	4	locate	5	1.0154	0.9505	1.0202	0.9347	1.0582	
+null	dna_10m	mem	1	count_present	5	1.0514	1.0181	1.0573	1.0028	1.0617	
+null	dna_10m	mem	1	count_absent	5	1.0007	0.9995	1.0097	0.9845	1.0275	
+null	dna_10m	mem	1	locate	5	1.0341	1.0312	1.0544	0.9529	1.0555	
+null	dna_10m	mem	4	count_present	5	1.0109	1.0081	1.0566	0.9904	1.0582	
+null	dna_10m	mem	4	count_absent	5	1.0214	1.0083	1.0252	0.9924	1.0402	
+null	dna_10m	mem	4	locate	5	1.0030	0.9714	1.0110	0.9529	1.0267	
+null	prot_1m	idx	4	count_present	5	1.0070	0.9938	1.0254	0.9861	1.0571	
+null	prot_1m	idx	4	count_absent	5	1.0162	1.0071	1.0271	0.9953	1.0385	
+null	prot_1m	idx	4	locate	5	1.0042	0.9659	1.0105	0.9628	1.0377	
+## ab_s1
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+ab	dna_10m	file	1	count_present	5	1.0108	1.0020	1.0261	0.9970	1.0517	ok
+ab	dna_10m	file	1	count_absent	5	0.9939	0.9912	1.0196	0.9866	1.0279	ok
+ab	dna_10m	file	1	locate	5	1.0107	1.0043	1.0667	0.9999	1.0675	ok
+ab	dna_10m	file	4	count_present	5	1.0234	1.0025	1.0252	0.9953	1.0303	ok
+ab	dna_10m	file	4	count_absent	5	1.0217	1.0018	1.0299	0.9942	1.0321	ok
+ab	dna_10m	file	4	locate	5	1.0168	1.0124	1.0909	1.0035	1.1285	ok
+ab	dna_10m	fileT	1	count_present	5	1.0275	1.0112	1.0337	0.9786	1.0438	ok
+ab	dna_10m	fileT	1	count_absent	5	1.0116	1.0042	1.0164	0.9759	1.0199	ok
+ab	dna_10m	fileT	1	locate	5	1.0085	0.9920	1.0271	0.9546	1.0916	ok
+ab	dna_10m	fileT	4	count_present	5	1.0053	1.0025	1.0062	0.9948	1.0132	ok
+ab	dna_10m	fileT	4	count_absent	5	1.0115	1.0041	1.0143	1.0007	1.0305	ok
+ab	dna_10m	fileT	4	locate	5	0.9645	0.9495	1.0270	0.9357	1.0636	BELOW 0.97
+ab	dna_10m	idx	1	count_present	5	1.0003	0.9983	1.0467	0.9969	1.0596	ok
+ab	dna_10m	idx	1	count_absent	5	1.0163	1.0075	1.0170	1.0071	1.0219	ok
+ab	dna_10m	idx	1	locate	5	1.0566	0.9887	1.0609	0.9641	1.0807	ok
+ab	dna_10m	idx	4	count_present	5	1.0026	1.0015	1.0105	0.9997	1.0456	ok
+ab	dna_10m	idx	4	count_absent	5	1.0061	1.0052	1.0110	0.9869	1.0131	ok
+ab	dna_10m	idx	4	locate	5	1.0990	1.0256	1.1124	1.0047	1.1185	ok
+ab	dna_10m	mem	1	count_present	5	1.0114	0.9670	1.0259	0.9103	1.0347	ok
+ab	dna_10m	mem	1	count_absent	5	1.0182	1.0126	1.0237	0.9989	1.0284	ok
+ab	dna_10m	mem	1	locate	5	1.0598	1.0347	1.0792	0.9933	1.1510	ok
+ab	dna_10m	mem	4	count_present	5	1.0139	1.0119	1.0201	1.0081	1.0579	ok
+ab	dna_10m	mem	4	count_absent	5	1.0105	0.9959	1.0289	0.9805	1.0313	ok
+ab	dna_10m	mem	4	locate	5	1.0019	0.9999	1.0067	0.9353	1.0999	ok
+ab	prot_1m	file	1	count_present	5	1.0013	1.0001	1.0059	0.9942	1.0104	ok
+ab	prot_1m	file	1	count_absent	5	1.0033	0.9979	1.0043	0.9958	1.0069	ok
+ab	prot_1m	file	1	locate	5	0.9840	0.9775	1.0019	0.9523	1.0397	ok
+ab	prot_1m	file	4	count_present	5	0.9944	0.9822	1.0158	0.9821	1.0205	ok
+ab	prot_1m	file	4	count_absent	5	1.0040	1.0027	1.0067	1.0009	1.0068	ok
+ab	prot_1m	file	4	locate	5	0.9888	0.9754	0.9937	0.9369	0.9939	ok
+ab	prot_1m	fileT	1	count_present	5	1.0064	1.0014	1.0067	1.0009	1.0185	ok
+ab	prot_1m	fileT	1	count_absent	5	0.9997	0.9829	1.0067	0.9738	1.0202	ok
+ab	prot_1m	fileT	1	locate	5	1.0445	1.0147	1.0692	0.9945	1.1061	ok
+ab	prot_1m	fileT	4	count_present	5	1.0016	1.0013	1.0159	1.0011	1.0244	ok
+ab	prot_1m	fileT	4	count_absent	5	1.0000	0.9936	1.0096	0.9901	1.0146	ok
+ab	prot_1m	fileT	4	locate	5	1.0185	0.9949	1.0408	0.9936	1.0897	ok
+ab	prot_1m	idx	1	count_present	5	1.0023	1.0000	1.0032	0.9978	1.0038	ok
+ab	prot_1m	idx	1	count_absent	5	1.0019	1.0019	1.0113	1.0019	1.1165	ok
+ab	prot_1m	idx	1	locate	5	0.9997	0.9865	0.9998	0.9627	1.0053	ok
+ab	prot_1m	idx	4	count_present	5	1.0024	0.9992	1.0061	0.9648	1.0112	ok
+ab	prot_1m	idx	4	count_absent	5	1.0058	1.0043	1.0117	0.9953	1.0122	ok
+ab	prot_1m	idx	4	locate	5	0.9777	0.9738	0.9794	0.9609	0.9796	ok
+ab	prot_1m	mem	1	count_present	5	1.0051	1.0017	1.0225	0.9910	1.0370	ok
+ab	prot_1m	mem	1	count_absent	5	1.0173	0.9999	1.0195	0.9950	1.0263	ok
+ab	prot_1m	mem	1	locate	5	1.0089	1.0088	1.0295	1.0078	1.0381	ok
+ab	prot_1m	mem	4	count_present	5	1.0153	1.0028	1.0302	1.0004	1.0354	ok
+ab	prot_1m	mem	4	count_absent	5	1.0031	1.0018	1.0105	0.9993	1.0108	ok
+ab	prot_1m	mem	4	locate	5	1.0144	0.9932	1.0509	0.9549	1.0548	ok
+ab	rep_10m	file	1	count_present	5	0.9990	0.9962	1.0109	0.9960	1.0343	ok
+ab	rep_10m	file	1	count_absent	5	1.0117	1.0012	1.0123	0.9819	1.0131	ok
+ab	rep_10m	file	1	locate	5	1.0099	1.0025	1.0187	0.9514	1.0639	ok
+ab	rep_10m	file	4	count_present	5	1.0085	0.9987	1.0143	0.9970	1.0170	ok
+ab	rep_10m	file	4	count_absent	5	1.0084	1.0048	1.0112	1.0024	1.0189	ok
+ab	rep_10m	file	4	locate	5	0.9987	0.9953	1.0231	0.9893	1.0385	ok
+ab	rep_10m	fileT	1	count_present	5	0.9986	0.9893	1.0232	0.9242	1.0597	ok
+ab	rep_10m	fileT	1	count_absent	5	1.0204	1.0051	1.0238	1.0031	1.0318	ok
+ab	rep_10m	fileT	1	locate	5	1.0858	1.0586	1.0911	1.0572	1.1088	ok
+ab	rep_10m	fileT	4	count_present	5	1.0089	0.9913	1.0154	0.9733	1.0366	ok
+ab	rep_10m	fileT	4	count_absent	5	1.0201	1.0079	1.0243	0.9933	1.0317	ok
+ab	rep_10m	fileT	4	locate	5	1.0301	1.0216	1.0401	0.9664	1.0531	ok
+ab	rep_10m	idx	1	count_present	5	1.0194	0.9989	1.0254	0.9898	1.0268	ok
+ab	rep_10m	idx	1	count_absent	5	1.0159	1.0102	1.0322	1.0011	1.0567	ok
+ab	rep_10m	idx	1	locate	5	1.0091	0.9614	1.0166	0.9555	1.0436	ok
+ab	rep_10m	idx	4	count_present	5	1.0177	1.0097	1.0250	1.0092	1.0549	ok
+ab	rep_10m	idx	4	count_absent	5	1.0092	1.0090	1.0162	1.0064	1.0212	ok
+ab	rep_10m	idx	4	locate	5	1.0084	0.9911	1.0663	0.9357	1.1031	ok
+ab	rep_10m	mem	1	count_present	5	1.0212	1.0073	1.0378	0.9705	1.0804	ok
+ab	rep_10m	mem	1	count_absent	5	1.0292	1.0227	1.0463	1.0209	1.0545	ok
+ab	rep_10m	mem	1	locate	5	1.0556	1.0180	1.0574	0.9709	1.0916	ok
+ab	rep_10m	mem	4	count_present	5	0.9987	0.9986	1.0109	0.9970	1.0121	ok
+ab	rep_10m	mem	4	count_absent	5	1.0121	1.0051	1.0200	0.9991	1.0266	ok
+ab	rep_10m	mem	4	locate	5	1.0092	1.0014	1.0276	0.9986	1.0586	ok
+## ab_s24
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+ab	dna_10m	file	1	count_present	5	1.0057	1.0022	1.0217	0.9987	1.0433	ok
+ab	dna_10m	file	1	count_absent	5	1.0051	1.0050	1.0269	0.9993	1.1426	ok
+ab	dna_10m	file	1	locate	5	1.0340	1.0165	1.0401	1.0124	1.0732	ok
+ab	dna_10m	file	4	count_present	5	1.0065	1.0021	1.0084	1.0017	1.0107	ok
+ab	dna_10m	file	4	count_absent	5	1.0073	1.0009	1.0280	1.0009	1.0359	ok
+ab	dna_10m	file	4	locate	5	1.0312	1.0229	1.0315	1.0085	1.0327	ok
+ab	dna_10m	fileT	1	count_present	5	1.0080	0.9941	1.0279	0.9917	1.0347	ok
+ab	dna_10m	fileT	1	count_absent	5	1.0130	0.9950	1.0250	0.9847	1.0318	ok
+ab	dna_10m	fileT	1	locate	5	1.0212	1.0184	1.0805	0.9533	1.0981	ok
+ab	dna_10m	fileT	4	count_present	5	1.0062	1.0033	1.0069	1.0032	1.0210	ok
+ab	dna_10m	fileT	4	count_absent	5	1.0243	1.0132	1.0395	1.0044	1.0551	ok
+ab	dna_10m	fileT	4	locate	5	1.0480	1.0170	1.0924	0.9558	1.1016	ok
+ab	dna_10m	idx	1	count_present	5	0.9963	0.9958	1.0133	0.9894	1.0322	ok
+ab	dna_10m	idx	1	count_absent	5	1.0079	1.0002	1.0373	0.9956	1.0557	ok
+ab	dna_10m	idx	1	locate	5	1.0413	1.0289	1.0637	1.0066	1.0673	ok
+ab	dna_10m	idx	4	count_present	5	1.0043	1.0019	1.0103	0.9988	1.0302	ok
+ab	dna_10m	idx	4	count_absent	5	1.0072	1.0029	1.0083	0.9983	1.0175	ok
+ab	dna_10m	idx	4	locate	5	1.0285	1.0226	1.0299	1.0191	1.0301	ok
+ab	dna_10m	mem	1	count_present	5	1.0133	0.9977	1.0148	0.9971	1.0226	ok
+ab	dna_10m	mem	1	count_absent	5	1.0094	1.0013	1.0130	0.9974	1.0260	ok
+ab	dna_10m	mem	1	locate	5	1.0315	1.0110	1.0758	0.9563	1.0822	ok
+ab	dna_10m	mem	4	count_present	5	1.0038	1.0008	1.0093	0.9992	1.0146	ok
+ab	dna_10m	mem	4	count_absent	5	1.0220	0.9967	1.0264	0.9850	1.0316	ok
+ab	dna_10m	mem	4	locate	5	1.0312	1.0270	1.0357	0.9688	1.1012	ok
+ab	prot_1m	file	1	count_present	5	1.0037	1.0016	1.0070	0.9967	1.0239	ok
+ab	prot_1m	file	1	count_absent	5	1.0006	0.9990	1.0096	0.9958	1.0557	ok
+ab	prot_1m	file	1	locate	5	0.9809	0.9808	1.0107	0.9454	1.0346	ok
+ab	prot_1m	file	4	count_present	5	1.0046	1.0040	1.0145	0.9950	1.0167	ok
+ab	prot_1m	file	4	count_absent	5	1.0111	1.0082	1.0112	0.9905	1.0167	ok
+ab	prot_1m	file	4	locate	5	0.9941	0.9926	0.9982	0.9552	1.0639	ok
+ab	prot_1m	fileT	1	count_present	5	1.0139	0.9978	1.0362	0.9961	1.0438	ok
+ab	prot_1m	fileT	1	count_absent	5	1.0051	0.9982	1.0066	0.9969	1.0378	ok
+ab	prot_1m	fileT	1	locate	5	1.0526	0.9558	1.0574	0.9517	1.1369	ok
+ab	prot_1m	fileT	4	count_present	5	0.9978	0.9949	1.0187	0.9935	1.0258	ok
+ab	prot_1m	fileT	4	count_absent	5	1.0020	1.0015	1.0025	1.0013	1.0046	ok
+ab	prot_1m	fileT	4	locate	5	0.9894	0.9655	0.9977	0.9599	1.0108	ok
+ab	prot_1m	idx	1	count_present	5	1.0071	1.0003	1.0083	0.9888	1.0105	ok
+ab	prot_1m	idx	1	count_absent	5	1.0153	1.0075	1.0288	0.9938	1.0421	ok
+ab	prot_1m	idx	1	locate	5	0.9760	0.9714	0.9885	0.9401	0.9973	ok
+ab	prot_1m	idx	4	count_present	5	1.0016	1.0000	1.0133	0.9977	1.0160	ok
+ab	prot_1m	idx	4	count_absent	5	1.0051	1.0025	1.0058	1.0004	1.0098	ok
+ab	prot_1m	idx	4	locate	5	0.9954	0.9825	1.0157	0.9692	1.0157	ok
+ab	prot_1m	mem	1	count_present	5	1.0312	1.0183	1.0347	1.0043	1.0734	ok
+ab	prot_1m	mem	1	count_absent	5	1.0027	1.0020	1.0030	0.9956	1.0212	ok
+ab	prot_1m	mem	1	locate	5	1.0899	1.0800	1.1216	1.0589	1.1258	ok
+ab	prot_1m	mem	4	count_present	5	1.0079	0.9996	1.0274	0.9878	1.0288	ok
+ab	prot_1m	mem	4	count_absent	5	0.9959	0.9946	1.0156	0.9881	1.0168	ok
+ab	prot_1m	mem	4	locate	5	1.0134	0.9925	1.0153	0.9279	1.0209	ok
+ab	rep_10m	file	1	count_present	5	0.9950	0.9934	1.0431	0.9850	1.0918	ok
+ab	rep_10m	file	1	count_absent	5	1.0094	1.0063	1.0235	0.9954	1.0324	ok
+ab	rep_10m	file	1	locate	5	1.0200	1.0177	1.0297	1.0111	1.0439	ok
+ab	rep_10m	file	4	count_present	5	1.0011	1.0008	1.0071	0.9874	1.0153	ok
+ab	rep_10m	file	4	count_absent	5	1.0047	0.9988	1.0082	0.9958	1.0108	ok
+ab	rep_10m	file	4	locate	5	1.0679	1.0188	1.0785	0.9795	1.0791	ok
+ab	rep_10m	fileT	1	count_present	5	1.0023	1.0021	1.0141	0.9928	1.0296	ok
+ab	rep_10m	fileT	1	count_absent	5	0.9963	0.9867	1.0188	0.9829	1.0234	ok
+ab	rep_10m	fileT	1	locate	5	1.0345	1.0282	1.0485	1.0104	1.0710	ok
+ab	rep_10m	fileT	4	count_present	5	1.0173	1.0135	1.0241	1.0046	1.0322	ok
+ab	rep_10m	fileT	4	count_absent	5	1.0261	1.0093	1.0400	0.9983	1.0480	ok
+ab	rep_10m	fileT	4	locate	5	1.0475	0.9707	1.0744	0.9691	1.0833	ok
+ab	rep_10m	idx	1	count_present	5	1.0102	0.9974	1.0313	0.9974	1.0403	ok
+ab	rep_10m	idx	1	count_absent	5	1.0063	1.0012	1.0099	0.9718	1.0152	ok
+ab	rep_10m	idx	1	locate	5	1.0330	1.0318	1.0482	0.9740	1.0689	ok
+ab	rep_10m	idx	4	count_present	5	1.0168	1.0050	1.0171	1.0045	1.0222	ok
+ab	rep_10m	idx	4	count_absent	5	1.0138	1.0125	1.0265	1.0064	1.0361	ok
+ab	rep_10m	idx	4	locate	5	1.0316	1.0285	1.0582	1.0063	1.0819	ok
+ab	rep_10m	mem	1	count_present	5	1.0048	1.0035	1.0096	1.0004	1.0255	ok
+ab	rep_10m	mem	1	count_absent	5	1.0126	0.9952	1.0141	0.9811	1.0200	ok
+ab	rep_10m	mem	1	locate	5	1.0470	1.0278	1.0607	1.0028	1.0844	ok
+ab	rep_10m	mem	4	count_present	5	1.0151	1.0035	1.0207	1.0016	1.0321	ok
+ab	rep_10m	mem	4	count_absent	5	1.0090	1.0002	1.0124	0.9887	1.0322	ok
+ab	rep_10m	mem	4	locate	5	1.0193	1.0119	1.0260	0.9981	1.0768	ok
+## rep_null
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+null	dna_10m	fileT	4	count_present	10	1.0063	1.0026	1.0136	0.9854	1.0424	
+null	dna_10m	fileT	4	count_absent	10	1.0057	1.0040	1.0208	0.9980	1.0309	
+null	dna_10m	fileT	4	locate	10	0.9870	0.9386	1.0181	0.9316	1.0718	
+## rep_s1
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+ab	dna_10m	fileT	4	count_present	10	1.0055	0.9970	1.0216	0.9834	1.0331	ok
+ab	dna_10m	fileT	4	count_absent	10	1.0041	0.9953	1.0079	0.9937	1.0264	ok
+ab	dna_10m	fileT	4	locate	10	0.9919	0.9588	1.0441	0.9511	1.0822	ok
+## c_null
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+null	prot_1m	idx	4	count_present	30	1.0114	0.9967	1.0270	0.9776	1.0424	
+null	prot_1m	idx	4	count_absent	30	1.0080	0.9992	1.0186	0.9867	1.0522	
+null	prot_1m	idx	4	locate	30	0.9791	0.9681	1.0021	0.9359	1.0518	
+## c_s1
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+ab	prot_1m	idx	4	count_present	30	1.0081	1.0005	1.0147	0.9646	1.0342	ok
+ab	prot_1m	idx	4	count_absent	30	1.0037	1.0009	1.0176	0.9902	1.0390	ok
+ab	prot_1m	idx	4	locate	30	0.9662	0.9505	0.9853	0.9366	1.0094	BELOW 0.97
+## c_s24
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+ab	prot_1m	idx	4	count_present	30	1.0006	0.9926	1.0108	0.9783	1.0364	ok
+ab	prot_1m	idx	4	count_absent	30	1.0079	0.9965	1.0190	0.9846	1.0533	ok
+ab	prot_1m	idx	4	locate	30	0.9994	0.9861	1.0266	0.9517	1.0755	ok
+## c2_null
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+null	prot_1m	idx	4	count_present	30	1.0112	1.0034	1.0175	0.9606	1.0380	
+null	prot_1m	idx	4	count_absent	30	1.0088	0.9927	1.0224	0.9813	1.0464	
+null	prot_1m	idx	4	locate	30	0.9869	0.9676	1.0073	0.9210	1.0406	
+## c2_s1
+mode	input	kind	threads	operation	processes	pooled_median	p25	p75	min	max	verdict
+ab	prot_1m	idx	4	count_present	30	1.0055	0.9976	1.0149	0.9727	1.0358	ok
+ab	prot_1m	idx	4	count_absent	30	1.0122	1.0004	1.0325	0.9792	1.0526	ok
+ab	prot_1m	idx	4	locate	30	0.9666	0.9399	0.9826	0.9008	1.0221	BELOW 0.97

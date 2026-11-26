@@ -1,0 +1,241 @@
+# S1 gate rows of run_1b9_gate.sh on the S1 head 56456a72 (base: /tmp/stbench/s24/s1 builds) and on this package (new: 9109af24), interleaved fresh processes (work package S2.5). Medians; [q25-q75] in the raw file. The tool version column of the raw rows names the repository head of the machine, not the build: the builds are told apart by the directory. The machine state: drift control before and after every session in results_s25_drift.tsv.
+# session 1: 5 rounds (build / query / nav / open of dna_10m; query also rep_10m and prot_1m), new/base = the ratio of the medians of the metric (time metrics: below 1 is faster; throughput metrics (qps, pps): below 1 is slower)
+input	operation	metric	rounds	base_median	base_q25	base_q75	new_median	new_q25	new_q75	new/base
+dna_10m	build	alphabet_size	5	4	4	4	4	4	4	1.000
+dna_10m	build	build_child_s	5	0.204859	0.204603	0.212231	0.205925	0.195646	0.211645	1.005
+dna_10m	build	build_lcp_s	5	0.0684047	0.068369	0.0717561	0.0697432	0.0673779	0.0726368	1.020
+dna_10m	build	build_prepare_s	5	0.0379527	0.0366746	0.0379902	0.0382447	0.0369536	0.038718	1.008
+dna_10m	build	build_sa_s	5	0.661431	0.645454	0.692775	0.637295	0.628367	0.67387	0.964
+dna_10m	build	build_sais_s	5	0.623478	0.609282	0.6561	0.59905	0.591413	0.635153	0.961
+dna_10m	build	build_total_s	5	0.929038	0.918427	0.988665	0.912962	0.90739	0.942153	0.983
+dna_10m	build	gc_allocated_bytes	5	1.00004e+08	1.00004e+08	1.00004e+08	1.00004e+08	1.00004e+08	1.00004e+08	1.000
+dna_10m	build	gc_collections_gen0	5	1	1	1	1	1	1	1.000
+dna_10m	build	gc_collections_gen1	5	1	1	1	1	1	1	1.000
+dna_10m	build	gc_collections_gen2	5	1	1	1	1	1	1	1.000
+dna_10m	build	index_bytes_child	5	4e+07	4e+07	4e+07	4e+07	4e+07	4e+07	1.000
+dna_10m	build	index_bytes_core	5	1e+08	1e+08	1e+08	1e+08	1e+08	1e+08	1.000
+dna_10m	build	index_bytes_core_per_char	5	10	10	10	10	10	10	1.000
+dna_10m	build	index_bytes_lcp	5	1e+07	1e+07	1e+07	1e+07	1e+07	1e+07	1.000
+dna_10m	build	index_bytes_sa	5	4e+07	4e+07	4e+07	4e+07	4e+07	4e+07	1.000
+dna_10m	build	index_bytes_text	5	1e+07	1e+07	1e+07	1e+07	1e+07	1e+07	1.000
+dna_10m	build	internal_nodes	5	6.22974e+06	6.22974e+06	6.22974e+06	6.22974e+06	6.22974e+06	6.22974e+06	1.000
+dna_10m	build	peak_rss_bytes_per_char	5	15.4186	15.4186	15.4235	15.4284	15.4247	15.4358	1.001
+dna_10m	build	peak_rss_hwm_after_build	5	1.54186e+08	1.54186e+08	1.54235e+08	1.54284e+08	1.54247e+08	1.54358e+08	1.001
+dna_10m	build	peak_rss_hwm_after_load	5	5.10566e+07	5.10444e+07	5.10976e+07	5.11304e+07	5.10894e+07	5.11386e+07	1.001
+dna_10m	build	throughput	5	1.07638e+07	1.01146e+07	1.08882e+07	1.09534e+07	1.0614e+07	1.10206e+07	1.018
+dna_10m	build	vector_match	5	1	1	1	1	1	1	1.000
+dna_10m	build_process	ext_cpu_user_sys	5	1.08995	1.07601	1.14068	1.07688	1.07259	1.10007	0.988
+dna_10m	build_process	ext_peak_rss	5	1.6189e+08	1.61849e+08	1.61898e+08	1.61985e+08	1.6198e+08	1.62136e+08	1.001
+dna_10m	build_process	ext_wall	5	1.09134	1.07626	1.14815	1.07521	1.07274	1.10424	0.985
+dna_10m	cold_open	container_bytes	5	1.32515e+08	1.32515e+08	1.32515e+08	1.32515e+08	1.32515e+08	1.32515e+08	1.000
+dna_10m	cold_open	first_1000_queries_s	5	0.141015	0.137057	0.150837	0.141189	0.136943	0.147112	1.001
+dna_10m	cold_open	first_open_s	5	0.0153186	0.0151879	0.0154183	0.0163845	0.0162859	0.0217511	1.070
+dna_10m	cold_open	first_query_s	5	0.0114505	0.0114202	0.0133913	0.0118648	0.0114764	0.0135063	1.036
+dna_10m	cold_open	open_sections_s	5	0.0481951	0.0479183	0.0485003	0.0513495	0.0487739	0.0513769	1.065
+dna_10m	cold_open	open_structure_s	5	1.57523	1.55364	1.74836	1.59956	1.57454	1.63682	1.015
+dna_10m	cold_open	peak_rss_hwm	5	2.07716e+08	2.077e+08	2.07901e+08	2.07978e+08	2.07778e+08	2.08019e+08	1.001
+dna_10m	cold_open	warm_open_facade_median_s	5	1.1923e-05	1.1829e-05	1.2038e-05	1.2904e-05	1.2069e-05	1.2909e-05	1.082
+dna_10m	cold_open	warm_open_max_s	5	0.000215799	0.000199834	0.000223083	0.000180227	0.00017099	0.000199024	0.835
+dna_10m	cold_open	warm_open_median_s	5	1.2985e-05	1.2921e-05	1.3208e-05	1.4028e-05	1.3987e-05	1.4623e-05	1.080
+dna_10m	cold_open	warm_open_min_s	5	1.1611e-05	1.1571e-05	1.1748e-05	1.1848e-05	1.1659e-05	1.2248e-05	1.020
+dna_10m	layout_Tagged	child_bytes	5	4e+07	4e+07	4e+07	4e+07	4e+07	4e+07	1.000
+dna_10m	layout_Tagged	child_bytes_per_char	5	4	4	4	4	4	4	1.000
+dna_10m	layout_Tagged	child_scan_s	5	0.207158	0.193513	0.21299	0.233745	0.213909	0.233872	1.128
+dna_10m	layout_Tagged	count_absent_qps	5	812479	805595	885970	775570	775031	828651	0.955
+dna_10m	layout_Tagged	count_present_qps	5	807965	786770	847345	753197	712239	814122	0.932
+dna_10m	layout_Tagged	internal_nodes	5	6.22974e+06	6.22974e+06	6.22974e+06	6.22974e+06	6.22974e+06	6.22974e+06	1.000
+dna_10m	layout_Tagged	locate_findall_pps	5	1.1362e+06	1.13377e+06	1.14542e+06	1.11687e+06	1.08122e+06	1.35082e+06	0.983
+dna_10m	layout_Tagged	locate_hits_per_pattern	5	152.362	152.362	152.362	152.362	152.362	152.362	1.000
+dna_10m	layout_Tagged	locate_lazy_pps	5	1.55975e+06	1.53192e+06	1.56691e+06	1.52722e+06	1.49093e+06	1.99068e+06	0.979
+dna_10m	layout_Tagged	stack_peak	5	15	15	15	15	15	15	1.000
+dna_10m	nav	build_esa_s	15	0.943151	0.935491	0.948348	0.918308	0.807927	0.934554	0.974
+dna_10m	nav	pack_build_s	15	0.0913451	0.0886302	0.0921827	0.0915398	0.0821254	0.0929381	1.002
+dna_10m	nav	pack_built_before	15	0	0	0	0	0	0	nan
+dna_10m	nav	pack_bytes_per_char	15	4.12903	4.12903	4.12903	4.12903	4.12903	4.12903	1.000
+dna_10m	nav	peak_rss_hwm	15	2.02789e+08	2.02097e+08	2.05881e+08	2.02949e+08	2.02238e+08	2.06199e+08	1.001
+dna_10m	nav	pyramid_build_s	15	0.0161987	0.0160973	0.0186302	0.0180089	0.0179119	0.0181116	1.112
+dna_10m	nav	query_chars	15	100000	100000	100000	100000	100000	100000	1.000
+dna_10m	nav	text_chars	15	1e+07	1e+07	1e+07	1e+07	1e+07	1e+07	1.000
+dna_10m	nav_anchors_process	ext_cpu_user_sys	5	1.60958	1.55947	1.63982	1.53139	1.36377	1.56869	0.951
+dna_10m	nav_anchors_process	ext_peak_rss	5	2.01855e+08	2.01847e+08	2.01904e+08	2.01966e+08	2.01953e+08	2.02011e+08	1.001
+dna_10m	nav_anchors_process	ext_wall	5	1.60363	1.54484	1.62246	1.53541	1.35011	1.55321	0.957
+dna_10m	nav_esa	anchors_checksum	5	7.76115e+10	7.76115e+10	7.76115e+10	7.76115e+10	7.76115e+10	7.76115e+10	1.000
+dna_10m	nav_esa	anchors_first_call_s	5	0.0696942	0.0694537	0.0706016	0.0622176	0.0615794	0.0678669	0.893
+dna_10m	nav_esa	anchors_results	5	816	816	816	816	816	816	1.000
+dna_10m	nav_esa	anchors_steady_median_s	5	0.039797	0.0358125	0.0455814	0.0314691	0.0305272	0.038226	0.791
+dna_10m	nav_esa	anchors_warm_median_s	5	0.0396764	0.0364913	0.0396915	0.0368703	0.0328088	0.0401066	0.929
+dna_10m	nav_esa	mem_checksum	5	7.79157e+10	7.79157e+10	7.79157e+10	7.79157e+10	7.79157e+10	7.79157e+10	1.000
+dna_10m	nav_esa	mem_first_call_s	5	0.102372	0.10022	0.103279	0.0997302	0.0937321	0.12274	0.974
+dna_10m	nav_esa	mem_results	5	817	817	817	817	817	817	1.000
+dna_10m	nav_esa	mem_steady_median_s	5	0.0629464	0.0616133	0.0666434	0.0532118	0.0432938	0.0658654	0.845
+dna_10m	nav_esa	mem_warm_median_s	5	0.0593552	0.0591077	0.0674575	0.0559891	0.0532118	0.0671478	0.943
+dna_10m	nav_esa	mum_checksum	5	7.76115e+10	7.76115e+10	7.76115e+10	7.76115e+10	7.76115e+10	7.76115e+10	1.000
+dna_10m	nav_esa	mum_first_call_s	5	0.0741761	0.0739593	0.0764698	0.0672988	0.0655579	0.0751328	0.907
+dna_10m	nav_esa	mum_results	5	816	816	816	816	816	816	1.000
+dna_10m	nav_esa	mum_steady_median_s	5	0.0365082	0.0364031	0.0394473	0.0366495	0.0356587	0.0407612	1.004
+dna_10m	nav_esa	mum_warm_median_s	5	0.037201	0.0370027	0.0430934	0.0367397	0.0360507	0.0370995	0.988
+dna_10m	nav_mem_process	ext_cpu_user_sys	5	1.8103	1.8072	1.88854	1.76256	1.60796	1.86345	0.974
+dna_10m	nav_mem_process	ext_peak_rss	5	2.05849e+08	2.05738e+08	2.05881e+08	2.06017e+08	2.05918e+08	2.06057e+08	1.001
+dna_10m	nav_mem_process	ext_wall	5	1.79651	1.78746	1.87509	1.74188	1.58277	1.84067	0.970
+dna_10m	nav_mum_process	ext_cpu_user_sys	5	1.57863	1.57022	1.6112	1.52192	1.43668	1.5829	0.964
+dna_10m	nav_mum_process	ext_peak_rss	5	2.02662e+08	2.02547e+08	2.02686e+08	2.02691e+08	2.02686e+08	2.02764e+08	1.000
+dna_10m	nav_mum_process	ext_wall	5	1.54761	1.54319	1.58214	1.50024	1.41265	1.55461	0.969
+dna_10m	open_cold_process	ext_cpu_user_sys	5	1.71585	1.70438	1.91995	1.78177	1.74225	1.84157	1.038
+dna_10m	open_cold_process	ext_peak_rss	5	2.07716e+08	2.077e+08	2.07901e+08	2.07978e+08	2.07778e+08	2.08019e+08	1.001
+dna_10m	open_cold_process	ext_wall	5	1.84007	1.83804	2.05801	1.90967	1.85755	1.91036	1.038
+dna_10m	open_warmcache_process	ext_cpu_user_sys	5	1.69467	1.59225	1.70301	1.70683	1.69329	1.72001	1.007
+dna_10m	open_warmcache_process	ext_peak_rss	5	2.0754e+08	2.07426e+08	2.0777e+08	2.08036e+08	2.07892e+08	2.08077e+08	1.002
+dna_10m	open_warmcache_process	ext_wall	5	1.69119	1.59014	1.69973	1.71186	1.68704	1.7153	1.012
+dna_10m	query	build_sa_lcp_s	5	0.747789	0.712604	0.760633	0.725501	0.695389	0.747852	0.970
+dna_10m	query_process	ext_cpu_user_sys	5	9.481	9.45115	9.5169	9.58879	9.4962	9.62883	1.011
+dna_10m	query_process	ext_peak_rss	5	4.35343e+08	4.35335e+08	4.35343e+08	4.35393e+08	4.35335e+08	4.35491e+08	1.000
+dna_10m	query_process	ext_wall	5	9.51729	9.43567	9.52872	9.59414	9.51093	9.62232	1.008
+dna_10m	warm_open	container_bytes	5	1.32515e+08	1.32515e+08	1.32515e+08	1.32515e+08	1.32515e+08	1.32515e+08	1.000
+dna_10m	warm_open	first_1000_queries_s	5	0.00895842	0.00882458	0.00901021	0.00881292	0.00815865	0.00895029	0.984
+dna_10m	warm_open	first_open_s	5	0.0146642	0.0146399	0.0148552	0.014973	0.0139885	0.0150441	1.021
+dna_10m	warm_open	first_query_s	5	0.0050248	0.00495647	0.00520071	0.00484908	0.00450286	0.00491787	0.965
+dna_10m	warm_open	open_sections_s	5	0.0340042	0.0338929	0.0343348	0.0327759	0.0322869	0.0328727	0.964
+dna_10m	warm_open	open_structure_s	5	1.5838	1.48778	1.5964	1.6132	1.58865	1.61591	1.019
+dna_10m	warm_open	peak_rss_hwm	5	2.0754e+08	2.07426e+08	2.0777e+08	2.08036e+08	2.07892e+08	2.08077e+08	1.002
+dna_10m	warm_open	warm_open_facade_median_s	5	1.0818e-05	1.0694e-05	1.1878e-05	1.2052e-05	1.1974e-05	1.2407e-05	1.114
+dna_10m	warm_open	warm_open_max_s	5	0.000116463	0.000115035	0.000123433	0.000118605	9.8065e-05	0.000125297	1.018
+dna_10m	warm_open	warm_open_median_s	5	1.263e-05	1.2613e-05	1.2851e-05	1.3358e-05	1.3332e-05	1.3771e-05	1.058
+dna_10m	warm_open	warm_open_min_s	5	1.1641e-05	1.1625e-05	1.1753e-05	1.1652e-05	1.1642e-05	1.1883e-05	1.001
+prot_1m	layout_Tagged	child_bytes	5	4e+06	4e+06	4e+06	4e+06	4e+06	4e+06	1.000
+prot_1m	layout_Tagged	child_bytes_per_char	5	4	4	4	4	4	4	1.000
+prot_1m	layout_Tagged	child_scan_s	5	0.0240975	0.0240132	0.0241617	0.0236805	0.023396	0.0237279	0.983
+prot_1m	layout_Tagged	count_absent_qps	5	1.45505e+06	1.44871e+06	1.46475e+06	1.48547e+06	1.47504e+06	1.50147e+06	1.021
+prot_1m	layout_Tagged	count_present_qps	5	1.43835e+06	1.411e+06	1.90186e+06	1.44178e+06	1.42267e+06	1.69788e+06	1.002
+prot_1m	layout_Tagged	internal_nodes	5	295123	295123	295123	295123	295123	295123	1.000
+prot_1m	layout_Tagged	locate_findall_pps	5	1.62854e+06	1.60365e+06	1.66512e+06	1.62985e+06	1.61745e+06	1.68312e+06	1.001
+prot_1m	layout_Tagged	locate_hits_per_pattern	5	6.284	6.284	6.284	6.284	6.284	6.284	1.000
+prot_1m	layout_Tagged	locate_lazy_pps	5	1.89249e+06	1.8457e+06	1.93523e+06	2.01052e+06	1.93926e+06	2.03415e+06	1.062
+prot_1m	layout_Tagged	stack_peak	5	7	7	7	7	7	7	1.000
+prot_1m	query	build_sa_lcp_s	5	0.0805316	0.0759878	0.0836439	0.0763453	0.0688356	0.0767757	0.948
+prot_1m	query_process	ext_cpu_user_sys	5	8.43132	8.38906	8.44303	8.47429	8.38638	8.50726	1.005
+prot_1m	query_process	ext_peak_rss	5	2.34713e+08	2.3221e+08	2.38563e+08	2.35102e+08	2.33964e+08	2.40554e+08	1.002
+prot_1m	query_process	ext_wall	5	8.41588	8.40223	8.48688	8.46049	8.40665	8.47784	1.005
+rep_10m	layout_Tagged	child_bytes	5	4e+07	4e+07	4e+07	4e+07	4e+07	4e+07	1.000
+rep_10m	layout_Tagged	child_bytes_per_char	5	4	4	4	4	4	4	1.000
+rep_10m	layout_Tagged	child_scan_s	5	0.221702	0.197059	0.227883	0.208559	0.193089	0.212854	0.941
+rep_10m	layout_Tagged	count_absent_qps	5	1.09082e+06	1.07084e+06	1.10148e+06	1.35257e+06	1.09518e+06	1.39947e+06	1.240
+rep_10m	layout_Tagged	count_present_qps	5	699134	696515	714422	722860	697716	728684	1.034
+rep_10m	layout_Tagged	internal_nodes	5	8.56825e+06	8.56825e+06	8.56825e+06	8.56825e+06	8.56825e+06	8.56825e+06	1.000
+rep_10m	layout_Tagged	locate_findall_pps	5	1.10163e+06	1.08876e+06	1.13561e+06	1.30815e+06	1.08946e+06	1.40693e+06	1.187
+rep_10m	layout_Tagged	locate_hits_per_pattern	5	153.936	153.936	153.936	153.936	153.936	153.936	1.000
+rep_10m	layout_Tagged	locate_lazy_pps	5	1.60045e+06	1.46378e+06	1.68513e+06	1.52535e+06	1.46981e+06	1.77798e+06	0.953
+rep_10m	layout_Tagged	stack_peak	5	64	64	64	64	64	64	1.000
+rep_10m	query	build_sa_lcp_s	5	0.831525	0.762795	0.844291	0.819178	0.73489	0.875689	0.985
+rep_10m	query_process	ext_cpu_user_sys	5	9.59092	9.57644	9.62192	9.57121	9.4592	9.57871	0.998
+rep_10m	query_process	ext_peak_rss	5	4.46935e+08	4.46935e+08	4.46972e+08	4.47304e+08	4.47214e+08	4.47349e+08	1.001
+rep_10m	query_process	ext_wall	5	9.61112	9.58737	9.61499	9.53999	9.46122	9.57169	0.993
+
+# session 2: 20 rounds of the query rows, three arms interleaved (s1 = the S1 head, s1b = a second copy of the S1 head: the null, new = this package); median of the 20 values of the arm, null/s1 and new/s1 are ratios of medians (throughput: below 1 is slower)
+input	metric	rounds	s1_median	null_s1b/s1	new/s1	new_q25/s1	new_q75/s1
+dna_10m	count_present_qps	20	756634	0.960	0.977	0.902	1.044
+dna_10m	count_absent_qps	20	767710	1.005	0.978	0.933	1.035
+dna_10m	locate_findall_pps	20	1.12291e+06	1.045	0.994	0.977	1.085
+dna_10m	locate_lazy_pps	20	1.62546e+06	0.995	0.985	0.935	1.101
+dna_10m	child_scan_s	20	0.195598	1.049	1.060	1.006	1.164
+rep_10m	count_present_qps	20	713479	0.969	0.988	0.939	1.157
+rep_10m	count_absent_qps	20	1.05004e+06	0.993	0.963	0.908	1.009
+rep_10m	locate_findall_pps	20	1.07389e+06	1.030	1.006	0.990	1.049
+rep_10m	locate_lazy_pps	20	1.49479e+06	0.968	0.995	0.958	1.084
+rep_10m	child_scan_s	20	0.21973	0.973	0.985	0.948	1.015
+prot_1m	count_present_qps	20	1.4141e+06	1.001	0.992	0.974	1.041
+prot_1m	count_absent_qps	20	1.45559e+06	1.001	0.993	0.973	1.016
+prot_1m	locate_findall_pps	20	1.63616e+06	0.992	1.004	0.990	1.070
+prot_1m	locate_lazy_pps	20	1.93248e+06	1.001	0.998	0.947	1.034
+prot_1m	child_scan_s	20	0.0241926	1.009	0.995	0.976	1.007
+# Reading: no query row of the 20-round session is below 0.97 of the S1 head by more than the spread of the null except rep_10m count_absent_qps (0.963; null 0.993; at 5 rounds it read 1.240): these in-process rows are the in-memory count and locate of the index, which this package did not change (the count of the S1 hot path is pinned by NarrowingLintTests); the file-backed count and locate of the abapp matrix are in results_s25_abapp_summary.tsv.
+# container builder (run_1b9_gate.sh container, dna_10m, 4 threads): see the sesa rows of the two builds below (the raw lines of the call), then the 100m builder row of results_s25_identity.txt (the S1 text of dna_100m was not in the data directory of this session: /tmp/stbench/s24/gen100/data/dna_100m.txt was used for this package; the S1 reference is 286.3 MB).
+## container dna_10m s1
+R	sesa	total_s	2.20138764	s	dna_10m SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.206929853	s	dna_10m around the call
+R	sesa	scan_s	0.03837891	s	dna_10m
+R	sesa	create_s	0.006082718	s	dna_10m
+R	sesa	pack_s	0.051693909	s	dna_10m
+R	sesa	ph1_s	0.078970175	s	dna_10m
+R	sesa	ph23_s	0.506290092	s	dna_10m
+R	sesa	ph45_s	1.199266363	s	dna_10m
+R	sesa	bwt_s	0.145873666	s	dna_10m
+R	sesa	psi_s	0.102084056	s	dna_10m
+R	sesa	crc_s	0.032986375	s	dna_10m
+R	sesa	seal_s	0.007174288	s	dna_10m
+R	sesa	n	10000000	symbols	dna_10m sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna_10m LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna_10m growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna_10m explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna_10m explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna_10m writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna_10m zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna_10m
+R	sesa	arena_peak	140616824	bytes	dna_10m
+R	sesa	proc_rchar	353319742	bytes	dna_10m /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna_10m
+R	sesa	proc_read_bytes	11329536	bytes	dna_10m block-layer reads charged to the process
+R	sesa	proc_write_bytes	392359936	bytes	dna_10m pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	22128	sectors	dna_10m /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	377704	sectors	dna_10m over the call
+R	sesa	dev_sectors_written_synced	377992	sectors	dna_10m until the end of a sync after the call
+R	sesa	rssanon_peak_mb	99.92192	MB	dna_10m verdict Within
+R	sesa	rssanon_ph0_mb	10.493952	MB	dna_10m
+R	sesa	rssanon_ph1_mb	18.456576	MB	dna_10m
+R	sesa	rssanon_ph23_mb	71.553024	MB	dna_10m
+R	sesa	rssanon_ph45_mb	99.786752	MB	dna_10m
+R	sesa	rssanon_ph6_mb	52.789248	MB	dna_10m
+R	sesa	rssanon_seal_mb	52.830208	MB	dna_10m
+1 TEXT 4096 2500064 9e66ecc91e3e6db566e69dd7a6ac8fdc3d2f2cbd36fe5100ac6b1536a09bdf87
+2 ALPHABET 2504192 8 891b85db849eaaeb67adf47739707b6badfeb7947f412a7ecc13b2fdefed6c71
+13 COUNTS 2504256 32 e5b35681188b09f42755252a62bf2b9d74165dc4531a21539f897dbf7d5677fa
+3 SA 2506752 40000004 3fde9dff5ec981faaf0fa9e34756a6e8af06523039f4c0f92d510d248e4ebe7d
+6 CHILD 42508288 40000004 4e5891dfefdc73f7520c5efaa7e29a2340205f852095682a35aab40f701a61db
+12 PSI 82509824 40000004 5b98652ed1f096b2343420108680373844a785aedde6221a5550ba74fb1edf71
+11 BUILD_INFO 122509888 196 4f9f92436401140885d7bdd89d854a776c12006ad186085da47118a202984f4e
+4 LCP 122515456 10000001 82c833677ec0b8b9ee17041bc5fb4eb199edafc99aec80a4e16486e7fd71b2ed
+header n=10000000 nodecount=16229747 lrsdepth=25 lrsrank=5509525 sigma=4 textsha=67e49c4bc074f073c89cc0f6bc48bdfcf6b0bd5
+## container dna_10m new
+R	sesa	total_s	2.223491286	s	dna_10m SesaBuilder.Build, inside the call
+R	sesa	wall_s	2.228561029	s	dna_10m around the call
+R	sesa	scan_s	0.033730128	s	dna_10m
+R	sesa	create_s	0.001859849	s	dna_10m
+R	sesa	pack_s	0.050739751	s	dna_10m
+R	sesa	ph1_s	0.08169918	s	dna_10m
+R	sesa	ph23_s	0.511779845	s	dna_10m
+R	sesa	ph45_s	1.173591957	s	dna_10m
+R	sesa	bwt_s	0.192884526	s	dna_10m
+R	sesa	psi_s	0.104354625	s	dna_10m
+R	sesa	crc_s	0.033473323	s	dna_10m
+R	sesa	seal_s	0.007117535	s	dna_10m
+R	sesa	n	10000000	symbols	dna_10m sigma 4, 2 bits
+R	sesa	file_size	132515457	bytes	dna_10m LCP U8, 0 overflow pairs
+R	sesa	grown_bytes	0	bytes	dna_10m growth none, creation Preallocated
+R	sesa	counted_read	352578065	bytes	dna_10m explicit reads of the build (IoCounters)
+R	sesa	counted_write	242582160	bytes	dna_10m explicit writes of the build (IoCounters)
+R	sesa	counted_mapped_write	143789338	bytes	dna_10m writes through mapped windows (IoCounters)
+R	sesa	counted_reserved_write	0	bytes	dna_10m zeros written to reserve the growth
+R	sesa	scratch_peak	120000000	bytes	dna_10m
+R	sesa	arena_peak	140616824	bytes	dna_10m
+R	sesa	proc_rchar	353331173	bytes	dna_10m /proc/self/io over the call
+R	sesa	proc_wchar	242582335	bytes	dna_10m
+R	sesa	proc_read_bytes	36864	bytes	dna_10m block-layer reads charged to the process
+R	sesa	proc_write_bytes	392814592	bytes	dna_10m pages dirtied (a page that is written again counts again)
+R	sesa	dev_sectors_read	72	sectors	dna_10m /sys/block/vda/stat over the call (512 B)
+R	sesa	dev_sectors_written	378640	sectors	dna_10m over the call
+R	sesa	dev_sectors_written_synced	378888	sectors	dna_10m until the end of a sync after the call
+R	sesa	rssanon_peak_mb	99.92192	MB	dna_10m verdict Within
+R	sesa	rssanon_ph0_mb	10.498048	MB	dna_10m
+R	sesa	rssanon_ph1_mb	18.558976	MB	dna_10m
+R	sesa	rssanon_ph23_mb	71.84384	MB	dna_10m
+R	sesa	rssanon_ph45_mb	99.92192	MB	dna_10m
+R	sesa	rssanon_ph6_mb	52.854784	MB	dna_10m
+R	sesa	rssanon_seal_mb	52.891648	MB	dna_10m
+1 TEXT 4096 2500064 9e66ecc91e3e6db566e69dd7a6ac8fdc3d2f2cbd36fe5100ac6b1536a09bdf87
+2 ALPHABET 2504192 8 891b85db849eaaeb67adf47739707b6badfeb7947f412a7ecc13b2fdefed6c71
+13 COUNTS 2504256 32 e5b35681188b09f42755252a62bf2b9d74165dc4531a21539f897dbf7d5677fa
+3 SA 2506752 40000004 3fde9dff5ec981faaf0fa9e34756a6e8af06523039f4c0f92d510d248e4ebe7d
+6 CHILD 42508288 40000004 4e5891dfefdc73f7520c5efaa7e29a2340205f852095682a35aab40f701a61db
+12 PSI 82509824 40000004 5b98652ed1f096b2343420108680373844a785aedde6221a5550ba74fb1edf71
+11 BUILD_INFO 122509888 196 4f9f92436401140885d7bdd89d854a776c12006ad186085da47118a202984f4e
+4 LCP 122515456 10000001 82c833677ec0b8b9ee17041bc5fb4eb199edafc99aec80a4e16486e7fd71b2ed
+header n=10000000 nodecount=16229747 lrsdepth=25 lrsrank=5509525 sigma=4 textsha=67e49c4bc074f073c89cc0f6bc48bdfcf6b0bd5

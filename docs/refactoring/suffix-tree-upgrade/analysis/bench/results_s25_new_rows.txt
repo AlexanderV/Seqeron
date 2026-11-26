@@ -1,0 +1,44 @@
+# The new rows of work package S2.5 (ADR-005 S2.5 row). Instruments: analysis/bench NavCommands (nav --op mem | link, sesa build --rmq true), fresh processes, the page cache warm (the containers had just been written or read).
+
+## MEM of the 100 kbp query on dna_10m (in-memory index, min length 20, 40 calls per process, 12 processes per arm alternated): the S1 head (base, bin_base_c) and this package (new); gate: within 1.0x of the S1 row (0.109 s cold / 0.066 s steady)
+base  mem_checksum           n=12 median 77915707478.00000  min 77915707478.00000  max 77915707478.00000
+base  mem_first_call_s       n=12 median 0.10595  min 0.09018  max 0.11223
+base  mem_results            n=12 median 817.00000  min 817.00000  max 817.00000
+base  mem_steady_median_s    n=12 median 0.06736  min 0.05015  max 0.07651
+base  mem_warm_median_s      n=12 median 0.06853  min 0.05143  max 0.07514
+new   mem_checksum           n=12 median 77915707478.00000  min 77915707478.00000  max 77915707478.00000
+new   mem_first_call_s       n=12 median 0.10592  min 0.09531  max 0.12121
+new   mem_results            n=12 median 817.00000  min 817.00000  max 817.00000
+new   mem_steady_median_s    n=12 median 0.06373  min 0.05338  max 0.07556
+new   mem_warm_median_s      n=12 median 0.06678  min 0.05740  max 0.07450
+# the answer is the same in both arms: 817 matches, checksum 77,915,707,478. cold first call 0.1059 s in both arms, steady median 0.0637 s (new) against 0.0674 s (base).
+
+## Open of a container with RMQ against the build of the pyramid (nav --container --op mem, 7 processes per arm alternated, dna_10m: plain = the S1 builder container, rmq = sesa build --rmq true). n = 10^7 is below InPlaceFrom, so both packs build the inverse suffix array; the RMQ container saves the pyramid
+plain  build_esa_s            n=7 median 0.00942  min 0.00845  max 0.01196
+plain  pack_build_s           n=7 median 0.16870  min 0.13018  max 0.18160
+plain  pack_bytes_per_char    n=7 median 4.12903  min 4.12903  max 4.12903
+plain  peak_rss_hwm           n=7 median 214151168.00000  min 214118400.00000  max 214302720.00000
+plain  pyramid_build_s        n=7 median 0.01804  min 0.01792  max 0.01886
+rmq    build_esa_s            n=7 median 0.00935  min 0.00858  max 0.01916
+rmq    pack_build_s           n=7 median 0.13577  min 0.10639  max 0.18614
+rmq    pack_bytes_per_char    n=7 median 4.00000  min 4.00000  max 4.00000
+rmq    peak_rss_hwm           n=7 median 214286336.00000  min 214269952.00000  max 214335488.00000
+rmq    pyramid_build_s        n=7 median 0.01804  min 0.01794  max 0.02597
+# Open (build_esa_s) is 9.4 ms for both; the pyramid build is 18.0 ms warm and about 33 ms cold (the difference of the two pack builds: 168.7 ms without RMQ, 135.8 ms with it, cold JIT included); the first pack of the container with RMQ is 19 % faster. Gate: Open of a container with RMQ (9.4 ms) is faster than the build of the pyramid (18.0 ms warm): met.
+
+## RssAnon of the first suffix-link call on dna_100m, file-backed (nav --op link: the text is not loaded; Open (Header, Checked), a node of depth 10 found by extending a 10-mer, GC.Collect, RssAnon from /proc/self/status, the first TrySuffixLink, RssAnon again; 3 processes per arm; page cache warm (the containers had just been written). n = 10^8 >= InPlaceFrom: PSI is read in place, no inverse suffix array. Gate: <= 120 MB (the heap ISA would be 400 MB)
+plain  first_link_s             n=3 median 0.19726  min 0.194289  max 0.229857
+plain  open_s                   n=3 median 0.0134911  min 0.0126289  max 0.0136273
+plain  peak_rss_hwm             n=3 median 1.52682e+08  min 1.52666e+08  max 1.52687e+08
+plain  rss_anon_after_bytes     n=3 median 1.69329e+07  min 1.69247e+07  max 1.69411e+07
+plain  rss_anon_before_bytes    n=3 median 3.80928e+06  min 3.80518e+06  max 3.81338e+06
+plain  rss_anon_delta_bytes     n=3 median 1.31236e+07  min 1.31195e+07  max 1.31277e+07
+plain  text_length              n=3 median 1e+08  min 1e+08  max 1e+08
+rmq    first_link_s             n=3 median 0.00789816  min 0.00641852  max 0.0100861
+rmq    open_s                   n=3 median 0.013925  min 0.0136267  max 0.0180813
+rmq    peak_rss_hwm             n=3 median 3.99401e+07  min 3.9936e+07  max 4.00015e+07
+rmq    rss_anon_after_bytes     n=3 median 3.93216e+06  min 3.92806e+06  max 3.93626e+06
+rmq    rss_anon_before_bytes    n=3 median 3.80109e+06  min 3.80109e+06  max 3.80928e+06
+rmq    rss_anon_delta_bytes     n=3 median 126976  min 122880  max 135168
+rmq    text_length              n=3 median 1e+08  min 1e+08  max 1e+08
+# plain = the container with PSI and no RMQ (the pyramid, 13 MB, is built by the first link: RssAnon 16.9 MB after it); rmq = the container with PSI and RMQ (nothing is built: RssAnon 3.9 MB after the first link, +0.13 MB). Both are far below 120 MB; VmHWM (touched mapped pages) 152.7 MB and 39.9 MB.

@@ -1,0 +1,51 @@
+# The corruption rows of work package S2.5 (see results_s25_corpus_rows.tsv for the files and the columns).
+## S24 corpus (1,500 files of S2.4), S1 head (base) against this package (new)
+Checked  base  {'answered': 374, 'invalid': 473, 'other': 8, 'refused': 645}
+Checked  new   {'answered': 374, 'invalid': 473, 'other': 8, 'refused': 645}
+Checked  files on which the two builds differ: 0 of 1500
+Trusted  base  {'answered': 374, 'crash rc=-6': 1, 'hang': 1, 'invalid': 471, 'other': 8, 'refused': 645}
+Trusted  new   {'answered': 374, 'crash rc=-6': 1, 'hang': 1, 'invalid': 471, 'other': 8, 'refused': 645}
+Trusted  files on which the two builds differ: 0 of 1500
+
+## S25 corpus (2,100 files: 1,500 harness cases with PSI/RMQ + 600 PSI/RMQ damages), S1 head (base) against this package (new)
+Checked  base  {'answered': 989, 'invalid': 477, 'other': 7, 'refused': 627}
+Checked  new   {'answered': 900, 'invalid': 566, 'other': 7, 'refused': 627}
+Checked  files on which the two builds differ: 98 of 2100
+    ('A_0914_TableField.sesa', 'Checked', 'answered 0CDE811CC14E5CAA', 'invalid PrintTree')
+    ('P_0005_RmqWords.sesa', 'Checked', 'answered 3B639BB0631ACADD', 'invalid PrintTree')
+    ('P_0007_RmqEntryField.sesa', 'Checked', 'answered A70D85A4FA5A2718', 'invalid PrintTree')
+    ('P_0012_RmqByteFlip.sesa', 'Checked', 'answered 0A9506DC569E577A', 'answered 88A7B45AFE6A23EF')
+    ('P_0015_RmqEntryField.sesa', 'Checked', 'answered 54C9FBA551CCF6C7', 'invalid PrintTree')
+    ('P_0023_RmqEntryField.sesa', 'Checked', 'answered E3C7F39BF5CDB927', 'invalid PrintTree')
+    ('P_0031_RmqEntryField.sesa', 'Checked', 'answered 6217F8C7C7610EFB', 'invalid PrintTree')
+    ('P_0039_RmqEntryField.sesa', 'Checked', 'answered C20239E62244D685', 'invalid PrintTree')
+    ('P_0045_RmqWords.sesa', 'Checked', 'answered 145EF7FF2ED1FB9E', 'invalid PrintTree')
+    ('P_0046_RmqCleared.sesa', 'Checked', 'answered B5BA9C8F12F21743', 'invalid Lca')
+Trusted  base  {'answered': 989, 'invalid': 477, 'other': 7, 'refused': 627}
+Trusted  new   {'answered': 900, 'invalid': 566, 'other': 7, 'refused': 627}
+Trusted  files on which the two builds differ: 98 of 2100
+    ('A_0914_TableField.sesa', 'Trusted', 'answered 0CDE811CC14E5CAA', 'invalid PrintTree')
+    ('P_0005_RmqWords.sesa', 'Trusted', 'answered 3B639BB0631ACADD', 'invalid PrintTree')
+    ('P_0007_RmqEntryField.sesa', 'Trusted', 'answered A70D85A4FA5A2718', 'invalid PrintTree')
+    ('P_0012_RmqByteFlip.sesa', 'Trusted', 'answered 0A9506DC569E577A', 'answered 88A7B45AFE6A23EF')
+    ('P_0015_RmqEntryField.sesa', 'Trusted', 'answered 54C9FBA551CCF6C7', 'invalid PrintTree')
+    ('P_0023_RmqEntryField.sesa', 'Trusted', 'answered E3C7F39BF5CDB927', 'invalid PrintTree')
+    ('P_0031_RmqEntryField.sesa', 'Trusted', 'answered 6217F8C7C7610EFB', 'invalid PrintTree')
+    ('P_0039_RmqEntryField.sesa', 'Trusted', 'answered C20239E62244D685', 'invalid PrintTree')
+    ('P_0045_RmqWords.sesa', 'Trusted', 'answered 145EF7FF2ED1FB9E', 'invalid PrintTree')
+    ('P_0046_RmqCleared.sesa', 'Trusted', 'answered B5BA9C8F12F21743', 'invalid Lca')
+
+## The 98 differing files of the S25 corpus, Checked mode (the Trusted rows are the same 98 files and the same pairs), by kind of damage: base class -> new class (count). Base ignores the RMQ section (it builds its pyramid from the LCP array), so every difference is a damage of the RMQ section that this package reads in place:
+     3  RmqByteFlip    answered -> answered
+     1  RmqByteFlip    answered -> invalid PrintTree
+     1  RmqCleared     answered -> answered
+     3  RmqCleared     answered -> invalid Lca
+     6  RmqCleared     answered -> invalid PrintTree
+     1  RmqEntryField  answered -> invalid LongestCommonSubstring
+    74  RmqEntryField  answered -> invalid PrintTree
+     5  RmqWords       answered -> answered
+     3  RmqWords       answered -> invalid PrintTree
+     1  TableField     answered -> invalid PrintTree
+# Reading: 89 of the 98 are damages that the read of the RMQ section found (InvalidDataException: the entry of the table at the build of the pack, or the first walk that a damaged value misleads); 9 are sealed damages of a level VALUE (RmqByteFlip 3, RmqCleared 1, RmqWords 5) that no structural check can see: the answer of this package differs from the base's, no exception, no crash, no hang. The values of the pyramid are not verified against the LCP array (that would cost the scan that the section saves); the Sections level checks the CRC, the shape of the entry and its length.
+# The 300 PSI damages of the S25 corpus do not differ in either mode (all "answered", same hash in base and new): the containers of the corpus have far fewer than 2^25 symbols, and below InPlaceFrom = 2^25 the pack of a container does not read PSI (it builds ISA from SA, as S1 does), so a damage of PSI cannot show through the public API of such a container. The in-place PSI path is covered by ContainerPackTests (the damage sweeps with the in-place limit 0, Checked and Trusted) and by one run at 10^8 symbols: a copy of the dna_100m container with RMQ (Checked, Header validation) whose whole PSI section was reversed (the file has no valid PSI, the CRC is not looked at at the Header level) refuses the first suffix link with InvalidDataException "a node of the container's tree has no suffix link in the inverse suffix array or in PSI: the file is damaged" (nav --op link; the Trusted mode does not verify PSI against SA, it bounds the reads).
+# No crash and no hang of this package in Checked mode in either corpus; the Trusted baseline (1 crash rc=-6, 1 hang of the S24 corpus: 0692_SealedByteFlip, 1797_SealedWords, the documented behaviour of Trusted mode) is the same in both builds and does not grow; the 7 "other" rows of the S25 corpus (and the 8 of the S24 corpus) are the ArgumentOutOfRangeException of SuffixAt(n) of the runner, identical in both builds.

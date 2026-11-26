@@ -1,0 +1,16 @@
+# libsais drift control (analysis/s2 drift.sh): median of 5 fresh single-thread SA builds of dna_10m, reference 0.328 s; columns: time, label, metric, median, min, max, ratio, verdict. Sessions: nav-start/nav-end (the in-memory and file-backed nav session), nav2 (file-backed attempt 2), ab (abapp matrix), rep (abapp repeats and the carried cell), c2 (carried cell attempt 2), gate1 (S1 gate rows, 5 rounds), gate2 (query rows, 20 rounds, three arms).
+2026-11-25T23:07:56Z	nav-start	libsais_dna_10m_build_s	0.3313	0.3239	0.3470	1.010	ok
+2026-11-25T23:54:58Z	nav-start	libsais_dna_10m_build_s	0.3259	0.3210	0.3422	0.994	ok
+2026-11-26T01:54:30Z	nav-end	libsais_dna_10m_build_s	0.3226	0.3155	0.3400	0.984	ok
+2026-11-26T02:19:59Z	nav2-start	libsais_dna_10m_build_s	0.3253	0.3229	0.3331	0.992	ok
+2026-11-26T03:14:26Z	nav2-end	libsais_dna_10m_build_s	0.3231	0.3210	0.3261	0.985	ok
+2026-11-26T03:17:00Z	ab-start	libsais_dna_10m_build_s	0.3414	0.3064	0.3877	1.041	ok
+2026-11-26T05:48:57Z	ab-end	libsais_dna_10m_build_s	0.2991	0.2955	0.3230	0.912	ok
+2026-11-26T05:50:05Z	rep-start	libsais_dna_10m_build_s	0.3188	0.2943	0.3557	0.972	ok
+2026-11-26T06:46:38Z	rep-end	libsais_dna_10m_build_s	0.3274	0.3217	0.3426	0.998	ok
+2026-11-26T06:50:02Z	c2-start	libsais_dna_10m_build_s	0.3256	0.3221	0.3353	0.993	ok
+2026-11-26T07:21:12Z	c2-end	libsais_dna_10m_build_s	0.3209	0.2986	0.3273	0.978	ok
+2026-11-26T07:26:56Z	gate1-start	libsais_dna_10m_build_s	0.3389	0.3302	0.3631	1.033	ok
+2026-11-26T07:34:07Z	gate1-end	libsais_dna_10m_build_s	0.3328	0.3264	0.3356	1.015	ok
+2026-11-26T07:35:48Z	gate2-start	libsais_dna_10m_build_s	0.3361	0.3045	0.3536	1.025	ok
+2026-11-26T08:04:27Z	gate2-end	libsais_dna_10m_build_s	0.3487	0.3284	0.3715	1.063	ok
