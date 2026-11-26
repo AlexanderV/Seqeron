@@ -24,7 +24,7 @@ public class SequenceAligner_MafftFastaPair_Tests
 {
     internal sealed record Call(string Id, string Args, string Query, string Library, string Out);
 
-    internal sealed record Set(string Id, string Options, string[] Seqs, int Rc, string[] Rows, string[] Names, string Tree, string Hat2, string Stderr, int DirectRc, string DirectStderr, string DirectHat2, string DirectHat3, bool Full, Dictionary<string, string> Files);
+    internal sealed record Set(string Id, string Options, string[] Seqs, int Rc, string[] Rows, string[] Names, string Tree, string Hat2, string Stderr, int DirectRc, string DirectStderr, string DirectHat2, string DirectHat3, bool Full, Dictionary<string, string> Files, string? Stdout, Dictionary<string, string> OutFiles);
 
     private static string Unescape(string s) => Regex.Replace(s, @"\\(.)", m => m.Groups[1].Value switch { "n" => "\n", "t" => "\t", "r" => "\r", var other => other }, RegexOptions.Singleline);
 
@@ -41,7 +41,7 @@ public class SequenceAligner_MafftFastaPair_Tests
         }
     }
 
-    // run "" = handoff/A2-19c-fastapair (180 sets), run "2" = handoff/A2-19c-fastapair2 (253 of its 288 sets: the run was stopped before results.tsv was written, so no complete run of mafft; the raw calls and the direct runs of dndfast7 are complete)
+    // run "" = handoff/A2-19c-fastapair (180 sets), run "2" = handoff/A2-19c-fastapair2 (253 of its 288 sets: run 2 supplies the raw calls and the direct runs of dndfast7, run 3 the complete runs of mafft; both stopped after set 253 / at set 254, sets 254 - 288 are the package's run 4)
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<Call>> CallCache = new();
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<Set>> SetCache = new();
 
@@ -59,9 +59,17 @@ public class SequenceAligner_MafftFastaPair_Tests
                 files[p.Name] = p.Value.GetString()!;
         }
 
+        var outFiles = new Dictionary<string, string>();
+        if (extra.TryGetProperty("outfiles", out var of))
+        {
+            foreach (var p in of.EnumerateObject())
+                outFiles[p.Name] = p.Value.GetString()!;
+        }
+
+        string? stdout = extra.TryGetProperty("stdout", out var so) ? so.GetString() : null;      // run 4 of the package: the raw standard output of the program (CLUSTAL, PHYLIP ...); runs 1 - 3 have the rows only
         return new Set(f[0], f[1], f[2].Split('|'), full ? int.Parse(f[3], CultureInfo.InvariantCulture) : 0, f[4].Length == 0 ? [] : f[4].Split('|'),
             extra.GetProperty("names").EnumerateArray().Select(e => e.GetString()!).Where(n => n.Length > 0).ToArray(), extra.GetProperty("tree").GetString()!, extra.GetProperty("hat2").GetString()!, extra.GetProperty("stderr").GetString()!,
-            direct.GetProperty("rc").GetInt32(), direct.GetProperty("stderr").GetString()!, direct.GetProperty("hat2").GetString()!, direct.GetProperty("hat3").GetString()!, full, files);
+            direct.GetProperty("rc").GetInt32(), direct.GetProperty("stderr").GetString()!, direct.GetProperty("hat2").GetString()!, direct.GetProperty("hat3").GetString()!, full, files, stdout, outFiles);
     }).ToList());
 
     internal static List<Call> Calls => CallsOf("");
@@ -82,7 +90,7 @@ public class SequenceAligner_MafftFastaPair_Tests
                 titles.Add(l[1..]);
                 seqs.Add("");
             }
-            else if (l.Length > 0)
+            else if (l.Length > 0 && seqs.Count > 0)      // lines before the first header (CLUSTAL, PHYLIP ...) are not rows
             {
                 seqs[^1] += l;
             }
@@ -138,7 +146,11 @@ public class SequenceAligner_MafftFastaPair_Tests
         {
             Assert.That(sets, Has.Count.EqualTo(253), "the sets of handoff/A2-19c-fastapair2 that the stopped run finished (of 288)");
             Assert.That(calls, Has.Count.EqualTo(551));
-            Assert.That(sets.Count(s => s.Full), Is.EqualTo(0), "the run was stopped before results.tsv was written: no complete mafft run is recorded");
+            Assert.That(sets.Count(s => s.Full), Is.EqualTo(253), "run 3 recorded the complete mafft run (results row, standard error) of the same 253 sets; it stopped at set 254 (--clustalout: the script of the package aborted on output without a '>' line)");
+            Assert.That(sets.Count(s => s.Full && s.Rc == 0), Is.EqualTo(47), "complete runs that finish with exit status 0 (rows recorded)");
+            Assert.That(sets.Count(s => s.Full && s.Rc == 1), Is.EqualTo(206), "complete runs that stop with exit status 1 (the program's segmentation fault / count message is turned into exit 1 by the script)");
+            Assert.That(sets.Count(s => s.Full && s.Rows.Length > 0), Is.EqualTo(47));
+            Assert.That(sets.Count(s => s.Tree.Length > 0 || s.Hat2.Length > 0), Is.EqualTo(0), "no complete run of the 253 left a tree or hat2 file (no --treeout run finished: DNA sets stop in dndfast7, mafft removes hat2); the comparison of both files is vacuous until run 4");
             Assert.That(sets.Count(s => s.Files.Count > 0), Is.EqualTo(9), "sets whose options name further files");
             Assert.That(sets.Select(s => s.Options).Distinct().Count(), Is.EqualTo(38));
             Assert.That(sets.Count(s => s.DirectRc == -11), Is.EqualTo(199), "dndfast7 stops with a segmentation fault (a null pointer from cutal, then putlocalhom2)");
@@ -231,7 +243,7 @@ public class SequenceAligner_MafftFastaPair_Tests
     [TestCase("2", 0)]
     public void EveryMafftRun_ReturnCodeRowsNamesTreeHat2AndStandardError_EqualTheProgram(string run, int expectedRefused)
     {
-        // run "2": the run was stopped before results.tsv was written, so only the standard error of the 253 complete runs is recorded (the status, rows, names, tree and hat2 file are compared where the oracle has them)
+        // run "2": run 3 recorded the complete runs of the 253 sets (status, rows, names, tree, hat2 file and standard error are compared where the oracle has them)
         var failures = new System.Collections.Concurrent.ConcurrentBag<string>();
         int refused = 0;
         var allSets = SetsOf(run);
@@ -266,6 +278,10 @@ public class SequenceAligner_MafftFastaPair_Tests
                 failures.Add($"{s.Id} ({s.Options}): tree file differs");
             else if (s.Full && hat2 != s.Hat2)
                 failures.Add($"{s.Id} ({s.Options}): hat2 file differs: {FirstDifference(hat2, s.Hat2)}");
+            else if (s.Full && s.Stdout is not null && res.Stdout != s.Stdout)
+                failures.Add($"{s.Id} ({s.Options}): standard output differs: {FirstDifference(res.Stdout, s.Stdout)}");
+            else if (s.Full && s.OutFiles.FirstOrDefault(kv => !res.Files.TryGetValue(kv.Key, out var content) || content != kv.Value) is { Key: not null } bad)
+                failures.Add($"{s.Id} ({s.Options}): output file {bad.Key} differs or is missing");
             else if (stderr != NormaliseSegfault(s.Stderr))
                 failures.Add($"{s.Id} ({s.Options}): standard error differs: {FirstDifference(stderr, NormaliseSegfault(s.Stderr))}");
         });

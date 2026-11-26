@@ -68,8 +68,8 @@ def main(archives, suffix=''):
             if os.path.exists(path):
                 for line in open(path, encoding='latin-1', newline='\n'):
                     f = line.rstrip('\n').split('\t')
-                    assert len(f) == 9, len(f)
-                    results[f[0]] = (f, out)
+                    assert len(f) in (9, 10), len(f)          # run 4 of the package: a 10th column holds the error of the set (the script catches errors per set)
+                    results[f[0]] = (f + [''] * (10 - len(f)), out)
         ids = sorted({n.split('.')[0] for out in outs for n in os.listdir(os.path.join(out, 'sets'))}, key=int)
         calls, sets = [], []
         for k in ids:
@@ -84,19 +84,29 @@ def main(archives, suffix=''):
             if p_dir is None or p_log is None:
                 continue
             direct = json.load(gzip.open(p_dir, 'rt', encoding='utf-8'))
+            more = {}
             if k in results:
                 f, out = results[k]
-                _, opt, seqs, rc, rws, names, sha, tree, hat2 = f
+                _, opt, seqs, rc, rws, names, sha, tree, hat2, error = f
                 # the standard error of the complete run belongs to the run that has its results row
                 stderr = gzip.open(os.path.join(out, 'sets', k + '.stderr.gz'), 'rb').read().decode('latin-1')
-                full = True
+                full = error == ''
+                if not full:
+                    rc = 'NA'
+                for ext, key in (('.stdout.gz', 'stdout'), ('.files.json.gz', 'outfiles')):      # run 4: the raw standard output (CLUSTAL, PHYLIP, ...) and the files the run left in its directory
+                    pth = os.path.join(out, 'sets', k + ext)
+                    if os.path.exists(pth):
+                        raw = gzip.open(pth, 'rb').read()
+                        more[key] = raw.decode('latin-1') if key == 'stdout' else json.loads(raw.decode('utf-8'))
+                if error:
+                    more['error'] = unesc(error)
             else:
                 opt, seqs, _ = in_sets[k]
                 rc, rws, names, tree, hat2 = 'NA', '', '', '', ''
                 stderr = gzip.open(find('.stderr.gz'), 'rb').read().decode('latin-1')
                 full = False
             sets.append('\t'.join([k, opt, seqs, rc, rws, json.dumps({
-                'names': names.split('|'), 'tree': unesc(tree), 'hat2': unesc(hat2), 'stderr': normalise_err(stderr), 'full': full, 'files': in_sets[k][2] if k in in_sets else {},
+                'names': names.split('|'), 'tree': unesc(tree), 'hat2': unesc(hat2), 'stderr': normalise_err(stderr), 'full': full, 'files': in_sets[k][2] if k in in_sets else {}, **more,
                 'direct': {'rc': direct['rc'], 'stderr': normalise_err(direct['stderr']), 'hat2': direct['hat2'], 'hat3': normalise_hat3(direct['hat3'])}}, separators=(',', ':'))]))
             with tarfile.open(fileobj=io.BytesIO(open(p_log, 'rb').read()), mode='r:gz') as t:
                 members = {m.name: t.extractfile(m).read().decode('latin-1') for m in t.getmembers() if m.isfile()}
