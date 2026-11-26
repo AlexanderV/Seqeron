@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using SuffixTree.Esa.Bench.Links;
 using SuffixTree.Esa.External;
+using SuffixTree.Indexing;
 using UkkonenTree = global::SuffixTree.SuffixTree;
 
 namespace SuffixTree.Esa.Bench;
@@ -50,6 +51,11 @@ internal static class NavCommands
                 case "--ukkonen": ukkonen = bool.Parse(value); break;
                 default: throw new ArgumentException($"unknown option '{args[i]}'");
             }
+        }
+        if (op == "link")
+        {
+            LinkRss(container ?? throw new ArgumentException("--container is required for --op link"), name ?? "container");
+            return;
         }
         if (input is null || op is null) throw new ArgumentException("--input and --op are required");
         if (calls < 6) throw new ArgumentException("--calls must be at least 6 (one cold call and five warm ones)");
@@ -137,6 +143,45 @@ internal static class NavCommands
         Emit.Row("nav", "peak_rss_hwm", Process.StatusBytes("VmHWM"), "bytes", "VmHWM of the process at the end");
         GC.KeepAlive(tree);
         GC.KeepAlive(pack);
+    }
+
+    /// <summary>
+    /// Work package S2.5: the memory of the first suffix-link call over a container (<c>--op link --container &lt;file&gt;</c>; the text is not loaded: RssAnon is the anonymous memory of the process, the mapped sections are not in it). Opens the container through the public
+    /// factory (Header, Checked), finds an explicit internal node by extending a 10-mer of the text, and reports RssAnon before the first link, after it (the pack is built by that call) and the VmHWM, with the seconds of the open and of the link.
+    /// </summary>
+    private static void LinkRss(string container, string name)
+    {
+        long o0 = Stopwatch.GetTimestamp();
+        using EsaSuffixTree tree = EsaSuffixTreeFactory.Open(container, new EsaOpenOptions { Validation = EsaValidationLevel.Header, Access = EsaAccessMode.Checked });
+        Emit.Row("link", "open_s", Seconds(o0), "s", $"{name}: EsaSuffixTreeFactory.Open (Header, Checked), cold JIT");
+        var index = (ISuffixIndex)tree;
+        var nav = (ISuffixTreeNavigation)tree;
+        Emit.Row("link", "text_length", index.TextLength, "chars");
+        var window = new char[10];
+        IndexLocus node = default;
+        int found = 0;
+        for (int from = 1_000; from < 1_000 + 2_000 && found == 0; from += 7)
+        {
+            index.Text.CopyTo(from, window);
+            if (index.TryExtendRight(index.Root, window, out IndexLocus locus) && nav.IsExplicitNode(locus))
+            {
+                node = locus;
+                found = 1;
+            }
+        }
+        if (found == 0) throw new InvalidOperationException("no explicit node of depth 10 found in the first 2,000 positions");
+        GC.Collect();
+        long before = Process.StatusBytes("RssAnon");
+        Emit.Row("link", "rss_anon_before_bytes", before, "bytes", "RssAnon after Open and the search for the node, before the first suffix link");
+        long l0 = Stopwatch.GetTimestamp();
+        bool ok = nav.TrySuffixLink(node, out IndexLocus link);
+        double first = Seconds(l0);
+        long after = Process.StatusBytes("RssAnon");
+        Emit.Row("link", "first_link_s", first, "s", $"first TrySuffixLink (builds the pack), result {ok}, link depth {link.Length}");
+        Emit.Row("link", "rss_anon_after_bytes", after, "bytes", "RssAnon after the first suffix link");
+        Emit.Row("link", "rss_anon_delta_bytes", after - before, "bytes", "what the first suffix link allocated that stays");
+        Emit.Row("link", "peak_rss_hwm", Process.StatusBytes("VmHWM"), "bytes", "VmHWM at the end (the mapped pages that were touched count)");
+        GC.KeepAlive(tree);
     }
 
     private static UkkonenTree Build(string text)

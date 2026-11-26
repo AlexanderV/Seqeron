@@ -392,10 +392,14 @@ internal sealed unsafe class CompactLcp
         throw new ArgumentOutOfRangeException(nameof(rank));
     }
 
+    /// <summary>The base entry of a container whose LCP section is read through the 64-bit store (out of line: the mapped read of S1 stays the small code above).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private int StoreValue(int rank) => IntBridge.Value(_store!.BaseEntry(rank), "an LCP value");
+
     private int BaseValue(int rank)
     {
         if ((ulong)rank >= (ulong)Length) ThrowRankOutside(rank);
-        if (IsMapped) return _store is null ? MappedValue(rank) : IntBridge.Value(_store.BaseEntry(rank), "an LCP value");
+        if (IsMapped) return _store is null ? MappedValue(rank) : StoreValue(rank);
         return Kind switch
         {
             LcpKind.U8 => _u8![rank],

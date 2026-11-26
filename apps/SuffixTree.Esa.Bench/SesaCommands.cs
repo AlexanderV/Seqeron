@@ -87,7 +87,7 @@ internal static class SesaCommands
         }
     }
 
-    private sealed record Config(string Input, string Work, string Label, int Threads, long ScaleN, bool Psi, bool Fsync, bool Sparse, bool Cold, bool Keep, string Device, string? RowsFile, int Pairs, bool MeasureRss, bool Lean, string? FillAt);
+    private sealed record Config(string Input, string Work, string Label, int Threads, long ScaleN, bool Psi, bool Fsync, bool Sparse, bool Cold, bool Keep, string Device, string? RowsFile, int Pairs, bool MeasureRss, bool Lean, string? FillAt, bool Rmq = false);
 
     internal static void Run(string[] args)
     {
@@ -112,7 +112,7 @@ internal static class SesaCommands
         string device = "vda";
         int threads = 4, pairs = 3;
         long scaleN = 0;
-        bool psi = true, fsync = true, sparse = false, cold = false, keep = false, rss = true, lean = false;
+        bool psi = true, fsync = true, sparse = false, cold = false, keep = false, rss = true, lean = false, rmq = false;
         for (int i = 1; i < args.Length; i += 2)
         {
             string value = i + 1 < args.Length ? args[i + 1] : throw new ArgumentException($"option {args[i]} needs a value");
@@ -124,6 +124,7 @@ internal static class SesaCommands
                 case "--threads": threads = int.Parse(value, Inv); break;
                 case "--scale-n": scaleN = long.Parse(value, Inv); break;
                 case "--psi": psi = bool.Parse(value); break;
+                case "--rmq": rmq = bool.Parse(value); break;
                 case "--fsync": fsync = bool.Parse(value); break;
                 case "--sparse": sparse = bool.Parse(value); break;
                 case "--cold": cold = bool.Parse(value); break;
@@ -139,7 +140,7 @@ internal static class SesaCommands
         }
         if (input is null || work is null) throw new ArgumentException("--input and --work are required");
         Directory.CreateDirectory(work);
-        var c = new Config(Path.GetFullPath(input), Path.GetFullPath(work), label ?? Path.GetFileNameWithoutExtension(input), threads, scaleN, psi, fsync, sparse, cold, keep, device, rows, pairs, rss, lean, fillAt);
+        var c = new Config(Path.GetFullPath(input), Path.GetFullPath(work), label ?? Path.GetFileNameWithoutExtension(input), threads, scaleN, psi, fsync, sparse, cold, keep, device, rows, pairs, rss, lean, fillAt, rmq);
         if (mode == "build") Build(c);
         else Ab(c);
     }
@@ -315,6 +316,7 @@ internal static class SesaCommands
             Threads = c.Threads,
             ScaleN = c.ScaleN,
             IncludePsi = c.Psi,
+            IncludeRmq = c.Rmq,
             Fsync = c.Fsync,
             MeasureRss = c.MeasureRss,
             // the lean settings of the cache tests of E7 (section 8 of RESULTS-E7.md: --budget-mb 64 --ph5-budget-mb 24 --spill-kb 16 --tuple-kb 8 --b2-workers 2), which cut RssAnon by more than half

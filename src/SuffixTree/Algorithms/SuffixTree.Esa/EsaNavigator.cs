@@ -24,6 +24,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     private readonly Reference3Child _reference3;
     private readonly MappedChild _mapped;
     private readonly bool _isMapped;
+    private readonly bool _vetSa; // a container whose pack reads PSI in place: no permutation check of the suffix array ran (S2.5)
 
     /// <summary>Creates the navigator of <paramref name="index"/> (builds the navigation pack on first use).</summary>
     internal EsaNavigator(EsaIndex index)
@@ -42,6 +43,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
         _reference3 = index.Child.Reference3;
         _mapped = index.Child.Mapped;
         _isMapped = index.Child.IsMapped;
+        _vetSa = _isMapped && _pack.LinksViaPsi;
     }
 
     /// <inheritdoc />
@@ -119,7 +121,8 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
         if (count <= 0) return;
         SaView sa = _pack.Index.Sa;
         if (sa.Array is { } array) results.AddRange(new ReadOnlySpan<int>(array, from, count));
-        else CollectMapped(sa, from, count, results);
+        else if (_vetSa) CollectMapped(sa, from, count, results);
+        else results.AddRange(sa.ToArray(from, count));
     }
 
     /// <summary>The leaves of a container: the entries are untrusted (S2.5), so each is checked against n before it is handed to the generic algorithms. Out of line: the leaves of an index in memory take the code of S1 above.</summary>
@@ -145,7 +148,7 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     private int FirstLeafPosition()
     {
         int first = _sa[1];
-        if (_isMapped && (uint)first >= (uint)_n) throw new InvalidDataException($"the suffix array holds {first} at rank 1, which is no position of a text of {_n} symbols: the file is damaged");
+        if (_vetSa && (uint)first >= (uint)_n) throw new InvalidDataException($"the suffix array holds {first} at rank 1, which is no position of a text of {_n} symbols: the file is damaged");
         return first;
     }
 
@@ -230,11 +233,11 @@ internal readonly struct EsaNavigator : ISuffixTreeNavigator<EsaNode>
     {
         if (a == b)
         {
-            if (_isMapped && ((uint)saA > (uint)_n || _n - saA + 1 <= parentDepth)) ThrowCorruptChildTable(); // S2.5: a suffix array entry of a container is no longer vetted by a permutation check at the build of the pack (PSI is read in place), so a position that enters a node is checked here
+            if (_isMapped && (_n - saA + 1 <= parentDepth || (_vetSa && (uint)saA > (uint)_n))) ThrowCorruptChildTable(); // S2.5: a suffix array entry of a container is no longer vetted by a permutation check at the build of the pack (PSI is read in place), so a position that enters a node is checked here
             return new EsaNode(a, a, _n - saA + 1, parentDepth, saA, childIsLast);
         }
         int first = table.FirstLIndex(a, b, childIsLast);
-        if (_isMapped && (first <= a || first > b || (uint)saA > (uint)_n)) ThrowCorruptChildTable();
+        if (_isMapped && (first <= a || first > b || (_vetSa && (uint)saA > (uint)_n))) ThrowCorruptChildTable();
         int depth = _lcp.ValueAt(first);
         if (_isMapped && depth <= parentDepth) ThrowCorruptChildTable(); // every edge of a damaged tree must still have a length, or the walks of the generic algorithms would not advance
         return new EsaNode(a, b, depth, parentDepth, saA, childIsLast);

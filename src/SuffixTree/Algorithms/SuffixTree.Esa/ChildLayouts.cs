@@ -243,9 +243,21 @@ internal readonly unsafe struct MappedChild : IChildTable
     /// <summary>Bytes of the section (a 5-byte table includes the 3 bytes of padding).</summary>
     internal long PayloadBytes => _five ? (5 * _count) + PosReader.Padding40 : 4 * _count;
 
+    /// <summary>The 32-bit read of a bridged table (5-byte cells, or more cells than an <see cref="int"/> counts), out of line: the body of the 32-bit members below stays the small code of S1.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private int FirstLIndexBridged(int lb, int rb, bool lastChild) => IntBridge.Value(FirstLIndex((long)lb, rb, lastChild), "a first l-index");
+
+    /// <summary>The 32-bit next l-index of a bridged table, out of line (see <see cref="FirstLIndexBridged"/>).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private int NextLIndexBridged(int k, int rb)
+    {
+        long next = NextLIndex((long)k, rb);
+        return next < 0 ? -1 : IntBridge.Value(next, "an l-index");
+    }
+
     public int FirstLIndex(int lb, int rb, bool lastChild)
     {
-        if (_bridged) return IntBridge.Value(FirstLIndex((long)lb, rb, lastChild), "a first l-index");
+        if (_bridged) return FirstLIndexBridged(lb, rb, lastChild);
         int at = lastChild ? lb : rb;
         if (_checked && (ulong)at >= (ulong)_count) ThrowOutside(at);
         int cell = _cld[at];
@@ -254,11 +266,7 @@ internal readonly unsafe struct MappedChild : IChildTable
 
     public int NextLIndex(int k, int rb)
     {
-        if (_bridged)
-        {
-            long next = NextLIndex((long)k, rb);
-            return next < 0 ? -1 : IntBridge.Value(next, "an l-index");
-        }
+        if (_bridged) return NextLIndexBridged(k, rb);
         if (_tagged)
         {
             if (_checked && (ulong)k >= (ulong)_count) ThrowOutside(k);

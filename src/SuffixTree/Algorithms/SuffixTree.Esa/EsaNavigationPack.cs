@@ -275,6 +275,9 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
     /// <summary>True when the suffix link reads the PSI section where it lies (no inverse suffix array is needed for it).</summary>
     internal bool UsesPsi => _psi is not null;
 
+    /// <summary>True when the pack of a container reads PSI in place: no permutation check of the suffix array ran at its build, so the navigator vets every suffix array entry that it turns into a node (with the inverse suffix array scattered from the suffix array, the check ran).</summary>
+    internal bool LinksViaPsi => _viaPsi;
+
     /// <summary>True once the inverse suffix array exists (always for an index built in memory; for a container after the first <c>RankOf</c> or <c>ExtendLeft</c>, or a suffix link without PSI).</summary>
     internal bool IsaBuilt => Volatile.Read(ref _isa) is not null;
 
@@ -342,28 +345,36 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
         int t = node.Depth - 1;
         if (t == 0) return Root;                                  // an internal node of depth 1
 
+        if (_viaPsi) return SuffixLinkViaPsi(node, t);
+
+        // the code of S1 (the inverse suffix array was scattered from the suffix array, a permutation check, so the ranks that it holds are in 0..n)
         Buf<int> sa = _saBuf;
-        int a, b;
-        if (_viaPsi)
-        {
-            if (_mapped && ((uint)node.Rb > (uint)_n32 || (uint)node.Lb > (uint)_n32)) throw DamagedNode();
-            a = _psiBuf[node.Lb];
-            b = _psiBuf[node.Rb];
-            // PSI is untrusted: in Checked mode an endpoint must be the rank of the next suffix (SA[Psi(i)] = SA[i] + 1), or the link would be a node of the tree that is not the link; a rank outside 0..n is damage in both modes
-            if (_mapped && ((uint)a > (uint)_n32 || (uint)b > (uint)_n32)) throw DamagedNode();
-            if (_verifyPsi && (sa[a] != node.Pos + 1 || sa[b] != sa[node.Rb] + 1)) throw DamagedNode();
-        }
-        else
-        {
-            Buf<int> isa = _isaBuf;
-            if (_mapped && ((uint)node.Rb > (uint)_n32 || (uint)(node.Pos + 1) > (uint)_n32 || (uint)(sa[node.Rb] + 1) > (uint)_n32)) throw DamagedNode();
-            a = isa[node.Pos + 1];
-            b = isa[sa[node.Rb] + 1];
-        }
-        if (_mapped && (b < a || (uint)a > (uint)_n32 || (uint)b > (uint)_n32 || (uint)node.Lb > (uint)_n32)) throw DamagedNode();
+        Buf<int> isa = _isaBuf;
+        if (_mapped && ((uint)node.Rb > (uint)_n32 || (uint)(node.Pos + 1) > (uint)_n32 || (uint)(sa[node.Rb] + 1) > (uint)_n32)) throw DamagedNode();
+        int a = isa[node.Pos + 1];
+        int b = isa[sa[node.Rb] + 1];
+        if (_mapped && (b < a || (uint)node.Lb > (uint)_n32)) throw DamagedNode();
         _pyramid!.Borders(a, b, t, out int left, out int right, out int leftValue, out int rightValue);
         int parentDepth = Math.Max(leftValue, rightValue);
         if (_mapped && (parentDepth >= t || (uint)left > (uint)_n32)) throw DamagedNode(); // the target of a link has a longer edge than a point: otherwise the walks of the generic algorithms would not advance
+        return new EsaNode(left, right - 1, t, parentDepth, sa[left], leftValue > rightValue);
+    }
+
+    /// <summary>The suffix link of an internal node of a container whose PSI is read in place (out of line, so that the method above keeps the shape of S1). PSI is untrusted: in Checked mode an endpoint must be the rank of the next suffix
+    /// (<c>SA[Psi(i)] = SA[i] + 1</c>), or the link would be a node of the tree that is not the link; a rank outside 0..n is damage in both modes; the suffix array entry that becomes the target is vetted, no permutation check of it ran.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private EsaNode SuffixLinkViaPsi(in EsaNode node, int t)
+    {
+        Buf<int> sa = _saBuf;
+        if (_mapped && ((uint)node.Rb > (uint)_n32 || (uint)node.Lb > (uint)_n32)) throw DamagedNode();
+        int a = _psiBuf[node.Lb];
+        int b = _psiBuf[node.Rb];
+        if (_mapped && ((uint)a > (uint)_n32 || (uint)b > (uint)_n32)) throw DamagedNode();
+        if (_verifyPsi && (sa[a] != node.Pos + 1 || sa[b] != sa[node.Rb] + 1)) throw DamagedNode();
+        if (_mapped && (b < a || (uint)node.Lb > (uint)_n32)) throw DamagedNode();
+        _pyramid!.Borders(a, b, t, out int left, out int right, out int leftValue, out int rightValue);
+        int parentDepth = Math.Max(leftValue, rightValue);
+        if (_mapped && (parentDepth >= t || (uint)left > (uint)_n32)) throw DamagedNode();
         int target = sa[left];
         if (_mapped && (uint)target > (uint)_n32) throw DamagedNode();
         return new EsaNode(left, right - 1, t, parentDepth, target, leftValue > rightValue);
@@ -375,18 +386,22 @@ internal sealed unsafe class EsaNavigationPack : IDisposable
         int position = leaf.Pos;
         if (position >= _n32) return Root; // the terminator-only leaf of the root
         if (_mapped && position < 0) throw DamagedNode();
-        int rank;
-        if (_viaPsi)
-        {
-            if (_mapped && (uint)leaf.Lb > (uint)_n32) throw DamagedNode();
-            rank = _psiBuf[leaf.Lb];
-            if (_mapped && (uint)rank > (uint)_n32) throw DamagedNode();
-            if (_verifyPsi && _saBuf[rank] != position + 1) throw DamagedNode();
-        }
-        else
-        {
-            rank = _isaBuf[position + 1];
-        }
+        if (_viaPsi) return LeafLinkViaPsi(leaf, position);
+        int rank = _isaBuf[position + 1];
+        int left = _pyramid!.ValueAt(rank);
+        int right = rank < _n32 ? _pyramid.ValueAt(rank + 1) : -1;
+        if (_mapped && Math.Max(left, right) >= leaf.Depth - 1) throw DamagedNode();
+        return new EsaNode(rank, rank, leaf.Depth - 1, Math.Max(left, right), position + 1, left > right);
+    }
+
+    /// <summary>The leaf link of a container whose PSI is read in place (out of line, see <see cref="SuffixLinkViaPsi"/>).</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private EsaNode LeafLinkViaPsi(in EsaNode leaf, int position)
+    {
+        if (_mapped && (uint)leaf.Lb > (uint)_n32) throw DamagedNode();
+        int rank = _psiBuf[leaf.Lb];
+        if (_mapped && (uint)rank > (uint)_n32) throw DamagedNode();
+        if (_verifyPsi && _saBuf[rank] != position + 1) throw DamagedNode();
         int left = _pyramid!.ValueAt(rank);
         int right = rank < _n32 ? _pyramid.ValueAt(rank + 1) : -1;
         if (_mapped && Math.Max(left, right) >= leaf.Depth - 1) throw DamagedNode();

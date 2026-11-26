@@ -117,6 +117,9 @@ internal sealed class EsaText
         }
     }
 
+    /// <summary>The letter at an index that the caller has already checked against the length (the 32-bit source's read: one check, not two).</summary>
+    internal char Symbol(int index) => Letter(_reader!.Symbol(index));
+
     private char Letter(uint symbol)
     {
         char[] alphabet = _alphabet!;
@@ -137,6 +140,8 @@ internal sealed class EsaText
     /// </summary>
     private sealed class PackedTextSource(EsaText text) : ITextSource
     {
+        private readonly long length = text.Length;
+
         public int Length => IntBridge.Length(text.Length, "the length of the text (ITextSource.Length; the 64-bit member is IIndexText.Length)");
 
         public char this[int index]
@@ -144,9 +149,9 @@ internal sealed class EsaText
             get
             {
 #pragma warning disable CA2201, S112 // review row R06: the contract of ITextSource.this[] is the string's, which throws IndexOutOfRangeException for an index outside the text
-                if ((ulong)index >= (ulong)text.Length) throw new IndexOutOfRangeException("Index was outside the bounds of the text.");
+                if ((ulong)index >= (ulong)length) throw new IndexOutOfRangeException("Index was outside the bounds of the text.");
 #pragma warning restore CA2201, S112
-                return text[index];
+                return text.Symbol(index);
             }
         }
 
