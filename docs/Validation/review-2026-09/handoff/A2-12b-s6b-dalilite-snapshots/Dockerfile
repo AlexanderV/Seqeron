@@ -1,3 +1,4 @@
+# RUN 3 (WP87): the image is unchanged; run.sh starts it with `docker run --init` (tini forwards SIGTERM / SIGINT).
 # TEMPORARY hand-off image A2-12b-s6b-dalilite-snapshots (B09 WP76): direct Internet Archive snapshot probes for OLDER DaliLite releases (1.0 ... 3.2, DaliLite.tar.gz / .zip) under every known distribution place; keeps what is a real archive (magic bytes) and
 # reads CHANGES / README / INSTALL / Makefile / the `DaliLite` script as TEXT (python tarfile / zipfile in memory). Nothing that is downloaded is extracted to disk, compiled or run. No account data, no secrets; User-Agent "Seqeron-review/1.0".
 FROM --platform=linux/amd64 ubuntu:24.04

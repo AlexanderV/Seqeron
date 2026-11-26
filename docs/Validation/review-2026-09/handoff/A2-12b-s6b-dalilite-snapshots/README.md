@@ -1,3 +1,5 @@
+**STATUS (WP87, F378): RUN 2 INTEGRATED, RUN 3 NEEDED (DOABLE-AWAITING-USER). Run 2 answered stage C completely (1 539 HEAD probes = 404: none of the 77 release names x 20 bases is archived) and kept DaliLite 3.3 and DaliLite.v4.1; neither contains an older release, and the unanswered rest (the truncated CDX of `ekhidna.../dali/`, the Helsinki directory layout `dali_lite/downloads/v1 ... v5/`, the text pages the CDX lists - `~holm/DaliLite/dalilicence`, `dali_lite/downloads`, `download.html` - and what they link to) is what run 3 asks. The package is corrected (nine defects of run 2, `returned/A2-12b-s6b-run2-STOPPED-notes.md`) and self-tested against a local mock of the archive (`python3 selftest_mock.py`). Command: `cd docs/Validation/review-2026-09/handoff/A2-12b-s6b-dalilite-snapshots && ./run.sh` (about 2 hours, progress on the console, Ctrl-C is safe), then commit `returned/A2-12b-s6b-out.run3.zip`. The downloaded archives stay in `./out/found` on your disk and are NOT in the zip (DaliLite 3.3 is under an academic licence that forbids redistribution; the repository is public).**
+
 **STATUS: RUN 2 RETURNED (stopped by the user after ~17 h in stage D; `returned/A2-12b-s6b-out.run2.zip`, notes `returned/A2-12b-s6b-run2-STOPPED-notes.md`): stage C complete, 1539 HEAD probes = 404 for all 77 release names x 20 bases; two archives kept (`DaliLite_3.3` 2017 capture, `DaliLite.v4.1` 2024 capture); CDX of ekhidna.../dali/ truncated at limit=5000; nine script defects listed in the notes. Integration and corrected script = next B09 WP (WP87).**
 
 **STATUS: RUN 1 RETURNED 2026-11-25 (`returned/A2-12b-s6b-out.zip`) AND ANALYSED (B09 WP81, F371): RUN 1 WAS DEFECTIVE, NO PROOF EITHER WAY. RUN 2 NEEDED (DOABLE-AWAITING-USER) with the corrected script: `cd docs/Validation/review-2026-09/handoff/A2-12b-s6b-dalilite-snapshots && ./run.sh` (one request at a time, 2.5 s apart, retries with back-off; about 2 - 4 hours; the zip is also written after Ctrl-C), commit `returned/A2-12b-s6b-out.run2.zip` (run 1 stays as `returned/A2-12b-s6b-out.zip`).**
@@ -10,7 +12,7 @@
 
 # TEMPORARY hand-off package A2-12b-s6b-dalilite-snapshots (for the user's Mac)
 
-Fetch-and-inspect only (a small Python / curl image: nothing that is downloaded is extracted to disk, compiled or run). What it does:
+Fetch-and-inspect only (a small Python / curl image: nothing that is downloaded is extracted to disk, compiled or run). **The numbered list below is the ORIGINAL design of run 1 (parallel requests, availability API, years sweeps: all superseded); what run 3 does is in the section `Run it`.** Original design:
 
 1. **connectivity** (`out/connectivity.log`): HEAD of `web.archive.org`, the availability API, `www.ebi.ac.uk/dali/DaliLite/`, `ekhidna2.biocenter.helsinki.fi/dali/` (so that a blocked network is visible).
 2. **availability API** (`https://archive.org/wayback/available?url=<url>` and the endpoint named in the task, `https://archive.org/wait/available?url=<url>`) for every (base URL, release name): lines `AVAILABLE` in `out/requests.log`.
@@ -24,15 +26,23 @@ Fetch-and-inspect only (a small Python / curl image: nothing that is downloaded 
 ```bash
 git pull
 cd docs/Validation/review-2026-09/handoff/A2-12b-s6b-dalilite-snapshots
-./run.sh                  # builds the image, probes (several thousand small requests, 8 in parallel; it may take 30 - 90 minutes), zips ./out
-ls -l returned/           # A2-12b-s6b-out.zip : commit it under docs/Validation/review-2026-09/handoff/A2-12b-s6b-dalilite-snapshots/returned/
+./run.sh                  # builds the image, probes (one request at a time, 2.5 s apart, about 2 hours, progress lines on the console), zips ./out into ./returned/A2-12b-s6b-out.run3.zip
+ls -l returned/           # commit A2-12b-s6b-out.run3.zip under docs/Validation/review-2026-09/handoff/A2-12b-s6b-dalilite-snapshots/returned/
 ```
+
+What run 3 does (all of it logged request by request in `out/requests.log`, progress on the console and in `out/fetch.log`): (A) the lead pages (`~holm/DaliLite`, `www.ebi.ac.uk/DaliLite/`, `dali_lite/`, `dali_lite/downloads/`, `ekhidna.../downloads`, `ekhidna.../software`) for 2002 - 2013 and their links; (B) the CDX of 28 base URLs, two paginated queries each (everything except 404 / query strings; archive extensions only), `TRUNCATED` in the log when a page cap stops one; (B2) the text pages the CDX lists under the bases (path with DaliLite / download / licence / README) at their exact capture, saved under `out/pages/`, their links followed one level; (C) one HEAD probe per (base, name) that run 2 did not answer (new: `dali_lite/downloads/v1 ... v5/`, `old/`, `/downloads/`, `/software/`; the names 4.0 / 4.1 / 5.0, `DaliLite.v1` / `.v5`; the 1 539 run-2 pairs are in `run2_known_404.txt` and are not asked again, `DALI_REPROBE=1` asks them) plus every candidate; (D) for each URL that kept an archive: every distinct capture (CDX content digest) once. Only a basename that looks like a DaliLite release is downloaded, never above 20 MB (`TOO-LARGE`), a timeout with data flowing is not retried (`TIMEOUT`). Each kept archive is inspected as TEXT the moment it is kept (`out/inspect/<name>/`: members, CHANGES, README, INSTALL, LICENCE / COPYING, `DaliLite` script, `pairwise_print_lines.txt`, `Query_Sbjct_hits.txt`); `out/report.txt` starts with a `SUMMARY` line (rewritten as the run goes, also after Ctrl-C / `docker stop`).
 
 ## What to send back
 
-`returned/A2-12b-s6b-out.zip` (`out/requests.log`, `out/fetch.log`, `out/report.txt`, `out/inspect/`, `out/listings/`, `out/avail/`, `out/connectivity.log`, `out/ENV.txt`, `out/docker_build.log`). An empty `report.txt` with a `requests.log` that shows archive answers (HTTP 200 / 302 / 404 from `web.archive.org`, not connection failures) is a result too: it is the proof that the archive holds no older release.
+`returned/A2-12b-s6b-out.run3.zip` (`out/requests.log`, `out/fetch.log`, `out/report.txt`, `out/summary.json`, `out/found_index.tsv`, `out/cdx/`, `out/pages/`, `out/listings/`, `out/inspect/`, `out/connectivity.log`, `out/ENV.txt`). An empty `report.txt` with a `requests.log` that shows archive answers is a result too: it is the proof that the archive holds no older release.
 
 ## How the next session integrates it
 
-* No archive older than 3.3, or none whose `DaliLite` script prints `Query` / `Sbjct` to standard output: the item is closed as BLOCKED-FOR-EVERYONE with `out/requests.log` as the proof (the `Query` / `Sbjct` branch of the glue then only sees the EBI web service's HTML, `daliweb_pair`, which needs the network).
-* A release whose `DaliLite` script prints `Query` / `Sbjct` to standard output: the next session writes a build package (same repairs as `../A2-12b-dali-sap-stderr/fetch_dali3.py`: install path, libg2c shim, logging wrapper) and runs the 60 `dali_pair` sets with it; `StructureAlignerOutputs[DaliPair]` then carries lines for `TCoffeeDaliLiteAlignment` and the 60 rows lock the parse branch.
+* A kept archive older than 3.3 whose `DaliLite -pairwise` could print `Query` / `Sbjct` to standard output (`pairwise_print_lines.txt` / `Query_Sbjct_hits.txt` outside `html.pl`): the next session writes a build package (same repairs as `../A2-12b-dali-sap-stderr/fetch_dali3.py`: install path, libg2c shim, logging wrapper), runs the 60 `dali_pair` sets with it and locks the parse branch of `TCoffeeDaliLiteAlignment`.
+* No archive older than 3.3 (`report.txt` with the SUMMARY line: every request answered, `failed=0` or the failed ones listed, no `TRUNCATED` left): the item is closed as BLOCKED-FOR-EVERYONE with `out/requests.log`, the CDX files and the text evidence of F378 (the 3.3 sources print `Query` / `Sbjct` only into the HTML result file; run 10: 0 / 272 calls) as the proof.
+* `TRUNCATED` / `FAILED` entries remain: run 4 with narrower prefixes for exactly those.
+* Self-test (no network, about 30 s): `python3 selftest_mock.py` (mock archive: truncated CDX with resumeKey, huge file with and without length, duplicate captures, a link on a CDX-listed page, 429 back-off, SIGTERM while a GET stalls, `in_container.sh` signal forwarding, `pack_out.sh` exclusions).
+
+## Run 2 (stopped by the user after ~17 h; integrated in WP87)
+
+See `returned/A2-12b-s6b-run2-STOPPED-notes.md` (nine defects) and F378 in `docs/Validation/review-2026-09/B09.md`. The committed `returned/A2-12b-s6b-out.run2.zip` has the two kept archives removed (licences) and `out/inspect/*/members.txt` + `Query_Sbjct_hits.txt` + `out/found_index.tsv` (name, sha256, size) added.
